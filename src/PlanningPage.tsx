@@ -102,7 +102,7 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
   const onPending = useCallback(() => setPending(storedPending()), [setPending]);
 
   return <section className="stats-section wealth-section planning-section" aria-label="规划">
-    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对金融导入回执。</span> : <button disabled={busy} onClick={() => void verifyOriginalReceipt()}>核对结果</button>}</div>}
+    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对上次金融导入结果。</span> : <button disabled={busy} onClick={() => void verifyOriginalReceipt()}>核对结果</button>}</div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="规划视图">
       <button type="button" aria-pressed={view === 'goals'} onClick={() => changeView('goals')}>目标</button>

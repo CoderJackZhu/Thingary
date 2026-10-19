@@ -4,8 +4,8 @@ import type { SourceTarget } from './source';
 export type SearchKind = 'asset' | 'wish' | 'account' | 'snapshot' | 'expense' | 'plan' | 'payment' | 'virtual' | 'topup';
 export const searchKindOrder: SearchKind[] = ['asset', 'wish', 'account', 'snapshot', 'expense', 'plan', 'payment', 'virtual', 'topup'];
 export const searchKindLabel = (kind: string): string => ({ asset: '物品', wish: '心愿', account: '账户', snapshot: '盘点', expense: '重要支出', plan: '周期计划', payment: '周期付款记录', virtual: '虚拟资产', topup: '储值充值' } as Record<string, string>)[kind] ?? kind;
-/** 类型 → 所属模块开关；物品为核心，始终可搜。 */
-const kindModuleMap: Partial<Record<SearchKind, 'wishlist' | 'wealth' | 'expenses' | 'recurring' | 'virtual'>> = { wish: 'wishlist', account: 'wealth', snapshot: 'wealth', expense: 'expenses', plan: 'recurring', payment: 'recurring', virtual: 'virtual', topup: 'virtual' };
+/** 类型 → 所属模块开关；关闭的功能不出现在筛选中。 */
+const kindModuleMap: Partial<Record<SearchKind, 'physical' | 'wishlist' | 'wealth' | 'expenses' | 'recurring' | 'virtual'>> = { asset: 'physical', wish: 'wishlist', account: 'wealth', snapshot: 'wealth', expense: 'expenses', plan: 'recurring', payment: 'recurring', virtual: 'virtual', topup: 'virtual' };
 export const searchKindModule = (kind: SearchKind) => kindModuleMap[kind] ?? null;
 
 export type SearchItem = { id: string; kind: SearchKind; title: string; date: string | null; status: string; matched_field: string; context: string; target: SourceTarget };
@@ -21,7 +21,7 @@ export const searchPageSize = 30;
 export function searchFilterList(typeCounts: [string, number][] | null, modulesOn: (kind: SearchKind) => boolean): { value: string; label: string; count: number | null }[] {
   const list = [{ value: 'all', label: '全部', count: typeCounts ? typeCounts.reduce((t, [, n]) => t + n, 0) : null }];
   for (const kind of searchKindOrder) {
-    if (kind !== 'asset' && !modulesOn(kind)) continue;
+    if (!modulesOn(kind)) continue;
     const hit = typeCounts?.find(([k]) => k === kind);
     list.push({ value: kind, label: searchKindLabel(kind), count: hit ? hit[1] : null });
   }

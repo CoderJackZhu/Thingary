@@ -26,7 +26,7 @@ import type { PlanningFollowupPortV1 } from './planning-followup-contract';
 import './planning-followup-ui/planning-followup-ui.css';
 
 const setupQuestions = [...questions, '每月大约能存下多少钱？'];
-const stepLabels = ['目标与时间', '每月生活费', '可用资金', '退休收入', '每月净投入'];
+const stepLabels = ['什么时候退休', '每月花多少', '已经攒了多少', '退休后收入', '每月能存多少'];
 const hints = ['填写出生年月和年龄，软件自动换算退休月份及规划终点。', '按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。', '确认可动用的现金和投资账户，保存后用于规划，不改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
 /** 第三问没有可用完整盘点（手填金额）时的副标题。 */
 const manualStartHint = '还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。';
@@ -92,7 +92,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
     <nav className="planning-question-progress" aria-label="规划主要条件">{setupQuestions.map((q, i) => <button type="button" key={q} aria-label={`${i + 1}. ${q}`} aria-current={i === step ? 'step' : undefined} disabled={frozen || incomeEditing} onClick={() => setStep(i)}>{i + 1}. {stepLabels[i]}</button>)}</nav>
     {editMode && <nav className="planning-edit-extras" aria-label="计算假设"><button type="button" className="ui-btn" disabled={frozen || incomeEditing} onClick={() => setStep(5)}>收益与波动假设</button></nav>}
     <div className="planning-setup-body">
-      {step === 0 && <><section className="form-block"><FormRow label="你想怎样退休？"><Segments label="生活目标" value={d.mode} disabled={frozen} options={[{ value: 'fire', label: '财务自由' }, { value: 'traditional', label: '按计划退休' }]} onChange={mode => patch({ mode })}/></FormRow><p className="muted">财务自由：从希望的时间起，资金够用后停止工作。按计划退休：按指定时间停止工作，检查资金是否够用。</p></section><TimeFields value={d.simplified.time} issues={[]} busy={frozen} today={today} onChange={time => patch({ simplified: { ...d.simplified, time } })}/></>}
+      {step === 0 && <><section className="form-block"><FormRow label="你想怎样退休？"><Segments label="生活目标" value={d.mode} disabled={frozen} options={[{ value: 'fire', label: '钱够用后退休' }, { value: 'traditional', label: '按计划退休' }]} onChange={mode => patch({ mode })}/></FormRow><p className="muted">钱够用后退休：从你希望的时间起，看看什么时候可以不靠工资生活。按计划退休：检查选定时间退休，钱是否够用。</p></section><TimeFields value={d.simplified.time} issues={[]} busy={frozen} today={today} onChange={time => patch({ simplified: { ...d.simplified, time } })}/></>}
       {step === 1 && <section className="form-block"><ConfirmationField label="退休后每月生活预算" issue={confirmationIssue}><FormRow label="每月生活费总额" hint="没想好可以留空；留空不会当作 0"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="例如 4000.00" onChange={v => patch({ budget: v })}/></FormRow></ConfirmationField>
         <SpendItems d={d} setD={setD} frozen={frozen} today={today}/>
         <ConfirmationField label="应急金月数" issue={confirmationIssue}><FormRow label="应急金准备几个月？" hint="用于应急金参考，不从本次退休测算的可用资金中另行扣除"><input type="number" min="0" max="36" aria-label="应急金月数" inputMode="numeric" value={d.emergency} disabled={frozen} onChange={e => patch({ emergency: e.target.value })}/></FormRow></ConfirmationField>
@@ -108,7 +108,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
         </details>
       </section>}
       {step === 3 && <IncomeQuestion today={today} d={d} patch={patch} frozen={frozen} onEditingChange={setIncomeEditing}/>}
-      {step === 4 && <section className="form-block"><p>填写后可以判断按当前投入能否达成目标。暂不填写也能估算目标要求每月存多少，但不能预测你目前的投入能力。</p><ConfirmationField label="每月大约能存下多少钱" issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label="每月大约能存下多少钱？" hint="每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow></ConfirmationField><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
+      {step === 4 && <section className="form-block"><p>填上你的估计，就能看看照这样存钱，计划能不能实现。还没想好也可以先跳过，仍能算出每月需要存多少。</p><ConfirmationField label="每月大约能存下多少钱" issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label="每月大约能存下多少钱？" hint="每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow></ConfirmationField><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
       {editMode && step === 5 && <section className="form-block">
       <div className="plan-assumption-summary">
         <p className="muted small">实际收益默认 0%，表示钱只跑平通胀；默认波动率 5% 是程序试算值，不是资产配置的风险估计。收益、通胀和波动率在独立的「假设核对」编辑器里修改和确认；编辑预算、投入等其他分区只会原样携带这些值，不会顺带确认。</p>

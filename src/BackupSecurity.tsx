@@ -172,9 +172,10 @@ export function BackupSecurity({ demo, blocked, onStatusChange, onBusyChange }: 
 
 /** Re-entering a recovery key: paste, type, or pick an identity file. The
  * file is read in the page only to fill the same text field. */
-function KeyInput({ busy, value, onChange, ref }: { busy: boolean; value: string; onChange: (v: string) => void; ref: React.RefObject<HTMLTextAreaElement | null> }) {
+export function KeyInput({ busy, value, onChange, ref }: { busy: boolean; value: string; onChange: (v: string) => void; ref?: React.RefObject<HTMLTextAreaElement | null> }) {
   const fileRequest = useRef(0);
   useEffect(() => () => { ++fileRequest.current; }, []);
+  useEffect(() => { if (busy) ++fileRequest.current; }, [busy]);
   async function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const request = ++fileRequest.current;
     const file = e.target.files?.[0];
@@ -185,7 +186,7 @@ function KeyInput({ busy, value, onChange, ref }: { busy: boolean; value: string
     catch { if (request === fileRequest.current) onChange('__UNREADABLE__'); }
   }
   return <div className="backup-security-key-input">
-    <textarea ref={ref} rows={2} spellCheck={false} autoComplete="off" disabled={busy} value={value.startsWith('__') ? '' : value} placeholder="AGE-SECRET-KEY-1…" onChange={e => onChange(e.target.value)} aria-label="恢复密钥"/>
+    <textarea ref={ref} rows={2} spellCheck={false} autoComplete="off" disabled={busy} value={value.startsWith('__') ? '' : value} placeholder="AGE-SECRET-KEY-1…" onChange={e => { ++fileRequest.current; onChange(e.target.value); }} aria-label="恢复密钥"/>
     {value === '__UNREADABLE__' && <p className="notice error" role="alert">恢复密钥文件无法读取，请重新选择</p>}
     {value.startsWith('__TOO_LARGE__') && <p className="notice error" role="alert">恢复密钥文件过大，无法识别</p>}
     <label className="muted">或选择密钥文件 <input type="file" accept=".txt,text/plain" disabled={busy} onChange={e => void pickFile(e)}/></label>

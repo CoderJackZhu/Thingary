@@ -73,12 +73,12 @@ export function TrajectoryChart({ points, rows, goalMonth, fiMonth, retireMonth,
   const goal = points.reduce((b, p) => (Math.abs(p.month - goalMonth) < Math.abs(b.month - goalMonth) ? p : b), points[0]);
   const hover = near.i === null ? null : points[near.i], row = near.i === null ? undefined : rows[near.i];
   const showFi = fiMonth !== null && Math.abs(fiMonth - goalMonth) > 0.01;
-  const refs = [{ x: s.x(goalMonth), text: `目标 · ${timeLabel(goalMonth)}`, fi: false }, ...(showFi ? [{ x: s.x(fiMonth!), text: `FI · ${timeLabel(fiMonth!)}`, fi: true }] : [])];
+  const refs = [{ x: s.x(goalMonth), text: `目标 · ${timeLabel(goalMonth)}`, fi: false }, ...(showFi ? [{ x: s.x(fiMonth!), text: `预计不靠工资 · ${timeLabel(fiMonth!)}`, fi: true }] : [])];
   const lay = refLabelLayout(refs.map(r => ({ x: r.x, w: r.text.length * 7.5 })), W - R);
   const gy = calloutBaselines(s.y(goal.projected), s.y(goal.required), H - B - 4), gEnd = s.x(goal.month) > W - R - 60, gx = s.x(goal.month) + (gEnd ? -9 : 9);
   const statusVar = tone === 'good' ? 'var(--positive)' : tone === 'watch' ? 'var(--warn)' : 'var(--error)';
   return <div className="rc-wrap">
-    <svg ref={near.ref} className="rc-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`投资组合轨迹，${timeLabel(a0)} 至 ${timeLabel(a1)}，${valueLabel}。目标 ${timeLabel(goalMonth)} 时预计 ${fmt(goal.projected)}，所需 ${fmt(goal.required)}`} {...near.handlers}>
+    <svg ref={near.ref} className="rc-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`预计资金变化，${timeLabel(a0)} 至 ${timeLabel(a1)}，${valueLabel}。目标 ${timeLabel(goalMonth)} 时预计 ${fmt(goal.projected)}，所需 ${fmt(goal.required)}`} {...near.handlers}>
       <defs><linearGradient id="rc-acc" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--chart)" stopOpacity=".28"/><stop offset="1" stopColor="var(--chart)" stopOpacity=".02"/></linearGradient>
         <linearGradient id="rc-ret" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--warn)" stopOpacity=".3"/><stop offset="1" stopColor="var(--warn)" stopOpacity=".02"/></linearGradient></defs>
       <Axes positions={points.map(p => p.month)} label={timeLabel} s={s} a0={a0} a1={a1} ticks={ticks} mark={retireMonth !== null ? { age: retireMonth, label: '退休' } : null}/>
@@ -96,12 +96,12 @@ export function TrajectoryChart({ points, rows, goalMonth, fiMonth, retireMonth,
       {hover && <g><line x1={s.x(hover.month)} x2={s.x(hover.month)} y1={T} y2={H - B} className="rc-cursor"/><circle cx={s.x(hover.month)} cy={s.y(hover.projected)} r="4" style={{ fill: hover.phase === 'retired' ? 'var(--warn)' : 'var(--chart)' }}/></g>}
     </svg>
     {hover && <Tip s={s} age={hover.month} lines={[
-      ['期初投资组合', fmt(hover.projected)], ...(hover.required > 0 ? [['所需金额', fmt(hover.required)] as [string, string]] : []),
-      ...(row && row.phase === 'accumulation' ? [['供款/年', fmt(row.contribution)] as [string, string]] : []),
-      ...(row && row.phase === 'retired' ? [['收入/年', fmt(row.income)], ['投资组合提取/年', fmt(row.withdrawal)]] as [string, string][] : []),
-      ...(row ? [['期末投资组合', fmt(row.end)] as [string, string]] : []),
-    ]}>{hover.label} · {hover.phase === 'retired' ? '退休' : '积累'} · {valueLabel}</Tip>}
-    <ul className="rc-legend"><li><i style={{ background: 'var(--chart)' }}/>预计 · 积累</li><li><i style={{ background: 'var(--warn)' }}/>预计 · 退休</li><li><i className="rc-dash"/>所需</li></ul>
+      ['期初资金', fmt(hover.projected)], ...(hover.required > 0 ? [['所需金额', fmt(hover.required)] as [string, string]] : []),
+      ...(row && row.phase === 'accumulation' ? [['每年投入', fmt(row.contribution)] as [string, string]] : []),
+      ...(row && row.phase === 'retired' ? [['收入/年', fmt(row.income)], ['每年从已有资金中取用', fmt(row.withdrawal)]] as [string, string][] : []),
+      ...(row ? [['期末资金', fmt(row.end)] as [string, string]] : []),
+    ]}>{hover.label} · {hover.phase === 'retired' ? '退休阶段' : '存钱阶段'} · {valueLabel}</Tip>}
+    <ul className="rc-legend"><li><i style={{ background: 'var(--chart)' }}/>预计 · 存钱阶段</li><li><i style={{ background: 'var(--warn)' }}/>预计 · 退休阶段</li><li><i className="rc-dash"/>所需</li></ul>
   </div>;
 }
 
@@ -110,7 +110,7 @@ const palette = (kind: string, n: number) => kind === 'portfolio' ? 'color-mix(i
 /** 覆盖随时间：堆叠面积是支出的资金来源，虚线是计划退休支出。 */
 export function CoverageChart({ series, fmt, valueLabel }: { series: CoverageSeries; fmt: (cents: number) => string; valueLabel: string }) {
   const pts = series.points;
-  if (pts.length < 2) return <p className="muted">资料不足，暂时无法拆分预算的资金构成。</p>;
+  if (pts.length < 2) return <p className="muted">资料不足，暂时看不到每年支出由哪些钱承担。</p>;
   const a0 = pts[0].month, a1 = pts[pts.length - 1].month + 12;
   const { top, ticks } = niceTicks(Math.max(...pts.map(p => Math.max(p.spend, Object.values(p.values).reduce((a, b) => a + b, 0)))) * 1.08);
   const s = scales(a0, a1, top), near = useNearest(pts.length, pts.map(p => p.month), s);
@@ -126,8 +126,8 @@ export function CoverageChart({ series, fmt, valueLabel }: { series: CoverageSer
       <path className="rc-spend" d={pts.map((p, i) => `${i ? 'L' : 'M'}${step(i).toFixed(1)} ${(T + (1 - p.spend / top) * (H - 40 - T - B)).toFixed(1)}L${end(i).toFixed(1)} ${(T + (1 - p.spend / top) * (H - 40 - T - B)).toFixed(1)}`).join('')}/>
       {hover && <line x1={s.x(hover.month)} x2={s.x(hover.month)} y1={T} y2={H - 40 - B} className="rc-cursor"/>}
     </svg>
-    {hover && <Tip s={s} age={hover.month} lines={[['计划支出/年', fmt(hover.spend)], ...layers.filter(l => (hover.values[l.k.key] ?? 0) > 0).map(l => [l.k.label + '/年', fmt(hover.values[l.k.key])] as [string, string])]}>{hover.label} · {valueLabel}</Tip>}
-    <ul className="rc-legend">{layers.map(l => <li key={l.k.key}><i style={{ background: l.fill }}/>{l.k.kind === 'portfolio' ? '投资组合提取' : l.k.kind === 'unfunded' ? '无资金支持' : l.k.label}</li>)}<li><i className="rc-dash"/>计划支出</li></ul>
+    {hover && <Tip s={s} age={hover.month} lines={[['计划支出/年', fmt(hover.spend)], ...layers.filter(l => (hover.values[l.k.key] ?? 0) > 0).map(l => [(l.k.kind === 'portfolio' ? '从已有资金中取用' : l.k.label) + '/年', fmt(hover.values[l.k.key])] as [string, string])]}>{hover.label} · {valueLabel}</Tip>}
+    <ul className="rc-legend">{layers.map(l => <li key={l.k.key}><i style={{ background: l.fill }}/>{l.k.kind === 'portfolio' ? '从已有资金中取用' : l.k.kind === 'unfunded' ? '无资金支持' : l.k.label}</li>)}<li><i className="rc-dash"/>计划支出</li></ul>
   </div>;
 }
 
@@ -148,7 +148,7 @@ export function FanChart({ months, bands, goalMonth, retireMonth, fiMonth, fmt, 
       <path d={med} className="rc-line" style={{ stroke: 'var(--text)' }}/>
       <line x1={s.x(goalMonth)} x2={s.x(goalMonth)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(goalMonth) + 5} y={T - 8} className="rc-label">目标 · {timeLabel(goalMonth)}</text>
       {retireMonth !== null && retireMonth !== goalMonth && <><line x1={s.x(retireMonth)} x2={s.x(retireMonth)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(retireMonth) + 5} y={T - 22} className="rc-label">退休 · {timeLabel(retireMonth)}</text></>}
-      {fiMonth !== null && <><line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/><text x={s.x(fiMonth) + 5} y={T + 12} className="rc-label rc-fi-text">中位数财务独立 · {timeLabel(fiMonth)}</text></>}
+      {fiMonth !== null && <><line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/><text x={s.x(fiMonth) + 5} y={T + 12} className="rc-label rc-fi-text">预计不靠工资（中位数） · {timeLabel(fiMonth)}</text></>}
       {i !== null && <line x1={s.x(months[i])} x2={s.x(months[i])} y1={T} y2={H - B} className="rc-cursor"/>}
     </svg>
     {i !== null && <Tip s={s} age={months[i]} lines={[['第 90 百分位', fmt(bands.p90[i])], ['第 75 百分位', fmt(bands.p75[i])], ['中位数', fmt(bands.p50[i])], ['第 25 百分位', fmt(bands.p25[i])], ['第 10 百分位', fmt(bands.p10[i])]]}>{timeLabel(months[i])}</Tip>}

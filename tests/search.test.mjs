@@ -27,7 +27,7 @@ test('filter list follows the fixed kind order and module gating', () => {
 test('labels and constants match the design', () => {
   assert.equal(searchKindLabel('payment'), '周期付款记录');
   assert.equal(searchKindLabel('topup'), '储值充值');
-  assert.equal(searchKindModule('asset'), null);
+  assert.equal(searchKindModule('asset'), 'physical');
   assert.equal(searchKindModule('snapshot'), 'wealth');
   assert.equal(searchDebounceMs, 200);
   assert.equal(searchPageSize, 30);
@@ -49,7 +49,7 @@ test('app shell wiring keeps ⌘F/⌘N meanings and isolates the session (B01/B0
   assert.match(main, /className="global-search-open"/);
   assert.match(main, /搜索全部资料/);
   // Library switch / module toggles clear the session.
-  assert.match(main, /useEffect\(\(\) => \{ setSearchSession\(emptySearchSession\(\)\); \}, \[libraryGeneration, modules\.wishlist/);
+  assert.match(main, /useEffect\(\(\) => \{ setSearchSession\(emptySearchSession\(\)\); \}, \[libraryGeneration, modules\.physical, modules\.wishlist/);
   // Blocked flows are not bypassed by search (B09).
   assert.match(main, /modeBlocked \|\| document\.querySelector\('dialog\[open\]'\)\) \{ setNotice\(blockedNotice\('打开搜索'\)\)/);
 });

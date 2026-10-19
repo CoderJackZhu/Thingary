@@ -44,7 +44,7 @@ test('a car endpoint warning locates its own plan editor rather than opening occ
   const caps = buildBasicCapabilities(sources), focused = [];
   const card = refinementCards(saved, caps, sources.today).find(c => c.event?.id === car.id);
   assert.equal(card.action, 'events');
-  const r = runtime('PlanningBasicGoals', { sources }, undefined, caps, { document: { getElementById: id => ({ scrollIntoView() {}, focus: () => focused.push(id) }) } });
+  const r = runtime('PlanningBasicGoals', { sources }, undefined, caps, { document: { getElementById: id => ({ closest() { return null; }, scrollIntoView() {}, focus: () => focused.push(id) }) } });
   r.button('查看计划：虚构二手车').props.onClick({ currentTarget: {} });
   r.render();
   assert.deepEqual(focused, ['plan-event-edit-fictional-car']);

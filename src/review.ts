@@ -10,7 +10,8 @@ import type { VirtualOverview } from './virtual';
 import type { TimelineEvent } from './Timeline';
 import type { SourceTarget } from './source';
 export type Read<T> = { status: 'ready'; value: T } | { status: 'error'; value: { code: string; message: string } };
-export type Review = { generation: string; today: string; year: number | null; physical: Read<OverviewData>; wealth: Read<Summary>; expenses: Read<ExpenseView>; recurring: Read<Recurring>; virtual_assets: Read<VirtualOverview>; recent: Read<TimelineEvent[]>; planning?: PlanSources | null };
+export type AccountAvailability = { total: number; due_today: number };
+export type Review = { generation: string; today: string; year: number | null; physical: Read<OverviewData>; wealth: Read<Summary>; account_availability?: Read<AccountAvailability>; expenses: Read<ExpenseView>; recurring: Read<Recurring>; virtual_assets: Read<VirtualOverview>; recent: Read<TimelineEvent[]>; planning?: PlanSources | null };
 export type ReviewPage = 'wealth' | 'assets' | 'expenses' | 'recurring' | 'virtual' | 'timeline' | 'wishlist';
 export const ready = <T,>(r: Read<T> | undefined): T | undefined => r?.status === 'ready' ? r.value : undefined;
 /** Disabled modules are intentionally unread; only enabled attention sources can fail. */

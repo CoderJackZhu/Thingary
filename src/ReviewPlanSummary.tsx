@@ -17,7 +17,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
   onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void;
 }) {
   const retire = useMemo(() => (data ? summaryRetire(data, today) : { kind: 'loading' } as const), [data, today]);
-  const saving = useMemo(() => (data ? (data.review.status === 'ready' ? usualSaving(data.review.value) : { kind: 'error' } as const) : { kind: 'loading' } as const), [data]);
+  const saving = useMemo(() => (data ? (data.review.status === 'ready' ? usualSaving(data.review.value) : { kind: data.review.value.code === 'MODULE_DISABLED' ? 'disabled' : 'error' } as const) : { kind: 'loading' } as const), [data]);
   const basis = retire.kind === 'ready' ? summaryBasis(retire) : null;
   const basicPlan = !!(data && data.profile.status === 'ready' && data.profile.value.saved?.profile.retire.basic);
   const summaryAnnotations = retire.kind === 'ready' ? retire.calc.annotations : retire.kind === 'blocked' ? retire.capabilities?.annotations : undefined;
@@ -28,7 +28,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
     { label: '财务复盘 →', run: () => onGotoPlanning('savings') },
   ] : retire.kind === 'blocked' ? (
     retire.step === 'snapshot' ? [{ label: '查看账户与盘点 →', run: () => onNavigate('wealth') }] :
-    retire.step === 'profile' ? [{ label: '填写个人资料 →', run: () => onGotoPlanning('goals', 'profile') }] :
+    retire.step === 'profile' ? [{ label: '设置退休计划 →', run: () => onGotoPlanning('goals', 'profile') }] :
     retire.step === 'budget' ? [{ label: '补充退休预算 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '财务复盘 →', run: () => onGotoPlanning('savings') }] :
     retire.step === 'saving' ? [{ label: '估一估每月能存多少 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '财务复盘 →', run: () => onGotoPlanning('savings') }] :
     [{ label: '查看目标 →', run: () => onGotoPlanning('goals') }]
@@ -36,7 +36,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
   return <article className="ui-card review-plan" aria-label="目标摘要">
     <div className="ui-section-head"><h3>规划<Info text={estimateInfo}/></h3></div>
     <CoverageNote annotations={summaryAnnotations} compact/>
-    <p className="review-plan-goal">退休与财务自由{retire.kind === 'ready' && <small> · {retire.mode === 'fire' ? 'FIRE' : '传统'}</small>}</p>
+    <p className="review-plan-goal">退休与财务自由{retire.kind === 'ready' && <small> · {retire.mode === 'fire' ? '钱够用后退休' : '按时间退休'}</small>}</p>
     {basicPlan ? <BasicSummaryBody sources={data!} retire={retire} onGotoPlanning={onGotoPlanning}/> : retire.kind === 'ready' ? <>
       <p className="review-plan-main">{retire.headline.main}</p>
       {retire.headline.sub && retire.headline.sub !== '估算' && <p className="review-plan-sub">{retire.headline.sub}</p>}
@@ -54,18 +54,18 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
         <p className="review-plan-main">{retire.main}</p>
         <p className="review-plan-sub">{retire.note}</p>
       </>}
-    <div className="review-plan-divide">
+    {saving.kind !== 'disabled' && <details className="review-plan-divide" open={saving.kind === 'error' ? true : undefined}><summary>过去每月家底变化（含投资涨跌）</summary>
       <div className="review-plan-save">
-        <span>历史月均净资产变化（含估值变化）<Info text="近 12 个月里、前后都是完整盘点的区间，金融净资产的平均变化（按天数加权，含投资涨跌）。这只是过去的参考，不会自动当成以后每月能存的钱。"/></span>
+        <span>每月平均变化<Info text="近 12 个月里、前后都是完整盘点的区间，金融净资产的平均变化（按天数加权，含投资涨跌）。这只是过去的参考，不会自动当成以后每月能存的钱。"/></span>
         {saving.kind === 'known' ? <b className={saving.negative ? 'neg' : undefined}>{money(saving.monthly_cents)}<small>／月</small></b> : null}
       </div>
       {saving.kind === 'known' ? <p className="review-plan-source">
         {saving.low_sample ? `样本少 · ${saving.count} 个区间` : `按天数加权 · ${saving.count} 个区间`}{saving.window_from ? ` · 统计最近 12 个月（${saving.window_from.slice(0, 7)} 起）` : ''}{retire.kind !== 'ready' && saving.latest_date ? ` · 截至 ${saving.latest_date}` : ''}
         {saving.negative && ' · 近期净资产下降（含估值变化）'}
       </p> : saving.kind === 'unknown' ? <p className="review-plan-source">待补充 · {saving.reason}</p>
-      : saving.kind === 'error' ? <p className="review-plan-source">历史资产参考暂时无法读取。</p>
+      : saving.kind === 'error' ? <div className="review-error" role="alert"><p className="review-plan-source">历史资产参考暂时无法读取。</p><button onClick={reload}>重新读取历史资产参考</button></div>
       : <p className="review-plan-source" role="status">正在读取…</p>}
-    </div>
+    </details>}
     {!basicPlan && actions.length > 0 && <div className="review-plan-actions">{actions.map(a => <button key={a.label} className="review-action" onClick={a.run}>{a.label}</button>)}</div>}
   </article>;
 }

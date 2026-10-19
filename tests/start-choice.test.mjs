@@ -9,23 +9,6 @@ import { allModules } from '../src/modules.ts';
 
 const modules = { ...allModules, incomes: false, movements: true, finance_status: 'ready', finance_revision: 3 };
 const storage = () => { const saved = new Map(); return { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) }; };
-test('starter payload changes only recurring and virtual and keeps independent switches explicit', () => {
-  const before = structuredClone(modules), payload = choice.starterModules(modules, true);
-  assert.deepEqual(payload, { modules: { ...modules, recurring: false, virtual: false }, incomes: false, movements: true });
-  assert.deepEqual(modules, before);
-  assert.equal(choice.starterModules(modules, false), null);
-  for (const finance_status of ['legacy_corrupt', 'finance_corrupt', 'unsupported_version', 'read_error', 'write_error']) assert.equal(choice.starterModules({ ...modules, finance_status }, true), null);
-  for (const finance_revision of [0, null, NaN]) assert.equal(choice.starterModules({ ...modules, finance_revision }, true), null);
-});
-test('dismissal stays separate for each generation and unavailable storage keeps the card visible', () => {
-  const s = storage(); assert.equal(choice.startChoiceDismissed(s, 'g1'), false);
-  assert.equal(choice.dismissStartChoice(s, 'g1'), true); assert.equal(choice.startChoiceDismissed(s, 'g1'), true); assert.equal(choice.startChoiceDismissed(s, 'g2'), false);
-  choice.dismissStartChoice(s, 'g2'); assert.equal(choice.startChoiceDismissed(s, 'g1'), true);
-  for (const failure of [null, { getItem() { throw Error('unavailable'); }, setItem() {} }, { getItem: () => null, setItem() { throw Error('readonly'); } }, { getItem: () => 'corrupt', setItem() {} }]) {
-    assert.equal(choice.startChoiceDismissed(failure, 'g1'), false); assert.equal(choice.dismissStartChoice(failure, 'g1'), false);
-    assert.doesNotThrow(() => choice.persistOverviewChoice(failure, 'physical'));
-  }
-});
 const all = tree => Array.isArray(tree) ? tree.flatMap(all) : tree && typeof tree === 'object' ? [tree, ...all(tree.props?.children)] : [];
 const text = tree => Array.isArray(tree) ? tree.map(text).join('') : tree && typeof tree === 'object' ? text(tree.props?.children) : tree == null || typeof tree === 'boolean' ? '' : String(tree);
 function compileFunction(file, name) {
@@ -34,43 +17,95 @@ function compileFunction(file, name) {
   assert.ok(fn, name);
   return ts.transpileModule(fn.getText(source) + '\nmodule.exports=' + name, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 }
-function runtime(over = {}, invoke = async command => command === 'modules_set' ? { ...modules, recurring: false, virtual: false } : modules, s = storage()) {
-  const states = [], refs = [], calls = [], notices = [], starts = [], updates = [], busy = []; let si, ri;
-  const context = { module: { exports: {} }, exports: {}, require: () => jsx, ...choice, choiceStorage: () => s,
-    useState(initial) { const i = si++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], v => { states[i] = typeof v === 'function' ? v(states[i]) : v; }]; },
-    useRef(value) { const i = ri++; return refs[i] ?? (refs[i] = { current: value }); }, errorMessage: e => e.message,
-    invoke: async (...args) => { calls.push(args); return invoke(...args); },
-  };
-  vm.runInNewContext(compileFunction('StartChoice.tsx', 'StartChoice'), context);
-  const props = { generation: 'g1', active: false, started: false, modules, modulesLoaded: true, disabled: false, onNotice: message => notices.push(message), onBusyChange: value => busy.push(value), onModules: value => updates.push(value), onStart: value => { starts.push(value); }, ...over };
-  const render = () => { si = ri = 0; return context.module.exports(props); };
-  return { props, render, calls, starts, updates, busy, notices, s, button(label) { return all(render()).find(n => n.type === 'button' && text(n) === label); }, async click(label) { this.button(label).props.onClick(); await new Promise(setImmediate); } };
+function hooks(file, name, extra = {}) {
+  const states=[], refs=[], effects=[]; let si=0,ri=0,ei=0;
+  const context={module:{exports:{}},exports:{},require:()=>jsx,Error,...choice,
+    useState(init){const i=si++;if(!(i in states))states[i]=typeof init==='function'?init():init;return[states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
+    useRef(value){return refs[ri++]??(refs[ri-1]={current:value});},
+    useEffect(fn,deps){const i=ei++;if(!effects[i]||deps.some((v,j)=>v!==effects[i].deps[j]))effects[i]={deps,fn,dirty:true};},...extra};
+  if(name==='StartChoice') context.purposes=[{key:'money',title:'盘一盘我的钱',icon:'wallet'},{key:'physical',title:'整理我的物品',icon:'items'},{key:'planning',title:'为以后做计划',icon:'plan'}];
+  vm.runInNewContext(compileFunction(file,name),context);
+  return{context,render(props){si=ri=ei=0;const tree=context.module.exports(props);for(const effect of effects)if(effect.dirty){effect.dirty=false;effect.fn();}return tree;}};
 }
-test('both start choices save exact module payload, invoke their path, and dismiss; unchecking never writes modules', async () => {
-  for (const [label, expected] of [['先整理物品', 'physical'], ['先盘点账户', 'combined']]) {
-    const ui = runtime(); await ui.click(label);
-    assert.deepEqual(ui.calls[0], ['modules_set', choice.starterModules(modules, true)]);
-    assert.deepEqual(ui.starts, [expected]); assert.deepEqual(ui.busy, [true, false]); assert.equal(ui.render(), null);
+const tick=()=>new Promise(setImmediate);
+test('all seven purpose combinations start with all details enabled inside the retained purposes',()=>{
+  for(let bits=1;bits<8;bits++){
+    const selection={money:!!(bits&1),physical:!!(bits&2),planning:!!(bits&4)},before=structuredClone(modules);
+    const payload=choice.usageModules(modules,true,selection,true);
+    assert.equal(payload.modules.wealth,selection.money);assert.equal(payload.modules.physical,selection.physical);assert.equal(payload.modules.planning,selection.planning);
+    for(const key of ['wishlist','stats'])assert.equal(payload.modules[key],selection.physical);
+    for(const key of ['expenses','recurring','virtual'])assert.equal(payload.modules[key],selection.money);
+    assert.equal(payload.modules.timeline,true);assert.equal(payload.incomes,selection.money);assert.equal(payload.movements,selection.money);assert.deepEqual(modules,before);
+    assert.equal(choice.usageOverview(selection),bits===2?'physical':'combined');
   }
-  const unchecked = runtime(); all(unchecked.render()).find(n => n.type === 'input').props.onChange({ target: { checked: false } }); await unchecked.click('先整理物品');
-  assert.deepEqual(unchecked.calls, []); assert.deepEqual(unchecked.starts, ['physical']);
+  assert.equal(choice.usageModules(modules,true,{money:false,physical:false,planning:false},true),null);
 });
-test('skip and hidden/sample/started states never write settings or navigate', async () => {
-  const skip = runtime(); await skip.click('跳过'); assert.equal(skip.render(), null); assert.deepEqual(skip.calls, []); assert.deepEqual(skip.starts, []);
-  for (const props of [{ active: true }, { started: true }]) { const ui = runtime(props); assert.equal(ui.render(), null); assert.deepEqual(ui.calls, []); }
-  const unavailable = runtime({}, undefined, { getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } }); await unavailable.click('跳过'); assert.equal(unavailable.render(), null);
+test('unreliable preferences never produce a settings write',()=>{
+  const selected={money:true,physical:true,planning:true};
+  assert.equal(choice.usageModules(modules,false,selected,true),null);
+  for(const finance_status of ['legacy_corrupt','finance_corrupt','unsupported_version','read_error','write_error'])assert.equal(choice.usageModules({...modules,finance_status},true,selected,true),null);
+  for(const finance_revision of [0,null,NaN])assert.equal(choice.usageModules({...modules,finance_revision},true,selected,true),null);
 });
-test('write failure rereads switches, reports an error after navigation, and retains the card', async () => {
-  const ui = runtime({}, async command => { if (command === 'modules_set') throw Error('fictional write failure'); return { ...modules, recurring: false }; });
-  await ui.click('先盘点账户'); assert.deepEqual(ui.calls.map(([command]) => command), ['modules_set', 'modules_get']); assert.deepEqual(ui.starts, ['combined']);
-  assert.equal(ui.updates.at(-1).recurring, false); assert.match(text(ui.render()), /fictional write failure/); assert.match(ui.notices.at(-1), /fictional write failure/); assert.equal(choice.startChoiceDismissed(ui.s, 'g1'), false);
-  for (const props of [{ modulesLoaded: false }, { modules: { ...modules, finance_status: 'read_error' } }]) {
-    const stale = runtime(props); await stale.click('先整理物品'); assert.deepEqual(stale.calls, []); assert.deepEqual(stale.starts, ['physical']); assert.ok(stale.render()); assert.match(stale.notices.at(-1), /尚未可靠读取/);
+test('reconfiguration preserves detailed choices inside selected purposes and disables only unchecked groups',()=>{
+  const all={money:true,physical:true,planning:true};
+  assert.deepEqual(choice.selectedUsage(modules),all);
+  const payload=choice.usageModules(modules,true,all,false);assert.deepEqual(payload,{modules,incomes:modules.incomes,movements:modules.movements});
+  const off=choice.usageModules(modules,true,{...all,money:false},false);
+  for(const key of ['wealth','expenses','recurring','virtual'])assert.equal(off.modules[key],false);
+  const incomeOnly={...modules,wealth:false,expenses:false,recurring:false,virtual:false,incomes:true,movements:false};
+  const kept=choice.usageModules(incomeOnly,true,{money:true,physical:true,planning:true},false);assert.equal(kept.modules.wealth,false);assert.equal(kept.incomes,true);
+  assert.equal(off.incomes,false);assert.equal(off.movements,false);assert.equal(off.modules.wishlist,true);assert.equal(off.modules.timeline,true);
+});
+test('completed, skipped, legacy and unavailable device storage remain distinct',()=>{
+  const s=storage();assert.equal(choice.welcomeState(s),null);
+  choice.rememberWelcome(s,'completed');assert.equal(choice.welcomeState(s),'completed');
+  choice.rememberWelcome(s,'skipped');assert.equal(choice.welcomeState(s),'skipped');
+  const legacy=storage();legacy.setItem(choice.startChoiceKey,JSON.stringify({g1:true}));assert.equal(choice.welcomeState(legacy),'skipped');
+  for(const failure of [null,{getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}}]){assert.equal(choice.welcomeState(failure),null);assert.equal(choice.rememberWelcome(failure,'completed'),false);assert.doesNotThrow(()=>choice.persistOverviewChoice(failure,'physical'));}
+});
+test('picker supports multiple checks, cancellation, validation and duplicate-submit protection',async()=>{
+  let release;const applied=[],skipped=[];
+  const h=hooks('StartChoice.tsx','StartChoice',{Icon:()=>null,LogoMark:()=>null});
+  const props={initial:{money:false,physical:false,planning:false},ready:true,onApply:value=>{applied.push(value);return new Promise(resolve=>{release=resolve})},onSkip:()=>skipped.push(true),onReload(){}};
+  const tree=()=>h.render(props),button=label=>all(tree()).find(n=>n.type==='button'&&text(n)===label);
+  assert.equal(button('开始使用').props.disabled,true);
+  all(tree()).find(n=>n.type==='input').props.onChange({target:{checked:true}});
+  all(tree()).filter(n=>n.type==='input')[2].props.onChange({target:{checked:true}});
+  button('开始使用').props.onClick();button('正在应用…').props.onClick();
+  assert.equal(applied.length,1);assert.deepEqual(JSON.parse(JSON.stringify(applied[0])),{money:true,physical:false,planning:true});assert.equal(button('跳过，直接使用').props.disabled,true);
+  release();await tick();button('跳过，直接使用').props.onClick();assert.equal(skipped.length,1);
+  props.ready=false;assert.equal(button('开始使用').props.disabled,true);
+});
+test('picker keeps selections and exposes retryable errors; cancel does not submit',async()=>{
+  let calls=0;const h=hooks('StartChoice.tsx','StartChoice',{Icon:()=>null,LogoMark:()=>null});
+  const props={settings:true,initial:{money:true,physical:true,planning:false},ready:true,onApply:async()=>{calls++;throw Error('fictional save failure')},onSkip(){},onReload(){}};
+  all(h.render(props)).find(n=>n.type==='button'&&text(n)==='取消').props.onClick();assert.equal(calls,0);
+  all(h.render(props)).find(n=>n.type==='button'&&text(n)==='保存选择').props.onClick();await tick();
+  const tree=h.render(props);assert.match(text(tree),/fictional save failure/);assert.equal(all(tree).filter(n=>n.type==='input'&&n.props.checked).length,2);
+});
+test('welcome applies before switching, starts on overview without editor, and rereads partial failures',async()=>{
+  for(const fail of [null,'modules_set','switch_demo']){
+    const calls=[],done=[],s=storage(),session=storage();session.removeItem=key=>calls.push(['remove',key]);
+    const h=hooks('Welcome.tsx','Welcome',{StartChoice:()=>null,errorMessage:e=>e.message,financeModulesReady:()=>true,choiceStorage:()=>s,sessionStorage:session,sectionKey:'section',newAssetKey:'new',invoke:async(command,args)=>{calls.push([command,args]);if(command===fail)throw Error('fictional failure');return command==='switch_demo'?{active:false,started:false,available:true}:modules;}});
+    const props={status:{active:true,started:false,available:true},onDone:value=>done.push(value),onBusyChange(){}};
+    h.render(props);await tick();const card=all(h.render(props)).find(n=>n.props.onApply);
+    const action=card.props.onApply({money:true,physical:false,planning:false});
+    if(fail){await assert.rejects(action,/fictional failure/);assert.equal(done.length,0);assert.equal(calls.at(-1)[0],'modules_get');}
+    else{await action;assert.deepEqual(calls.filter(([key])=>!['remove'].includes(key)).map(([key])=>key),['modules_get','modules_set','switch_demo']);assert.equal(done.length,1);assert.deepEqual(JSON.parse(JSON.stringify(calls.find(([key])=>key==='switch_demo')[1])),{demo:false});assert.equal(choice.welcomeState(s),'completed');assert.equal(s.getItem(choice.overviewViewKey),'combined');}
   }
 });
-test('storage failures allow primary actions and hide the card for this session', async () => {
-  const ui = runtime({}, undefined, { getItem() { throw Error('unavailable'); }, setItem() { throw Error('unavailable'); } }); await ui.click('先整理物品');
-  assert.deepEqual(ui.starts, ['physical']); assert.equal(ui.render(), null);
+test('bootstrap protects existing users and recovery, and resumes completed empty personal libraries',async()=>{
+  for(const scenario of [{started:true},{pending:true},{reset:true},{marker:'skipped'},{legacy:true},{marker:'completed',active:true},{active:true},{}]){
+    const s=storage(),calls=[];s.removeItem=()=>{};
+    if(scenario.marker)choice.rememberWelcome(s,scenario.marker);if(scenario.legacy)s.setItem(choice.startChoiceKey,'{"old":true}');if(scenario.reset)s.setItem('reset','yes');
+    const App=()=>null,Welcome=()=>null;
+    const h=hooks('main.tsx','Bootstrap',{App,Welcome,localStorage:s,choiceStorage:()=>s,clearUnsubmittedEditors(){},pendingGenerations:()=>scenario.pending?['pending-generation']:[],resetKey:'reset',errorMessage:e=>e.message,invoke:async(command,args)=>{calls.push([command,args]);return{active:command==='switch_demo'?false:!!scenario.active,available:true,started:!!scenario.started}}});
+    const props={onPrivacyBusyChange(){}};h.render(props);await tick();const tree=h.render(props);
+    const wantsWelcome=!scenario.started&&!scenario.pending&&!scenario.reset&&!scenario.marker&&!scenario.legacy;
+    assert.equal(tree.type,wantsWelcome?Welcome:App,JSON.stringify(scenario));
+    assert.equal(calls.some(([command])=>command==='switch_demo'),scenario.marker==='completed'&&!!scenario.active);
+    const switched=calls.find(([command])=>command==='switch_demo');if(switched)assert.deepEqual(JSON.parse(JSON.stringify(switched[1])),{demo:false});
+  }
 });
 test('empty accounts put the existing data-management import before manual creation', () => {
   const calls = [];
@@ -84,23 +119,6 @@ test('empty accounts put the existing data-management import before manual creat
   const script = ts.transpileModule('module.exports=' + callback, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const route = []; vm.runInNewContext(script, { ...context, gotoFinance: r => route.push(r) }); context.module.exports();
   assert.deepEqual(JSON.parse(JSON.stringify(route)), [{ page: 'data-management', importKind: 'finance' }]);
-});
-test('the real start handler updates the current overview choice and routes even when view storage is unavailable', async () => {
-  const code = compileFunction('main.tsx', 'startFromChoice');
-  for (const selected of ['physical', 'combined']) {
-    const calls = [], context = { module: { exports: {} }, exports: {}, require: () => jsx,
-      modeBlocked: false, libraryGeneration: 'fictional-generation', modules,
-      blockedNotice: () => 'blocked', setNotice: value => calls.push(['notice', value]),
-      choiceStorage: () => ({ setItem() { throw Error('unavailable'); } }), persistOverviewChoice: choice.persistOverviewChoice,
-      setOverviewChoice: update => calls.push(['view', update(null)]), openEditor: async value => { calls.push(['editor', value]); return true; },
-      beginReturn: () => calls.push(['origin']), setReturnContext: value => calls.push(['return', value]), setWealthReviewFocus: value => calls.push(['focus', value]), setSection: value => calls.push(['page', value]), setDetailId: value => calls.push(['detail', value]),
-    };
-    vm.runInNewContext(code, context); assert.equal(await context.module.exports(selected), true);
-    assert.equal(calls.find(([kind]) => kind === 'view')[1].view, selected);
-    assert.equal(calls.find(([kind]) => kind === 'view')[1].generation, 'fictional-generation');
-    assert.ok(calls.find(([kind, value]) => selected === 'physical' ? kind === 'editor' && value === null : kind === 'page' && value === 'wealth'));
-    context.modeBlocked = true; const before = calls.length; assert.equal(await context.module.exports(selected), false); assert.equal(calls.length, before + 1); assert.equal(calls.at(-1)[0], 'notice');
-  }
 });
 test('the actual overview responds to a new choice token without undoing later manual switches', () => {
   const states = [], effects = []; let cursor = 0, effectCursor = 0;
@@ -120,49 +138,9 @@ test('the actual overview responds to a new choice token without undoing later m
   props.viewChoice = { ...props.viewChoice, version: 2 }; render(); assert.ok(all(render()).some(n => n.type === PhysicalOverview));
   props.viewChoice = { generation: 'other-generation', view: 'combined', version: 3 }; render(); assert.ok(all(render()).some(n => n.type === PhysicalOverview));
 });
-test('preview startup and module failure fixtures stay within the existing in-memory adapter', async () => {
-  const preview = ts.createSourceFile('wealth-preview.ts', readFileSync(new URL('../src/wealth-preview.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const branches = []; const find = n => { if (ts.isIfStatement(n) && /^command === 'modules_(get|set)'$/.test(n.expression.getText(preview))) branches.push(n.getText(preview)); ts.forEachChild(n, find); }; find(preview);
-  assert.equal(branches.length, 2);
-  const moduleCode = ts.transpileModule('module.exports=function(command,args){' + branches.join('\n') + '}', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const mem = { module: { exports: {} }, exports: {}, previewModules: { ...modules } }; vm.runInNewContext(moduleCode, mem);
-  const context = { module: { exports: {} }, exports: {}, require: () => jsx, params: new URLSearchParams('started=first-use'), previewStarted: false,
-    wealthPreview: mem.module.exports, searchPreview: () => null,
-  };
-  vm.runInNewContext(compileFunction('visual-preview.ts', 'handle'), context);
-  const handle = context.module.exports;
-  assert.equal((await handle('demo_status', {})).started, false);
-  const payload = choice.starterModules(modules, true); const changed = await handle('modules_set', payload);
-  assert.equal(changed.recurring, false); assert.equal(changed.virtual, false); assert.equal(changed.incomes, modules.incomes); assert.equal(changed.movements, modules.movements);
-  assert.equal((await handle('modules_get', {})).finance_revision, modules.finance_revision + 1);
-  context.params.set('module-write-error', '1');
-  const before = JSON.stringify(mem.previewModules);
-  await assert.rejects(handle('modules_set', { modules: allModules }), error => /虚构模块写入失败/.test(error.message)); assert.equal(JSON.stringify(mem.previewModules), before);
-  context.params.set('module-read-error', '1'); await assert.rejects(handle('modules_get', {}), error => /虚构模块读取失败/.test(error.message));
-});
-test('a failed or unavailable editor start never dismisses the first-use card', async () => {
-  for (const result of [undefined, false]) {
-    const context = { module: { exports: {} }, exports: {}, require: () => jsx, modeBlocked: false, libraryGeneration: 'fictional-generation', modules,
-      setNotice() {}, blockedNotice: () => 'blocked', choiceStorage: () => storage(), persistOverviewChoice: choice.persistOverviewChoice,
-      setOverviewChoice() {}, openEditor: async () => result,
-    };
-    vm.runInNewContext(compileFunction('main.tsx', 'startFromChoice'), context);
-    assert.equal(await context.module.exports('physical'), false);
-    const ui = runtime({ onStart: context.module.exports }); await ui.click('先整理物品');
-    assert.ok(ui.render()); assert.equal(choice.startChoiceDismissed(ui.s, 'g1'), false);
-  }
-});
-test('the last module failure is published again after the async editor path clears a page notice', async () => {
-  const notices = [];
-  const ui = runtime({ onNotice: message => notices.push(message), onStart: async () => { await new Promise(setImmediate); notices.push(''); return true; } }, async command => { throw Error(command === 'modules_set' ? 'fictional write failure' : 'fictional read failure'); });
-  await ui.click('先整理物品'); await new Promise(setImmediate);
-  const clearedAt = notices.lastIndexOf(''); assert.ok(clearedAt >= 0); assert.ok(clearedAt < notices.length - 1);
-  assert.match(notices.at(-1), /fictional write failure.*fictional read failure/);
-  assert.ok(ui.render()); assert.equal(choice.startChoiceDismissed(ui.s, 'g1'), false);
-});
 test('openEditor reports success only after the draft is prepared, and guards or failed setup stay unsuccessful', async () => {
   const base = { module: { exports: {} }, exports: {}, require: () => jsx,
-    durablePending: false, featureEditing: false, dataBusy: false, wishlistEditing: false,
+    modules, durablePending: false, featureEditing: false, dataBusy: false, wishlistEditing: false,
     demoStatus: { active: false }, page: { generation: 'fictional-generation' }, eventsReady: true,
     taxonomyGuard: false, taxonomy: { loading: false, loadError: null, snapshot: { generation: 'fictional-generation' } },
     opener: { current: null }, document: { activeElement: null }, detailId: null, listScroll: { current: 0 }, collectionRef: { current: null },
@@ -200,4 +178,71 @@ test('consuming the start view token lets a later manual view survive leaving an
   all(first.render()).find(n=>n.type==='button'&&text(n)==='综合').props.onClick();assert.ok(all(first.render()).some(n=>n.type===ReviewView));
   assert.equal(stored.getItem(choice.overviewViewKey),'combined');
   const reentered=mount();assert.ok(all(reentered.render()).some(n=>n.type===ReviewView));assert.equal(consumed,1);
+});
+
+test('preview startup and module failure fixtures stay within the existing in-memory adapter', async () => {
+  const preview = ts.createSourceFile('wealth-preview.ts', readFileSync(new URL('../src/wealth-preview.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const branches = []; const find = n => { if (ts.isIfStatement(n) && /^command === 'modules_(get|set)'$/.test(n.expression.getText(preview))) branches.push(n.getText(preview)); ts.forEachChild(n, find); }; find(preview);
+  assert.equal(branches.length, 2);
+  const moduleCode = ts.transpileModule('module.exports=function(command,args){' + branches.join('\n') + '}', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const mem = { module: { exports: {} }, exports: {}, previewModules: { ...modules } }; vm.runInNewContext(moduleCode, mem);
+  const context = { module: { exports: {} }, exports: {}, require: () => jsx, params: new URLSearchParams('started=first-use'), previewStarted: false,
+    wealthPreview: mem.module.exports, searchPreview: () => null,
+  };
+  vm.runInNewContext(compileFunction('visual-preview.ts', 'handle'), context);
+  const handle = context.module.exports;
+  assert.equal((await handle('demo_status', {})).started, false);
+  const payload = choice.usageModules(modules, true, { money: true, physical: true, planning: true }, true); const changed = await handle('modules_set', payload);
+  assert.equal(changed.recurring, true); assert.equal(changed.virtual, true); assert.equal(changed.incomes, true); assert.equal(changed.movements, true);
+  assert.equal((await handle('modules_get', {})).finance_revision, modules.finance_revision + 1);
+  context.params.set('module-write-error', '1');
+  const before = JSON.stringify(mem.previewModules);
+  await assert.rejects(handle('modules_set', { modules: allModules }), error => /虚构模块写入失败/.test(error.message)); assert.equal(JSON.stringify(mem.previewModules), before);
+  context.params.set('module-read-error', '1'); await assert.rejects(handle('modules_get', {}), error => /虚构模块读取失败/.test(error.message));
+});
+test('planning-only review does not show disabled physical or timeline errors and keeps manual planning reachable',()=>{
+  const disabled={status:'error',value:{code:'MODULE_DISABLED',message:'模块已关闭，本次未读取'}};
+  const data={generation:'fictional',today:'2026-10-19',year:null,physical:disabled,wealth:disabled,expenses:disabled,recurring:disabled,virtual_assets:disabled,recent:disabled};
+  const selected={...allModules,physical:false,wealth:false,wishlist:false,stats:false,incomes:false,movements:false,expenses:false,recurring:false,virtual:false,timeline:false,planning:true};
+  let cursor=0;const context={module:{exports:{}},exports:{},require:()=>jsx,allModules,
+    useState:initial=>[cursor++===1?data:typeof initial==='function'?initial():initial,()=>{}],useEffect(){},useRef:value=>({current:value}),
+    requestGate:()=>({}),useTrendSelection:()=>({}),useRestored(){},ready:value=>value?.status==='ready'?value.value:undefined,
+    latestComplete:()=>null,attention:()=>[],hiddenKinds:()=>new Set(),labels:{},attentionSourcesReady:()=>true,Info:()=>null,
+  };
+  vm.runInNewContext(compileFunction('ReviewView.tsx','ReviewView'),context);
+  const calls=[],tree=context.module.exports({generation:'fictional',today:data.today,year:null,modules:selected,onGotoPlanning:value=>calls.push(value)});
+  assert.doesNotMatch(text(tree),/模块已关闭|持有物品|近期记录/);assert.match(text(tree),/可以先手动填写资金和收支/);
+  all(tree).find(n=>n.type==='button'&&text(n)==='设置计划 →').props.onClick();assert.deepEqual(calls,['goals']);
+});
+
+test('physical-only overview hides optional wishes and timeline while retaining unknown values',()=>{
+  const data={generation:'fictional',today:'2026-10-19',categories:[],held_count:1,active_count:1,retired_count:0,sold_count:0,held_known_cents:'0',held_unknown_price_count:1,history_known_cents:'0',history_unknown_price_count:1,average_holding_days:null,held_unknown_date_count:1,considering_wishes:4,legacy_wishes:0,recent:[]};
+  let cursor=0;const context={module:{exports:{}},exports:{},require:()=>jsx,allModules,useState:initial=>[cursor++===2?data:typeof initial==='function'?initial():initial,()=>{}],useEffect(){},useRestored(){},sortByShare:rows=>rows,money:value=>String(value),DailyCostMetric:()=>null,Info:()=>null};
+  vm.runInNewContext(compileFunction('Overview.tsx','PhysicalOverview'),context);
+  const tree=context.module.exports({modules:{...allModules,wishlist:false,timeline:false},today:data.today});
+  assert.doesNotMatch(text(tree),/考虑中心愿|最近事件/);assert.match(text(tree),/金额未知|购入日期未知/);assert.match(text(tree),/—/);
+});
+
+test('onboarding uses the existing native library switch argument contract',()=>{
+  const native=readFileSync(new URL('../src-tauri/src/commands.rs',import.meta.url),'utf8');
+  assert.match(native,/pub async fn switch_demo\(\s*demo: bool/);
+});
+
+test('a disabled physical module does not leak its list error into the home workspace',()=>{
+  const source=ts.createSourceFile('main.tsx',readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+  let expression;const visit=node=>{if(ts.isJsxExpression(node)&&node.expression?.getText(source).startsWith('modules.physical && loadError &&'))expression=node.expression.getText(source);ts.forEachChild(node,visit);};visit(source);assert.ok(expression);
+  const code=ts.transpileModule('module.exports=(modules,loadError)=>('+expression+')',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+  const context={module:{exports:{}},exports:{},require:()=>jsx,loading:false};vm.runInNewContext(code,context);
+  assert.equal(context.module.exports({physical:false},'fictional asset read failure'),false);
+  assert.match(text(context.module.exports({physical:true},'fictional asset read failure')),/fictional asset read failure/);
+});
+
+test('first use defaults to all purposes and lets a user exclude a purpose without a forced choice',async()=>{
+ const applied=[];const h=hooks('StartChoice.tsx','StartChoice',{Icon:()=>null,LogoMark:()=>null});
+ const props={ready:true,onApply:async selection=>applied.push(selection),onSkip(){},onReload(){}};
+ let tree=h.render(props);assert.equal(all(tree).filter(n=>n.type==='input'&&n.props.checked).length,3);
+ assert.equal(all(tree).find(n=>n.type==='button'&&text(n)==='开始使用').props.disabled,false);
+ all(tree).filter(n=>n.type==='input')[1].props.onChange({target:{checked:false}});
+ tree=h.render(props);all(tree).find(n=>n.type==='button'&&text(n)==='开始使用').props.onClick();await tick();
+ assert.deepEqual(JSON.parse(JSON.stringify(applied)),[{money:true,physical:false,planning:true}]);
 });

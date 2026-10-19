@@ -20,9 +20,9 @@ export type PageBar = {
 
 export type NewTarget = 'asset' | 'wishlist' | 'wealth' | 'income' | 'expenses' | 'movement' | 'recurring' | 'virtual';
 /** Fixed order per 产品设计 3.5.1; each target appears only if its module is on. */
-export function buildNewMenu(modules: { wishlist: boolean; wealth: boolean; expenses: boolean; recurring: boolean; virtual: boolean; incomes?: boolean; movements?: boolean }, run: (target: NewTarget) => void): BarMenu {
+export function buildNewMenu(modules: { physical?: boolean; wishlist: boolean; wealth: boolean; expenses: boolean; recurring: boolean; virtual: boolean; incomes?: boolean; movements?: boolean }, run: (target: NewTarget) => void): BarMenu {
   const defs: [NewTarget, string, boolean][] = [
-    ['asset', '新增物品', true],
+    ['asset', '新增物品', modules.physical !== false],
     ['wishlist', '新增心愿', modules.wishlist],
     ['wealth', '新增账户', modules.wealth],
     ['income', '记一笔收入', modules.incomes === true],

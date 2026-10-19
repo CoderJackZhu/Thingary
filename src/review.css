@@ -23,6 +23,7 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 .review-heroes.single{grid-template-columns:minmax(0,1fr)}
 .review-section.u16 .review-metrics{margin:0}
 .review-lists{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.review-lists.single{grid-template-columns:minmax(0,1fr)}
 .review-lists .ui-empty{padding:18px var(--surface-pad-x);margin:0}
 .review-lists .review-links{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .review-lists .ui-row.clickable{cursor:pointer}

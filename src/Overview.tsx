@@ -40,7 +40,7 @@ function Donut({ rows, value, total, label }: { rows: CategoryShare[]; value: (c
   </svg>;
 }
 
-function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScroll }: { today: string; version: unknown; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore }) {
+function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScroll, modules = allModules }: { modules?: Modules; today: string; version: unknown; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore }) {
   const [scope, setScope] = useState<'held' | 'history'>('held'), [metric, setMetric] = useState<'count' | 'amount'>('amount');
   const [data, setData] = useState<OverviewData | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   useRestored(() => setRetry(n => n + 1));
@@ -57,14 +57,14 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   const value = (c: CategoryShare) => metric === 'count' ? c.count : Number(c.known_cents);
   const total = metric === 'count' ? count : amount;
   return <section className="overview-section" aria-label="总览">
-    <div className="ui-card ui-metrics" style={{ '--n': 5 } as CSSProperties}>
+    <div className="ui-card ui-metrics" style={{ '--n': modules.wishlist ? 5 : 4 } as CSSProperties}>
       <div><span className="ui-label">当前持有物购入金额</span><span className="ui-value">{money(data.held_known_cents)}<small>· {data.held_count} 件</small></span><span className="ui-note">使用中 {data.active_count} · 已退役 {data.retired_count}{data.held_unknown_price_count ? ` · ${data.held_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
       <DailyCostMetric summary={data.held_daily}/>
       <div><span className="ui-label">历史购入金额</span><span className="ui-value">{money(data.history_known_cents)}</span><span className="ui-note">含已售出 {data.sold_count} 件{data.history_unknown_price_count ? ` · ${data.history_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
       <div><span className="ui-label">平均持有<Info text="按购入日至今天，含当天；购入日期未知的物品不计入。"/></span><span className="ui-value">{data.average_holding_days === null ? '—' : <>{data.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>}</span>{data.held_unknown_date_count > 0 && <span className="ui-note">{data.held_unknown_date_count} 件购入日期未知，未计入</span>}</div>
-      <div><span className="ui-label">考虑中心愿<Info text="心愿的预计金额不计入持有物品；历史待核实单列。"/></span><span className="ui-value">{data.considering_wishes}<small>条</small></span>{data.legacy_wishes>0&&<span className="ui-note">另有 {data.legacy_wishes} 条历史待核实</span>}</div>
+      {modules.wishlist && <div><span className="ui-label">考虑中心愿<Info text="心愿的预计金额不计入持有物品；历史待核实单列。"/></span><span className="ui-value">{data.considering_wishes}<small>条</small></span>{data.legacy_wishes>0&&<span className="ui-note">另有 {data.legacy_wishes} 条历史待核实</span>}</div>}
     </div>
-    <div className="overview-grid">
+    <div className="overview-grid" style={!modules.timeline ? { gridTemplateColumns: 'minmax(0,1fr)' } : undefined}>
       <article className="ui-card">
         <div className="ui-section-head"><h3>分类分布</h3><span className="ui-aside">{scope === 'held' ? '当前持有：使用中＋已退役' : '历史全部：含已售出，不含已删除'}</span></div>
         <div className="overview-controls ui-pad"><div className="ui-seg" role="group" aria-label="统计范围">{([['held', '当前持有'], ['history', '历史全部']] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div><div className="ui-seg" role="group" aria-label="占比口径">{([['count', '按数量'], ['amount', '按购入金额']] as const).map(([k, l]) => <button key={k} aria-pressed={metric === k} onClick={() => setMetric(k)}>{l}</button>)}</div></div>
@@ -75,19 +75,20 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
         {metric === 'amount' && unknown > 0 && <p className="muted small ui-pad">{unknown} 件金额未知，不计入金额占比。</p>}
         <div className="ui-card-foot"><button className="ui-link" onClick={onBrowse}>在物品列表中核对 →</button></div>
       </article>
-      <article className="ui-card">
+      {modules.timeline && <article className="ui-card">
         <div className="ui-section-head"><h3>最近事件</h3><span className="ui-aside">来自时间轴</span></div>
         {!data.recent.length ? <p className="ui-empty">还没有带日期的事件。</p> : <ul className="ui-rows">{data.recent.map(e => <li key={e.id} className="ui-row">{e.target ? <button className="overview-event-button" onClick={() => onOpenSource(e.target!)}><span className="ui-main"><span>{eventLabel(e)} · {e.title}</span><small>{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</small></span><span className="ui-link" aria-hidden="true">›</span></button> : <span className="overview-event-button"><span className="ui-main"><span>{eventLabel(e)} · {e.title}</span><small>{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</small></span></span>}</li>)}</ul>}
-      </article>
+      </article>}
     </div>
   </section>;
 }
 
-export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules, newMenu, onOpenNewMenu, viewChoice, onViewChoiceDone }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage, focus?: 'savings-goals') => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void; viewChoice?: OverviewViewChoice | null; onViewChoiceDone?: () => void }) {
-  const [view, setView] = useState(() => { if (viewChoice?.generation === generation) return viewChoice.view; try { return overviewView(localStorage.getItem('thingary.overview-view.v1')); } catch { return 'combined'; } });
+export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, onGotoPlanning, onOpenSettings, onUpdateBalances, onNewAccount, onManageAccounts, onFinance, restoreScroll, modules = allModules, newMenu, onOpenNewMenu, viewChoice, onViewChoiceDone }: { onNewAccount?: () => void; onManageAccounts?: () => void; onUpdateBalances?: (date: string) => void; modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage, focus?: 'savings-goals') => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void; viewChoice?: OverviewViewChoice | null; onViewChoiceDone?: () => void }) {
+  const [storedView, setView] = useState(() => { if (viewChoice?.generation === generation) return viewChoice.view; try { return overviewView(localStorage.getItem('thingary.overview-view.v1')); } catch { return 'combined'; } });
+  const view = modules.physical === false ? 'combined' : storedView;
   const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('thingary.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
   useEffect(() => { if (viewChoice?.generation === generation) { changeView(viewChoice.view); onViewChoiceDone?.(); } }, [viewChoice, generation, onViewChoiceDone]);
-  const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll };
+  const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll, modules };
   // 综合回顾's main action is the 新增记录 menu; the physical view falls back
   // to the App default (新增物品) by publishing null.
   usePageBar('overview', !financeOff(modules) && view === 'combined' && newMenu
@@ -95,6 +96,6 @@ export function OverviewPage({ generation, today, version, year, onYear, onNavig
     : null);
   // With every finance module off the combined review would only repeat the
   // physical one — except that planning still owns a summary there.
-  if (financeOff(modules) && !modules.planning) return <PhysicalOverview {...shared}/>;
-  return <><HeaderSlot><div className="ui-seg" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>只看物品</button></div></HeaderSlot>{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning} onOpenSettings={onOpenSettings} onFinance={onFinance}/> : <PhysicalOverview {...shared}/>}</>;
+  if (modules.physical !== false && financeOff(modules) && !modules.planning) return <PhysicalOverview {...shared}/>;
+  return <>{modules.physical !== false && <HeaderSlot><div className="ui-seg" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>只看物品</button></div></HeaderSlot>}{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning} onUpdateBalances={onUpdateBalances} onNewAccount={onNewAccount} onManageAccounts={onManageAccounts} onOpenSettings={onOpenSettings} onFinance={onFinance}/> : <PhysicalOverview {...shared}/>}</>;
 }

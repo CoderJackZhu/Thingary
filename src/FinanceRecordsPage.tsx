@@ -127,7 +127,7 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
   return <section className="stats-section wealth-section planning-section" aria-label="收支记录">
     <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="记录类型">{tabs.map(value => <button key={value} type="button" aria-pressed={tab === value} disabled={frozen || !!editing || childEditing || opening} onClick={() => { onRouteChange({ ...route, tab: value, source: undefined }); }}>{labels[value]}</button>)}</div></HeaderSlot><FinancePeriodControl recordedYears={sources?.record_years.status === 'ready' ? sources.record_years.value : undefined} value={period} today={today} disabled={frozen || !!editing || childEditing || opening} onChange={setPeriod}/>
     {sources?.record_years.status === 'error' && <p className="notice" role="alert">历史年份读取失败：{sources.record_years.message}。仍可通过“其他年份”选择。<button onClick={reload}>重试</button></p>}
-    {pending && <p className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对金融导入回执。</span> : <button disabled={busy} onClick={() => void verifyOriginal()}>核对结果</button>}</p>}
+    {pending && <p className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对上次金融导入结果。</span> : <button disabled={busy} onClick={() => void verifyOriginal()}>核对结果</button>}</p>}
     {notice && <p className="notice" role="status">{notice}</p>}
     {(openError || incomeSourceError) && <p className="notice" role="alert">{openError || incomeSourceError}</p>}
     {tab === null ? <p className="notice" role="status">{explicit ? '来源所属的记录模块已关闭，无法打开这条来源。' : '收支记录模块已关闭。请在设置中启用需要的功能。'}</p> : <>

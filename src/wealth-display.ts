@@ -38,3 +38,23 @@ export function accountGroupTotals(accounts: Account[], groups: import('./accoun
   const total = rows.reduce((sum, r) => sum + r.assets, 0n);
   return rows.map(r => ({ id: r.id, name: r.name, accounts: r.accounts, partial: r.partial, known: r.known, assets_cents: String(r.assets), liabilities_cents: String(r.liabilities), net_cents: String(r.assets-r.liabilities), share_hundredths: total > 0n && !(r.partial && r.known === 0) ? Number((r.assets*10000n+total/2n)/total) : null }));
 }
+
+/** Present one snapshot's facts consistently; a missing fact never falls back to an older amount. */
+export function accountBalanceView(account: Account, date?: string | null, entries?: import('./wealth').Entry[]) {
+  const entry = date && entries ? entries.find(row => row.account_id === account.id) : undefined;
+  if (entry) {
+    if (entry.amount_cents === null || entry.state === 'missing') return { fact: { ...entry, amount_cents: null }, date: date!, state: 'unknown' as const, label: '这次金额待填写' };
+    return { fact: entry, date: date!, state: entry.state === 'unchanged' ? 'carried' as const : 'entered' as const,
+      label: entry.state === 'unchanged' ? `沿用旧金额 · ${account.last_entered_on ? `最近填写 ${account.last_entered_on}` : '原填写日期待核对'}` : '这次填写' };
+  }
+  return { fact: account.latest, date: account.latest?.date, state: account.latest ? 'other' as const : 'unknown' as const,
+    label: account.latest ? date && entries ? '其他日期记录 · 未列入这次小计' : '最近已知记录' : ['property', 'vehicle'].includes(account.fields.kind) ? '尚未估值' : '尚未填写金额' };
+}
+
+/** Stable endpoints from a saved complete snapshot; never substitute a different period. */
+export function balanceComparison(points: import('./wealth').Point[], snapshotId?: string) {
+  const end = snapshotId ? points.find(point => point.snapshot_id === snapshotId) : [...points].reverse().find(point => point.complete);
+  if (!end?.complete || !end.compared_to) return null;
+  const start = points.find(point => point.complete && point.date === end.compared_to);
+  return start ? { fromSnapshotId: start.snapshot_id, toSnapshotId: end.snapshot_id } : null;
+}

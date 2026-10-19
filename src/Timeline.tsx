@@ -102,8 +102,8 @@ export type ScrollRestore = { top: number; done: () => void } | null;
 export function SourceTimelinePage({ selection, onSelection, onOpenSource, version, restoreScroll, modules = allModules, newMenu, onOpenNewMenu, search, onSearch }: { modules?: Modules; selection: TimelineSelection; onSelection: (value: TimelineSelection) => void; onOpenSource: (target: SourceTarget) => void; version?: unknown; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void; search: string; onSearch: (value: string) => void }) {
   const [years, setYears] = useState<number[]>([]);
   const hidden = hiddenKinds(modules), spend = modules.expenses || modules.recurring || modules.virtual;
-  const domains = ([['all','全部领域'],['physical','实物'],['wish','心愿'],['wealth','财富盘点'],['expense','支出']] as const).filter(([k]) => (k !== 'wish' || modules.wishlist) && (k !== 'wealth' || modules.wealth) && (k !== 'expense' || spend));
-  const filters = timelineFilters.filter(([k]) => (k !== 'wishlist' || modules.wishlist) && (k !== 'snapshot' || modules.wealth) && (k !== 'expense' || spend));
+  const domains = ([['all','全部领域'],['physical','实物'],['wish','心愿'],['wealth','财富盘点'],['expense','支出']] as const).filter(([k]) => (k !== 'physical' || modules.physical !== false) && (k !== 'wish' || modules.wishlist) && (k !== 'wealth' || modules.wealth) && (k !== 'expense' || spend));
+  const filters = timelineFilters.filter(([k]) => (modules.physical !== false || !['purchase', 'maintenance', 'warranty', 'lifecycle'].includes(k)) && (k !== 'wishlist' || modules.wishlist) && (k !== 'snapshot' || modules.wealth) && (k !== 'expense' || spend));
   // 时间轴's main action is the same 新增记录 menu as the combined overview.
   usePageBar('timeline', { menu: newMenu, newRecord: newMenu ? { label: '新增记录', run: () => onOpenNewMenu?.() } : undefined, search: { key: 'timeline', placeholder: '搜索记录' } });
   return <section className="timeline-section" aria-label="全局时间轴">

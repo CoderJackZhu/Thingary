@@ -84,9 +84,9 @@ test('虚构账户编辑入口：打开快速更新及刷新只读观测后，�
   element(tree, node => node.type === 'textarea').props.onChange({ target: { value: '虚构未保存备注' } });
   tree = render();
   element(tree, node => node.props['aria-label'] === '账户币种').props.onChange({ target: { value: 'USD' } });
-  tree = render(); assert.equal(element(tree, node => node.type === 'button' && node.props.children === '快速更新').props.disabled, true); assert.match(text(tree), /请先保存币种/);
+  tree = render(); assert.equal(element(tree, node => node.type === 'button' && node.props.children === '更新此账户').props.disabled, true); assert.match(text(tree), /请先保存币种/);
   element(tree, node => node.props['aria-label'] === '账户币种').props.onChange({ target: { value: 'CNY' } });
-  tree = render(); element(tree, node => node.type === 'button' && node.props.children === '快速更新').props.onClick();
+  tree = render(); element(tree, node => node.type === 'button' && node.props.children === '更新此账户').props.onClick();
   assert.deepEqual(opened, ['cash']); assert.deepEqual(closed, []);
   current = { ...current, latest: { date: '2026-10-17', amount_cents: '12345' }, last_entered_on: '2026-10-17', has_entries: true };
   tree = render();

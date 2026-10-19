@@ -8,7 +8,7 @@
 .goal-side .goal-answer .goal-result-actions>button{min-height:44px}
 .goal-side .goal-chart{padding:16px 20px}
 .goal-chart-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-.goal-chart-head h3{margin:0;font-size:15px}.goal-conditions>.ui-content{padding:20px 24px}.goal-condition{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:12px;padding:16px 24px;border-top:1px solid var(--line-soft);align-items:start}.goal-condition h4{margin:0 0 6px;font-size:14px}.goal-condition h4 .ui-tag{font-weight:400;margin-left:8px}.goal-condition strong{font-size:17px}.goal-condition p{margin:6px 0}.goal-step{border:1px solid var(--line);border-radius:50%;text-align:center;font-size:12px;line-height:22px;color:var(--muted)}.goal-amounts{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:20px 0;margin:16px 0;border-block:1px solid var(--line-soft)}.goal-amounts span{font-size:12px;color:var(--muted)}.goal-amounts strong{display:block;font:600 25px/1.6 var(--num);overflow-wrap:anywhere}.goal-next{margin-top:16px}.goal-next>button{width:100%;white-space:normal}.goal-caution{padding:12px 16px;margin:16px 0;background:var(--warn-bg);color:var(--warn);border-radius:8px;font-size:12px}.goal-caution ul{padding-left:18px}.goal-caution li+li{margin-top:8px}.goal-secondary{display:flex;gap:16px;flex-wrap:wrap}.goal-money{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px}.goal-money input{min-width:0;width:100%}.goal-money small{grid-column:1/-1}.goal-editor footer{display:flex;gap:12px;justify-content:flex-end}.goal-editor p{overflow-wrap:anywhere}.goal-timeline{padding:16px;background:var(--soft);border-radius:8px}.goal-timeline-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}/* D4：结论卡先行、全宽；长条件在下方，宽屏分列。 */
+.goal-chart-head h3{margin:0;font-size:15px}.goal-conditions>.ui-content{padding:20px 24px}.goal-condition{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:12px;padding:16px 24px;border-top:1px solid var(--line-soft);align-items:start}.goal-condition h4{margin:0 0 6px;font-size:14px}.goal-condition strong{font-size:17px}.goal-condition p{margin:6px 0}.goal-step{border:1px solid var(--line);border-radius:50%;text-align:center;font-size:12px;line-height:22px;color:var(--muted)}.goal-amounts{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:20px 0;margin:16px 0;border-block:1px solid var(--line-soft)}.goal-amounts span{font-size:12px;color:var(--muted)}.goal-amounts strong{display:block;font:600 25px/1.6 var(--num);overflow-wrap:anywhere}.goal-next{margin-top:0}.goal-next>button{width:100%;white-space:normal}.goal-caution{padding:12px 16px;margin:16px 0;background:var(--warn-bg);color:var(--warn);border-radius:8px;font-size:12px}.goal-caution ul{padding-left:18px}.goal-caution li+li{margin-top:8px}.goal-secondary{display:flex;gap:16px;flex-wrap:wrap}.goal-money{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px}.goal-money input{min-width:0;width:100%}.goal-money small{grid-column:1/-1}.goal-editor footer{display:flex;gap:12px;justify-content:flex-end}.goal-editor p{overflow-wrap:anywhere}.goal-timeline{padding:16px;background:var(--soft);border-radius:8px}.goal-timeline-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}/* 条件区沿用网格，在较宽的容器内排列。 */
 .goal-conditions{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));align-items:start}
 .goal-conditions>.ui-content,.goal-conditions>.goal-secondary{grid-column:1/-1}
 @media(max-width:1050px){.goal-condition{padding:16px}.goal-condition strong{font-size:16px}}@media(max-width:400px){.goal-condition{grid-template-columns:minmax(0,1fr) auto}.goal-step{display:none}.goal-amounts strong{font-size:20px}}
@@ -32,6 +32,17 @@ dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.
 .goal-result dt { color: var(--muted); font-size: 12px; }
 .goal-result dd { margin: 0; font-weight: 600; }
 .goal-amounts small { display: block; margin-top: 4px; }
+.goal-explanation{font-size:12px;color:var(--muted)}
+.goal-explanation summary,.goal-fund-detail summary{cursor:pointer;padding-block:6px}
+.goal-evidence>summary{padding:16px 20px;cursor:pointer;font-weight:600}
+.goal-evidence>.ui-content{padding:0 20px 16px}
+.goal-more-settings{grid-column:1/-1;border-top:1px solid var(--line-soft)}
+.goal-more-settings>summary{padding:16px 24px;cursor:pointer}
+.goal-more-settings>summary>span{margin-left:12px}
+.goal-assumption-status{font-size:12px;border-top:1px solid var(--line-soft);color:var(--muted)}
+.goal-empty-plans>summary{padding:20px 24px;cursor:pointer;font-weight:600}
+.goal-empty-plans .plan-events{border:0}
+.goal-progress>details>summary{cursor:pointer;padding-block:8px;color:var(--muted);font-size:12px}
 .goal-amounts .ui-link { margin-top: 6px; padding: 0; font-size: 12px; }
 .goal-caution li>.ui-link { display: block; margin-top: 4px; color: inherit; text-align: left; }
 .goal-fund-exclusions { color: var(--muted); overflow-wrap: anywhere; }
@@ -43,7 +54,7 @@ dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.
 .planning-purchase-plans { grid-template-columns: minmax(0, 1fr); }
 /* 窄窗：改为上下排列，精简结果栏仍在最前，图表紧随条件之后。 */
 @media (max-width: 1050px) {
-  .goal-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"summary" "conditions" "chart" "evidence" "next";gap:16px}
+  .goal-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"summary" "next" "conditions" "chart" "evidence";gap:16px}
   .goal-side{display:contents}
   .goal-answer{grid-area:summary}
   .goal-layout .goal-answer{padding:16px 18px}

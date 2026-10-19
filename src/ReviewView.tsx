@@ -67,7 +67,7 @@ function StructureCard({ summary, onBrowse }: { summary: Summary; onBrowse: () =
   </article>;
 }
 
-export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage, focus?: 'savings-goals') => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
+export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onUpdateBalances, onNewAccount, onManageAccounts, onFinance, restoreScroll, modules = allModules }: { onNewAccount?: () => void; onManageAccounts?: () => void; onUpdateBalances?: (date: string) => void; modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage, focus?: 'savings-goals') => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
   const [amountsHidden, setAmountsHidden] = useState(() => { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem('thingary.hide-financial-amounts.v1', amountsHidden ? '1' : '0'); } catch { /* Session state still works when preferences cannot be stored. */ } }, [amountsHidden]);
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -99,8 +99,21 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   const reload = () => setRetry(n => n + 1);
   if (error && !data) return <div className="empty error" role="alert"><h2>综合回顾读取失败</h2><p>{error}</p><button onClick={reload}>重新读取</button></div>;
   if (!data || data.year !== year || data.generation !== generation) return <p className="loading" role="status">正在读取综合回顾…</p>;
-  const w = ready(data.wealth), p = ready(data.physical), e = ready(data.expenses), r = ready(data.recurring);
+  if (data.today !== today) return <div className="empty error" role="alert"><p>日期已变化，请重新读取账户情况。</p><button onClick={reload}>重新读取</button></div>;
+  const w = ready(data.wealth), p = modules.physical === false ? null : ready(data.physical), e = ready(data.expenses), r = ready(data.recurring);
   const latest = w && latestComplete(w.points), lastPoint = w?.points.at(-1);
+  const availability = ready(data.account_availability);
+  const availabilityKnown = availability && Number.isSafeInteger(availability.total) && Number.isSafeInteger(availability.due_today) && availability.total >= 0 && availability.due_today >= 0 && availability.due_today <= availability.total;
+  const balanceAction = updating ? 'waiting' : error || !availabilityKnown ? 'retry' : availability.total === 0 ? 'new' : availability.due_today > 0 ? 'update' : 'accounts';
+  const balanceLabel = { waiting: '正在确认账户…', retry: '重新读取账户', new: '添加第一个账户', update: '更新今天的余额', accounts: '查看已有账户' }[balanceAction];
+  const balanceHint = { waiting: '读取完成后再继续。', retry: '暂时无法确认账户情况，请重新读取；已有资料未修改。', new: '先记下一个账户，再填写今天的余额。', update: '更新后看账户变化，需要时再调整计划。', accounts: '今天没有需要填写余额的账户，可查看停用状态或启用日期。' }[balanceAction];
+  const startBalanceAction = () => {
+    if (updating) return;
+    if (balanceAction === 'retry') reload();
+    else if (balanceAction === 'new') (onNewAccount ?? (() => onNavigate('wealth')))();
+    else if (balanceAction === 'accounts') (onManageAccounts ?? (() => onNavigate('wealth')))();
+    else if (balanceAction === 'update') onUpdateBalances?.(data.today);
+  };
   const groups = attention(data, modules), currentYear = Number(data.today.slice(0, 4));
   const years = [...new Set([currentYear, ...(year === null ? [] : [year]), ...(e?.years ?? []), ...(w?.points.map(p => Number(p.date.slice(0, 4))) ?? [])])].sort((a, b) => b - a);
   const link = (page: ReviewPage) => <button className="review-action" onClick={() => onNavigate(page)}>查看{labels[page]} →</button>;
@@ -125,10 +138,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     {error && <div className="review-error" role="alert"><p>更新失败，当前显示上次读取的结果：{error}</p><button onClick={reload}>重新读取</button></div>}
     {updating && <p className="review-sub" role="status">正在更新，暂时显示上次读取的结果…</p>}
     {modules.wealth && lastPoint && !lastPoint.complete && <div className="review-notice">{lastPoint.date} 盘点尚缺 {lastPoint.missing} 个账户 · {latest ? `当前显示 ${latest.date} 的完整盘点` : '尚无完整盘点'} {link('wealth')}</div>}
-    {p && p.held_count === 0 && (!w || w.points.length === 0) && <article className="ui-card ui-content review-start">
-      <div><h3>从这里开始</h3><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p></div>
-      <div className="review-start-actions"><button className="primary" onClick={() => onNavigate('assets')}>记录第一件物品</button>{modules.wealth && <button onClick={() => onNavigate('wealth')}>建立账户并盘点</button>}</div>
-    </article>}
+    {modules.wealth && onUpdateBalances && <div className="wealth-return-action"><button type="button" className="primary" disabled={updating} onClick={startBalanceAction}>{balanceLabel}</button><span className="muted small" role={balanceAction === 'retry' ? 'alert' : undefined}>{balanceHint}</span></div>}
     {onFinance && (modules.wealth || modules.incomes || modules.expenses) && <div className="review-plan-actions" aria-label="财务工作区">{modules.incomes && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'income', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>收入记录 →</button>}{modules.expenses && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'expenses', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>重要支出 →</button>}{modules.wealth && <button className="review-action" onClick={() => onFinance({ page: 'review', view: 'period' })}>财务复盘 →</button>}</div>}
     {(modules.wealth || modules.planning) && <div className={'review-top' + (modules.wealth && modules.planning ? ' duo' : '')}>
       {modules.wealth && <section className="review-nw" aria-label="金融净资产">
@@ -152,15 +162,15 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         ? amountsHidden ? <article className="ui-card ui-content"><h3>目标摘要</h3><p className="muted">金融金额已隐藏</p><button type="button" className="ui-link" onClick={() => onGotoPlanning('goals')}>查看目标 →</button></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
         : <article className="ui-card ui-content review-plan-dep" aria-label="目标">
           <div className="ui-section-head"><h3>目标</h3></div>
-          <p className="review-plan-goal">退休与财务自由</p>
-          <p className="review-plan-main">开启「账户与盘点」后显示目标摘要</p>
-          <p className="review-plan-sub">目标摘要结合完整盘点与已设置的未来条件进行估算；不会自动开启模块，历史规划资料保持不变。</p>
-          <div className="review-plan-actions"><button className="review-action" onClick={onOpenSettings}>前往设置 →</button></div>
+          <p className="review-plan-goal">从你的想法开始</p>
+          <p className="review-plan-main">先设置一个计划</p>
+          <p className="review-plan-sub">可以先手动填写资金和收支，账户资料以后再补。</p>
+          <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>设置计划 →</button></div>
         </article>)}
     </div>}
-    <div className={'review-heroes' + (modules.wealth && w?.structure_date ? '' : ' single')}>
+    <div className={'review-heroes' + (modules.physical !== false && modules.wealth && w?.structure_date ? '' : ' single')}>
       {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>资产结构</h3><p className="muted">金融金额已隐藏</p>{link('wealth')}</article> : <StructureCard summary={w} onBrowse={() => onNavigate('wealth')}/>)}
-      <article className="ui-card ui-hero tint-2">
+      {modules.physical !== false && <article className="ui-card ui-hero tint-2">
         <div className="ui-label">持有物品<Info text={`截至 ${data.today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。`}/></div>
         {failure(data.physical)}
         {p && <>
@@ -174,25 +184,25 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
             <div className="ui-legend">{legend.map(c => <div key={c.id ?? 'none'}><i style={{ background: Number(c.known_cents) > 0 ? color(c.slot) : 'var(--soft-strong, var(--line))' }}/><span>{c.name}</span>{Number(c.known_cents) > 0 ? <b>{money(c.known_cents)}</b> : <b className="muted">金额未知</b>}</div>)}</div>
           </>}
         </>}
-        <div className="ui-hero-foot">{link('assets')}</div>
-      </article>
+        <div className="ui-hero-foot">{p?.held_count === 0 ? <button className="review-action" onClick={() => onNavigate('assets')}>去记录物品 →</button> : link('assets')}</div>
+      </article>}
     </div>
     {metrics.length > 0 && <div className="ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label="辅助指标">
       {metrics.map(m => <div key={m.label} className={m.big ? 'big' : undefined}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}{m.page && link(m.page)}</div>)}
     </div>}
-    <div className="review-lists">
+    <div className={'review-lists' + (!modules.timeline ? ' single' : '')}>
       <article className="ui-card">
         <div className="ui-section-head"><h3>待关注</h3><span className="ui-aside">{groups.length ? `${groups.length} 项` : ''}<Info text="只列出需要你确认或即将到期的事项；不会自动付款。"/></span></div>
         {!attentionSourcesReady(data, modules) && <div className="ui-error" role="alert">部分来源读取失败，当前事项只显示已读取部分。请重试。<button onClick={reload}>重试</button></div>}
         {!groups.length ? <p className="ui-empty">{attentionSourcesReady(data, modules) ? '暂时没有需要关注的事项。' : '可用来源中暂无事项。'}</p> : <ul className="ui-rows">{groups.slice(0, 5).map(g => <li key={g.id} className="ui-row"><span className={'ui-dot' + (g.priority <= 1 ? ' warn' : '')}/><div className="ui-main"><div>{g.title}</div>{g.details.map(d => <small key={d}>{d}</small>)}</div><span className="review-links">{g.entries.map((entry, i) => <button key={i} className="ui-link" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button>)}</span></li>)}</ul>}
         {groups.length > 5 && <p className="ui-card-foot">还有 {groups.length - 5} 项，请在对应模块查看。</p>}
       </article>
-      <article className="ui-card">
-        <div className="ui-section-head"><h3>近期记录</h3><span className="ui-aside"><select aria-label="期间" value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">全部期间</option>{years.map(y => <option key={y} value={y}>{y} 年</option>)}</select><button className="ui-link" onClick={() => onNavigate('timeline')}>时间轴 →</button></span></div>
+      {modules.timeline && <article className="ui-card">
+        <div className="ui-section-head"><h3>近期记录</h3><span className="ui-aside"><select aria-label="期间" value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">全部期间</option>{years.map(y => <option key={y} value={y}>{y} 年</option>)}</select>{modules.timeline && <button className="ui-link" onClick={() => onNavigate('timeline')}>时间轴 →</button>}</span></div>
         <p className="review-period-note muted">所选期间用于重要支出与近期记录；持有物品与固定负担为当前资料，净资产取最近完整盘点。</p>
         {failure(data.recent)}
         {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? '所选期间暂无记录。' : '可用来源中暂无记录。'}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><span className="review-ev"><Icon name={ev.icon}/></span><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={`查看来源：${ev.title}`} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
-      </article>
+      </article>}
     </div>
     {modules.wealth && <SavingsGoals key={generation} generation={generation} today={today} version={version} compact hideAmounts={amountsHidden} onManage={() => onNavigate('wealth', 'savings-goals')}/>}
   </section>;

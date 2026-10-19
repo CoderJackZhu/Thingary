@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import { snapshotEntryInput } from '../src/wealth.ts';
+import { snapshotEntryInput, previousCheckInRow } from '../src/wealth.ts';
 import * as currency from '../src/currency.ts';
 import { verifyAssetPatch } from '../src/wishlist.ts';
 
@@ -158,7 +158,7 @@ function checkInRuntime() {
   const context = { ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
     useState() { const slot = cursor++; return [states[slot], v => { states[slot] = typeof v === 'function' ? v(states[slot]) : v; }]; },
     useEffect() {}, useRef: v => ({ current: v }),
-    snapshotEntryInput, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
+    snapshotEntryInput, previousCheckInRow, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
     money: v => v, signedMoney: v => v, kindLabel: v => v, changeText: v => v,
     Icon() {}, DateInput() {}, CentInput() {}, DeleteButton() {}, Unresolved: class extends Error {},
     crypto: { randomUUID: () => 'fictional-request' }, errorMessage: e => String(e),
@@ -252,7 +252,7 @@ function twoRowRuntime() {
   const context = { ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
     useState() { const slot = cursor++; return [states[slot], v => { states[slot] = typeof v === 'function' ? v(states[slot]) : v; }]; },
     useEffect() {}, useRef: v => ({ current: v }),
-    snapshotEntryInput, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
+    snapshotEntryInput, previousCheckInRow, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
     money: v => v, signedMoney: v => v, kindLabel: v => v, changeText: v => v,
     Icon() {}, DateInput() {}, CentInput() {}, DeleteButton() {}, Unresolved: class extends Error {},
     crypto: { randomUUID: () => 'fictional-request' }, errorMessage: e => String(e),
@@ -267,7 +267,7 @@ function twoRowRuntime() {
     walk(tree); return nodes;
   }
   const button = text => render().find(n => n.type === 'button' && n.props.children === text);
-  return { states, context, render, button, async save() { button('保存盘点').props.onClick(); await new Promise(setImmediate); return request; } };
+  return { states, context, render, button, async save() { render().find(n => n.type === 'button' && ['保存今天的余额', '保存这次余额'].includes(n.props.children)).props.onClick(); await new Promise(setImmediate); return request; } };
 }
 
 function amounts(ui) { return ui.render().filter(n => n.type === ui.context.CentInput); }

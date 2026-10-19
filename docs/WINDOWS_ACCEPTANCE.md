@@ -6,7 +6,7 @@
 
 源码版本为 **0.0.8 候选**，目标 Windows 10 1809+／Windows 11 x64。公开版 0.0.7 已同时提供 Mac 与 Windows（schema 42）；当前候选的数据库为 schema 44（外币、持仓、账户分组、固定资产购入价及订阅重开）。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
 
-检查结果统一维护在[开发说明](DEVELOPMENT.md#windows-validation)。源码接入与 Mac 自动检查不代表 Windows 原生运行、可见通知、人工安装与文件对话框、微软拼音、讲述人、Windows 10 或真实 x64 通过；每次按实际结果登记，不从脚本存在推定完成。
+检查结果统一维护在[开发说明](DEVELOPMENT.md#windows-validation)。源码接入与 Mac 自动检查不代表 Windows 原生运行、可见通知、人工安装与文件对话框、微软拼音、讲述人、Windows 10 或真实 x64 通过；每次按实际结果登记，不从脚本存在推定完成。下述真实 x64 已验结论各限原受测包和指定路径，当前候选新增或修改的界面仍须按对应源码另行复验。
 
 自动工程检查使用 GitHub `macos-latest`／`windows-latest`；NSIS release 构建使用 `windows-latest` x64，已安装隔离包验收使用标准托管 `windows-11-arm`，x64 程序经 Windows 模拟运行。运行器系统与模拟架构必须写入结果，不能冒充真实 x64 设备、性能测试或所有 Windows 版本的验收。[运行器官方范围](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)可能调整，每次以实际任务环境为准。
 
@@ -99,7 +99,7 @@ Windows 按 `IsReparseTagNameSurrogate` 规则（标签 `& 0x20000000` 非零）
 
 ## 主分支整合后的复验
 
-受测源码 `fb94e192dd1c4e3766e59574b21c8c41d19a26ec` 已通过两平台四项检查、提交核心产物校验、原生／WASM 对照、双向备份恢复和两种 Windows 安装包流程；对应结果见 [开发说明](DEVELOPMENT.md#windows-validation)。这些工程结果不自动覆盖新增关于页和新核心的真实设备交互。
+本节保留 0.0.7 整合阶段的复验方法与边界。受测源码 `fb94e192dd1c4e3766e59574b21c8c41d19a26ec` 已通过两平台四项检查、提交核心产物校验、原生／WASM 对照、双向备份恢复和两种 Windows 安装包流程；对应结果见 [开发说明](DEVELOPMENT.md#windows-validation)。这些工程结果不自动覆盖该阶段新增关于页和新核心的真实设备交互，也不替代当前候选复验。
 
 复用已有 Windows 环境与已确认的虚构验收资料，先保全旧报告和资料，核对新包 `许可/BUILD_INFO.json` 的源码 SHA、0.0.7 版本与 `local.thingary.win.acceptance` 身份。文档提交晚于受测源码时，核对二者仅有文档差异，包继续按其受测提交标识，文档变化不改变包的源码身份。不要直接重跑要求全新目录的完整验收脚本，也不要混入其他尚未交付的导入导出分支。所有构建／恢复任务需要 `wasm32-unknown-unknown`，Windows 打包另需 `x86_64-pc-windows-msvc`。
 
@@ -137,7 +137,7 @@ Windows 按 `IsReparseTagNameSurrogate` 规则（标签 `& 0x20000000` 非零）
 
 ## 候选交付与公开判断
 
-交付包含安装包、SHA-256、完整源码 SHA、对应许可及检查结果，分别列出已验、失败与未验。artifact 来自[Windows 工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)，保留 30 天、需登录；失败产物只用于排错。用户在 Windows 完成实际验收后再决定是否公开发布；脚本通过不自动创建 0.0.7 标签、Release 或替换 Mac 0.0.6 附件。
+交付包含安装包、SHA-256、完整源码 SHA、对应许可及检查结果，分别列出已验、失败与未验。artifact 来自[Windows 工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)，保留 30 天、需登录；失败产物只用于排错。用户根据 Windows 实际验收结果决定是否公开发布；未经用户明确授权，不创建标签或 Release，不上传或替换任一平台的发布附件。
 
 ## 从使用指南迁入的验证记录（2026-10-15）
 
@@ -148,4 +148,4 @@ Windows 按 `IsReparseTagNameSurrogate` 规则（标签 `& 0x20000000` 非零）
 - Windows 不支持将整个用户配置目录通过目录联接（junction）迁到其他盘的环境：资料根目录的上级含联接时会被拒绝。OneDrive 云文件占位符本身不作为链接，但 OneDrive 下的手动备份、恢复与额外自动备份位置仍需按验收清单实测，当前未验证。
 - Windows 实机验收发现 Ctrl+逗号不能打开设置：已定位到 Edge/WebView2 引擎本身——按键事件在到达页面和原生入口之前就被引擎消费，完整 Edge 浏览器同样复现，与输入法、键盘布局、扫描码和是否实体按键无关（实体键的原生观察同样只记录到松键），应用侧无法收到该按下事件，也没有不改变其他快捷键、输入法或全局热键规则的修复。遇到此情况请点侧栏「设置」；其余 Ctrl 快捷键（N/E/F、Shift+F/D、A/Z）不受影响。
 - Windows 普通物品表单的窗口 × 和实体 Alt+F4 已复验：先提示完成或取消表单，返回后保留输入；保存校验失败也保留输入。表单自身的关闭按钮仍丢弃未保存输入，不保存草稿。空闲退出会先确认系统提醒排期，保存后立即退出的排期已验证；系统禁用通知导致的退出错误可以返回应用继续使用。超过约 5 秒或系统返回错误时也可明确选择仍然退出（该次提醒可能无法送达）；真实超时与迟到完成的原生路径尚未验证。
-- 核心记录、四问保存、投资核对、系统备份／Excel 文件选择、重启以及报告隐私复制已有隔离原生验证。VoiceOver 尚未验证，本轮未执行；真实输入法仅抽查支出名称中的豆包拼音组合，不代表所有输入法或表单通过。显示缩放、完整键盘路径、通知实际送达及 Dock 固定后重启仍未完整验证。
+- macOS 历史记录：核心记录、四问保存、投资核对、系统备份／Excel 文件选择、重启以及报告隐私复制已有隔离原生验证。VoiceOver 尚未验证，本轮未执行；真实输入法仅抽查支出名称中的豆包拼音组合，不代表所有输入法或表单通过。显示缩放、完整键盘路径、通知实际送达及 Dock 固定后重启仍未完整验证。

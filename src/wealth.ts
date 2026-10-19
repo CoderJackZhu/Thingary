@@ -1,5 +1,5 @@
-import { holdingFact } from "./holdings.ts";
-import { currencyCode, convertCurrency } from './currency.ts';
+import { holdingFact, validateHoldingFact } from "./holdings.ts";
+import { currencyCode, convertCurrency, validateCurrencyFact } from './currency.ts';
 import type { CurrencyFact } from './currency.ts';
 import { invoke } from '@tauri-apps/api/core';
 import type { TopupSave, BalanceSave, ReminderSave } from './virtual';
@@ -29,6 +29,19 @@ export type AccountHistory = { generation: string; account: Account; rows: Histo
 export type AccountSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: AccountFields };
 export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: (CurrencyFact & { account_id: string; state: EntryState; amount_cents: string | null })[] };
 export type CheckInRow = { state: EntryState | null; cents: string; edited?: boolean; quantity_e8?: string | null; unit_price_e6?: string | null; original_minor?: string | null; fx_rate_micro?: string | null };
+/** Explicit user confirmation copies a complete previous fact, never an unknown or a different input mode. */
+export function previousCheckInRow(account: Pick<Account, 'fields'>, previous: CurrencyFact | null): CheckInRow | null {
+  if (!previous || previous.amount_cents == null || !!account.fields.holding_mode !== (previous.quantity_e8 != null)) return null;
+  try {
+    if (!/^-?\d+$/.test(previous.amount_cents)) return null;
+    const code = currencyCode(account.fields.currency);
+    validateCurrencyFact(code, previous); validateHoldingFact(code, previous);
+    return { state: 'entered', cents: previous.amount_cents, edited: true,
+      original_minor: previous.original_minor, fx_rate_micro: previous.fx_rate_micro,
+      quantity_e8: previous.quantity_e8, unit_price_e6: previous.unit_price_e6 };
+  } catch { return null; }
+}
+
 /** Loaded unchanged rows keep history; explicitly reconfirmed rows carry the displayed amount. */
 export function snapshotEntryInput(accountId: string, row: CheckInRow): SnapshotSave['entries'][number] {
   if (!row.state) throw new Error('请先处理这个账户。');

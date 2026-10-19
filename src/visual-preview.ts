@@ -1,3 +1,4 @@
+import type { RuntimeModules } from './modules';
 import type { UpdateDiscoveryState } from './update-discovery';
 import { desktopShortcutAction, isMac } from './undo-shortcut';
 // Development-only entry. Renders the production App with an in-memory IPC
@@ -26,7 +27,7 @@ import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { IncomeList, PlanReview, ProfileState } from './plan';
 import type { Snapshot, Summary } from './wealth';
-import type { Review, Read } from './review';
+import type { AccountAvailability, Review, Read } from './review';
 import type { ExpenseView } from './expenses';
 import type { SourceTarget } from './source';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
@@ -564,21 +565,24 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'read_wishlist') return previewReadWish(String(args.id));
   if (command === 'review_overview') {
     if (params.get('review') === 'error') throw { message: '虚构综合读取失败，用于重试验证。' };
-    const read = <T,>(command: string, args: Record<string, unknown> = {}): Read<T> => { try { const value = wealthPreview(command, args); if (!value) throw Error('Unsupported preview source'); return { status: 'ready', value: value.value as T }; } catch (error) { return { status: 'error', value: { code: 'PREVIEW', message: String((error as { message?: string }).message ?? error) } }; } };
+    const read = <T,>(command: string, args: Record<string, unknown> = {}): Read<T> => { try { const value = wealthPreview(command, args); if (!value) throw Error('Unsupported preview source'); return { status: 'ready', value: value.value as T }; } catch (error) { return { status: 'error', value: { code: (error as { code?: string }).code ?? 'PREVIEW', message: String((error as { message?: string }).message ?? error) } }; } };
     const expenses = read<ExpenseView>('expense_view', args);
     // Recent rides the same unified projection as the timeline, snapshots and
     // stable targets included, exactly like the native review command.
     const recent: Read<PreviewEvent[]> = expenses.status === 'error' ? expenses : { status: 'ready', value: (timelinePreview({ query: { filter: 'all' }, domain: 'all', year: args.year }).dated as PreviewEvent[]).slice(0, 8) };
     const wealth = read<Summary>('wealth_summary');
     const latest = wealth.status === 'ready' ? wealth.value.points.filter(p => p.complete).at(-1) : null;
-    const list = args.planning ? read<IncomeList>('plan_income_list') : null;
+    const runtimeModules = wealthPreview('modules_get', {})!.value as RuntimeModules;
+    const disabled: Read<never> = { status: 'error', value: { code: 'MODULE_DISABLED', message: '模块已关闭，本次未读取' } };
+    const list = args.planning ? runtimeModules.incomes ? read<IncomeList>('plan_income_list') : disabled : null;
     const planning = args.planning ? {
-      review: read<PlanReview>('plan_review'), profile: read<ProfileState>('plan_profile'),
+      review: runtimeModules.wealth && runtimeModules.incomes ? read<PlanReview>('plan_review') : disabled, profile: read<ProfileState>('plan_profile'),
       incomes: list!.status === 'ready' ? { status: 'ready' as const, value: list!.value.rows } : list!,
       snapshot: wealth.status === 'error' ? wealth : latest ? read<Snapshot | null>('wealth_snapshot', { id: latest.snapshot_id }) : { status: 'ready' as const, value: null },
       snapshotId: latest?.snapshot_id ?? null, snapshotDate: latest?.date ?? null,
     } : null;
-    const result: Review = { generation, today: localDay(), year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth, planning, expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
+    const today = localDay();
+    const result: Review = { generation, today, year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth, account_availability: read<AccountAvailability>('wealth_account_availability', { today }), planning, expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
     return result;
   }
   if (command === 'modules_set' && params.has('module-write-error')) throw { message: '虚构模块写入失败，用于起步卡重试验证。' };

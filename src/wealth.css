@@ -184,3 +184,17 @@
 .sub-detail > header > div:first-child { flex: 1; min-width: 0; }
 .subscription-payment-list > article > div { grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: baseline; }
 .subscription-payment-list > article > div > small { grid-column: 1 / -1; }
+
+.account-amount-basis{display:block;font-size:12px;line-height:1.6;white-space:normal;color:var(--muted);margin-top:4px}
+.account-amount-basis[data-state=carried],.account-amount-basis[data-state=unknown]{color:var(--warn)}
+.wealth-return-action{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.wealth-review-entry{align-items:start;gap:16px;flex-wrap:wrap}.wealth-review-entry p{margin:8px 0 0}.wealth-review-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+.sidebar .sidebar-main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+
+/* Keep account names and dated amounts readable; narrow windows scroll the table. */
+.wealth-accounts{min-width:760px}
+.wealth-accounts td:first-child{min-width:145px}
+.wealth-accounts td:nth-child(4){min-width:210px}
+
+.check-in-same{display:block;margin-top:6px;font-size:12px}

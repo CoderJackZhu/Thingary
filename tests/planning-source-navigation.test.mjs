@@ -20,7 +20,7 @@ const compiled = ts.transpileModule([...functions.values()].join('\n') + '\nmodu
 function runtime(section = 'stats') {
   const calls = [], old = { section: 'stats', generation: 'fictional-generation', scroll: 40 };
   const context = { module: { exports: {} }, exports: {}, section, returnContext: old, libraryGeneration: 'fictional-generation', modeBlocked: false,
-    modules: { planning: true, wishlist: true, wealth: true }, capabilities: {}, reviewYear: 2025,
+    modules: { physical: true, planning: true, wishlist: true, wealth: true }, capabilities: {}, reviewYear: 2025,
     timelineSelection: { filter: 'all', domain: 'all', year: null }, mainRef: { current: { scrollTop: 125 } },
     recordsRoute: { page: 'records', tab: 'income' }, financeReviewRoute: { page: 'review', view: 'period' }, recordSearches: { income: '虚构' }, reviewBrowse: {}, sourceToken: { current: 1 },
     sourcePage, financeSourceRoute: () => null, financeRouteAvailable: () => true, blockedNotice: () => 'blocked',

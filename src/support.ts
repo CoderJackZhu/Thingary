@@ -1,11 +1,11 @@
 export const supportUrls = {
   author: 'https://github.com/CoderJackZhu',
   project: 'https://github.com/CoderJackZhu/Thingary',
-  guide: 'https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md',
+  guide: 'https://thingary.jackzhu.top/guide/',
   site: 'https://thingary.jackzhu.top/',
   feedback: 'https://github.com/CoderJackZhu/Thingary/issues',
-  backup: 'https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md#backup',
-  update: 'https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md#update',
+  backup: 'https://thingary.jackzhu.top/guide/#backup',
+  update: 'https://thingary.jackzhu.top/guide/#update',
   sources: 'https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md',
 } as const;
 export type SupportTarget = keyof typeof supportUrls;

@@ -34,7 +34,8 @@ export function debtReview(snapshot: Snapshot | null, core: PlanningCore | null 
     const zero = entry.amount_cents === '0', changed = !!saved && debtBalanceChanged(saved, entry.amount_cents);
     const end = saved?.last_month ? debtMonthIndex(saved.last_month) + 1 : Infinity;
     const from = Math.max(debtMonthIndex(snapshot!.date) + 1, saved ? debtMonthIndex(saved.start_month) : 0);
-    const target = targetMonth ? debtMonthIndex(targetMonth) : Infinity, horizon = horizonMonth ? debtMonthIndex(horizonMonth) : Infinity;
+    // The ledger covers the final month; compare against its exclusive end.
+    const target = targetMonth ? debtMonthIndex(targetMonth) : Infinity, horizon = horizonMonth ? debtMonthIndex(horizonMonth) + 1 : Infinity;
     const applicable = { before: from < Math.min(end, target, horizon), after: Math.max(from, targetMonth ? target : from) < Math.min(end, horizon) };
     const pending: string[] = [], excluded: string[] = [];
     for (const phase of ['before', 'after'] as const) {

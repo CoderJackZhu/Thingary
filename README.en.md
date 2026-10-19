@@ -20,7 +20,7 @@ The app currently has a **Simplified Chinese interface only**. Its account types
 
 **[Download 0.0.8 from GitHub](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)** · [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases) · [Product website](https://thingary.jackzhu.top/) · [Report an issue](https://github.com/CoderJackZhu/Thingary/issues)
 
-Thingary is an **unsigned public beta** for macOS and Windows. System security prompts may appear on first launch; see the [installation guide (Chinese)](docs/QUICKSTART.md#install).
+Thingary is an **unsigned public beta** for macOS and Windows. System security prompts may appear on first launch; see the [installation guide (Chinese)](https://thingary.jackzhu.top/quickstart/#install).
 
 On Mac, open the `.dmg` and drag the app into Applications. On Windows, run the `x64-setup.exe` installer. Start with account balances, set a planning goal if useful, and return for your next balance check. You do not need to log every purchase.
 
@@ -40,17 +40,17 @@ Built for occasional check-ins. No daily transaction ledger, market-data feed, t
 
 No account or cloud sync. Your records stay on your computer and normal use works offline. Public release lists are queried when you click **Check for updates**, or at most once per 24 hours on startup if you choose to enable startup checks. Downloads and installation remain manual.
 
-The main database and photos are **not encrypted**. Backup encryption is optional. Automatic backups share the same disk as your main data, so keep a separate off-device copy. Read [privacy and data safety (Chinese)](docs/USER_GUIDE.md#privacy).
+The main database and photos are **not encrypted**. Backup encryption is optional. Automatic backups share the same disk as your main data, so keep a separate off-device copy. Read [privacy and data safety (Chinese)](https://thingary.jackzhu.top/guide/#privacy).
 
 ## Platforms
 
 - **macOS:** universal download for Apple Silicon and Intel; minimum target macOS 14. Tested on Apple Silicon with macOS 27. Intel and older macOS versions have not been verified on hardware.
 - **Windows:** Windows 10 1809+ / Windows 11, x64. Unsigned installer; SmartScreen may show a warning.
-- Both are public betas. See [known limitations (Chinese)](docs/QUICKSTART.md#limits). There is no mobile app or cross-device sync.
+- Both are public betas. See [known limitations (Chinese)](https://thingary.jackzhu.top/quickstart/#limits). There is no mobile app or cross-device sync.
 
 ## Docs
 
-- [Quick start (Chinese)](docs/QUICKSTART.md) · [User guide (Chinese)](docs/USER_GUIDE.md)
+- [Quick start (Chinese)](https://thingary.jackzhu.top/quickstart/) · [User guide (Chinese)](https://thingary.jackzhu.top/guide/)
 - [Product rules (Chinese)](docs/PRODUCT_RULES.md) · [Changelog (Chinese)](CHANGELOG.md) · [Documentation index (Chinese)](docs/INDEX.md)
 - [Contributing (Chinese)](CONTRIBUTING.md) · [Development and testing (Chinese)](docs/DEVELOPMENT.md)
 - [Security policy (Chinese)](SECURITY.md): report vulnerabilities privately as described there.

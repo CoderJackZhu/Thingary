@@ -47,7 +47,7 @@ function periodKey(period: FinancePeriod): string {
 }
 function modulesKey(modules: RuntimeModules): string {
   return JSON.stringify([
-    modules.wishlist, modules.timeline, modules.stats, modules.wealth, modules.expenses,
+    modules.physical, modules.wishlist, modules.timeline, modules.stats, modules.wealth, modules.expenses,
     modules.recurring, modules.virtual, modules.planning, modules.incomes, modules.movements,
     modules.finance_status, modules.finance_revision,
   ]);

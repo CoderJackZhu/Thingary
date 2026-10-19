@@ -1,4 +1,4 @@
-//! Optional modules the user can switch off. App-level: one file beside the
+//! Optional modules the user can switch off. App-level preferences beside the
 //! library folders, so it applies to the personal and sample libraries alike.
 //! Switching a module off only hides it and pauses its reminders; no data is
 //! touched.
@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Modules {
+    pub physical: bool,
     pub wishlist: bool,
     pub timeline: bool,
     pub stats: bool,
@@ -22,6 +23,7 @@ pub struct Modules {
 impl Default for Modules {
     fn default() -> Self {
         Self {
+            physical: true,
             wishlist: true,
             timeline: true,
             stats: true,
@@ -33,21 +35,112 @@ impl Default for Modules {
         }
     }
 }
+/// Keep the original on-disk shape: older applications reject unknown fields
+/// and would otherwise replace every saved false switch with their defaults.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct LegacyModules {
+    wishlist: bool,
+    timeline: bool,
+    stats: bool,
+    wealth: bool,
+    expenses: bool,
+    recurring: bool,
+    #[serde(rename = "virtual")]
+    virtual_assets: bool,
+    planning: bool,
+}
+impl Default for LegacyModules {
+    fn default() -> Self {
+        Modules::default().into()
+    }
+}
+impl From<Modules> for LegacyModules {
+    fn from(value: Modules) -> Self {
+        Self {
+            wishlist: value.wishlist,
+            timeline: value.timeline,
+            stats: value.stats,
+            wealth: value.wealth,
+            expenses: value.expenses,
+            recurring: value.recurring,
+            virtual_assets: value.virtual_assets,
+            planning: value.planning,
+        }
+    }
+}
+impl From<LegacyModules> for Modules {
+    fn from(value: LegacyModules) -> Self {
+        Self {
+            physical: true,
+            wishlist: value.wishlist,
+            timeline: value.timeline,
+            stats: value.stats,
+            wealth: value.wealth,
+            expenses: value.expenses,
+            recurring: value.recurring,
+            virtual_assets: value.virtual_assets,
+            planning: value.planning,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InterfacePreferences {
+    version: u64,
+    physical: bool,
+}
 fn path(library_root: &Path) -> PathBuf {
     library_root.with_file_name("modules.json")
 }
-/// A missing or unreadable file means every module is on.
+fn interface_path(library_root: &Path) -> PathBuf {
+    library_root.with_file_name("interface-modules.json")
+}
+/// Legacy switches keep their defaults; a missing interface file enables
+/// physical, while an unreadable/damaged/future file leaves it unavailable.
 pub fn read(library_root: &Path) -> Modules {
-    std::fs::read(path(library_root))
-        .ok()
-        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-        .unwrap_or_default()
+    let mut modules = checked_original(library_root).unwrap_or_default();
+    modules.physical = match checked_interface(library_root) {
+        Ok(Some(prefs)) => prefs.physical,
+        Ok(None) => true,
+        Err(_) => false,
+    };
+    modules
 }
 pub fn write(library_root: &Path, modules: &Modules) -> Result<()> {
-    crate::storage::atomic_write(&path(library_root), &serde_json::to_vec(modules)?)
+    checked_interface(library_root).map_err(|status| {
+        crate::domain::Error::new(
+            if status == FinanceStatus::UnsupportedVersion {
+                "FINANCE_MODULES_VERSION"
+            } else {
+                "FINANCE_MODULES_REPAIR_REQUIRED"
+            },
+            "界面模块设置无法覆盖，请先检查或修复设置",
+        )
+    })?;
+    write_preferences(library_root, modules)
+}
+fn write_preferences(root: &Path, modules: &Modules) -> Result<()> {
+    crate::storage::atomic_write(
+        &path(root),
+        &serde_json::to_vec(&LegacyModules::from(*modules))?,
+    )?;
+    crate::storage::atomic_write(
+        &interface_path(root),
+        &serde_json::to_vec(&InterfacePreferences {
+            version: 1,
+            physical: modules.physical,
+        })?,
+    )
+    .map_err(|_| {
+        crate::domain::Error::new(
+            "FINANCE_MODULES_PARTIAL",
+            "部分模块设置可能已保存，请重新读取核对后再操作",
+        )
+    })
 }
 
-/// Wire snapshot. The legacy file remains exactly eight fields.
+/// Wire snapshot merges the original eight-field file and interface preferences.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct RuntimeModules {
     #[serde(flatten)]
@@ -128,12 +221,40 @@ pub fn parse_update(
 fn finance_path(root: &Path) -> PathBuf {
     root.with_file_name("finance-modules.json")
 }
-fn checked_legacy(root: &Path) -> std::result::Result<Modules, FinanceStatus> {
+fn checked_original(root: &Path) -> std::result::Result<Modules, FinanceStatus> {
     match std::fs::read(path(root)) {
-        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| FinanceStatus::LegacyCorrupt),
+        Ok(bytes) => serde_json::from_slice::<LegacyModules>(&bytes)
+            .map(Modules::from)
+            .map_err(|_| FinanceStatus::LegacyCorrupt),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Modules::default()),
         Err(_) => Err(FinanceStatus::ReadError),
     }
+}
+fn checked_interface(
+    root: &Path,
+) -> std::result::Result<Option<InterfacePreferences>, FinanceStatus> {
+    let bytes = match std::fs::read(interface_path(root)) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(FinanceStatus::ReadError),
+    };
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|_| FinanceStatus::LegacyCorrupt)?;
+    match value.get("version").and_then(|v| v.as_u64()) {
+        Some(1) => (),
+        Some(_) => return Err(FinanceStatus::UnsupportedVersion),
+        None => return Err(FinanceStatus::LegacyCorrupt),
+    }
+    serde_json::from_value(value)
+        .map(Some)
+        .map_err(|_| FinanceStatus::LegacyCorrupt)
+}
+fn checked_legacy(root: &Path) -> std::result::Result<Modules, FinanceStatus> {
+    let mut modules = checked_original(root)?;
+    modules.physical = checked_interface(root)?
+        .map(|prefs| prefs.physical)
+        .unwrap_or(true);
+    Ok(modules)
 }
 fn checked_finance(root: &Path) -> std::result::Result<Option<FinancePreferences>, FinanceStatus> {
     let bytes = match std::fs::read(finance_path(root)) {
@@ -187,7 +308,7 @@ pub fn read_runtime(root: &Path) -> RuntimeModules {
         .err()
         .copied()
         .or_else(|| finance.as_ref().err().copied());
-    let modules = legacy.unwrap_or_default();
+    let modules = legacy.unwrap_or_else(|_| read(root));
     if let Some(status) = status {
         return RuntimeModules {
             modules,
@@ -256,10 +377,12 @@ pub fn write_runtime(
     use crate::domain::Error;
     let legacy = checked_legacy(root);
     let finance = checked_finance(root);
-    if finance == Err(FinanceStatus::UnsupportedVersion) {
+    if finance == Err(FinanceStatus::UnsupportedVersion)
+        || checked_interface(root) == Err(FinanceStatus::UnsupportedVersion)
+    {
         return Err(Error::new(
             "FINANCE_MODULES_VERSION",
-            "金融模块设置来自较新版本，不能覆盖",
+            "模块设置来自较新版本，不能覆盖",
         ));
     }
     let corrupt = legacy == Err(FinanceStatus::LegacyCorrupt)
@@ -272,8 +395,11 @@ pub fn write_runtime(
             ));
         }
         // Preserve every damaged original before replacing either one.
-        if legacy == Err(FinanceStatus::LegacyCorrupt) {
+        if checked_original(root) == Err(FinanceStatus::LegacyCorrupt) {
             preserve(&path(root))?;
+        }
+        if checked_interface(root) == Err(FinanceStatus::LegacyCorrupt) {
+            preserve(&interface_path(root))?;
         }
         if finance == Err(FinanceStatus::FinanceCorrupt) {
             preserve(&finance_path(root))?;
@@ -335,7 +461,7 @@ pub fn write_runtime(
             .ok_or_else(|| Error::new("FINANCE_MODULES_REVISION", "模块设置修订已超出范围"))?;
     }
     // Legacy failure cannot change effective independent preferences.
-    write(root, &modules)?;
+    write_preferences(root, &modules)?;
     if corrupt || wealth_changed || next != current {
         save_finance(root, &next).map_err(|_| {
             Error::new(
@@ -400,6 +526,233 @@ mod tests {
             8
         );
         assert!(!root.exists()); // Preferences are beside the library, outside its backup tree.
+    }
+    #[test]
+    fn old_eight_field_preferences_keep_every_choice_and_default_physical_on() {
+        for bytes in [
+            br#"{"wishlist":false,"timeline":false,"stats":false,"wealth":false,"expenses":false,"recurring":false,"virtual":false,"planning":false}"#.as_slice(),
+            br#"{"wishlist":false,"timeline":true,"stats":false,"wealth":true,"expenses":false,"recurring":true,"virtual":false,"planning":false}"#.as_slice(),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dir.path().join("library");
+            std::fs::write(path(&root), bytes).unwrap();
+            let original: serde_json::Value = serde_json::from_slice(bytes).unwrap();
+            let loaded = initialize_runtime(&root);
+            assert_eq!(loaded.finance_status, FinanceStatus::Ready);
+            assert!(loaded.modules.physical);
+            let serialized = serde_json::to_value(loaded.modules).unwrap();
+            for (key, value) in original.as_object().unwrap() {
+                assert_eq!(&serialized[key], value, "legacy switch {key}");
+            }
+            assert_eq!(loaded.incomes, loaded.modules.planning);
+            assert_eq!(loaded.movements, loaded.modules.planning);
+            assert_eq!(std::fs::read(path(&root)).unwrap(), bytes);
+            assert_eq!(initialize_runtime(&root), loaded);
+            // Old clients can still send their eight-field payloads.
+            let (parsed, _) = parse_update(original, None, None, None).unwrap();
+            assert_eq!(parsed, loaded.modules);
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("library");
+        assert!(initialize_runtime(&root).modules.physical);
+        assert!(!path(&root).exists());
+    }
+    #[test]
+    fn physical_choice_uses_standard_worker_save_and_survives_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("library");
+        let worker = crate::worker::Worker::start(root.clone()).unwrap();
+        let previous = worker.modules().unwrap();
+        let off = Modules {
+            physical: false,
+            wishlist: false,
+            planning: false,
+            ..previous.modules
+        };
+        let payload = serde_json::to_value(off).unwrap();
+        let (parsed, independent) = parse_update(payload, None, None, None).unwrap();
+        let saved = worker
+            .set_modules_with_finance(parsed, independent)
+            .unwrap();
+        assert_eq!(saved.modules, off);
+        assert_eq!(saved.incomes, previous.incomes);
+        assert_eq!(saved.movements, previous.movements);
+        assert_eq!(saved.finance_revision, previous.finance_revision);
+        let legacy_bytes = std::fs::read(path(&root)).unwrap();
+        let old_application: LegacyModules = serde_json::from_slice(&legacy_bytes).unwrap();
+        assert!(!old_application.wishlist && !old_application.planning);
+        let legacy_json: serde_json::Value = serde_json::from_slice(&legacy_bytes).unwrap();
+        assert_eq!(legacy_json.as_object().unwrap().len(), 8);
+        assert!(legacy_json.get("physical").is_none());
+        assert_eq!(
+            serde_json::from_slice::<InterfacePreferences>(
+                &std::fs::read(interface_path(&root)).unwrap()
+            )
+            .unwrap(),
+            InterfacePreferences {
+                version: 1,
+                physical: false
+            }
+        );
+        worker.stop_and_join();
+        let restarted = crate::worker::Worker::start(root.clone()).unwrap();
+        assert_eq!(restarted.modules().unwrap(), saved);
+        assert_eq!(read(&root), off);
+        restarted.stop_and_join();
+        // An old application can rewrite its own eight switches without
+        // changing the interface choice it does not understand.
+        let mut old_application = old_application;
+        old_application.timeline = false;
+        std::fs::write(path(&root), serde_json::to_vec(&old_application).unwrap()).unwrap();
+        assert!(!read_runtime(&root).modules.physical);
+        assert!(!read_runtime(&root).modules.timeline);
+        std::fs::remove_file(interface_path(&root)).unwrap();
+        let without_interface = read_runtime(&root);
+        assert!(without_interface.modules.physical);
+        assert!(
+            !without_interface.modules.wishlist
+                && !without_interface.modules.timeline
+                && !without_interface.modules.planning
+        );
+        assert_eq!(without_interface.incomes, saved.incomes);
+        assert_eq!(without_interface.movements, saved.movements);
+    }
+    #[test]
+    fn damaged_interface_settings_require_explicit_preserving_repair() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("library");
+        let off = Modules {
+            physical: false,
+            wishlist: false,
+            planning: false,
+            ..Modules::default()
+        };
+        write(&root, &off).unwrap();
+        initialize_runtime(&root);
+        let legacy_before = std::fs::read(path(&root)).unwrap();
+        let finance_before = std::fs::read(finance_path(&root)).unwrap();
+        let damaged = br#"{"version":1,"physical":"invalid"}"#;
+        std::fs::write(interface_path(&root), damaged).unwrap();
+        let unavailable = read_runtime(&root);
+        assert_eq!(unavailable.finance_status, FinanceStatus::LegacyCorrupt);
+        assert!(
+            !unavailable.modules.physical
+                && !unavailable.modules.wishlist
+                && !unavailable.modules.planning
+        );
+        assert!(!unavailable.incomes && !unavailable.movements);
+        assert!(write(&root, &Modules::default()).is_err());
+        assert!(write_runtime(&root, Modules::default(), FinanceUpdate::default()).is_err());
+        assert!(write_runtime(
+            &root,
+            Modules::default(),
+            FinanceUpdate {
+                incomes: Some(true),
+                repair: true,
+                ..FinanceUpdate::default()
+            }
+        )
+        .is_err());
+        assert_eq!(std::fs::read(path(&root)).unwrap(), legacy_before);
+        assert_eq!(std::fs::read(finance_path(&root)).unwrap(), finance_before);
+        assert_eq!(std::fs::read(interface_path(&root)).unwrap(), damaged);
+        FAIL_PRESERVE.with(|flag| flag.set(true));
+        let repair = FinanceUpdate {
+            incomes: Some(true),
+            movements: Some(false),
+            repair: true,
+        };
+        assert!(write_runtime(&root, off, repair).is_err());
+        FAIL_PRESERVE.with(|flag| flag.set(false));
+        assert_eq!(std::fs::read(interface_path(&root)).unwrap(), damaged);
+        let repaired = write_runtime(&root, off, repair).unwrap();
+        assert_eq!(repaired.finance_status, FinanceStatus::Ready);
+        assert!(!repaired.modules.physical && repaired.incomes && !repaired.movements);
+        assert_eq!(std::fs::read(path(&root)).unwrap(), legacy_before);
+        assert!(std::fs::read_dir(dir.path()).unwrap().any(|entry| {
+            let entry = entry.unwrap();
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("modules-corrupt-")
+                && std::fs::read(entry.path()).ok().as_deref() == Some(damaged)
+        }));
+    }
+    #[test]
+    fn newer_interface_settings_are_never_overwritten_even_by_repair() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("library");
+        let off = Modules {
+            physical: false,
+            wealth: false,
+            ..Modules::default()
+        };
+        write(&root, &off).unwrap();
+        initialize_runtime(&root);
+        let legacy_before = std::fs::read(path(&root)).unwrap();
+        let finance_before = std::fs::read(finance_path(&root)).unwrap();
+        let future = br#"{"version":2,"physical":true,"future_setting":"keep"}"#;
+        std::fs::write(interface_path(&root), future).unwrap();
+        let unavailable = initialize_runtime(&root);
+        assert_eq!(
+            unavailable.finance_status,
+            FinanceStatus::UnsupportedVersion
+        );
+        assert!(!unavailable.modules.physical && !unavailable.modules.wealth);
+        assert!(write(&root, &Modules::default()).is_err());
+        for repair in [false, true] {
+            let error = write_runtime(
+                &root,
+                Modules::default(),
+                FinanceUpdate {
+                    incomes: Some(true),
+                    movements: Some(true),
+                    repair,
+                },
+            )
+            .unwrap_err();
+            assert_eq!(error.code, "FINANCE_MODULES_VERSION");
+        }
+        assert_eq!(std::fs::read(interface_path(&root)).unwrap(), future);
+        assert_eq!(std::fs::read(path(&root)).unwrap(), legacy_before);
+        assert_eq!(std::fs::read(finance_path(&root)).unwrap(), finance_before);
+    }
+    #[test]
+    fn physical_updates_do_not_bypass_damaged_or_newer_preference_guards() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("library");
+        initialize_runtime(&root);
+        let off = Modules {
+            physical: false,
+            ..Modules::default()
+        };
+        let invalid = br#"{"physical":"false","wishlist":false}"#;
+        std::fs::write(path(&root), invalid).unwrap();
+        assert_eq!(
+            read_runtime(&root).finance_status,
+            FinanceStatus::LegacyCorrupt
+        );
+        assert!(write_runtime(&root, off, FinanceUpdate::default()).is_err());
+        assert_eq!(std::fs::read(path(&root)).unwrap(), invalid);
+        write(&root, &off).unwrap();
+        let future = br#"{"version":2,"new_setting":true}"#;
+        std::fs::write(finance_path(&root), future).unwrap();
+        assert_eq!(
+            read_runtime(&root).finance_status,
+            FinanceStatus::UnsupportedVersion
+        );
+        assert!(write_runtime(
+            &root,
+            Modules::default(),
+            FinanceUpdate {
+                incomes: Some(true),
+                movements: Some(true),
+                repair: true,
+            }
+        )
+        .is_err());
+        assert_eq!(std::fs::read(finance_path(&root)).unwrap(), future);
+        assert_eq!(read(&root), off);
     }
     #[test]
     fn account_toggle_invalidates_preview_even_when_reenabled() {

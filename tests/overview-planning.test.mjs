@@ -135,11 +135,12 @@ test('top layout is a container-driven 2:1 grid that collapses below 960px', () 
   assert.match(css, /@container \(min-width:960px\)\{\.review-top\.duo\{grid-template-columns:minmax\(0,2fr\) minmax\(0,1fr\)\}\}/);
 });
 
-test('the summary mounts only behind module gating and degrades to a dependency notice', () => {
+test('the summary mounts behind module gating and planning alone offers manual setup', () => {
   const view = read('../src/ReviewView.tsx');
   assert.match(view, /modules\.planning && \(modules\.wealth/);
   assert.match(view, /: <ReviewPlanSummary/);
-  assert.match(view, /开启「账户与盘点」后显示目标摘要/);
+  assert.match(view, /可以先手动填写资金和收支/);
+  assert.match(view, /onClick=\{\(\) => onGotoPlanning\('goals'\)\}>设置计划/);
   assert.match(view, /planning: modules\.planning && modules\.wealth/);
   assert.match(view, /data=\{data\.planning \?\? null\}/);
   const overview = read('../src/Overview.tsx');

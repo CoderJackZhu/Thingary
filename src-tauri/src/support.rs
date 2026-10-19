@@ -6,15 +6,11 @@ pub fn destination(target: &str) -> Result<&'static str> {
     match target {
         "author" => Ok("https://github.com/CoderJackZhu"),
         "project" => Ok("https://github.com/CoderJackZhu/Thingary"),
-        "guide" => Ok("https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md"),
+        "guide" => Ok("https://thingary.jackzhu.top/guide/"),
         "site" => Ok("https://thingary.jackzhu.top/"),
         "feedback" => Ok("https://github.com/CoderJackZhu/Thingary/issues"),
-        "backup" => {
-            Ok("https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md#backup")
-        }
-        "update" => {
-            Ok("https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md#update")
-        }
+        "backup" => Ok("https://thingary.jackzhu.top/guide/#backup"),
+        "update" => Ok("https://thingary.jackzhu.top/guide/#update"),
         "sources" => Ok("https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md"),
         _ => Err(Error::new("SUPPORT", "帮助入口无效")),
     }

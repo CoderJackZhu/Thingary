@@ -189,7 +189,7 @@ export function snapshotRows(P: Plan, proj: Projection, mode: ValueMode): Snapsh
   const within = (m: number | null, s: number) => m !== null && m >= s && m < s + 12;
   return proj.rows.map(r => {
     const k = scaleAt(P, mode, r.start_month), last = Math.min(r.start_month + 11, P.horizon_months - 1);
-    const marks = ([[P.target_months, '目标'], [proj.fi_month, 'FI'], [proj.retire_month, '退休']] as const).filter(([m]) => within(m, r.start_month)).map(([, label]) => label);
+    const marks = ([[P.target_months, '目标'], [proj.fi_month, '预计不靠工资'], [proj.retire_month, '退休']] as const).filter(([m]) => within(m, r.start_month)).map(([, label]) => label);
     return { age: r.age, year: r.year, phase: r.phase, end: r.end * k, contribution: r.contribution * k, income: r.income * k, unlock: r.unlock * k, spend: r.spend * k, oneoff: r.oneoff * k, withdrawal: r.withdrawal * k, unfunded: r.unfunded * k, start_month: r.start_month,
       period: base === null ? null : `${ymOf(base + r.start_month)} 至 ${ymOf(base + last)}`, marks, retire_starts: proj.retire_month !== null && proj.retire_month > r.start_month && within(proj.retire_month, r.start_month) };
   });

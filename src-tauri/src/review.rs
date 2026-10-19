@@ -26,11 +26,20 @@ pub struct Overview {
     pub year: Option<i32>,
     pub physical: Read<crate::insights::Overview>,
     pub wealth: Read<crate::wealth::Summary>,
+    pub account_availability: Read<AccountAvailability>,
     pub expenses: Read<crate::expenses::View>,
     pub recurring: Read<crate::recurring::Overview>,
     pub virtual_assets: Read<crate::virtual_assets::Overview>,
     pub recent: Read<Vec<crate::timeline::Event>>,
     pub planning: Option<PlanSources>,
+}
+
+/// Live accounts and the subset eligible for a check-in on the overview's day.
+/// This is independent of whether any balance snapshot has been recorded.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct AccountAvailability {
+    pub total: usize,
+    pub due_today: usize,
 }
 
 /// All sources share the overview's SQLite snapshot and worker/library identity.
@@ -90,11 +99,28 @@ impl Store {
         // All domain readers borrow this same connection. The transaction also
         // pins a SQLite snapshot against external connections, beyond worker serialization.
         let tx = self.conn()?.unchecked_transaction()?;
-        let physical = self.overview("held", today).into();
+        let physical = if modules.modules.physical {
+            self.overview("held", today).into()
+        } else {
+            disabled()
+        };
         #[cfg(test)]
         self.hit("review.after_physical")?;
         let wealth: Read<crate::wealth::Summary> = if wealth_enabled {
             self.wealth_summary().into()
+        } else {
+            disabled()
+        };
+        let account_availability = if wealth_enabled {
+            crate::wealth::accounts(self.conn()?)
+                .map(|accounts| AccountAvailability {
+                    total: accounts.len(),
+                    due_today: accounts
+                        .iter()
+                        .filter(|account| crate::wealth::due(account, today))
+                        .count(),
+                })
+                .into()
         } else {
             disabled()
         };
@@ -141,6 +167,7 @@ impl Store {
             year,
             physical,
             wealth,
+            account_availability,
             planning,
             expenses: self
                 .expense_period_view(
@@ -488,6 +515,172 @@ fn legacy_modules(planning: bool, wealth: bool) -> crate::modules::RuntimeModule
 }
 
 #[cfg(test)]
+mod account_availability_tests {
+    use super::*;
+    use crate::wealth::{AccountFields, AccountSave};
+
+    const TODAY: &str = "2026-09-28";
+
+    fn ready<T>(read: Read<T>) -> T {
+        match read {
+            Read::Ready(value) => value,
+            Read::Error(error) => panic!("{error}"),
+        }
+    }
+
+    fn account(store: &mut Store, opened: &str, closed: Option<&str>, counted: bool) -> String {
+        store
+            .wealth_account_save(
+                &AccountSave {
+                    request_id: uuid::Uuid::new_v4().to_string(),
+                    generation: store.generation(),
+                    id: None,
+                    expected_revision: None,
+                    fields: AccountFields {
+                        name: "虚构账户".into(),
+                        institution: String::new(),
+                        side: "asset".into(),
+                        kind: "cash".into(),
+                        counted,
+                        opened_on: opened.into(),
+                        closed_on: closed.map(str::to_string),
+                        notes: String::new(),
+                        purchase_cents: None,
+                        purchased_on: None,
+                        group_id: None,
+                        currency: "CNY".into(),
+                        holding_mode: false,
+                        holding_unit: None,
+                    },
+                },
+                // A later valid save date also exercises a clock moving back.
+                "2026-12-31",
+            )
+            .unwrap()
+            .id
+    }
+
+    #[test]
+    fn availability_counts_live_accounts_without_snapshots_using_check_in_dates() {
+        let root = tempfile::tempdir().unwrap();
+        let mut store = Store::open(root.path()).unwrap();
+        assert_eq!(
+            ready(
+                store
+                    .review_overview(None, TODAY)
+                    .unwrap()
+                    .account_availability
+            ),
+            AccountAvailability {
+                total: 0,
+                due_today: 0
+            }
+        );
+        account(&mut store, TODAY, None, true);
+        account(&mut store, "2026-01-01", Some("2026-09-29"), false);
+        account(&mut store, "2026-01-01", Some(TODAY), true);
+        account(&mut store, "2026-09-29", None, true);
+        let deleted = account(&mut store, "2026-01-01", None, true);
+        store
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE fin_accounts SET deleted_at='2026-09-28T12:00:00Z' WHERE id=?1",
+                [&deleted],
+            )
+            .unwrap();
+        let changes = store.conn().unwrap().total_changes();
+        let result = store.review_overview(Some(2000), TODAY).unwrap();
+        assert_eq!(result.generation, store.generation());
+        assert_eq!(result.today, TODAY);
+        assert!(ready(result.wealth).points.is_empty());
+        assert_eq!(
+            ready(result.account_availability),
+            AccountAvailability {
+                total: 4,
+                due_today: 2
+            }
+        );
+        assert_eq!(store.conn().unwrap().total_changes(), changes);
+        assert!(store.conn().unwrap().is_autocommit());
+
+        let before_opening = store.review_overview(None, "2025-12-31").unwrap();
+        assert_eq!(
+            ready(before_opening.account_availability),
+            AccountAvailability {
+                total: 4,
+                due_today: 0
+            }
+        );
+        let after_closure = store.review_overview(None, "2026-09-30").unwrap();
+        assert_eq!(
+            ready(after_closure.account_availability),
+            AccountAvailability {
+                total: 4,
+                due_today: 2
+            }
+        );
+    }
+
+    #[test]
+    fn availability_failure_stays_unknown_and_disabled_wealth_does_not_read_accounts() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open(root.path()).unwrap();
+        store
+            .conn()
+            .unwrap()
+            .execute_batch("DROP TABLE fin_accounts")
+            .unwrap();
+        let failed = store.review_overview(None, TODAY).unwrap();
+        assert!(matches!(failed.account_availability, Read::Error(_)));
+        assert!(matches!(failed.physical, Read::Ready(_)));
+        assert!(matches!(failed.recurring, Read::Ready(_)));
+        let disabled = store
+            .review_overview_with_modules(None, TODAY, false, false)
+            .unwrap();
+        assert!(
+            matches!(disabled.account_availability, Read::Error(Error { code, .. }) if code == "MODULE_DISABLED")
+        );
+        assert!(store.conn().unwrap().is_autocommit());
+    }
+
+    #[test]
+    fn availability_shares_the_overview_snapshot_and_does_not_write() {
+        let root = tempfile::tempdir().unwrap();
+        let mut store = Store::open(root.path()).unwrap();
+        account(&mut store, "2026-01-01", None, true);
+        let changes = store.conn().unwrap().total_changes();
+        let path = store.dataset().join("data.sqlite");
+        store.set_hook(move |point| {
+            if point == "review.after_physical" {
+                let external = rusqlite::Connection::open(&path)?;
+                external.execute_batch("UPDATE fin_accounts SET closed_on='2026-09-28'")?;
+            }
+            Ok(())
+        });
+        let result = store.review_overview(None, TODAY).unwrap();
+        assert_eq!(
+            ready(result.account_availability),
+            AccountAvailability {
+                total: 1,
+                due_today: 1
+            }
+        );
+        assert_eq!(store.conn().unwrap().total_changes(), changes);
+        store.set_hook(|_| Ok(()));
+        let next = store.review_overview(None, TODAY).unwrap();
+        assert_eq!(next.generation, result.generation);
+        assert_eq!(
+            ready(next.account_availability),
+            AccountAvailability {
+                total: 1,
+                due_today: 0
+            }
+        );
+    }
+}
+
+#[cfg(test)]
 mod asset_review_tests {
     use super::*;
     const TODAY: &str = "2026-09-28";
@@ -580,6 +773,27 @@ mod asset_review_tests {
         assert!(is_disabled(&overview.virtual_assets));
         assert!(is_disabled(&overview.recent));
         assert!(ready(overview.expenses).lines.is_empty());
+        ready(overview.wealth);
+        assert_eq!(store.conn().unwrap().total_changes(), changes);
+    }
+
+    #[test]
+    fn runtime_overview_skips_disabled_physical_projection_with_unavailable_assets() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open(root.path()).unwrap();
+        store
+            .conn()
+            .unwrap()
+            .execute_batch("DROP TABLE assets")
+            .unwrap();
+        let mut modules = legacy_modules(false, true);
+        modules.modules.physical = false;
+        modules.modules.timeline = false;
+        let changes = store.conn().unwrap().total_changes();
+        let overview = store
+            .review_overview_with_runtime_modules(None, TODAY, &modules)
+            .unwrap();
+        assert!(is_disabled(&overview.physical));
         ready(overview.wealth);
         assert_eq!(store.conn().unwrap().total_changes(), changes);
     }

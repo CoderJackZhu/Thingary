@@ -1,8 +1,8 @@
 import { AssetListHeader, AssetMoreSort } from './AssetListHeader';
 import { collectionNavigation, collectionStatusOptions } from './collection-navigation';
 import { Info } from './FormControls';
-import { StartChoice } from './StartChoice';
-import { choiceStorage, persistOverviewChoice, type StartChoice as FirstChoice, type OverviewViewChoice } from './start-choice';
+import { Welcome } from './Welcome';
+import { choiceStorage, welcomeState, type OverviewViewChoice } from './start-choice';
 import {clearUnsubmittedEditors} from './editor-session';
 import {persistSubmission} from './editor-session';
 import {NotificationNotice} from './NotificationNotice';
@@ -191,7 +191,6 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
   const [returnContext, setReturnContext] = useState<ReturnContext | null>(null);
   const [pendingReturn, setPendingReturn] = useState<ReturnContext | null>(null);
   const [timelineSelection, setTimelineSelection] = useState<TimelineSelection>(defaultTimeline);
-  const [startChoiceBusy, setStartChoiceBusy] = useState(false);
   const [overviewChoice, setOverviewChoice] = useState<OverviewViewChoice | null>(null);
   const [modulesLoaded, setModulesLoaded] = useState(false);
   const [modules, setModules] = useState<RuntimeModules>({ ...allModules, incomes: false, movements: false, finance_status: 'read_error', finance_revision: 0 });
@@ -250,8 +249,8 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
   }, [page?.generation]);
   // Leave a page, or a timeline filter, whose module was just switched off.
   useEffect(() => {
-    const owner = ({ wishlist: 'wishlist', timeline: 'timeline', stats: 'stats', wealth: 'wealth', expenses: 'expenses', recurring: 'recurring', virtual: 'virtual', planning: 'planning' } as Record<string, keyof Modules>)[section];
-    if (owner && !modules[owner] && !wishlistEditing) setSection('overview');
+    const owner = ({ assets: 'physical', wishlist: 'wishlist', timeline: 'timeline', stats: 'stats', wealth: 'wealth', expenses: 'expenses', recurring: 'recurring', virtual: 'virtual', planning: 'planning' } as Record<string, keyof Modules>)[section];
+    if (((owner && !modules[owner]) || (section === 'stats' && !modules.physical)) && !wishlistEditing) setSection('overview');
     if (section === 'expenses') { setRecordsRoute(legacyFinanceRoute({ kind: 'expenses' }) as Extract<FinanceRoute, { page: 'records' }>); setSection('finance-records'); }
     if (section === 'finance-review' && !capabilities.review) setSection('overview');
     if (modulesLoaded && section === 'finance-records' && !financeRouteAvailable(recordsRoute, capabilities)) {
@@ -260,7 +259,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
       if (tab) setRecordsRoute({ ...recordsRoute, tab, source: undefined }); else setSection('overview');
     }
     const spend = modules.expenses || modules.recurring || modules.virtual;
-    setTimelineSelection(t => (t.domain === 'wish' && !modules.wishlist) || (t.domain === 'wealth' && !modules.wealth) || (t.domain === 'expense' && !spend) || (t.filter === 'wishlist' && !modules.wishlist) || (t.filter === 'snapshot' && !modules.wealth) || (t.filter === 'expense' && !spend) ? defaultTimeline : t);
+    setTimelineSelection(t => ((!modules.physical && (t.domain === 'physical' || ['purchase', 'maintenance', 'warranty', 'lifecycle'].includes(t.filter)))) || (t.domain === 'wish' && !modules.wishlist) || (t.domain === 'wealth' && !modules.wealth) || (t.domain === 'expense' && !spend) || (t.filter === 'wishlist' && !modules.wishlist) || (t.filter === 'snapshot' && !modules.wealth) || (t.filter === 'expense' && !spend) ? defaultTimeline : t);
   }, [modules, section, modulesLoaded]);
   // A module switched off must not keep its search word or a pending new-record hand-off.
   useEffect(() => {
@@ -372,7 +371,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
   const itemImportPending = storedItemImport();
   const durablePending = pendingGenerations(localStorage).length > 0 || !!pendingReceipt;
   const otherEditing = wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
-  const modeBlocked = startChoiceBusy || durablePending || featureEditing || dataBusy || wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
+  const modeBlocked = durablePending || featureEditing || dataBusy || wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
   useLayoutEffect(() => { onPrivacyBusyChange(modeBlocked || modeBusy || !!batch); }, [modeBlocked, modeBusy, batch, onPrivacyBusyChange]);
   const sectionLabel = ({ overview: '总览', assets: '物品', wealth: '账户与盘点', 'finance-records': '收支记录', 'finance-review': '财务复盘', recurring: '周期费用', virtual: '虚拟资产', planning: '目标', wishlist: '心愿清单', settings: '设置', trash: '最近删除', timeline: '时间轴', stats: '物品统计', expenses: '重要支出' } as Record<Section, string>)[section];
   const blockedNotice = (next: string) => pendingReceipt
@@ -383,7 +382,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
   // Switching libraries still uses the aggregate mode guard. Windows closing
   // separately protects active page forms/tasks; durable receipt metadata stays
   // available after restart and does not itself prevent exiting.
-  const pageCloseBlocked = startChoiceBusy || featureEditing || dataBusy || modeBusy || !!batch || wishlistEditing || !!draft || !!trashAction || !!recordTrashAction || !!lifecycleDraft || !!saleDraft || !!maintenanceDraft || !!warrantyDraft;
+  const pageCloseBlocked = featureEditing || dataBusy || modeBusy || !!batch || wishlistEditing || !!draft || !!trashAction || !!recordTrashAction || !!lifecycleDraft || !!saleDraft || !!maintenanceDraft || !!warrantyDraft;
   useEffect(() => { void invoke('set_library_busy', { busy: modeBlocked, closeBlocked: pageCloseBlocked }).catch(e => setNotice(errorMessage(e))); }, [modeBlocked, pageCloseBlocked]);
   useEffect(() => {
     if (!modeBlocked) void invoke<DemoStatus>('demo_status').then(setDemoStatus).catch(e => setNotice(errorMessage(e)));
@@ -425,7 +424,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
       if (!financeRouteAvailable(financeSource, capabilities)) { setNotice('这条来源所属功能已关闭，请启用后重新打开。'); return; }
       beginReturn(); setRecordsRoute(financeSource);
     } else {
-      const owner = ({ wish: 'wishlist', snapshot: 'wealth', account: 'wealth', payment: 'recurring', plan: 'recurring', virtual: 'virtual', topup: 'virtual' } as Partial<Record<SourceTarget['kind'], keyof Modules>>)[target.kind];
+      const owner = ({ asset: 'physical', wish: 'wishlist', snapshot: 'wealth', account: 'wealth', payment: 'recurring', plan: 'recurring', virtual: 'virtual', topup: 'virtual' } as Partial<Record<SourceTarget['kind'], keyof Modules>>)[target.kind];
       if (owner && !modules[owner]) { setNotice('这条来源所属功能已关闭，请启用后重新打开。'); return; }
       beginReturn();
     }
@@ -482,15 +481,6 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
     else if (route.page === 'review') { setFinanceReviewRoute(route); setSection('finance-review'); }
     else if (route.page === 'goals') { setPlanningView('goals'); setPlanningTab('goals'); setSection('planning'); }
     else { setSettingsGroup('data'); setFinanceImportRequested(route.importKind === 'finance'); setSection('settings'); }
-  }
-  async function startFromChoice(choice: FirstChoice) {
-    if (modeBlocked || !libraryGeneration) { setNotice(blockedNotice('开始记录')); return false; }
-    if (choice === 'combined' && !modules.wealth) { setNotice('账户与盘点已关闭，请在设置 › 功能模块中打开后再盘点。'); return false; }
-    persistOverviewChoice(choiceStorage(), choice);
-    setOverviewChoice(previous => ({ generation: libraryGeneration, view: choice, version: (previous?.version ?? 0) + 1 }));
-    if (choice === 'physical') return await openEditor(null) === true;
-    else { setReturnContext(null); setWealthReviewFocus(null); setSection('wealth'); setDetailId(null); }
-    return true;
   }
   const gotoReview = (id: string) => gotoFinance({ page: 'review', view: 'period', toSnapshotId: id });
   function openModuleSettings() {
@@ -624,7 +614,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
         ? { primary: newAsset, newRecord: newAsset }
         : { primary: newAsset, newRecord: newAsset, search: { key: 'assets', placeholder: '搜索物品' } };
     }
-    if (sec === 'overview' || sec === 'stats') return { primary: newAsset, newRecord: newAsset };
+    if ((sec === 'overview' || sec === 'stats') && modules.physical) return { primary: newAsset, newRecord: newAsset };
     return {};
   }
   /** The 新增记录 ▾ menu order is fixed; only modules that are on appear. */
@@ -641,7 +631,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
       if (!financeRouteAvailable(route, capabilities)) return;
       gotoFinance(route); setAutoNew(target); return;
     }
-    if (target === 'asset') { void openEditor(null); return; }
+    if (target === 'asset') { if (modules.physical) void openEditor(null); return; }
     setDetailId(null);
     setSection(target);
     setAutoNew(target);
@@ -660,7 +650,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
     setSearchSession(s => ({ ...s, open: true }));
   }
   // Library switches and module toggles invalidate the session outright.
-  useEffect(() => { setSearchSession(emptySearchSession()); }, [libraryGeneration, modules.wishlist, modules.wealth, modules.expenses, modules.recurring, modules.virtual, modules.timeline, modules.stats, modules.incomes, modules.movements]);
+  useEffect(() => { setSearchSession(emptySearchSession()); }, [libraryGeneration, modules.physical, modules.wishlist, modules.wealth, modules.expenses, modules.recurring, modules.virtual, modules.timeline, modules.stats, modules.incomes, modules.movements]);
   const menuActionBlocked = !!(wishlistEditing || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery);
   function openDataHelp(target: DataHelpTarget) {
     if (modeBlocked || modeBusy || document.querySelector('dialog[open]')) { setNotice(blockedNotice('打开数据管理')); return; }
@@ -796,6 +786,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
     finally { if (ticket === detailTicket.current) { pendingSelection.current = null; setDetailLoading(false); } }
   }
   async function openEditor(record: AssetRecord | null, resume = false, wish?: WishlistItem) {
+    if (!resume && !modules.physical) { setNotice('物品档案已关闭，可以在设置中重新开启。'); return; }
     if (!resume && (durablePending || featureEditing || dataBusy)) { setNotice(blockedNotice('编辑物品')); return; }
     if ((wishlistEditing && !wish) || !demoStatus || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
     if (taxonomyGuard || taxonomy.loading || taxonomy.loadError || !taxonomy.snapshot || taxonomy.snapshot.generation !== page.generation) { setSection('settings'); setNotice('请先核对分类操作结果，并完成分类资料读取。'); return; }
@@ -1126,20 +1117,19 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
   function browseStatus(filter: string, warranty: string) { if (wishlistEditing) return; setSection('assets'); setDetailId(null); setAnalysis(null); adjust({ filter, warranty }); }
   function identity(record: AssetRecord) { return <><Cover record={record} generation={page?.generation || ''} /><span className="identity"><strong>{record.asset.name}</strong><small>{taxonomy.snapshot?.categories.find(c => c.id === record.classification?.category_id)?.name || '未分类'}{record.label_name && ` · ${record.label_name}`}</small></span></>; }
   return <PageBarContext.Provider value={pageBarRegistrar}><UpdateDiscoveryProvider visitKey={`${section}:${settingsGroup}`} idle={!modeBlocked && !modeBusy && !batch} hasRecords={demoStatus.started} demoActive={demoStatus.active}><div className="shell">{windowsExit && <WindowsExitNotice status={windowsExit} onChoice={exit => invoke('windows_exit_reminders_choice', { exit })}/>} {!demoStatus.active && <NotificationNotice/>}{!demoStatus.active && <BackupSecurityNotice hidden={section === 'settings' && settingsGroup === 'data'} quietUntilStarted={!demoStatus.started} onOpen={() => openDataHelp('backup')}/>}{closeBlocked && <TaxonomyCloseNotice title="当前操作尚未完成" message="请先完成或取消当前表单或处理中任务，再退出物谱。保存结果待确认时，请先核对结果。" actionLabel="返回继续处理" onKeep={() => setCloseBlocked(false)}/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar" onClickCapture={event => { if (!modeBlocked || !(event.target instanceof Element) || !event.target.closest('nav button')) return; const financeRecovery = storedPending()?.command === 'financial_import_commit' && !!event.target.closest('.settings-row'); if (financeRecovery && event.target.closest('button')?.textContent === '设置') { setSettingsGroup('data'); setFinanceImportRequested(true); return; } const itemRecovery = !!itemImportPending && !!event.target.closest('.settings-row'); if (itemRecovery && event.target.closest('button')?.textContent === '设置') { setSettingsGroup('data'); return; } event.preventDefault(); event.stopPropagation(); setNotice(blockedNotice('切换页面')); }}><div className="brand"><span className="brand-mark" aria-hidden="true"><LogoMark/></span><div><strong>物谱</strong><small>THINGARY</small></div></div>
-      <nav aria-label="主导航"><button className={section === 'overview' ? 'nav-active' : ''} aria-current={section === 'overview' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('overview'); setDetailId(null); }}><Icon name="overview"/><span>总览</span></button><p className="nav-caption">物品</p>
-        <button className={section === 'assets' ? 'nav-active' : ''} aria-current={section === 'assets' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => browseStatus('all', 'all')}><Icon name="items"/><span>全部物品</span>{sideCounts?.all != null && <small className="nav-count">{sideCounts.all}</small>}</button>
+      <nav className="sidebar-main" aria-label="主导航"><button className={section === 'overview' ? 'nav-active' : ''} aria-current={section === 'overview' ? 'page' : undefined} disabled={modeBlocked} onClick={() => { setSection('overview'); setDetailId(null); }}><Icon name="overview"/><span>总览</span></button>{(modules.physical || modules.wishlist) && <p className="nav-caption">物品</p>}
+        {modules.physical && <button className={section === 'assets' ? 'nav-active' : ''} aria-current={section === 'assets' ? 'page' : undefined} disabled={modeBlocked} onClick={() => browseStatus('all', 'all')}><Icon name="items"/><span>全部物品</span>{sideCounts?.all != null && <small className="nav-count">{sideCounts.all}</small>}</button>}
         {modules.wishlist && <button className={section === 'wishlist' ? 'nav-active' : ''} aria-current={section === 'wishlist' ? 'page' : undefined} onClick={() => { setWishFocus(null); setSection('wishlist'); setDetailId(null); }}><Icon name="heart"/><span>心愿清单</span>{sideWishes !== null && sideWishes > 0 && <small className="nav-count">{sideWishes}</small>}</button>}
-        {modules.stats && <button className={section === 'stats' ? 'nav-active' : ''} aria-current={section === 'stats' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('stats'); setDetailId(null); }}><Icon name="chart"/><span>物品统计</span></button>}
+        {modules.physical && modules.stats && <button className={section === 'stats' ? 'nav-active' : ''} aria-current={section === 'stats' ? 'page' : undefined} disabled={modeBlocked} onClick={() => { setSection('stats'); setDetailId(null); }}><Icon name="chart"/><span>物品统计</span></button>}
         {(modules.wealth || modules.incomes || modules.expenses || modules.recurring || modules.virtual) && <p className="nav-caption">财富</p>}
         {modules.wealth && <button className={section === 'wealth' ? 'nav-active' : ''} aria-current={section === 'wealth' ? 'page' : undefined} onClick={() => { setSection('wealth'); setDetailId(null); }}><Icon name="wallet"/><span>账户与盘点</span></button>}
         {(capabilities.incomeRecords || capabilities.expenseRecords || capabilities.movementRecords) && <button className={section === 'finance-records' ? 'nav-active' : ''} aria-current={section === 'finance-records' ? 'page' : undefined} onClick={() => gotoFinance({ ...recordsRoute, source: undefined, tab: defaultFinanceRecordTab(capabilities, recordsRoute.tab)! }, false, false)}><Icon name="receipt"/><span>收支记录</span></button>}
         {modules.wealth && <button className={section === 'finance-review' ? 'nav-active' : ''} aria-current={section === 'finance-review' ? 'page' : undefined} onClick={() => gotoFinance(financeReviewRoute, false, false)}><Icon name="chart"/><span>财务复盘</span></button>}
         {modules.recurring && <button className={section === 'recurring' ? 'nav-active' : ''} aria-current={section === 'recurring' ? 'page' : undefined} onClick={() => { setSection('recurring'); setDetailId(null); }}><Icon name="repeat"/><span>周期费用</span>{sideDue > 0 && <small className="nav-count warn">{sideDue}</small>}</button>}
         {modules.virtual && <button className={section === 'virtual' ? 'nav-active' : ''} aria-current={section === 'virtual' ? 'page' : undefined} onClick={() => { setSection('virtual'); setDetailId(null); }}><Icon name="cloud"/><span>虚拟资产</span></button>}
-        {modules.planning && <><p className="nav-caption">规划</p><button className={section === 'planning' ? 'nav-active' : ''} aria-current={section === 'planning' ? 'page' : undefined} onClick={() => gotoPlanning('goals', undefined, false)}><Icon name="plan"/><span>目标</span></button></>}</nav><div className="sidebar-bottom"><nav aria-label="时间轴与设置">{modules.timeline && <div className="settings-row"><button className={section === 'timeline' ? 'nav-active' : ''} aria-current={section === 'timeline' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('timeline'); setDetailId(null); }}><Icon name="clock"/><span>时间轴</span></button></div>}<div className="settings-row"><SettingsEntry active={section === 'settings' || section === 'trash'} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onOpen={() => { setSection('settings'); void taxonomy.reload().catch(() => {}); }}/></div><div className="appearance-tri" role="group" aria-label="外观明暗">{([['light', '浅色外观', 'sun'], ['dark', '深色外观', 'moon'], ['system', '跟随系统外观', 'system']] as const).map(([mode, label, icon]) => <button key={mode} type="button" className="tri-mode" data-mode={mode} aria-pressed={theme === mode} aria-label={label} title={label + (mode === 'system' ? '' : `（${shiftModKey()}D 可在浅色深色间切换）`)} onClick={() => setTheme(mode)}><Icon name={icon}/></button>)}</div></nav><p className="local-status" title="本地档案 · 仅保存在这台电脑"><span className="local-dot"/>本地档案 · 仅本机</p></div></aside>
+        {modules.planning && <><p className="nav-caption">规划</p><button className={section === 'planning' ? 'nav-active' : ''} aria-current={section === 'planning' ? 'page' : undefined} onClick={() => gotoPlanning('goals', undefined, false)}><Icon name="plan"/><span>目标</span></button></>}</nav><div className="sidebar-bottom"><nav aria-label="时间轴与设置">{modules.timeline && <div className="settings-row"><button className={section === 'timeline' ? 'nav-active' : ''} aria-current={section === 'timeline' ? 'page' : undefined} disabled={modeBlocked} onClick={() => { setSection('timeline'); setDetailId(null); }}><Icon name="clock"/><span>时间轴</span></button></div>}<div className="settings-row"><SettingsEntry active={section === 'settings' || section === 'trash'} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onOpen={() => { setSection('settings'); void taxonomy.reload().catch(() => {}); }}/></div><div className="appearance-tri" role="group" aria-label="外观明暗">{([['light', '浅色外观', 'sun'], ['dark', '深色外观', 'moon'], ['system', '跟随系统外观', 'system']] as const).map(([mode, label, icon]) => <button key={mode} type="button" className="tri-mode" data-mode={mode} aria-pressed={theme === mode} aria-label={label} title={label + (mode === 'system' ? '' : `（${shiftModKey()}D 可在浅色深色间切换）`)} onClick={() => setTheme(mode)}><Icon name={icon}/></button>)}</div></nav><p className="local-status" title="本地档案 · 仅保存在这台电脑"><span className="local-dot"/>本地档案 · 仅本机</p></div></aside>
     <main ref={mainRef} className={section === 'assets' && !detailId ? 'browse-main' : undefined}><div className="app-topbar"><span className="breadcrumb"><Icon name={section === 'overview' ? 'overview' : section === 'stats' ? 'chart' : section === 'wealth' ? 'wallet' : section === 'finance-records' ? 'receipt' : section === 'finance-review' ? 'chart' : section === 'recurring' ? 'repeat' : section === 'virtual' ? 'cloud' : section === 'planning' ? 'plan' : section === 'wishlist' ? 'heart' : section === 'timeline' ? 'clock' : section === 'trash' ? 'trash' : section === 'settings' ? 'settings' : 'items'}/>{section === 'assets' && analysis ? analysisCrumb : section === 'trash' ? <><button type="button" className="ui-link" disabled={wishlistEditing} onClick={() => backFromSubpage('settings')}>设置</button><span> ／ </span><b>最近删除</b></> : <>{section === 'overview' || section === 'timeline' ? '物谱' : section === 'stats' ? '物品' : section === 'wealth' || section === 'finance-records' || section === 'finance-review' || section === 'recurring' || section === 'virtual' ? '财富' : section === 'planning' ? '规划' : section === 'wishlist' ? '物品' : section === 'settings' ? '物谱' : detailId ? <button type="button" className="ui-link" disabled={wishlistEditing} onClick={back}>{collectionTitle}</button> : '物品'} <span>／</span> {section === 'overview' ? '总览' : section === 'stats' ? '物品统计' : section === 'wealth' ? '账户与盘点' : section === 'finance-records' ? '收支记录' : section === 'finance-review' ? '财务复盘' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'planning' ? planningViewTitle(planningView) : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '时间轴' : section === 'settings' ? '设置' : detailId ? '物品详情' : collectionTitle}</>}</span>{<div className="topbar-actions"><button type="button" className="global-search-open" aria-label="搜索全部资料" title={`搜索全部资料（${shiftModKey()}F）`} onClick={openGlobalSearch}><svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-10 0 5 5 0 1 1 10 0M12 12l5 5"/></svg><span>搜索全部资料</span><kbd>{shiftModKey()}F</kbd></button>{topbarSearch && <TopbarSearchBox search={topbarSearch} value={topbarSearchValue} inputRef={searchInputRef} expanded={topbarSearchOpen} disabled={wishlistEditing} onExpand={() => { setSearchExpanded(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }} onChange={v => applySearch(topbarSearch.key, v)}/>}{topbarBar.secondary && <button type="button" className="topbar-secondary" disabled={topbarBar.secondary.disabled} onClick={topbarBar.secondary.run}>{topbarBar.secondary.plus && <Icon name="plus"/>}<span>{topbarBar.secondary.label}</span>{topbarBar.secondary.label === menuNew && <kbd>{modKey()}N</kbd>}</button>}{topbarBar.menu && <BarMenuButton menu={topbarBar.menu} kbd open={menuOpen} onOpen={setMenuOpen} buttonRef={menuButtonRef}/>}{topbarBar.primary && !topbarBar.menu && <button ref={newRef} className="primary" disabled={topbarBar.primary.disabled} onClick={topbarBar.primary.run}>{topbarBar.primary.plus && <Icon name="plus"/>}<span>{topbarBar.primary.label}</span>{topbarBar.primary.label === menuNew && <kbd>{modKey()}N</kbd>}</button>}</div>}</div>
       {(demoStatus.active || !demoStatus.started) && demoStatus.available && <div className="demo-banner" role="status"><strong>{demoStatus.active ? '样例体验' : '我的资料'}</strong><span>{demoStatus.active ? (demoStatus.started ? '· 虚构资料，改动不影响你的资料' : '· 这是一套虚构样例；想记录自己的资料，直接新增即可，样例不会带过去') : '· 从任意模块开始记录'}</span>{demoStatus.active && <Info text="正在使用独立虚构资料。编辑、删除和付款只留在样例中，不发送系统通知；样例不接受新增物品（含实现心愿），新增物品会回到我的资料。"/>}<button type="button" disabled={modeBusy || modeBlocked || !!localStorage.getItem(resetKey)} onClick={() => void changeDemoMode(!demoStatus.active)}>{demoStatus.active ? demoStatus.started ? '返回我的资料' : '开始记录我的资料' : '查看样例'}</button></div>}
-      {section === 'overview' && <StartChoice key={libraryGeneration} generation={libraryGeneration ?? null} active={demoStatus.active} started={demoStatus.started} modules={modules} modulesLoaded={modulesLoaded} disabled={modeBlocked || modeBusy || !libraryGeneration} onNotice={setNotice} onModules={setModules} onBusyChange={setStartChoiceBusy} onStart={startFromChoice}/>}
       {modeBusy && <p className="notice" role="status">正在准备资料，请稍候…</p>}
       <UpdateInvite eligible={section !== 'settings' && section !== 'trash'}/>
 
@@ -1158,17 +1148,17 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
       {recovered && !draft && <div className="notice">有一次保存结果待确认。<button disabled={wishlistEditing} onClick={() => void openEditor(null, true)}>核对保存结果</button></div>}
       {trashRecovery && !trashAction && <div className="notice">有一次删除或恢复的结果待确认。<button disabled={wishlistEditing} onClick={() => void openTrash(trashRecovery.record, trashRecovery.input.generation, trashRecovery.input.deleted, trashRecovery)}>核对上次操作</button></div>}
       {recordTrashRecovery && !recordTrashAction && <div className="notice">有一次维护或保障删除/恢复的结果待确认。<button disabled={wishlistEditing} onClick={() => void openRecordTrash(recordTrashRecovery.input.kind, recordTrashRecovery.input.record_id, recordTrashRecovery.input.asset_id, recordTrashRecovery.meta.title, recordTrashRecovery.meta.assetName, recordTrashRecovery.input.generation, recordTrashRecovery.input.expected_revision, recordTrashRecovery.input.deleted, recordTrashRecovery)}>核对上次操作</button></div>}
-      {section === 'settings' && <SettingsView group={settingsGroup} onGroup={setSettingsGroup} optionsPending={taxonomyGuard} demoPending={!!localStorage.getItem(resetKey)} busy={taxonomyGuard || dataBusy || modeBusy} supportBadge={<UpdateUnreadDot/>} panels={{
+      {section === 'settings' && <SettingsView group={settingsGroup} onGroup={setSettingsGroup} optionsPending={taxonomyGuard} demoPending={!!localStorage.getItem(resetKey)} busy={taxonomyGuard || dataBusy || modeBusy || featureEditing} supportBadge={<UpdateUnreadDot/>} panels={{
         privacy: <PrivacySettings/>,
         appearance: <AppearanceSettings style={style} onStyle={setStyle}/>,
         materials: settingsGroup === 'materials' ? <MaterialLibrary onBusyChange={setDataBusy} generation={page?.generation || ''} onNotice={setNotice} search={searches.materials} onSearch={v => setSearches(s => (s.materials === v ? s : { ...s, materials: v }))}/> : null,
         options: <TaxonomyManager generation={taxonomy.snapshot?.generation} snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/>,
-        modules: <ModuleSettings modules={modules} onChange={setModules}/>,
+        modules: <ModuleSettings modules={modules} onChange={setModules} onBusyChange={setFeatureEditing}/>,
         data: <><DataManagement onImported={() => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({}); void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={libraryGeneration ?? null} demo={!!demoStatus?.active} blocked={otherEditing || featureEditing || (durablePending && storedPending()?.command !== 'financial_import_commit')} financeImportRequested={financeImportRequested} onFinanceImportRequestDone={() => setFinanceImportRequested(false)} onViewFinance={target => { if (target !== 'income' && (!modules.wealth || storedPending() || pendingGenerations(localStorage).length || otherEditing)) { setNotice('账户功能已关闭或仍有结果待核对。'); return; } if (target === 'income') gotoFinance({ page: 'records', tab: 'income' }, true); else { beginReturn(); setWealthReviewFocus(libraryGeneration ? { generation: libraryGeneration, kind: target === 'snapshots' ? 'history' : 'accounts' } : null); setSection('wealth'); } }} onTrash={() => openSubpage('trash', 'data')}/></>,
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
         support: <SupportPanel onData={openDataHelp} blocked={modeBlocked || modeBusy}/>,
       }}/>}
-      {section === 'wealth' && <WealthPage onFinancialImport={() => gotoFinance({ page: 'data-management', importKind: 'finance' })} key={libraryGeneration} reviewFocus={wealthReviewFocus} onReviewFocusDone={() => setWealthReviewFocus(null)} onGotoPlanning={gotoReview} onCompare={pair => gotoFinance({ page: 'review', view: 'compare', ...(pair ? { pair } : {}) })} today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
+      {section === 'wealth' && <WealthPage onAdjustPlan={modules.planning ? () => gotoPlanning('goals') : undefined} onFinancialImport={() => gotoFinance({ page: 'data-management', importKind: 'finance' })} key={libraryGeneration} reviewFocus={wealthReviewFocus} onReviewFocusDone={() => setWealthReviewFocus(null)} onGotoPlanning={gotoReview} onCompare={pair => gotoFinance({ page: 'review', view: 'compare', ...(pair ? { pair } : {}) })} today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}
       {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)} modules={modules} />}
       {section === 'planning' && <PlanningPage key={libraryGeneration} view={planningView} onViewChange={setPlanningView} navigationBlocked={modeBlocked} onNavigationBlocked={() => setNotice(blockedNotice('切换规划视图'))} focus={planFocus && planFocus.generation === libraryGeneration ? planFocus.focus : null} onFocusDone={() => setPlanFocus(null)} today={today} onTab={tab => tab === 'savings' ? gotoFinance({ page: 'review', view: 'period' }) : setPlanningTab('goals')} onEditingChange={setFeatureEditing}/>}
@@ -1176,9 +1166,15 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
       {section === 'finance-review' && libraryGeneration && <FinanceReviewPage key={libraryGeneration} generation={libraryGeneration} today={today} modules={modules} route={financeReviewRoute} onRouteChange={setFinanceReviewRoute} onRecords={gotoFinance} onGoals={() => gotoPlanning('goals')} onNewAccount={() => beginNewRecord('wealth')} onCheckIn={date => { if (modeBlocked) return; beginReturn(); setWealthReviewFocus({ generation: libraryGeneration, kind: 'check-in', date }); setSection('wealth'); }} onOpenSource={openSource} onEditingChange={setFeatureEditing} blocked={otherEditing || dataBusy} restoreScroll={scrollRestore('finance-review')} browseState={reviewBrowse} onBrowseStateChange={setReviewBrowse} onViewTrend={selection => { if (modeBlocked) return; rememberTrendRange(libraryGeneration, selection.range, selection.custom); beginReturn(); setSection('wealth'); setDetailId(null); }}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>
-        {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
-        {libraryGeneration ? <OverviewPage viewChoice={overviewChoice} onViewChoiceDone={() => setOverviewChoice(null)} modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onFinance={route => gotoFinance(route, false, false)} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { if (modeBlocked) { setNotice(blockedNotice('切换页面')); return; } setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
-          : !loadError && <p className="loading" role="status">正在读取总览…</p>}
+        {!demoStatus.active && !demoStatus.started && modulesLoaded && <section className="usage-next-steps ui-card"><h2>从一件小事开始</h2><p className="muted">先记一点就好，其他信息以后慢慢补。</p><div>
+          {modules.wealth && <button className="ui-btn" onClick={() => beginNewRecord('wealth')}>添加第一个账户</button>}
+          {modules.physical && <button className="ui-btn" onClick={() => void openEditor(null)}>记录第一件物品</button>}
+          {modules.planning && <button className="ui-btn" onClick={() => gotoPlanning('goals')}>设置一个计划</button>}
+          {!modules.wealth && !modules.physical && !modules.planning && <button className="ui-btn" onClick={openModuleSettings}>选择要使用的功能</button>}
+        </div><p className="muted small">以后可在设置中的「功能模块」随时调整。</p></section>}
+        {modules.physical && loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
+        {libraryGeneration ? (!demoStatus.active && !demoStatus.started ? null : <OverviewPage onNewAccount={() => beginNewRecord('wealth')} onManageAccounts={() => { if (modeBlocked || !libraryGeneration || !modules.wealth) return; beginReturn(); setWealthReviewFocus({ generation: libraryGeneration, kind: 'accounts' }); setSection('wealth'); setDetailId(null); }} onUpdateBalances={date => { if (modeBlocked || !libraryGeneration || !modules.wealth) { setNotice(blockedNotice('更新余额')); return; } if (date !== localDay()) { setToday(localDay()); setNotice('日期已变化，请待账户情况更新后再试。'); return; } beginReturn(); setWealthReviewFocus({ generation: libraryGeneration, kind: 'check-in', date }); setSection('wealth'); setDetailId(null); }} viewChoice={overviewChoice} onViewChoiceDone={() => setOverviewChoice(null)} modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onFinance={route => gotoFinance(route, false, false)} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { if (modeBlocked) { setNotice(blockedNotice('切换页面')); return; } setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>)
+          : (!loadError || !modules.physical) && <p className="loading" role="status">正在读取总览…</p>}
       </>}
       {searchSession.open && libraryGeneration && <SearchPanel session={searchSession} onSessionChange={setSearchSession} onClose={() => setSearchSession(s => ({ ...s, open: false }))} generation={libraryGeneration} modulesOn={kind => { const owner = searchKindModule(kind); return owner == null || modules[owner]; }} onOpenSource={openSource}/>}
       {section === 'timeline' && <SourceTimelinePage modules={modules} selection={timelineSelection} onSelection={setTimelineSelection} version={page ?? undefined} onOpenSource={openSource} restoreScroll={scrollRestore('timeline')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} search={searches.timeline} onSearch={v => setSearches(s => (s.timeline === v ? s : { ...s, timeline: v }))}/>}
@@ -1230,18 +1226,23 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
 }
 function Bootstrap({ onPrivacyBusyChange }: { onPrivacyBusyChange: (busy: boolean) => void }) {
   const [status, setStatus] = useState<DemoStatus | null>(null), [error, setError] = useState('');
+  const [welcome, setWelcome] = useState(false);
   async function start() {
     try {
       clearUnsubmittedEditors(localStorage);
       const generations = pendingGenerations(localStorage);
       if (generations.length > 1) throw new Error('发现属于不同资料的待核对请求，请保留资料并联系支持处理。');
-      const next = await invoke<DemoStatus>('demo_status', { pendingGeneration: generations[0] ?? null });
+      let next = await invoke<DemoStatus>('demo_status', { pendingGeneration: generations[0] ?? null });
       localStorage.removeItem('thingary.first-real-asset.v1');
+      const recovery = generations.length > 0 || !!localStorage.getItem(resetKey);
+      const choice = welcomeState(choiceStorage());
+      if (!recovery && !next.started && next.active && choice === 'completed') next = await invoke<DemoStatus>('switch_demo', { demo: false });
+      setWelcome(!recovery && !next.started && choice === null);
       setStatus(next); setError('');
     } catch (e) { setError(errorMessage(e)); }
   }
   useEffect(() => { void start(); }, []);
-  return status ? <App initialDemo={status} onPrivacyBusyChange={onPrivacyBusyChange}/> : error ? <div className="empty" role="alert"><h2>资料暂未准备好</h2><p>{error}</p><button onClick={() => void start()}>重新读取</button></div> : <p role="status">正在准备本机资料…</p>;
+  return status && welcome ? <Welcome status={status} onBusyChange={onPrivacyBusyChange} onDone={next => { setStatus(next); setWelcome(false); }}/> : status ? <App initialDemo={status} onPrivacyBusyChange={onPrivacyBusyChange}/> : error ? <div className="empty" role="alert"><h2>资料暂未准备好</h2><p>{error}</p><button onClick={() => void start()}>重新读取</button></div> : <p role="status">正在准备本机资料…</p>;
 }
 const root = createRoot(document.getElementById('root')!);
 root.render(<PrivacyBoundary>{onBusy => <Bootstrap onPrivacyBusyChange={onBusy}/>}</PrivacyBoundary>);

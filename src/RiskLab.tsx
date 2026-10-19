@@ -106,7 +106,7 @@ function Stress({ P, results, fmt }: { P: Plan; results: StressResult[]; fmt: (c
           <td className="amount">{fmt(r.stressed.at_horizon)}<small>{r.horizon_delta === 0 ? '无变化' : `${r.horizon_delta < 0 ? '减少' : '增加'} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{resultTime(P, r.stressed.failure_month)}时资金不足</small>}</td>
           <td><span className={`rl-sev ${r.severity}`}>{sevText[r.severity]}</span></td></tr>;
       })}</tbody></table></div>
-    <p className="muted small">每个情景只改一件事，其余假设不变，用同一套计算重新推演。期末剩余资金在 FIRE 下可能因推迟退休而更多，所以请和财务独立月份一起看。</p>
+    <p className="muted small">每个情景只改一件事，其余假设不变，用同一套计算重新推演。期末剩余资金在以不靠工资为目标时可能因推迟退休而更多，所以请和财务独立月份一起看。</p>
   </article>;
 }
 
@@ -120,7 +120,7 @@ function Moves({ P, year, fire }: { P: Plan; year: number; fire: boolean }) {
     <div className="rd-head"><Segments label="矩阵数值" value={show} options={[{ value: 'money', label: '期末剩余资金' }, { value: 'age', label: ageLabel }]} onChange={setShow}/></div>
     <p className="muted small">比较储蓄、收益率、退休月份和支出。绿色表示比基础计划更好，黄色表示更差。红色表示存在缺口或没有剩余资金；黑框是基础计划。</p>
     <div className="rl-matrices">
-        <MatrixView P={P} title="供款 × 收益率" sub={show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月供款"/>
+        <MatrixView P={P} title="每月存钱 × 收益率" sub={show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月存入"/>
         <MatrixView P={P} title={`${fire ? '期望月份' : '退休月份'} × 生活预算`} sub={(show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel) + '；固定事件付款不调整'} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead="每月预算分项" colHead={fire ? '期望月份' : '退休月份'} flatHint={fire}/>
       </div>
   </details>;
@@ -137,7 +137,7 @@ function MatrixView({ P, title, sub, m, show, rowText, colText, rowHead, colHead
   return <div><h4>{title}</h4><p className="muted small">{sub}</p>
     <table className="rl-matrix"><thead><tr><th>{rowHead} ＼ {colHead}</th>{m.cols.map((c, i) => <th key={c}>{m.column_labels?.[i] ?? colText(c)}</th>)}</tr></thead>
       <tbody>{m.rows.map((r, i) => <tr key={r}><th scope="row">{rowText(r)}</th>{m.cells[i].map((c, j) => <td key={j} className={`${tone(c, base, show)}${i === m.base_row && j === m.base_col ? ' base' : ''}`}>{show === 'age' ? (c.fi_month === null ? '—' : resultTime(P, c.fi_month).replace(' 岁', '')) : c.failed || c.at_horizon <= 0 ? '无' : compactYuan(c.at_horizon)}</td>)}</tr>)}</tbody></table>
-    {flatCols.some(Boolean) && show === 'age' && <p className="muted small">有些月份列变化不大：FIRE 下支出在计划实现财务独立时才开始。</p>}</div>;
+    {flatCols.some(Boolean) && show === 'age' && <p className="muted small">有些月份列变化不大：以不靠工资为目标时，生活支出从预计达成的月份开始。</p>}</div>;
 }
 
 function Crash({ P, year, fmt }: { P: Plan; year: number; fmt: (c: number) => string }) {

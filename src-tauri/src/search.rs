@@ -669,7 +669,7 @@ impl Store {
         let enabled: Vec<&'static str> = KINDS
             .iter()
             .filter(|k| match **k {
-                "asset" => true,
+                "asset" => modules.physical,
                 "wish" => modules.wishlist,
                 "account" | "snapshot" => modules.wealth,
                 "expense" => modules.expenses,

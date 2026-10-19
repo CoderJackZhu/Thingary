@@ -1,6 +1,6 @@
 # 物谱文档
 
-使用软件请先看一页的[快速上手](QUICKSTART.md)；需要细节时查[完整使用指南](USER_GUIDE.md#download)。主分支文档描述当前源码；公开安装包的功能与验收范围以对应[版本说明](../CHANGELOG.md)为准，不由设计批准、源码接入或本机安装推定。
+使用软件请先看[网站快速上手](https://thingary.jackzhu.top/quickstart/)；需要细节时查[按主题整理的使用指南](https://thingary.jackzhu.top/guide/)。仓库保留[快速上手源文档](QUICKSTART.md)与[完整参考](USER_GUIDE.md#download)，兼容已发布版本的帮助链接。主分支文档描述当前源码；公开安装包的功能与验收范围以对应[版本说明](../CHANGELOG.md)为准，不由设计批准、源码接入或本机安装推定。
 
 ## 使用软件
 
@@ -8,7 +8,7 @@
 |---|---|
 | 十分钟上手 | [快速上手](QUICKSTART.md) |
 | 下载、安装、首次打开 | [安装步骤](USER_GUIDE.md#download) · [GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases) |
-| 物品档案与首次账户盘点 | [第一件物品](USER_GUIDE.md#first-record) · [第一次盘点](USER_GUIDE.md#first-snapshot) |
+| 物品、首次账户盘点与规划 | [第一件物品](USER_GUIDE.md#first-record) · [第一次盘点](USER_GUIDE.md#first-snapshot) · [规划入门](USER_GUIDE.md#planning) |
 | 记录收入、支出与资金流动 | [收支记录与财务复盘](USER_GUIDE.md#finance-review) |
 | 目标、测算详情、试算与当前报告 | [规划入门](USER_GUIDE.md#planning) |
 | 临时现金与工作变化条件 | [资金续航](USER_GUIDE.md#runway) · [职业试算](USER_GUIDE.md#career-trial) |

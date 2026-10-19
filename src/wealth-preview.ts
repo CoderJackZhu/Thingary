@@ -581,6 +581,12 @@ const previewGroups = new Map<string, { assetId: string; planId: string; assetNa
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  if (command === 'wealth_account_availability') {
+    if (!previewModules.wealth) throw { code: 'MODULE_DISABLED', message: '账户与盘点已关闭' };
+    if (params.get('account-availability') === 'error') throw { message: '虚构账户读取失败。' };
+    const day = typeof args.today === 'string' ? args.today : todayIso;
+    return { value: { total: accounts.length, due_today: accounts.filter(a => due(a, day)).length } };
+  }
   // Fictional capability only; browser preview never calls device authentication.
   if (command === 'privacy_auth_available') return { value: ['success', 'cancel'].includes(params.get('privacy-auth') ?? '') };
   if (command === 'privacy_authenticate') {
