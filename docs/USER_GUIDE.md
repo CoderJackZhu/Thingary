@@ -719,7 +719,7 @@ Mac 关闭主窗口会隐藏窗口，完整退出使用“物谱 › 退出物�
 
 ### 换一台电脑
 
-在旧电脑做完整备份，把 `.thingary` 或 `.thingary.age` 文件复制到新电脑；加密备份还需要单独保管的对应恢复密钥。安装同版本或兼容的更新版本，切到「我的资料」，通过「从备份恢复」读取该文件。核对物品、账户、金额、未知值、关系和图片后再处理旧机器；不要依靠 Excel 搬迁完整档案。当前开发候选的 Mac 与 Windows 源码复用 schema 44；明文备份与解密后的内层格式相同，外层可选 age 加密。较早 Windows 双向恢复证据使用 schema 40，不能替代当前候选验收，跨平台恢复的当前验证边界见[开发说明](https://github.com/CoderJackZhu/Thingary/blob/main/docs/DEVELOPMENT.md#windows-validation)。主题、窗口尺寸、模块及通知偏好属于本机，需要重新检查；Windows 仍不能新增 HEIC／HEIF 图片。
+在旧电脑做完整备份，把 `.thingary` 或 `.thingary.age` 文件复制到新电脑；加密备份还需要单独保管的对应恢复密钥。安装同版本或兼容的更新版本，切到「我的资料」，通过「从备份恢复」读取该文件。核对物品、账户、金额、未知值、关系和图片后再处理旧机器；不要依靠 Excel 搬迁完整档案。0.0.8 的 Mac 与 Windows 版本都使用 schema 44；明文备份与解密后的内层格式相同，外层可选 age 加密。较早 Windows 双向恢复证据使用 schema 40，不能替代当前版本的验收，跨平台恢复的当前验证边界见[开发说明](https://github.com/CoderJackZhu/Thingary/blob/main/docs/DEVELOPMENT.md#windows-validation)。主题、窗口尺寸、模块及通知偏好属于本机，需要重新检查；Windows 仍不能新增 HEIC／HEIF 图片。
 
 ### 卸载与重装
 

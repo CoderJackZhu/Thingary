@@ -1,6 +1,6 @@
 # 架构说明
 
-物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，公开版运行于 macOS，Windows x64 实现处于候选验收。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
+物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，公开版提供 macOS 与 Windows x64（自 0.0.7 起同批发布，Windows 包未签名）。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
 
 当前已接入的资金／事件核对和月账本见下文。当前规划报告通过只读适配器接入真实来源，不新增持久对象；命名方案、冻结基准及基准／比较报告尚未接入，其物理表、命令与迁移版本在实施前确定，不能从规划推定数据库已变更。
 
