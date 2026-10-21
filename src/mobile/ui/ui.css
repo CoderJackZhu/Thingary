@@ -9,7 +9,7 @@
 .m-large-actions{display:flex;gap:10px;flex-shrink:0}
 .m-icon-button{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:var(--card);box-shadow:var(--card-shadow);display:inline-flex;align-items:center;justify-content:center}
 .m-icon-button[aria-pressed=true]{background:var(--selected);color:var(--accent)}
-.m-navbar{position:sticky;top:0;z-index:6;display:grid;grid-template-columns:minmax(64px,1fr) auto minmax(64px,1fr);align-items:center;min-height:52px;margin:0 calc(-1*max(var(--m-gutter),env(safe-area-inset-right,0px))) 0 calc(-1*max(var(--m-gutter),env(safe-area-inset-left,0px)));padding:0 max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));background:var(--m-nav-bg);-webkit-backdrop-filter:saturate(1.8) blur(18px);backdrop-filter:saturate(1.8) blur(18px)}
+.m-navbar{flex-shrink:0;position:sticky;top:0;z-index:6;display:grid;grid-template-columns:minmax(64px,1fr) auto minmax(64px,1fr);align-items:center;min-height:52px;margin:0 calc(-1*max(var(--m-gutter),env(safe-area-inset-right,0px))) 0 calc(-1*max(var(--m-gutter),env(safe-area-inset-left,0px)));padding:0 max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));background:var(--m-nav-bg);-webkit-backdrop-filter:saturate(1.8) blur(18px);backdrop-filter:saturate(1.8) blur(18px)}
 .m-navbar-title{margin:0;font-size:17px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56vw}
 .m-navbar-side{display:flex;align-items:center;min-width:0}
 .m-navbar-right{justify-content:flex-end}
@@ -114,6 +114,8 @@ button.m-hero,button.m-metric{display:flex}
 .m-money small{display:block;color:var(--error);text-align:right;font-size:12px}
 .m-date{display:flex;justify-content:flex-end;width:100%}
 .m-date button{min-height:44px}
+/* Desktop DateInput uses 13px; 16px prevents iOS focus zoom without disabling pinch zoom. */
+.m-date .date-input .date-input-row input{font-size:16px;min-height:44px}
 /* Date picker: every module gets 44px targets (items and wealth used to patch this on their own). */
 .m-date .date-input .date-picker-toggle{flex:0 0 44px;width:44px;min-height:44px}
 :root .date-calendar{width:min(360px,calc(100vw - 8px));padding:4px;max-height:80dvh}
@@ -123,9 +125,9 @@ button.m-hero,button.m-metric{display:flex}
 :root .date-calendar .date-calendar-actions button{min-height:44px;font-size:14px}
 
 /* Sheet */
-.m-sheet-layer{position:fixed;inset:0;z-index:30}
+.m-sheet-layer{position:fixed;inset:var(--m-viewport-top,0px) 0 auto;height:var(--m-viewport-height,100dvh);z-index:30}
 .m-sheet-scrim{position:absolute;inset:0;background:var(--m-scrim);animation:m-fade .2s ease-out}
-.m-sheet{position:absolute;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;max-height:88dvh;display:flex;flex-direction:column;background:var(--bg);border-radius:var(--m-sheet-radius) var(--m-sheet-radius) 0 0;box-shadow:0 -8px 32px #0003;animation:m-up .28s ease-out}
+.m-sheet{position:absolute;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;max-height:calc(var(--m-viewport-height,100dvh)*.88);display:flex;flex-direction:column;background:var(--bg);border-radius:var(--m-sheet-radius) var(--m-sheet-radius) 0 0;box-shadow:0 -8px 32px #0003;animation:m-up .28s ease-out}
 :root[data-mode=dark] .m-sheet{background:var(--card)}
 .m-sheet-handle{width:36px;height:5px;border-radius:3px;background:var(--mark);margin:8px auto 0;flex:none}
 .m-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px max(16px,env(safe-area-inset-right,0px)) 4px max(20px,env(safe-area-inset-left,0px));flex:none}

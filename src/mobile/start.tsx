@@ -1,3 +1,4 @@
+import { installKeyboardViewport } from './ui/keyboard-viewport';
 import { createRoot } from 'react-dom/client';
 import { MobileApp } from './MobileApp';
 import type { InitialRoute } from './nav-context';
@@ -13,6 +14,7 @@ function appearance() {
 /** Mount the app. `initial` opens a specific tab or route and is only passed by the development preview. */
 export function startMobile(initial?: InitialRoute) {
   appearance();
+  installKeyboardViewport();
   media.addEventListener('change', appearance);
   createRoot(document.getElementById('root')!).render(<MobileApp initial={initial}/>);
 }
