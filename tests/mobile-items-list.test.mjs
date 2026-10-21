@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { appendPage, changeQuery, chooseSort, initialQuery } from '../src/mobile/items/list-model.ts';
+const page=(ids,generation='g',today='2026-10-21')=>({generation,today,total:ids.length,items:ids.map(id=>({asset:{id}}))});
+test('query edits retain backend filter semantics and reset pagination',()=>{const q=initialQuery();assert.equal(q.sort,'date');assert.equal(q.descending,true);const n=changeQuery({...q,offset:100},{filter:'missing_price',warranty:'expiring',label:'none'});assert.equal(n.offset,0);assert.equal(n.filter,'missing_price');assert.equal(n.warranty,'expiring');assert.equal(n.label,'none');assert.equal(q.filter,'all');});
+test('sort choice uses desktop toggle convention',()=>{const q=initialQuery();assert.equal(chooseSort(q,'date').descending,false);assert.equal(chooseSort(q,'price').descending,false);assert.equal(chooseSort(chooseSort(q,'price'),'price').descending,true);});
+test('pagination preserves server order, refuses duplicates or mixed datasets/days',()=>{const first=page(['b','a']);assert.deepEqual(appendPage(first,page(['c']),2).items.map(x=>x.asset.id),['b','a','c']);assert.throws(()=>appendPage(first,page(['a']),2),/顺序已变化/);assert.throws(()=>appendPage(first,page(['c'],'other'),2),/资料已变化/);assert.throws(()=>appendPage(first,page(['c'],'g','2026-10-22'),2));assert.throws(()=>appendPage(first,page(['c']),100));assert.equal(appendPage(first,page([]),0).items.length,0);});
