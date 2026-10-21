@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { money } from '../../asset';
 import type { LinkView } from '../../link';
@@ -7,7 +7,7 @@ import type { Due, Overview, SubscriptionDetailData } from '../../recurring';
 import { periodLabel } from '../../recurring-model';
 import { submit } from '../../wealth';
 import { useModules } from '../modules-context';
-import { useNav } from '../nav-context';
+import { useNav, useReveal } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
 import { Button, Card, EmptyState, FormGroup, NavBar, HeroCard, ListGroup, ListRow, Notice } from '../ui';
@@ -41,6 +41,9 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
   const { overview, detail, link } = data, plan = detail.plan, f = plan.fields;
   const nav = useNav(), { today } = useSession(), { modules } = useModules(), saver = useSaver();
   const [sheet, setSheet] = useState<'' | 'pause' | 'end' | 'delete' | 'cancelResume'>(''), [skipping, setSkipping] = useState<PeriodRow | null>(null), [notice, setNotice] = useState(''), [shown, setShown] = useState(24);
+  const reveal = useReveal();
+  // A banner from an action on this page is stale once another page (edit, resume, payment) was opened above and closed.
+  useEffect(() => { setNotice(''); }, [reveal]);
   const linked = link.relation === 'linked' && !!link.asset;
   const ended = !!f.end_date && f.end_date < today, pending = pendingSubscriptionStart(plan, today);
   const status = planStatusInfo(plan, today), list = periodList(plan, detail.payments, [...overview.due, ...overview.upcoming] as Due[], today);

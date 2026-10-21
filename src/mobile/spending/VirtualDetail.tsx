@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { money } from '../../asset';
 import type { VirtualAsset, VirtualOverview, VirtualSave } from '../../virtual';
 import { billingOf, billingText, cumulativeCost, paymentScheduleText, planAssociationText, validityText, virtualKindText, virtualStatusText } from '../../virtual';
 import { submit } from '../../wealth';
 import { useModules } from '../modules-context';
-import { useNav } from '../nav-context';
+import { useNav, useReveal } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
 import { FormGroup, NavBar, ListGroup, ListRow, Metric, MetricGrid, Notice } from '../ui';
@@ -31,6 +31,9 @@ export default function VirtualDetail({ params }: PageProps) {
 function Body({ generation, item, reload }: { generation: string; item: VirtualAsset; reload: () => void }) {
   const nav = useNav(), { today } = useSession(), { modules } = useModules(), saver = useSaver();
   const [sheet, setSheet] = useState<'' | 'stop' | 'delete'>(''), [notice, setNotice] = useState('');
+  const reveal = useReveal();
+  // A banner from an action on this page is stale once another page (edit, top-up, balance) was opened above and closed.
+  useEffect(() => { setNotice(''); }, [reveal]);
   const mode = billingOf(item), cost = cumulativeCost(item), line = virtualLine(item, today), f = item.fields;
   const linkedPlan = mode === 'subscription' && !!item.plan && !item.plan_deleted;
   const recurringOn = modules ? modules.recurring : true;
