@@ -134,6 +134,8 @@ npm run dev -- --port 1429
 
 访问 <http://127.0.0.1:1429/visual-preview.html>。页面仅使用内存虚构资料，刷新重置，不包含于普通发布构建；预览保存提示不证明原生持久化或系统文件能力。
 
+手机预览访问 `/mobile-preview.html`，与桌面预览共用 `src/preview-ipc.ts` 的虚构数据；参数 `theme`、`wealth`、`mobile-state`、`tab`、`route` 见 [src/mobile/README.md](../src/mobile/README.md)。
+
 | 参数／入口 | 用途 |
 |---|---|
 | `?state=empty`、`?state=error`、`?state=save-error` | 空白、读取失败、保存失败 |

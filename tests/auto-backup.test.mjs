@@ -62,7 +62,7 @@ test('the extra location offers change and cancel, and errors do not block the m
 });
 
 test('preview simulates the four automatic backup states', () => {
-  const preview = readFileSync(new URL('../src/visual-preview.ts', import.meta.url), 'utf8');
+  const preview = readFileSync(new URL('../src/preview-ipc.ts', import.meta.url), 'utf8');
   for (const state of ['never', 'ok', 'error', 'extra-error']) assert.ok(preview.includes(`'${state}'`), state);
   assert.match(preview, /autoBackupPreview\(command, args\)/);
   assert.match(preview, /\?autobackup=|params\.get\('autobackup'\)/);

@@ -1,8 +1,8 @@
-import { money } from '../asset';
-import type { Summary } from '../wealth';
-import { homeView } from './model';
+import { money } from '../../asset';
+import type { Summary } from '../../wealth';
+import { homeView } from '../model';
 
-export function HomePage({ summary, hasAccounts, onCheckIn, onPlan }: { summary: Summary; hasAccounts: boolean; onCheckIn: () => void; onPlan: () => void }) {
+export function HomePage({ summary, hasAccounts, onCheckIn, onPlan }: { summary: Summary; hasAccounts: boolean; onCheckIn: () => void; onPlan?: () => void }) {
   const { latest, shown, change, comparedTo } = homeView(summary);
   return <>
     <section className="mobile-card mobile-hero" aria-label="资产总览">
@@ -19,6 +19,6 @@ export function HomePage({ summary, hasAccounts, onCheckIn, onPlan }: { summary:
       {!shown && <p className="mobile-muted">{hasAccounts ? '填下各账户余额，留下第一份家底。' : '先建一个账户，再记下当前余额。'}</p>}
       <button className="mobile-primary mobile-wide" onClick={onCheckIn}>{hasAccounts ? '更新本月余额' : '开始第一次盘点'}</button>
     </section>
-    <section className="mobile-card mobile-plan"><span className="mobile-caption">给未来留一点余地</span><h2>还要上几年班</h2><p className="mobile-muted">记录家底之后，再看看离想要的生活还有多远。</p><button className="mobile-wide" onClick={onPlan}>去测算 <span aria-hidden="true">→</span></button></section>
+    {onPlan && <section className="mobile-card mobile-plan"><span className="mobile-caption">给未来留一点余地</span><h2>还要上几年班</h2><p className="mobile-muted">记录家底之后，再看看离想要的生活还有多远。</p><button className="mobile-wide" onClick={onPlan}>去测算 <span aria-hidden="true">→</span></button></section>}
   </>;
 }

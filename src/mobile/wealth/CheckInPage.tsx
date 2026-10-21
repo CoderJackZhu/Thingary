@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { errorMessage, money } from '../asset';
-import { CurrencyInput } from '../CurrencyInput';
-import { HoldingInput } from '../HoldingInput';
-import { currencyAmount, currencyCode, currencyDecimals } from '../currency';
-import { enterJumpsAmount, kindLabel, quickFact, storedPending, submit } from '../wealth';
-import type { Account, Draft, Pending, Summary } from '../wealth';
-import { availableAccounts, balanceRequests, emptyBalance, saveInOrder } from './model';
-import type { BalanceInput } from './model';
+import { errorMessage, money } from '../../asset';
+import { CurrencyInput } from '../../CurrencyInput';
+import { HoldingInput } from '../../HoldingInput';
+import { currencyAmount, currencyCode, currencyDecimals } from '../../currency';
+import { enterJumpsAmount, kindLabel, quickFact, storedPending, submit } from '../../wealth';
+import type { Account, Draft, Pending, Summary } from '../../wealth';
+import { availableAccounts, balanceRequests, emptyBalance, saveInOrder } from '../model';
+import type { BalanceInput } from '../model';
 
 export function CheckInPage({ accounts, summary, draft, today, blocked, settled, onBusy, onPending, onReload, onNew }: { accounts: Account[]; summary: Summary; draft: Draft; today: string; blocked: boolean; settled: Pending | null; onBusy: (busy: boolean) => void; onPending: () => void; onReload: () => void; onNew: () => void }) {
   const [values, setValues] = useState<Record<string, BalanceInput>>({});

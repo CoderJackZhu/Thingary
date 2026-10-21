@@ -40,7 +40,7 @@ test('expense search covers title, category label, notes and source label', () =
 });
 
 test('the asset list keeps the tag in its searchable fields (preview mirrors the backend)', () => {
-  assert.match(src('visual-preview.ts'), /labelName\(r\.preferences\?\.label_id\)/, 'preview search includes tag names');
+  assert.match(src('preview-ipc.ts'), /labelName\(r\.preferences\?\.label_id\)/, 'preview search includes tag names');
   const catalog = readFileSync(new URL('../src-tauri/src/catalog.rs', import.meta.url), 'utf8');
   assert.ok(catalog.includes("LEFT JOIN named_choices lbl ON lbl.kind='label'"), 'backend joins the label name');
   assert.ok(catalog.includes("coalesce(lbl.name,'')"), 'label name joins the haystack');

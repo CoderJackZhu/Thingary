@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { errorMessage } from '../asset';
-import { accountKindHint, assetKinds, liabilityKinds, selectAccountKind, storedPending, submit } from '../wealth';
-import type { Account, AccountFields } from '../wealth';
+import { errorMessage } from '../../asset';
+import { accountKindHint, assetKinds, liabilityKinds, selectAccountKind, storedPending, submit } from '../../wealth';
+import type { Account, AccountFields } from '../../wealth';
 
 export function AccountForm({ generation, today, onClose, onBusy, onPending }: { generation: string; today: string; onClose: (saved: boolean) => void; onBusy: (busy: boolean) => void; onPending: () => void }) {
   const [fields, setFields] = useState<AccountFields>({ name: '', institution: '', side: 'asset', kind: 'cash', counted: true, opened_on: today, closed_on: null, notes: '' });

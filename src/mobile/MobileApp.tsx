@@ -1,67 +1,79 @@
-import { useEffect, useRef, useState } from 'react';
-import { errorMessage, localDay } from '../asset';
-import { resolvePending, storedPending } from '../wealth';
-import type { Pending } from '../wealth';
-import { HomePage } from './HomePage';
-import { CheckInPage } from './CheckInPage';
-import { AccountForm } from './AccountForm';
-import { readMobile } from './service';
-import type { MobileData } from './service';
+import { Suspense, useEffect, useLayoutEffect, useRef } from 'react';
+import type { RefObject } from 'react';
+import { ModulesProvider, useModules } from './modules-context';
+import { EntryProvider, NavProvider, useNavState } from './nav-context';
+import type { InitialRoute } from './nav-context';
+import { activeStack } from './nav';
+import { routeDef, routeKind, visibleSegments, visibleTabs } from './routes';
+import { SessionProvider, useSession } from './session';
+import { ErrorBoundary } from './ErrorBoundary';
+import { pageFor } from './router';
+import { TabBar } from './TabBar';
+import { Loading, Notice, SegmentedControl, Sheet } from './ui';
+import { Button } from './ui';
 
-export const mobileTabs = ['家底', '盘点', '测算'] as const;
-export type MobileTab = typeof mobileTabs[number];
-function TabIcon({ tab }: { tab: MobileTab }) {
-  return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{tab === '家底' ? <><path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/></> : tab === '盘点' ? <><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v4H9zM9 12h6m-6 4h6"/></> : <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h1m6 0h1m-8 5h1m6 0h1"/></>}</svg>;
+/** The whole iPhone app: module switches, wealth session, per-tab page stacks, tab bar. */
+export function MobileApp({ initial }: { initial?: InitialRoute }) {
+  const recovery = useRef<HTMLElement>(null);
+  return <ModulesProvider><SessionProvider onFocusRecovery={() => setTimeout(() => recovery.current?.focus(), 0)}><Gate initial={initial} recovery={recovery}/></SessionProvider></ModulesProvider>;
 }
-export function MobileApp() {
-  const [tab, setTab] = useState<MobileTab>('家底');
-  const [data, setData] = useState<MobileData | null>(null), [error, setError] = useState('');
-  const [revision, setRevision] = useState(0), [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false), [creating, setCreating] = useState(false);
-  const [pending, setPending] = useState<Pending | null>(storedPending), [notice, setNotice] = useState('');
-  const [settled, setSettled] = useState<Pending | null>(null);
-  const checking = useRef(false);
-  const today = localDay();
-  const heading = useRef<HTMLHeadingElement>(null);
-  const reload = () => setRevision(value => value + 1);
+
+function Gate({ initial, recovery }: { initial?: InitialRoute; recovery: RefObject<HTMLElement | null> }) {
+  const { modules } = useModules(), { navBlocked } = useSession();
+  return <NavProvider modules={modules} blocked={navBlocked} initial={initial}><Shell recovery={recovery}/></NavProvider>;
+}
+
+function Page({ stack, index }: { stack: ReturnType<typeof activeStack>; index: number }) {
+  const entry = stack[index], Component = pageFor(entry.route);
+  return <EntryProvider stack={stack} index={index}><ErrorBoundary resetKey={entry.id}><Suspense fallback={<Loading/>}><Component params={entry.params}/></Suspense></ErrorBoundary></EntryProvider>;
+}
+
+function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
+  const { state, nav } = useNavState(), session = useSession(), { modules } = useModules();
+  const stack = activeStack(state);
+  // The page shown is the topmost 'page' entry; modals and sheets above it layer over it.
+  let base = stack.length - 1;
+  while (base > 0 && routeKind(stack[base].route) !== 'page') base--;
+  const overlays = stack.slice(base + 1), baseEntry = stack[base];
+  const fullscreen = !!routeDef(baseEntry.route)?.fullscreen;
+  const segments = visibleSegments(state.tab, modules);
+
+  // A tab whose module was switched off is no longer reachable: fall back to the overview.
+  const tabs = visibleTabs(modules);
+  useEffect(() => { if (!tabs.some(tab => tab.id === state.tab)) nav.switchTab('overview'); }, [tabs.length, state.tab]);
+  useEffect(() => { session.setNotice(''); }, [state.tab]);
+
+  // Scroll position is remembered per page entry; focus moves to the new page for VoiceOver.
+  const scrolls = useRef(new Map<number, number>()), current = useRef(baseEntry.id), first = useRef(true), main = useRef<HTMLElement>(null);
   useEffect(() => {
-    let live = true; setLoading(true); setError('');
-    readMobile(today).then(next => { if (live) setData(next); }).catch(cause => { if (live) setError(errorMessage(cause)); }).finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [revision, today]);
-  useEffect(() => { setCreating(false); setSettled(null); }, [data?.summary.generation]);
-  const blocked = busy || loading || !!pending || !!error;
-  function refreshPending() {
-    const next = storedPending(); setPending(next);
-    if (next) { heading.current?.focus(); window.scrollTo(0, 0); }
-  }
-  function navigate(next: MobileTab) { if (busy || pending) return; setCreating(false); setNotice(''); setTab(next); heading.current?.focus(); window.scrollTo(0, 0); }
-  async function verify() {
-    if (!pending || checking.current || pending.command === 'financial_import_commit') return;
-    checking.current = true; setBusy(true); setNotice('');
-    try {
-      const outcome = await resolvePending(pending);
-      if (outcome === 'saved') { setSettled(pending); if (pending.command === 'wealth_account_save') setCreating(false); }
-      setNotice(outcome === 'saved' ? '已确认保存。请核对已更新余额，再继续剩余账户。' : outcome === 'unsaved' ? '已确认没有保存，当前输入保留，请核对后重新提交。' : '资料库已切换，请重新核对当前账户。');
-      setPending(storedPending()); reload();
-    } catch (cause) { setNotice(errorMessage(cause) + ' 原请求已保留，请稍后重试核对。'); }
-    finally { checking.current = false; setBusy(false); }
-  }
-  return <div className="mobile-app">
-    <header className="mobile-header"><p className="mobile-eyebrow">物谱 · THINGARY</p><h1 tabIndex={-1} ref={heading}>{tab}</h1><p className="mobile-muted">每月盘一盘，离想要的生活近一点。</p></header>
-    <main id="mobile-content">
-      {pending && <section className="mobile-card mobile-recovery" aria-label="保存结果核对"><h2>保存结果未确定</h2><p role="status">「{pending.label}」的结果尚未确认。原请求已保留，核对前暂停编辑和切页。</p>{pending.command === 'financial_import_commit' ? <p>请在桌面版的数据管理中核对金融导入。</p> : <button className="mobile-primary mobile-wide" disabled={busy} onClick={() => void verify()}>{busy ? '正在核对…' : '核对结果'}</button>}</section>}
-      {notice && <p role="status" className="mobile-notice">{notice}</p>}
-      {error && <section className="mobile-card" role="alert"><h2>资料读取失败</h2><p className="mobile-error">{error}</p><button disabled={busy} onClick={reload}>重新读取</button></section>}
-      {loading && <p role="status" className="mobile-caption">正在读取账户资料…</p>}
-      <div inert={!!pending}>
-        {data && (tab === '家底' ? <HomePage summary={data.summary} hasAccounts={!!data.accounts.length} onCheckIn={() => navigate('盘点')} onPlan={() => navigate('测算')}/> : tab === '盘点' ? <div key={data.summary.generation}>
-          {creating ? <AccountForm generation={data.summary.generation} today={today} onBusy={setBusy} onPending={refreshPending} onClose={saved => { setCreating(false); if (saved) { setNotice('账户已保存，请填写当前余额。'); reload(); } }}/>
-          : <CheckInPage accounts={data.accounts} summary={data.summary} draft={data.draft} today={today} blocked={blocked} settled={settled} onBusy={setBusy} onPending={refreshPending} onReload={reload} onNew={() => setCreating(true)}/>}
-        </div> : null)}
-        {tab === '测算' && <section className="mobile-card mobile-placeholder"><span className="mobile-symbol"><TabIcon tab={tab}/></span><h2>还要上几年班</h2><p className="mobile-muted">测算功能将在后续接入。</p><p className="mobile-caption">先每月记下余额，为下一次测算准备好家底。</p></section>}
-      </div>
+    const onScroll = () => scrolls.current.set(current.current, window.scrollY);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useLayoutEffect(() => {
+    current.current = baseEntry.id;
+    window.scrollTo(0, scrolls.current.get(baseEntry.id) ?? 0);
+    if (first.current) first.current = false; else main.current?.focus({ preventScroll: true });
+  }, [baseEntry.id]);
+
+  const covered = overlays.length > 0, locked = !!session.pending;
+  return <div className="m-app">
+    <main id="mobile-content" className="m-main" tabIndex={-1} ref={main} inert={covered || locked} data-tab={state.tab}>
+      {baseEntry.id === stack[0].id && segments.length > 1 && <div className="m-segment-bar"><SegmentedControl label="分段" items={segments.map(segment => ({ id: segment.route, label: segment.label }))} value={segments.some(segment => segment.route === baseEntry.route) ? baseEntry.route : segments[0].route} onChange={route => nav.setSegment(route)}/></div>}
+      <Page stack={stack} index={base}/>
     </main>
-    <nav className="mobile-tabs" aria-label="主要页面">{mobileTabs.map(item => <button key={item} type="button" disabled={busy || !!pending} aria-current={tab === item ? 'page' : undefined} onClick={() => navigate(item)}><TabIcon tab={item}/><span>{item}</span></button>)}</nav>
+    {overlays.map((entry, i) => {
+      const index = base + 1 + i, last = i === overlays.length - 1, def = routeDef(entry.route);
+      const title = entry.title ?? def?.title ?? '';
+      return routeKind(entry.route) === 'sheet'
+        ? <div key={entry.id} inert={!last || locked}><Sheet title={title} onClose={() => nav.pop()}><Page stack={stack} index={index}/></Sheet></div>
+        : <div key={entry.id} className="m-modal" role="dialog" aria-modal="true" aria-label={title} inert={!last || locked}><Page stack={stack} index={index}/></div>;
+    })}
+    {!fullscreen && <div inert={covered || locked}><TabBar tab={state.tab} modules={modules} disabled={nav.blocked} onSelect={nav.switchTab}/></div>}
+    {session.pending && <div className="m-recovery-layer"><section className="m-card m-recovery" role="alertdialog" aria-modal="true" aria-label="保存结果核对" tabIndex={-1} ref={recovery}>
+      <h2>保存结果未确定</h2><p role="status">「{session.pending.label}」的结果尚未确认。原请求已保留，核对前暂停编辑和切页。</p>
+      {session.pending.command === 'financial_import_commit' ? <p>请在桌面版的数据管理中核对金融导入。</p> : <Button variant="primary" block disabled={session.busy} onClick={() => void session.verify()}>{session.busy ? '正在核对…' : '核对结果'}</Button>}
+      {session.notice && <Notice>{session.notice}</Notice>}
+    </section></div>}
   </div>;
 }
