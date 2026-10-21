@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>试算</title>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#5553d8}a:hover{color:#3f3db8}
+</style>
+</helmet>
+<div style="width: 390px; height: 1760px; position: relative; overflow: hidden; background: #f2f2f7; color: #1c1c1e; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; box-sizing: border-box">
+<div style="padding: 58px 20px 110px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px">规划</h1>
+<a href="21-PlanSetup.html" style="display: flex; align-items: center; height: 44px; padding: 0 4px; font-size: 16px; text-decoration: none">调整条件</a>
+</div>
+<div role="radiogroup" aria-label="规划内容" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 10px; background: #ededf2"><a role="radio" aria-checked="false" href="17-Plan.html" style="display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 8px; color: #636366; text-decoration: none; font-size: 15px">目标</a><a role="radio" aria-checked="false" href="18-PlanDetail.html" style="display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 8px; color: #636366; text-decoration: none; font-size: 15px">测算详情</a><a role="radio" aria-checked="true" href="20-PlanTrials.html" style="display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 8px; background: #ffffff; color: #1c1c1e; text-decoration: none; font-size: 15px; font-weight: 600; box-shadow: 0 1px 3px #00000014">试算</a></div>
+
+<section aria-label="资金续航" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 18px; background: #ffffff; box-shadow: 0 1px 2px #0000000a, 0 4px 14px #0000000a">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 17px; font-weight: 600">资金续航</span><span style="font-size: 13px; color: #636366">歇一阵能撑多久</span></div>
+<label style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font-size: 15px"><span>每月可靠到账</span><span style="display: flex; align-items: center; gap: 6px"><input value="0" inputmode="numeric" aria-label="每月可靠到账" style="width: 110px; height: 40px; box-sizing: border-box; border: 1px solid #e2e2e8; border-radius: 10px; padding: 0 10px; font: inherit; font-size: 15px; text-align: right; background: #f2f2f7"><span>元</span></span></label>
+<label style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font-size: 15px"><span>每月花费</span><span style="display: flex; align-items: center; gap: 6px"><input value="12,000" inputmode="numeric" aria-label="每月花费" style="width: 110px; height: 40px; box-sizing: border-box; border: 1px solid #e2e2e8; border-radius: 10px; padding: 0 10px; font: inherit; font-size: 15px; text-align: right; background: #f2f2f7"><span>元</span></span></label>
+<label style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font-size: 15px"><span>资金底线</span><span style="display: flex; align-items: center; gap: 6px"><input value="0" inputmode="numeric" aria-label="资金底线" style="width: 110px; height: 40px; box-sizing: border-box; border: 1px solid #e2e2e8; border-radius: 10px; padding: 0 10px; font: inherit; font-size: 15px; text-align: right; background: #f2f2f7"><span>元</span></span></label>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: linear-gradient(160deg, #ececfe, #ffffff 70%)">
+<span style="font-size: 14px; color: #636366">如果现在不上班，按每月 ¥12,000</span>
+<span style="font-size: 28px; font-weight: 700; color: #5553d8; letter-spacing: -0.5px">能撑 5 年 6 个月</span>
+<svg role="img" aria-label="资金续航条：从现在到 5 年 6 个月，约 2032 年 4 月用完可用资金，满格为 10 年" width="100%" height="34" viewBox="0 0 300 34" preserveAspectRatio="none"><rect y="4" width="300" height="12" rx="6" fill="#ededf2"></rect><rect y="4" width="165" height="12" rx="6" fill="#5553d8"></rect><line x1="165" y1="0" x2="165" y2="20" stroke="#1c1c1e" stroke-width="1.5"></line></svg>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #636366"><span>现在</span><span>5 年 6 个月 · 2032 年 4 月</span><span>10 年</span></div>
+</div>
+<span style="font-size: 12px; color: #636366; line-height: 1.5">试算临时计算，关闭即丢弃。用可动用的 ¥79 万，公积金未计入；租金、月供、社保请放进每月花费。</span>
+</section>
+
+<section aria-label="职业变化" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 18px; background: #ffffff; box-shadow: 0 1px 2px #0000000a, 0 4px 14px #0000000a">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 17px; font-weight: 600">职业变化</span><span style="font-size: 13px; color: #636366">空窗、降低投入或换工作</span></div>
+<label style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font-size: 15px"><span>从哪个月开始</span><span style="display: flex; align-items: center; gap: 4px; height: 40px; box-sizing: border-box; padding: 0 10px 0 14px; border: 1px solid #e2e2e8; border-radius: 10px; background: #f2f2f7"><input value="2027 年 1 月" aria-label="从哪个月开始" style="width: 110px; border: 0; background: transparent; font: inherit; font-size: 15px; text-align: right; padding: 0"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"></path></svg></span></label>
+<label style="display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font-size: 15px"><span>新的每月能存（两人）</span><span style="display: flex; align-items: center; gap: 6px"><input value="3,000" inputmode="numeric" aria-label="新的每月能存（两人）" style="width: 110px; height: 40px; box-sizing: border-box; border: 1px solid #e2e2e8; border-radius: 10px; padding: 0 10px; font: inherit; font-size: 15px; text-align: right; background: #f2f2f7"><span>元</span></span></label>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 15px">持续多久</span>
+<div role="radiogroup" aria-label="持续多久" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<button role="radio" aria-checked="false" style="height: 44px; border: 1px solid #e2e2e8; border-radius: 10px; background: #ffffff; color: #1c1c1e; font: inherit; font-size: 15px">6 个月</button>
+<button role="radio" aria-checked="false" style="height: 44px; border: 1px solid #e2e2e8; border-radius: 10px; background: #ffffff; color: #1c1c1e; font: inherit; font-size: 15px">1 年</button>
+<button role="radio" aria-checked="true" style="height: 44px; border: 1px solid #5553d8; border-radius: 10px; background: #ecebfd; color: #5553d8; font: inherit; font-size: 15px; font-weight: 600">2 年</button>
+<button role="radio" aria-checked="false" style="height: 44px; border: 1px solid #e2e2e8; border-radius: 10px; background: #ffffff; color: #1c1c1e; font: inherit; font-size: 15px">自定义</button>
+</div></div>
+<label style="display: flex; align-items: flex-start; gap: 10px; min-height: 44px; font-size: 14px; line-height: 1.5"><span role="checkbox" aria-checked="true" style="flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 6px; background: #5553d8; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></span><span>我确认这笔金额已包含社保、医保等全部自付费用</span></label>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #fff2de">
+<span style="font-size: 14px; color: #984c00">按这个变化算</span>
+<span style="font-size: 24px; font-weight: 700; color: #984c00; letter-spacing: -0.5px">停工时间推迟 2 年 1 个月</span>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px">
+<div style="display: flex; justify-content: space-between"><span style="color: #636366">现在的计划</span><span style="font-variant-numeric: tabular-nums">2048 年 8 月 · 51 岁</span></div>
+<div style="display: flex; justify-content: space-between"><span style="color: #636366">变化之后</span><span style="font-weight: 600; font-variant-numeric: tabular-nums">2050 年 9 月 · 53 岁 6 个月</span></div>
+</div>
+</div>
+<span style="font-size: 12px; color: #636366; line-height: 1.5">默认沿用保存计划的收入和资金。这里不预测裁员、涨薪或社保资格，也不保存职业路线。</span>
+</section>
+
+<section aria-label="心愿影响" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 18px; background: #ffffff; box-shadow: 0 1px 2px #0000000a, 0 4px 14px #0000000a; gap: 4px">
+<div style="margin-bottom: 4px"><div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 17px; font-weight: 600">心愿影响</span><span style="font-size: 13px; color: #636366">考虑中的 3 个</span></div></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 0; border-bottom: 1px solid #eeeef3;"><span style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #ececfe, #d9d8f8); flex: none"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px">降噪耳机</span><span style="font-size: 13px; color: #636366">计划 10 月 15 日 · ¥2,499</span></span><span style="text-align: right; font-size: 14px; font-weight: 600; color: #984c00">推迟约 9 天</span></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 0; border-bottom: 1px solid #eeeef3;"><span style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #ececfe, #d9d8f8); flex: none"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px">微单相机</span><span style="font-size: 13px; color: #636366">明年春天 · ¥8,999</span></span><span style="text-align: right; font-size: 14px; font-weight: 600; color: #984c00">推迟约 1 个月</span></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 0; border-bottom: 1px solid #eeeef3;"><span style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #ececfe, #d9d8f8); flex: none"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px">洗烘一体机</span><span style="font-size: 13px; color: #636366">2027 年 · ¥7,999</span></span><span style="text-align: right; font-size: 14px; font-weight: 600; color: #984c00">推迟约 1 个月</span></div>
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0 4px; border-top: 1px solid #e2e2e8; font-size: 15px"><span>全部买下 · ¥19,497</span><span style="font-weight: 700; color: #984c00">推迟约 2 个半月</span></div>
+<a href="07-Wishes.html" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-size: 15px; text-decoration: none">去心愿清单（不会写进目标，也不扣真实余额）<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></a>
+</section>
+<p style="margin: 0; font-size: 12px; color: #636366">估算结果，不是理财建议。</p>
+</div>
+<nav aria-label="主导航" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 6px 8px 26px; background: #ffffffee; border-top: 1px solid #e2e2e8; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr))">
+<a href="01-Overview.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #636366; font-size: 11px"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path></svg>总览</a>
+<a href="02-Items.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #636366; font-size: 11px"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg>物品</a>
+<a href="10-Wealth.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #636366; font-size: 11px"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18M16 14h2"></path></svg>财富</a>
+<a href="17-Plan.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5553d8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19l5-6 4 3 7-9"></path><path d="M4 5v14h16"></path></svg>规划</a>
+<a href="22-Me.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #636366; font-size: 11px"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1-4 4-6 8-6s7 2 8 6"></path></svg>我的</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
