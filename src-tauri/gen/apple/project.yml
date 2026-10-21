@@ -39,6 +39,18 @@ targets:
     info:
       path: thingary_iOS/Info.plist
       properties:
+        LSSupportsOpeningDocumentsInPlace: true
+        UIFileSharingEnabled: true
+        NSCameraUsageDescription: 用于拍摄物品照片并保存到本机物品档案。
+        NSPhotoLibraryUsageDescription: 用于选择物品照片并保存到本机物品档案。
+        NSFaceIDUsageDescription: 用于验证设备机主身份，解锁物谱中的本机资料；生物识别信息不会进入物谱。
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneClassName: UIWindowScene
+                UISceneConfigurationName: TaoScene
+                UISceneDelegateClassName: TaoSceneDelegate
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities: [arm64, metal]
@@ -77,8 +89,14 @@ targets:
       - sdk: MetalKit.framework
       - sdk: QuartzCore.framework
       - sdk: Security.framework
+      - sdk: PhotosUI.framework
       - sdk: UIKit.framework
       - sdk: WebKit.framework
+      - sdk: LocalAuthentication.framework
+      - sdk: UserNotifications.framework
+      - sdk: ImageIO.framework
+      - sdk: UniformTypeIdentifiers.framework
+      - sdk: Foundation.framework
     preBuildScripts:
       - script: npm run -- ios:tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
         name: Build Rust Code

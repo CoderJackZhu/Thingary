@@ -27,6 +27,10 @@ pub mod insights;
 pub mod investment_review;
 mod investment_review_commands;
 pub mod investment_review_component;
+#[cfg(target_os = "ios")]
+mod ios;
+#[cfg(any(target_os = "ios", test))]
+mod ios_exports;
 pub mod lifecycle;
 pub mod link;
 pub mod link_merge;
@@ -125,6 +129,11 @@ pub fn run() {
             }
             #[cfg(target_os = "windows")]
             reminders::set_app_identifier(&app.config().identifier)?;
+            #[cfg(target_os = "ios")]
+            {
+                ios_exports::configure(app.handle())?;
+                ios::init();
+            }
             reminders::enable();
             // A toast click cannot open an unpackaged app until the COM
             // activator is registered; this only restores basic wake-up.
@@ -176,9 +185,11 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             let find_item =
                 MenuItem::with_id(app, "find-asset", "搜索物品", true, Some("CmdOrCtrl+F"))?;
-            #[cfg(all(desktop, not(target_os = "macos")))]
+            #[cfg(desktop)]
+            #[cfg(not(target_os = "macos"))]
             let new_item = MenuItem::with_id(app, "new-asset", "新增物品", true, None::<&str>)?;
-            #[cfg(all(desktop, not(target_os = "macos")))]
+            #[cfg(desktop)]
+            #[cfg(not(target_os = "macos"))]
             let find_item = MenuItem::with_id(app, "find-asset", "搜索物品", true, None::<&str>)?;
             #[cfg(desktop)]
             app.manage(commands::PageMenu {
@@ -299,6 +310,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::platform_capabilities,
+            commands::ios_privacy_cover_set,
+            commands::ios_share_file,
+            commands::ios_share_text,
+            commands::ios_export_pdf,
             planning_engine_commands::planning_engine_evaluate,
             privacy_lock::privacy_auth_available,
             privacy_lock::privacy_authenticate,

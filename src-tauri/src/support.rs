@@ -21,6 +21,9 @@ pub fn destination(target: &str) -> Result<&'static str> {
 }
 
 pub fn open(target: &str) -> Result<()> {
+    if cfg!(target_os = "ios") && target == "update" {
+        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+    }
     let url = destination(target)?;
     // Windows Explorer launches the user's default browser asynchronously;
     // its exit status is not a browser-launch success signal.
@@ -32,7 +35,7 @@ pub fn open(target: &str) -> Result<()> {
             .map(|_| ())
             .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
         let status = std::process::Command::new("/usr/bin/open")
             .arg(url)
@@ -43,6 +46,10 @@ pub fn open(target: &str) -> Result<()> {
         } else {
             Err(Error::new("SUPPORT", "无法打开浏览器。"))
         }
+    }
+    #[cfg(target_os = "ios")]
+    {
+        crate::ios::open_url(url)
     }
 }
 

@@ -27,7 +27,7 @@
     "test:engine-parity": "node scripts/planning-engine-parity.mjs",
     "predev": "npm run build:engine",
     "check:engine-source": "node scripts/build-planning-engine.mjs --check-source",
-    "ios:init": "tauri ios init",
+    "ios:init": "npm run ios:tauri -- ios init",
     "ios:dev": "npm run ios:tauri -- ios dev --host 127.0.0.1",
     "ios:check": "cargo check --manifest-path src-tauri/Cargo.toml --lib --target aarch64-apple-ios-sim && cargo check --manifest-path src-tauri/Cargo.toml --lib --target aarch64-apple-ios",
     "ios:tauri": "npm exec --yes --package=@tauri-apps/cli@2.12.3 -- tauri"

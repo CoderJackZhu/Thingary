@@ -3,7 +3,7 @@ use crate::{
     storage::Store,
 };
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
@@ -12,7 +12,7 @@ use std::sync::{
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static AUTH_PENDING: AtomicUsize = AtomicUsize::new(0);
 static LAST: Mutex<(String, String)> = Mutex::new((String::new(), String::new()));
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 extern "C" {
     fn thingary_notifications(json: *const c_char, ask: i32) -> *mut c_char;
     fn thingary_free(ptr: *mut c_void);
@@ -104,7 +104,7 @@ fn native(json: &str, ask: bool) -> Result<()> {
         NATIVE_CALLS.lock().unwrap().push(json.to_owned());
         return Ok(());
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
         let json = CString::new(json).map_err(|_| Error::new("REMINDER", "提醒内容无效"))?;
         let ptr = unsafe { thingary_notifications(json.as_ptr(), i32::from(ask)) };
@@ -127,11 +127,6 @@ fn native(json: &str, ask: bool) -> Result<()> {
             .get()
             .ok_or_else(|| Error::new("REMINDER", "当前应用身份无法使用系统通知"))?;
         windows_native(identifier, json, ask)
-    }
-    #[cfg(target_os = "ios")]
-    {
-        let _ = (json, ask);
-        Ok(())
     }
 }
 #[cfg(windows)]

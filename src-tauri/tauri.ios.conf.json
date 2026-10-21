@@ -4,7 +4,7 @@
     "windows": [
       {
         "label": "main",
-        "url": "index.html",
+        "url": "mobile.html",
         "title": "物谱 · 开发预览",
         "width": 390,
         "height": 844,
@@ -14,7 +14,16 @@
   },
   "bundle": {
     "iOS": {
-      "minimumSystemVersion": "16.0"
+      "minimumSystemVersion": "16.0",
+      "frameworks": [
+        "LocalAuthentication",
+        "PhotosUI",
+        "WebKit",
+        "UserNotifications",
+        "ImageIO",
+        "UniformTypeIdentifiers",
+        "Foundation"
+      ]
     }
   },
   "build": {
