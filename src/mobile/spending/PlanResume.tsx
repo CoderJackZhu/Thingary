@@ -37,11 +37,11 @@ function Form({ plan, link }: { plan: Plan; link: LinkView }) {
   return <EditorFrame title="重新订阅" onSave={save} busy={saver.busy} error={problem || saver.error}>
     <p className="sp-note sp-note-pad">「{plan.fields.name}」在原档案里开始新的一段服务；上一段与它的付款保持原样，中间停订的时间不计入费用估算。</p>
     <FormGroup>
-      <DateField label="服务生效日期" value={d.start} min={minimum} onChange={v => { if (v) set({ start: v }); }} disabled={saver.busy} hint="须晚于上段最后使用日"/>
+      <DateField label="服务生效日期" value={d.start} min={minimum} onChange={v => set({ start: v })} disabled={saver.busy} hint="须晚于上段最后使用日"/>
       <SelectField label="付款周期" value={d.cycle} onChange={cycle => set({ cycle })} options={resumeCycles(plan)} disabled={saver.busy}/>
       <MoneyField label="每期价格" value={d.amount} onChange={amount => set({ amount })} disabled={saver.busy}/>
       <FormRow label="首期付款日另算"><Switch label="首期付款日另算" checked={d.separateDue} onChange={separateDue => set({ separateDue })} disabled={saver.busy}/></FormRow>
-      {d.separateDue && <DateField label="首期计划付款日" value={d.due} min={minimum} onChange={v => { if (v) set({ due: v }); }} disabled={saver.busy}/>}
+      {d.separateDue && <DateField label="首期计划付款日" value={d.due} min={minimum} onChange={v => set({ due: v })} disabled={saver.busy}/>}
     </FormGroup>
   </EditorFrame>;
 }
