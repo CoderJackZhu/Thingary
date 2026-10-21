@@ -373,17 +373,24 @@ try {
       $businessClosedAt=(Get-Date).ToUniversalTime()
       if ($businessClosedAt -ge $deliveryTime) { throw 'Business reminder app did not close before original deadline.' }
       $delivered=$null
+      $historyWhileScheduled=$false
       while ((Get-Date).ToUniversalTime() -lt $deliveryTime.AddSeconds(60)) {
         $state=Notify 'inspect'
         $matching=@($state.owned_history | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag })
         if ($matching.Count -gt 1) { throw 'Duplicate delivered business reminder.' }
         if ($matching.Count -eq 1) {
           if ((Get-Date).ToUniversalTime() -lt $deliveryTime -or $matching[0].xml -ne $plan.xml) { throw 'Business reminder history deadline/content mismatch.' }
-          if (@($state.scheduled | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag }).Count) { throw 'Delivered business reminder remains scheduled.' }
+          if (@($state.scheduled | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag }).Count) {
+            # Windows may move the toast into history before the scheduled list stops reporting it; poll on.
+            $historyWhileScheduled=$true
+            Start-Sleep -Milliseconds 500
+            continue
+          }
           $delivered=$state; break
         }
         Start-Sleep -Milliseconds 500
       }
+      if ($null -eq $delivered -and $historyWhileScheduled) { throw 'Delivered business reminder remains scheduled.' }
       if ($null -eq $delivered) { throw 'Saved business reminder did not reach system history after clean GUI exit.' }
       $delivered | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $Output 'business-notification-delivered.json') -Encoding utf8
       $Summary.businessNotificationDelivery=@{ saved=$business.saved; businessId=$business.businessId; scheduled=$plan; polls=$business.polls; appClosedAt=$businessClosedAt.ToString('o'); observedAt=$delivered.observed_at; visibleDesktopToastVerified=$false }
