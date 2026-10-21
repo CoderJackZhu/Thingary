@@ -1,0 +1,7 @@
+/* The shared date field keeps its desktop behavior; only its item-page touch layout changes. */
+.m-item-edit .date-input .date-picker-toggle,.mi-detail .date-input .date-picker-toggle,.mi-filter .date-input .date-picker-toggle{flex-basis:44px;min-width:44px;min-height:44px}
+:root:has(.m-item-edit,.mi-detail,.mi-filter) .date-calendar{width:min(360px,100vw);padding:4px;max-height:80dvh}
+:root:has(.m-item-edit,.mi-detail,.mi-filter) .date-calendar-grid{gap:0}
+:root:has(.m-item-edit,.mi-detail,.mi-filter) .date-calendar button,:root:has(.m-item-edit,.mi-detail,.mi-filter) .date-calendar select{min-width:44px;min-height:44px}
+:root:has(.m-item-edit,.mi-detail,.mi-filter) .date-calendar .year-select-trigger{min-height:44px}
+:root:has(.m-item-edit,.mi-detail,.mi-filter) .date-calendar{left:max(0px,calc((100vw - 360px)/2))!important}

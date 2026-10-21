@@ -30,12 +30,12 @@ export const routes = {
   'home.overview': { tab: 'overview', title: '总览', design: '01' },
   'welcome': { tab: 'overview', title: '首次打开', design: '25', fullscreen: true },
   // 物品
-  'items.list': { tab: 'items', title: '物品', design: '02' },
-  'items.filter': { tab: 'items', kind: 'sheet', title: '筛选与排序', design: '03' },
-  'items.detail': { tab: 'items', title: '物品详情', design: '04' },
-  'items.edit': { tab: 'items', kind: 'modal', title: '新增物品', design: '05' },
-  'items.icon': { tab: 'items', kind: 'sheet', title: '图标与素材', design: '06' },
-  'items.stats': { tab: 'items', title: '统计', design: '09' },
+  'items.list': { tab: 'items', title: '物品', design: '02', load: () => import('./items/ItemList') },
+  'items.filter': { tab: 'items', kind: 'sheet', title: '筛选与排序', design: '03', load: () => import('./items/ItemFilter') },
+  'items.detail': { tab: 'items', title: '物品详情', design: '04', load: () => import('./items/ItemDetail') },
+  'items.edit': { tab: 'items', kind: 'modal', title: '新增物品', design: '05', load: () => import('./items/ItemEdit') },
+  'items.icon': { tab: 'items', kind: 'sheet', title: '图标与素材', design: '06', load: () => import('./items/ItemIcon') },
+  'items.stats': { tab: 'items', title: '统计', design: '09', load: () => import('./items/ItemStats') },
   'wishes.list': { tab: 'items', title: '心愿', design: '07' },
   'wishes.detail': { tab: 'items', title: '心愿详情', design: '08' },
   // 财富
