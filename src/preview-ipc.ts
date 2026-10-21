@@ -376,6 +376,9 @@ const mobileSnapshotLost = new Set<string>();
 const mobileSnapshotLookup = new Set<string>();
 // Mobile item save fixtures supplement the existing handlers; all state is fictional and in memory.
 let mobileItemDispatch = false, mobileItemLost = false, mobileItemLookupLost = false;
+// Mobile spending preview (?mobile-state=unknown): the first spending save runs, then its reply is lost and the first receipt lookup fails once.
+const spendingWrites = new Set(['expense_save', 'recurring_plan_save', 'recurring_payment_save', 'recurring_payment_range_save', 'recurring_resume', 'virtual_save', 'virtual_topup_save', 'virtual_balance_save', 'virtual_reminder_save', 'link_save', 'link_trash', 'plan_income_save', 'wealth_trash']);
+let spendingLost = false, spendingLookupFailed = false, spendingReplaying = false;
 export async function handle(command: string, payload: unknown): Promise<unknown> {
   const mobilePlanState = params.get('mobile-state');
   const mobilePlanArgs = (payload ?? {}) as Record<string, unknown>;
@@ -443,6 +446,16 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     }
     if (params.get('mobile-state') === 'unknown' && !mobileItemLost) { mobileItemLost = true; throw {message:'虚构物品保存响应丢失。'}; }
     return value;
+  }
+  if (params.get('mobile-state') === 'save-error' && spendingWrites.has(command)) throw { code: 'PREVIEW_ERROR', message: '虚构保存失败，请核对输入后重试。' };
+  if (params.get('mobile-state') === 'unknown') {
+    if (command === 'wealth_request_result' && spendingLost && !spendingLookupFailed) { spendingLookupFailed = true; throw new Error('虚构回执暂不可用。'); }
+    if (!spendingLost && !spendingReplaying && spendingWrites.has(command)) {
+      spendingReplaying = true;
+      try { await handle(command, payload); } finally { spendingReplaying = false; }
+      spendingLost = true;
+      throw new Error('虚构保存响应丢失。');
+    }
   }
   if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
   if (command === 'notification_status') return '';
