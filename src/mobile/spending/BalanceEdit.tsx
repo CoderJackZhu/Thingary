@@ -18,7 +18,7 @@ export default function BalanceEdit({ params }: PageProps) {
     if (!item) throw new Error('这项虚拟资产已不存在。');
     return { generation: overview.generation, item };
   }, asset);
-  return <Loaded read={read} what="余额">{data => <Form generation={data.generation} item={data.item}/>}</Loaded>;
+  return <Loaded nav read={read} what="余额">{data => <Form generation={data.generation} item={data.item}/>}</Loaded>;
 }
 
 function Form({ generation, item }: { generation: string; item: VirtualAsset }) {

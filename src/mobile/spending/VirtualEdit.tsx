@@ -23,7 +23,7 @@ export default function VirtualEdit({ params }: PageProps) {
     if (id && !item) throw new Error('这项虚拟资产已不存在，可能已被删除。');
     return { generation: overview.generation, item, labels };
   }, id ?? 'new');
-  return <Loaded read={read} what="虚拟资产">{data => <Form generation={data.generation} item={data.item} labels={data.labels}/>}</Loaded>;
+  return <Loaded nav read={read} what="虚拟资产">{data => <Form generation={data.generation} item={data.item} labels={data.labels}/>}</Loaded>;
 }
 
 function Form({ generation, item, labels }: { generation: string; item: VirtualAsset | null; labels: Label[] }) {

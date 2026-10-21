@@ -18,7 +18,7 @@ export default function ExpenseEdit({ params }: PageProps) {
     if (id && !expense) throw new Error('这笔支出已不存在，可能已被删除。');
     return { generation: view.generation, expense };
   }, id ?? 'new');
-  return <Loaded read={read} what="支出">{data => <Form generation={data.generation} expense={data.expense}/>}</Loaded>;
+  return <Loaded nav read={read} what="支出">{data => <Form generation={data.generation} expense={data.expense}/>}</Loaded>;
 }
 
 function Form({ generation, expense }: { generation: string; expense: Expense | null }) {

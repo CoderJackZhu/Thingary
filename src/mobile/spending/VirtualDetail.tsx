@@ -49,7 +49,7 @@ function Body({ generation, item, reload }: { generation: string; item: VirtualA
     {item.needs_review && <Notice>档案停用{f.stopped_on ? `于 ${f.stopped_on}` : ''}，但关联计划仍在进行；请在电脑上核对停用记录。</Notice>}
     {item.plan_deleted && f.plan_id && <Notice>关联付款计划在最近删除中，可在电脑上恢复或核对。</Notice>}
     <MetricGrid>
-      <Metric label="有效期" value={validityText(item)}/>
+      <Metric label="有效期" value={/^\d{4}-\d{2}-\d{2}$/.test(validityText(item)) ? <span className="sp-nowrap-date">{validityText(item)}</span> : validityText(item)}/>
       <Metric label={cost.estimated ? '累计费用（估算）' : mode === 'topup' ? '累计充值实付' : '累计费用'} value={cost.cents !== null ? money(cost.cents) : '未知'} unknown={cost.cents === null} sub={line.cost.note || undefined}/>
     </MetricGrid>
     <FormGroup title="档案"><ul className="sp-rows sp-facts sp-pad">

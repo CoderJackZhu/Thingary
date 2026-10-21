@@ -20,7 +20,7 @@ export default function PaymentEdit({ params }: PageProps) {
     if (overview.generation !== detail.generation) throw new Error('资料刚刚发生变化，请重试。');
     return { overview, detail };
   }, `${plan}:${due}`);
-  return <Loaded read={read} what="付款期次">{({ overview, detail }) => <Form overview={overview} detail={detail} due={due}/>}</Loaded>;
+  return <Loaded nav read={read} what="付款期次">{({ overview, detail }) => <Form overview={overview} detail={detail} due={due}/>}</Loaded>;
 }
 
 function Form({ overview, detail, due }: { overview: Overview; detail: SubscriptionDetailData; due: string }) {

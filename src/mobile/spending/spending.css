@@ -88,7 +88,10 @@
 .sp-kv-row span{color:var(--muted)}
 .sp-kv-row strong{font-weight:600;text-align:right;overflow-wrap:anywhere}
 .sp-pad{padding:12px 16px}
+.sp-nowrap-date{white-space:nowrap;font-size:.85em}
 .sp-facts{padding:0;gap:8px}
+.sp-facts.sp-pad{padding:12px 0}
+.sp-facts li>span:first-child{flex:none;white-space:nowrap}
 .sp-period-main{display:flex;flex-direction:column;gap:2px;width:100%;min-height:44px;padding:0;border:0;background:transparent;color:inherit;text-align:left;font:inherit}
 .sp-period-row{padding:10px 16px}
 .sp-pad-x{padding:0}

@@ -140,7 +140,7 @@ function OptionList({ kind, a }: { kind: Kind; a: Adapter }) {
 
 function TaxonomyPane({ kind, onGeneration }: { kind: TaxonomyKind; onGeneration: (value: string | undefined) => void }) {
   const a = useTaxonomyAdapter(kind);
-  useEffect(() => { onGeneration(a.generation); }, [a.generation]);
+  useEffect(() => { onGeneration(a.generation); }, [a.generation, onGeneration]);
   return <OptionList kind={kind} a={a}/>;
 }
 function ChoicePane({ kind, generation }: { kind: 'label' | 'sale_channel'; generation: string }) {
