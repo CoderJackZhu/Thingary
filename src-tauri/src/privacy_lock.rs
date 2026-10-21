@@ -1,9 +1,23 @@
 //! Screen privacy only: this bridge does not open a Store or encrypt files.
 use crate::domain::{Error, Result};
-#[cfg(target_os = "macos")]
+#[cfg(target_os = "ios")]
+extern "C" {
+    fn thingary_auth_method() -> i32;
+}
+
+pub(crate) fn auth_name() -> &'static str {
+    #[cfg(target_os = "ios")]
+    match unsafe { thingary_auth_method() } {
+        2 => return "面容 ID",
+        1 => return "触控 ID",
+        _ => {}
+    }
+    "身份验证"
+}
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ffi::{c_char, c_void, CStr};
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 extern "C" {
     fn thingary_auth_available() -> i32;
     fn thingary_auth(reason: *const c_char) -> *mut c_char;
@@ -13,17 +27,22 @@ extern "C" {
 fn unavailable() -> Error {
     if cfg!(target_os = "macos") {
         Error::new("AUTH_UNAVAILABLE", "这台 Mac 没有设置登录密码或 Touch ID")
+    } else if cfg!(target_os = "ios") {
+        Error::new(
+            "AUTH_UNAVAILABLE",
+            "这台 iPhone 没有设置设备密码或面容／触控 ID",
+        )
     } else {
         Error::new("UNSUPPORTED", "当前平台暂不支持验证身份")
     }
 }
 
 fn available() -> bool {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
         unsafe { thingary_auth_available() == 1 }
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
     {
         false
     }
@@ -41,7 +60,7 @@ fn authenticate_if_available(
 
 fn authenticate() -> Result<()> {
     authenticate_if_available(available(), || {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
             let result = unsafe { thingary_auth(c"解锁物谱，查看本机资料".as_ptr()) };
             if result.is_null() {
@@ -57,7 +76,7 @@ fn authenticate() -> Result<()> {
                 Err(Error::new("AUTH_FAILED", &message))
             }
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         Err(unavailable())
     })
 }
@@ -95,7 +114,7 @@ mod tests {
         assert_eq!(error.message, "虚构取消");
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
     #[test]
     fn unsupported_platform_does_not_prompt() {
         assert!(!available());

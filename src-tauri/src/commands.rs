@@ -223,7 +223,9 @@ pub fn windows_exit_reminders_choice(app: tauri::AppHandle, exit: bool) {
 
 /// The native ⌘N/⌘F items, renamed to what the current page will do.
 pub struct PageMenu {
+    #[cfg(desktop)]
     pub new: tauri::menu::MenuItem<tauri::Wry>,
+    #[cfg(desktop)]
     pub find: tauri::menu::MenuItem<tauri::Wry>,
 }
 
@@ -234,6 +236,7 @@ pub fn set_page_menu(
     find_label: Option<String>,
     menu: tauri::State<'_, PageMenu>,
 ) -> Result<()> {
+    #[cfg(desktop)]
     for (item, label, neutral) in [
         (&menu.new, new_label, "新增"),
         (&menu.find, find_label, "搜索"),
@@ -243,6 +246,8 @@ pub fn set_page_menu(
         item.set_enabled(label.is_some())
             .map_err(|_| Error::new("MENU", "菜单更新失败"))?;
     }
+    #[cfg(mobile)]
+    let _ = (new_label, find_label, menu);
     Ok(())
 }
 
@@ -321,17 +326,12 @@ pub async fn pick_photo(
     repair: Option<String>,
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<crate::photos::Photo>> {
-    let (send, receive) = std::sync::mpsc::channel();
-    let dialog_app = app.clone();
-    app.run_on_main_thread(move || {
-        let _ = send.send(crate::native_images::pick(&dialog_app));
-    })
-    .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
+    let receive = on_main(&app, crate::native_images::pick)?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let path = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "图片选择器未返回结果"))?;
+            .map_err(|_| Error::new("PICKER", "图片选择器未返回结果"))??;
         match path {
             None => Ok(None),
             Some(path) => w.call(move |s| {
@@ -409,17 +409,12 @@ pub async fn add_material(
     {
         return Ok(entry);
     }
-    let (send, receive) = std::sync::mpsc::channel();
-    let dialog_app = app.clone();
-    app.run_on_main_thread(move || {
-        let _ = send.send(crate::native_images::pick(&dialog_app));
-    })
-    .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
+    let receive = on_main(&app, crate::native_images::pick)?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let path = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "图片选择器未返回结果"))?;
+            .map_err(|_| Error::new("PICKER", "图片选择器未返回结果"))??;
         match path {
             None => Err(Error::new("PICKER", "已取消，未上传素材。")),
             Some(path) => w.call(move |s| s.add_material_once(&path, &generation, &request)),
@@ -766,6 +761,14 @@ fn on_main<T: Send + 'static>(
 ) -> Result<std::sync::mpsc::Receiver<T>> {
     let (send, receive) = std::sync::mpsc::channel();
     let dialog_app = app.clone();
+    #[cfg(target_os = "ios")]
+    std::thread::Builder::new()
+        .name("thingary-ios-picker".into())
+        .spawn(move || {
+            let _ = send.send(f(&dialog_app));
+        })
+        .map_err(|_| Error::new("PICKER", "无法打开文件面板"))?;
+    #[cfg(desktop)]
     app.run_on_main_thread(move || {
         let _ = send.send(f(&dialog_app));
     })
@@ -777,6 +780,8 @@ fn on_main<T: Send + 'static>(
 pub struct BackupDone {
     pub name: String,
     pub folder: String,
+    #[cfg(target_os = "ios")]
+    pub share: crate::ios_exports::ShareOutcome,
 }
 
 /// Cancelling the save panel returns `None` and starts no task (AC34).
@@ -821,7 +826,7 @@ pub async fn create_backup(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -830,7 +835,11 @@ pub async fn create_backup(
             .map(|p| p.display().to_string())
             .unwrap_or_default();
         let name = w.create_backup_file_task(path.clone(), force_plaintext, task_id)?;
+        #[cfg(target_os = "ios")]
+        let share = crate::ios_exports::share_published(&path);
         Ok(Some(BackupDone {
+            #[cfg(target_os = "ios")]
+            share,
             name: name.unwrap_or_default(),
             folder,
         }))
@@ -867,7 +876,7 @@ pub async fn inspect_backup(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -1012,7 +1021,7 @@ pub async fn backup_security_export_key(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -1110,7 +1119,7 @@ pub async fn auto_backup_choose_extra(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件夹面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件夹面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -1148,10 +1157,19 @@ pub async fn auto_backup_open_folder(worker: tauri::State<'_, Worker>) -> Result
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let folder = w.auto_backup_folder()?;
+        if cfg!(target_os = "ios") {
+            return Err(Error::new(
+                "UNSUPPORTED",
+                "请在文件 App 中打开物谱的 Documents/Backups 查看备份",
+            ));
+        }
+        #[cfg(mobile)]
+        let _ = &folder;
         #[cfg(target_os = "macos")]
         let opener = "/usr/bin/open";
         #[cfg(windows)]
         let opener = "explorer";
+        #[cfg(desktop)]
         std::process::Command::new(opener)
             .arg(&folder)
             .spawn()
@@ -1200,6 +1218,8 @@ pub struct SheetCount {
 
 #[derive(serde::Serialize)]
 pub struct WorkbookDone {
+    #[cfg(target_os = "ios")]
+    pub share: crate::ios_exports::ShareOutcome,
     pub path: String,
     pub files: Vec<SheetCount>,
 }
@@ -1213,7 +1233,7 @@ pub async fn save_spreadsheet_template(app: tauri::AppHandle) -> Result<Option<S
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -1247,7 +1267,7 @@ pub async fn inspect_item_workbook(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -1325,13 +1345,17 @@ pub async fn export_workbook(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
         let target = path.clone();
         let files = w.call_personal(move |s| s.export_workbook(&target))?;
+        #[cfg(target_os = "ios")]
+        let share = crate::ios_exports::share_published(&path);
         Ok(Some(WorkbookDone {
+            #[cfg(target_os = "ios")]
+            share,
             path: path.display().to_string(),
             files: files
                 .into_iter()
@@ -1406,7 +1430,7 @@ pub async fn notification_permission(worker: tauri::State<'_, Worker>) -> Result
 }
 
 #[tauri::command]
-pub fn open_notification_settings() -> Result<()> {
+pub async fn open_notification_settings() -> Result<()> {
     #[cfg(windows)]
     {
         std::process::Command::new("explorer.exe")
@@ -1439,6 +1463,12 @@ pub fn open_notification_settings() -> Result<()> {
                 "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
             ))
         }
+    }
+    #[cfg(target_os = "ios")]
+    {
+        tauri::async_runtime::spawn_blocking(|| crate::ios::open_url("app-settings:"))
+            .await
+            .map_err(|_| Error::new("REMINDER", "无法打开通知设置"))?
     }
 }
 #[tauri::command]
@@ -1512,6 +1542,9 @@ pub async fn update_consent_set(
     expected_revision: u32,
     state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
 ) -> Result<crate::update_state::StateView> {
+    if !crate::update_check::supported() {
+        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+    }
     let service = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.set_consent(enabled, expected_revision))
         .await
@@ -1523,6 +1556,9 @@ pub async fn update_check_request(
     mode: String,
     state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
 ) -> Result<crate::update_state::RequestView> {
+    if !crate::update_check::supported() {
+        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+    }
     let origin = crate::update_state::Origin::parse(&mode)
         .ok_or_else(|| Error::new("UPDATE_STATE", "未知的检查方式"))?;
     let begin = crate::update_state::spawn_round(state.inner(), origin);
@@ -2427,7 +2463,7 @@ pub async fn financial_import_read_workbook(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -2460,7 +2496,7 @@ pub async fn financial_import_template(
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))??
         else {
             return Ok(None);
         };
@@ -2531,4 +2567,54 @@ pub async fn account_groups_reorder(
     tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.account_groups_reorder(&input)))
         .await
         .map_err(|_| Error::new("WORKER", "排序结果未返回，请核对本次请求"))?
+}
+
+#[tauri::command]
+pub fn ios_privacy_cover_set(enabled: bool) {
+    #[cfg(target_os = "ios")]
+    crate::ios::set_privacy_cover(enabled);
+    #[cfg(not(target_os = "ios"))]
+    let _ = enabled;
+}
+#[tauri::command]
+pub fn platform_capabilities() -> serde_json::Value {
+    serde_json::json!({"platform":std::env::consts::OS,"updates_supported":crate::update_check::supported(),"native_file_sharing":cfg!(target_os="ios"),"background_privacy_cover":cfg!(target_os="ios"),"auth_name":crate::privacy_lock::auth_name()})
+}
+#[tauri::command]
+pub async fn ios_share_file(name: String) -> Result<bool> {
+    #[cfg(target_os = "ios")]
+    {
+        crate::ios_exports::ios_share_file(name).await
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = name;
+        Err(Error::new("UNSUPPORTED", "系统分享面板仅在 iOS 使用"))
+    }
+}
+#[tauri::command]
+pub async fn ios_share_text(name: String, text: String) -> Result<bool> {
+    #[cfg(target_os = "ios")]
+    {
+        crate::ios_exports::ios_share_text(name, text).await
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = (name, text);
+        Err(Error::new("UNSUPPORTED", "系统分享面板仅在 iOS 使用"))
+    }
+}
+#[tauri::command]
+pub async fn ios_export_pdf(name: String, html: String) -> Result<serde_json::Value> {
+    #[cfg(target_os = "ios")]
+    {
+        Ok(serde_json::to_value(
+            crate::ios_exports::ios_export_pdf(name, html).await?,
+        )?)
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = (name, html);
+        Err(Error::new("UNSUPPORTED", "PDF 分享仅在 iOS 使用"))
+    }
 }

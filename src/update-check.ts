@@ -17,3 +17,8 @@ export function updateSummary(o: UpdateOutcome): string {
   // A mirror that could not be read may hold something newer, so say so.
   return o.unreachable.length ? `${line}（未能连接 ${o.unreachable.map(s => sourceLabel[s]).join('、')}，结果只来自其余来源，可能不是最新。）` : line;
 }
+
+/** Shared platform gate for every update entry. iOS updates belong to App Store. */
+export function supportsUpdateChecks(platform: string): boolean {
+  return platform.toLowerCase() !== 'ios';
+}

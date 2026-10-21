@@ -1,6 +1,6 @@
 # 架构说明
 
-物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，公开版运行于 macOS，Windows x64 实现处于候选验收。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
+物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，macOS／Windows 桌面宿主与 iOS 宿主共用 Rust 业务层；各平台的验证边界见开发说明。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
 
 当前已接入的资金／事件核对和月账本见下文。当前规划报告通过只读适配器接入真实来源，不新增持久对象；命名方案、冻结基准及基准／比较报告尚未接入，其物理表、命令与迁移版本在实施前确定，不能从规划推定数据库已变更。
 
@@ -16,7 +16,7 @@
 
 设置分类「屏幕隐私」直接提供开关与闲置验证说明，不再放在帮助折叠中。两个本机偏好键为 `thingary.privacy-cover.v1`（布尔值）和 `thingary.privacy-lock.v1`（JSON：`enabled`、`idleMinutes`，仅 0／5／15／60），读写失败不抛出到应用，损坏偏好按关闭处理。`wealth-preview.ts` 只模拟虚构认证能力和取消／成功，不调用设备身份验证。
 
-`src-tauri/native/auth.m` 链接系统 `LocalAuthentication`，采用 `LAPolicyDeviceOwnerAuthentication` 支持系统密码兜底；信号量最多等待 120 秒，超时使认证上下文失效。返回字符串由 `thingary_free` 释放。Rust `privacy_lock.rs` 的两个异步命令通过 `spawn_blocking` 调用原生同步函数，不借用 Store；非 macOS 能力返回 false，认证返回 `UNSUPPORTED`。锁屏只防旁观，不加密或阻止文件访问，原生 Worker 的既有启动初始化、提醒及备份生命周期保持不变。自动测试不触发生物识别，真实认证与窗口焦点行为需要隔离身份实机验收。
+`src-tauri/native/auth.m` 链接系统 `LocalAuthentication`，采用 `LAPolicyDeviceOwnerAuthentication` 支持系统密码兜底；信号量最多等待 120 秒，超时使认证上下文失效。返回字符串由 `thingary_free` 释放。Rust `privacy_lock.rs` 的两个异步命令通过 `spawn_blocking` 调用原生同步函数，不借用 Store；iOS 在 native/ios.m 以相同策略实现设备机主验证，支持 Face ID、Touch ID 及设备密码；Windows 能力返回 false，认证返回 `UNSUPPORTED`。锁屏只防旁观，不加密或阻止文件访问，原生 Worker 的既有启动初始化、提醒及备份生命周期保持不变。自动测试不触发生物识别，真实认证与窗口焦点行为需要隔离身份实机验收。
 
 ## 分层与入口
 
@@ -43,6 +43,14 @@ flowchart TD
 | `scripts/` | 素材生成、离线指南、许可清单、打包与辅助验收 |
 
 前端不直接访问 SQLite。阻塞的数据库与文件工作通过后端工作线程处理；写操作串行化并在事务中维护业务事实与引用。界面刷新和缓存失效必须随业务提交结果更新。
+
+### iOS 平台层
+
+iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打开 mobile.html；桌面仍打开 index.html。菜单、窗口关闭／尺寸、快捷键和单实例插件仅编译到桌面。build.rs 只在 macOS 编译 AppKit 原生文件，在 iOS 编译 UIKit／ImageIO／LocalAuthentication／UserNotifications／PhotosUI／WebKit 桥接；SQLite bundled 与规划引擎共用，不新增同步、数据库 schema 或保存协议。
+
+`ios.rs` 将 UIKit 面板调度到主线程，等待与文件工作留在阻塞线程。`ios_exports.rs` 只接受 App Documents 里的普通导出文件名，不允许前端传任意分享路径；完整备份和工作簿发布与分享结果分开，取消分享仍保留导出文件。恢复先由系统选择器复制选中文件，再沿用 inspect_backup、解密、恢复确认和原回执核对。手机所有文件进出汇集于 `src/mobile/me/files.ts`；报告复用原隐私 HTML 快照，经独立 WKWebView 生成 A4 PDF 后分享，不计算新结果。恢复密钥仅作临时分享，用后清除，不持久保存在 Documents。
+
+手机隐私运行时同步遮挡偏好并接收原生场景事件；场景失活时原生遮罩先于系统截图，前台时先恢复 DOM 锁屏再移除。图片保留原件，ImageIO 生成方向正确的缩略图。心愿保留 pick_photo 调用，在 iOS 改接 PHPicker，避免复制照片 staging 和回执逻辑。提醒复用原有日期和稳定 ID，经 UNUserNotificationCenter 按本地 09:00 排程，最多使用系统剩余的 64 条容量；超限告知待补排数量。更新查询／授权／下载在后端网络入口前禁用，前端判定位于 update-check.ts 并由 update-discovery.ts 复用。
 
 ### 手机界面
 
@@ -101,7 +109,7 @@ webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界
 
 正式身份为 `local.thingary.main`，开发预览为 `local.thingary.preview`。它们使用不同资料目录；验收夹具还应有独立身份。浏览器预览只用内存虚构数据，刷新即重置。
 
-主资料采用 `app_local_data_dir`：macOS 保持 `~/Library/Application Support/<identifier>/`，Windows 为 `%LOCALAPPDATA%\<identifier>\`。窗口尺寸等配置采用 `app_config_dir`，Windows 在 Roaming；资料不放在 Roaming。Windows 安装验收固定使用 `local.thingary.win.acceptance`，正式身份候选包仅构建与静态核验，开发／验收不得启动它。
+主资料采用 `app_local_data_dir`：macOS 保持 `~/Library/Application Support/<identifier>/`，Windows 为 `%LOCALAPPDATA%\<identifier>\`，iOS 为应用沙盒的 Library/Application Support/<identifier>/（资料库在其 library 子目录）。iOS 手动导出在 Documents、自动备份在 Documents/Backups；系统分享可把副本交给“文件”、iCloud Drive 或隔空投送。窗口尺寸等配置采用 `app_config_dir`，Windows 在 Roaming；资料不放在 Roaming。Windows 安装验收固定使用 `local.thingary.win.acceptance`，正式身份候选包仅构建与静态核验，开发／验收不得启动它。
 
 恢复和切换资料库时使用资料库身份／generation 约束；旧表单、旧异步响应和旧请求不能落到新资料库。正式目录不是测试夹具，也不能靠修改版本号自动隔离资料。
 

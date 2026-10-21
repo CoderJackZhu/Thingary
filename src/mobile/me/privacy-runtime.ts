@@ -2,7 +2,7 @@
 // Same preferences, keys and state machine as the desktop PrivacyBoundary (privacy-lock.ts); this file is the
 // DOM-level counterpart because the app shell is owned by the foundation. It is installed once by the first
 // module that loads (总览 or 我的) and covers the whole page with its own overlay.
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { errorMessage } from '../../asset';
 import { coverKey, initialPrivacyState, lockKey, privacyTransition, readCoverPreference, readLockPreference, setPrivacyScreenBlocked, shouldCover, writePrivacyPreference } from '../../privacy-lock';
 import type { LockPreference, PrivacyEvent, PrivacyState } from '../../privacy-lock';
@@ -18,8 +18,15 @@ let available: boolean | null = null, checking = false, error = '';
 let overlay: HTMLElement | null = null;
 const listeners = new Set<() => void>();
 let snapshot: PrivacySnapshot = { cover, lock, available, checking, locked: false, error };
+let nativeCover: boolean | undefined;
+let nativeAuthName = '身份验证';
 
 function publish() {
+  const protect = cover || lock.enabled;
+  if (nativeCover !== protect && isTauri()) {
+    nativeCover = protect;
+    void invoke('ios_privacy_cover_set', { enabled: protect }).catch(() => { nativeCover = undefined; });
+  }
   snapshot = { cover, lock, available, checking, locked: state.locked, error };
   render();
   listeners.forEach(listener => listener());
@@ -41,6 +48,10 @@ function send(event: PrivacyEvent) {
 async function probe(): Promise<boolean> {
   try {
     const value = await invoke<boolean>('privacy_auth_available');
+    if (isTauri()) {
+      try { nativeAuthName = (await invoke<{ auth_name?: string }>('platform_capabilities')).auth_name ?? '身份验证'; }
+      catch { nativeAuthName = '身份验证'; }
+    }
     available = value; error = '';
     if (!value) send({ type: 'disable', now: Date.now() });
     publish();
@@ -114,6 +125,8 @@ export function installPrivacy(): void {
   const returned = () => { if (!document.hidden) send({ type: 'return', now: Date.now(), busy: busy() }); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) away(); else returned(); });
   window.addEventListener('pagehide', away);
+  window.addEventListener('thingary-ios-away', away);
+  window.addEventListener('thingary-ios-return', returned);
   window.addEventListener('pageshow', returned);
   window.addEventListener('blur', away); window.addEventListener('focus', returned);
   for (const name of ['pointerdown', 'keydown', 'scroll', 'touchstart']) window.addEventListener(name, () => send({ type: 'activity', now: Date.now() }), { capture: true, passive: true });
@@ -123,5 +136,5 @@ export function installPrivacy(): void {
   else void probe();
 }
 
-/** Face ID is the iOS name for the system verification; elsewhere the generic name is used. */
-export const authName = (userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent): string => /iPhone|iPad|iPod/i.test(userAgent) ? '面容 ID' : '身份验证';
+/** LocalAuthentication supplies the native name; UA fallback is only for browser previews. */
+export const authName = (userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent): string => isTauri() ? nativeAuthName : /iPhone|iPad|iPod/i.test(userAgent) ? '面容 ID' : '身份验证';

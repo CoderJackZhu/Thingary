@@ -74,10 +74,11 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
     try { await navigator.clipboard.writeText(setup.recovery_key); setCopied(true); setTimeout(() => setCopied(false), 2500); }
     catch { setError('未能复制，请手动选中密钥文本复制。'); }
   }
-  function saveKey() {
+  async function saveKey() {
     if (!setup) return;
     const file = recoveryKeyFile(setup.recovery_key, setup.recipient_id);
-    downloadText(file.name, file.text); setSaved(true);
+    const completed = await downloadText(file.name, file.text);
+    if (completed) setSaved(true);
   }
   const disabled = busy || blocked || demo;
   const state = status?.state;
@@ -122,7 +123,7 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
       <div className="m-page">
         <Notice>下面是这次生成的恢复密钥，只显示一次。丢失后无法找回，也无法解密已生成的备份；请勿与备份文件存放在一起。</Notice>
         <FormGroup footer={`公钥标识 ${setup.recipient_id.slice(0, 8)}（界面只显示前 8 位）`}><p className="me-key" aria-label="恢复密钥">{setup.recovery_key}</p></FormGroup>
-        <div className="me-stack"><Button block onClick={() => void copyKey()}>{copied ? '已复制' : '复制密钥'}</Button><Button block disabled={disabled} onClick={saveKey}>{saved ? '已保存密钥文件' : '保存密钥文件'}</Button></div>
+        <div className="me-stack"><Button block onClick={() => void copyKey()}>{copied ? '已复制' : '复制密钥'}</Button><Button block disabled={disabled} onClick={() => void run(saveKey)}>{saved ? '已保存密钥文件' : '保存密钥文件'}</Button></div>
         <p className="m-group-footer">确认已自行保存后，重新输入或选择这份恢复密钥完成验证。</p>
         <KeyInput value={reentered} onChange={setReentered} disabled={disabled}/>
         <Button variant="primary" block disabled={disabled || !looksLikeRecoveryKey(reentered).ok} onClick={() => void run(

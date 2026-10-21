@@ -27,6 +27,10 @@ pub mod insights;
 pub mod investment_review;
 mod investment_review_commands;
 pub mod investment_review_component;
+#[cfg(target_os = "ios")]
+mod ios;
+#[cfg(any(target_os = "ios", test))]
+mod ios_exports;
 pub mod lifecycle;
 pub mod link;
 pub mod link_merge;
@@ -71,14 +75,18 @@ pub mod update_state;
 pub mod virtual_assets;
 pub mod warranty;
 pub mod wealth;
+#[cfg(desktop)]
 mod window_size;
 #[cfg(any(windows, test))]
 mod windows_exit;
 pub mod wish_plan;
 pub mod wishlist;
 pub mod worker;
+#[cfg(desktop)]
 use std::sync::atomic::Ordering;
-use tauri::{Emitter, Manager};
+#[cfg(desktop)]
+use tauri::Emitter;
+use tauri::Manager;
 // Windows exits when the window closes, so page-owned work must also be
 // protected. It has no generic discard path; App-owned editing keeps its own.
 #[cfg(any(target_os = "windows", test))]
@@ -92,9 +100,11 @@ fn windows_close_event(editing: bool, close_blocked: bool) -> Option<&'static st
     }
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .setup(|app| {
+            #[cfg(desktop)]
             window_size::restore(app.handle());
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
@@ -119,6 +129,11 @@ pub fn run() {
             }
             #[cfg(target_os = "windows")]
             reminders::set_app_identifier(&app.config().identifier)?;
+            #[cfg(target_os = "ios")]
+            {
+                ios_exports::configure(app.handle())?;
+                ios::init();
+            }
             reminders::enable();
             // A toast click cannot open an unpackaged app until the COM
             // activator is registered; this only restores basic wake-up.
@@ -159,6 +174,7 @@ pub fn run() {
             app.manage(commands::EditGuard::default());
             app.manage(commands::LibraryGuard::default());
             app.manage(commands::FinancialImportJobs::default());
+            #[cfg(desktop)]
             use tauri::menu::MenuItem;
             #[cfg(target_os = "macos")]
             use tauri::menu::{Menu, PredefinedMenuItem as Item, Submenu};
@@ -169,10 +185,13 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             let find_item =
                 MenuItem::with_id(app, "find-asset", "搜索物品", true, Some("CmdOrCtrl+F"))?;
+            #[cfg(desktop)]
             #[cfg(not(target_os = "macos"))]
             let new_item = MenuItem::with_id(app, "new-asset", "新增物品", true, None::<&str>)?;
+            #[cfg(desktop)]
             #[cfg(not(target_os = "macos"))]
             let find_item = MenuItem::with_id(app, "find-asset", "搜索物品", true, None::<&str>)?;
+            #[cfg(desktop)]
             app.manage(commands::PageMenu {
                 new: new_item.clone(),
                 find: find_item.clone(),
@@ -286,9 +305,16 @@ pub fn run() {
                     ],
                 )?)?;
             }
+            #[cfg(mobile)]
+            app.manage(commands::PageMenu {});
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::platform_capabilities,
+            commands::ios_privacy_cover_set,
+            commands::ios_share_file,
+            commands::ios_share_text,
+            commands::ios_export_pdf,
             planning_engine_commands::planning_engine_evaluate,
             privacy_lock::privacy_auth_available,
             privacy_lock::privacy_authenticate,
@@ -483,7 +509,9 @@ pub fn run() {
             commands::material_upload_result,
             commands::remove_material,
             commands::material_preview
-        ])
+        ]);
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -556,11 +584,16 @@ pub fn run() {
                     let _ = window.hide();
                 }
             }
-        })
+        });
+    builder
         .build(tauri::generate_context!())
         .expect("Cannot start Thingary preview")
         .run(|app, event| {
+            #[cfg(mobile)]
+            let _ = (app, event);
+            #[cfg(desktop)]
             if let tauri::RunEvent::ExitRequested { ref api, .. } = event {
+                #[cfg(desktop)]
                 window_size::save(app);
                 #[cfg(target_os = "windows")]
                 if let Some(event) = windows_close_event(

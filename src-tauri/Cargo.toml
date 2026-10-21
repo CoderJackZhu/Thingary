@@ -8,7 +8,7 @@ default-run = "thingary"
 
 [lib]
 name = "thingary_lib"
-crate-type = ["lib"]
+crate-type = ["lib", "staticlib", "cdylib"]
 
 [build-dependencies]
 cc = "=1.4.7"
@@ -17,7 +17,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 thingary_planning_engine = { path = "../crates/planning-engine" }
 tauri = { version = "2", features = [] }
-tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
@@ -36,6 +35,9 @@ rand = "0.8"
 calamine = { version = "0.36.1", features = ["chrono"] }
 rust_xlsxwriter = "0.99.1"
 quick-xml = "0.41.0"
+
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+tauri-plugin-single-instance = "2"
 
 [target.'cfg(windows)'.dependencies]
 rfd = "0.17.2"

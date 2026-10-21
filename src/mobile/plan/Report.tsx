@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { shareReport } from "../me/files";
 import type { BasicCapabilities, PlanningSources } from "../../plan";
 import { currentReportInput } from "../../planning-report/current-adapter";
 import {
@@ -42,7 +43,8 @@ export default function Report({
     }
   });
   const [privacy, setPrivacy] = useState(true),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [exporting, setExporting] = useState(false);
   if (!snapshot.report)
     return (
       <div className="m-page mp-page">
@@ -59,21 +61,14 @@ export default function Report({
       setNotice("复制失败，请重试。");
     }
   }
-  function download() {
+  async function download() {
+    if (exporting) return;
+    setExporting(true);
     try {
-      const blob = new Blob([printableHtml(report, { privacy })], {
-          type: "text/html;charset=utf-8",
-        }),
-        url = URL.createObjectURL(blob),
-        a = document.createElement("a");
-      a.href = url;
-      a.download = exportFileName(report, privacy);
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setNotice("已生成可打印的 HTML 报告。");
+      setNotice(await shareReport(exportFileName(report, privacy), printableHtml(report, { privacy })));
     } catch {
       setNotice("导出失败，请重试。");
-    }
+    } finally { setExporting(false); }
   }
   return (
     <div className="m-page mp-page">
@@ -95,14 +90,10 @@ export default function Report({
       </Card>
       <div className="mp-actions">
         <Button onClick={() => void copy()}>复制摘要</Button>
-        <Button variant="primary" onClick={download}>
-          导出当前报告
+        <Button variant="primary" disabled={exporting} onClick={() => void download()}>
+          {exporting ? '正在导出…' : '导出当前报告'}
         </Button>
       </div>
-      <Notice>
-        当前导出可打印的 HTML 文件。iOS 系统分享入口尚未接入，原生分享和 PDF
-        导出未验证。
-      </Notice>
       {notice && <Notice>{notice}</Notice>}
     </div>
   );
