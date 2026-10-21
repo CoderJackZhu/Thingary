@@ -79,6 +79,8 @@ export default function ItemDetail({ params }: PageProps) {
 }
 ```
 
+键盘布局由 `ui/keyboard-viewport.ts` 在 `start.tsx` 统一安装：监听可见视口的 resize／scroll，将高度和偏移交给弹出层与 Sheet，NavBar 继续在各自容器内 sticky。焦点避让共用导航栏、ActionBar 及既有完整盘点底栏；键盘收起后恢复安全区和标签栏。不在业务页面添加键盘监听或手工平移，也不修改页面容器的 transform。日期输入统一为至少 16px，避免 iOS 聚焦时自动缩放；不禁止用户手动缩放。无 VisualViewport 时沿用 CSS 回退；用户缩放时不强行重排。
+
 约束：触控区域不小于 44px，适配 `env(safe-area-inset-*)`，320 到 430 宽无横向滚动；不要给页面容器加 `transform`（会破坏固定定位的弹窗）。
 
 ## 预览与截图
