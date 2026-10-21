@@ -1,5 +1,6 @@
 // Calculator page: reads the form, runs the planning engine (WASM) locally, renders the result.
 import { RETURN_PRESETS, DEFAULTS, validate, calculate, durationText, yuanText } from './model.js';
+import { GOATCOUNTER_ENDPOINT, WAITLIST_URL } from './config.js';
 
 const STORE = 'thingary-calc-v1';
 const form = document.getElementById('calc-form');
@@ -12,6 +13,8 @@ const fields = ['age', 'assets_wan', 'spend', 'saving', 'income', 'income_age', 
 const optional = { income: DEFAULTS.income, income_age: DEFAULTS.income_age, end_age: DEFAULTS.end_age, inflation: DEFAULTS.inflation, wish_age: null };
 
 let state = load();
+const returning = Boolean(state.inputs || state.history?.length);
+let counted = false, edited = false;
 let preset = state.inputs?.preset ?? DEFAULTS.preset;
 let run = null, last = null, timer = 0;
 
@@ -21,6 +24,24 @@ function load() {
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify(state)); } catch { /* private mode: the page still works */ }
 }
+// Counts only page views and these events: calc-done, calc-return, calc-record, calc-waitlist.
+const pending = [];
+function track(name) {
+  if (!GOATCOUNTER_ENDPOINT) return;
+  const counter = window.goatcounter;
+  if (counter?.count) counter.count({ path: name, title: name, event: true });
+  else pending.push(name);
+}
+function loadAnalytics() {
+  if (!/^https:\/\/[\w.-]+\/count$/.test(GOATCOUNTER_ENDPOINT)) return;
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = 'https://gc.zgo.at/count.js';
+  script.dataset.goatcounter = GOATCOUNTER_ENDPOINT;
+  script.addEventListener('load', () => { for (const name of pending.splice(0)) track(name); });
+  document.head.append(script);
+}
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const parse = text => { const t = text.replace(/[,，\s]/g, ''); return t === '' ? null : Number(t); };
 
@@ -99,8 +120,10 @@ function render(v, r) {
   if (r.extra_1000_months > 0) parts.push(`<p class="result-tip">每月多存 1000 元，可以提前约 <strong>${durationText(r.extra_1000_months)}</strong>。</p>`);
   parts.push(chart(r.series, r.reachable ? r.stop_age : null, v.age, resultBox.clientWidth - 42));
   parts.push(`<div class="result-actions"><button type="button" class="button" data-record>记下这次结果</button><small>下个月更新数字再来对比</small></div>`);
+  if (/^https:\/\//.test(WAITLIST_URL)) parts.push(`<p class="result-waitlist"><a href="${esc(WAITLIST_URL)}" target="_blank" rel="noopener" data-waitlist>想要手机 App？花 1 分钟告诉我们 →</a></p>`);
   resultBox.innerHTML = `<div class="result-card">${parts.join('')}</div>`;
   resultBox.querySelector('[data-record]').addEventListener('click', record);
+  resultBox.querySelector('[data-waitlist]')?.addEventListener('click', () => track('calc-waitlist'));
 }
 
 function showIssues(issues) {
@@ -129,6 +152,8 @@ function update() {
   try {
     last = { v, r: calculate(run, v, todayText()) };
     render(last.v, last.r);
+    // One count per visit, and only after the visitor typed: restoring saved answers is not a new calculation.
+    if (edited && !counted) { counted = true; track('calc-done'); }
   } catch (error) {
     last = null;
     resultBox.innerHTML = `<p class="result-empty result-warn">没能算出结果：${esc(error.message)}</p>`;
@@ -137,6 +162,7 @@ function update() {
 
 function record() {
   if (!last) return;
+  track('calc-record');
   const entry = { date: todayText(), months: last.r.reachable ? last.r.months : null, stop_age: last.r.stop_age, end_age: last.v.end_age };
   state.history = [entry, ...(state.history ?? []).filter(h => h.date !== entry.date)].slice(0, 36);
   save();
@@ -178,6 +204,7 @@ presetBox.addEventListener('click', event => {
   const key = event.target.closest('[data-preset]')?.dataset.preset;
   if (!key) return;
   preset = key;
+  edited = true;
   renderPresets();
   update();
 });
@@ -186,17 +213,21 @@ presetBox.addEventListener('keydown', event => {
   event.preventDefault();
   const i = RETURN_PRESETS.findIndex(p => p.key === preset), step = ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1;
   preset = RETURN_PRESETS[(i + step + RETURN_PRESETS.length) % RETURN_PRESETS.length].key;
+  edited = true;
   renderPresets();
   presetBox.querySelector(`[data-preset="${preset}"]`).focus();
   update();
 });
 
 for (const name of fields) if (state.inputs?.[name] != null) form.elements[name].value = state.inputs[name];
-form.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(update, 250); });
+form.addEventListener('input', () => { edited = true; clearTimeout(timer); timer = setTimeout(update, 250); });
 form.addEventListener('submit', event => event.preventDefault());
 addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(() => last && render(last.v, last.r), 200); });
 renderPresets();
 renderHistory();
+loadAnalytics();
+document.querySelector('[data-analytics-note]').hidden = !GOATCOUNTER_ENDPOINT;
+if (returning) track('calc-return');
 update();
 engine().then(r => { run = r; update(); }, error => {
   resultBox.innerHTML = `<p class="result-empty result-warn">计算引擎加载失败，请刷新重试。（${esc(error.message)}）</p>`;
