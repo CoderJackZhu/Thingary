@@ -23,8 +23,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .m-main{display:block;min-height:100dvh;padding:env(safe-area-inset-top,0px) max(var(--m-gutter),env(safe-area-inset-right,0px)) calc(var(--m-tabbar-h) + 24px) max(var(--m-gutter),env(safe-area-inset-left,0px))}
 .m-segment-bar{padding-top:12px}
 .m-page{display:flex;flex-direction:column;gap:var(--m-gap);min-height:calc(100dvh - var(--m-tabbar-h) - 24px - env(safe-area-inset-top,0px));padding-bottom:8px}
-.m-modal{position:fixed;inset:0;z-index:20;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);padding:env(safe-area-inset-top,0px) max(var(--m-gutter),env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(var(--m-gutter),env(safe-area-inset-left,0px));animation:m-rise .28s ease-out}
-.m-modal .m-page{min-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+.m-modal{position:fixed;inset:var(--m-viewport-top,0px) 0 auto;height:var(--m-viewport-height,100dvh);z-index:20;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);padding:0 max(var(--m-gutter),env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(var(--m-gutter),env(safe-area-inset-left,0px));animation:m-rise .28s ease-out}
+.m-modal .m-navbar{padding-top:env(safe-area-inset-top,0px);min-height:calc(52px + env(safe-area-inset-top,0px))}
+.m-modal .m-page{min-height:calc(var(--m-viewport-height,100dvh) - env(safe-area-inset-bottom,0px))}
+/* The keyboard has its own accessory bar; leave the visible area to the form. */
+:root[data-keyboard] .m-tabbar{display:none}
+:root[data-keyboard] .m-modal{padding-bottom:0;scroll-padding:60px 0 100px}
+:root[data-keyboard] .m-modal .m-page{min-height:var(--m-viewport-height,100dvh)}
+:root[data-keyboard] .m-main .m-navbar{top:var(--m-viewport-top,0px)}
+:root[data-keyboard] .m-main .m-actionbar{bottom:0}
+/* The existing full-inventory toolbar uses fixed positioning instead of ActionBar. */
+:root[data-keyboard] .mw-fixed{bottom:var(--m-viewport-bottom,0px);padding-bottom:12px}
 @keyframes m-rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 .m-tabbar{position:fixed;z-index:10;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px max(8px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(8px,env(safe-area-inset-left,0px));background:var(--m-nav-bg);-webkit-backdrop-filter:saturate(1.8) blur(18px);backdrop-filter:saturate(1.8) blur(18px);border-top:1px solid var(--line)}
 .m-tabbar:has(button:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
