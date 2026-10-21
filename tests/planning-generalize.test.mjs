@@ -71,6 +71,28 @@ test('spend item saves explicit months and extra treatment atomically', async ()
  assert.deepEqual(f.basic.basic.retirement_costs.find(c=>c.source_id===`spend:${i.id}`),{source_id:`spend:${i.id}`,treatment:'extra',reference_cents:null});
 });
 
+test('child education age helper fills the end month, manual edits win, birth month is not saved', async () => {
+ const r=runtime('PlanningSetup',{sources:sources(),editMode:true,initialStep:1});
+ click(r,'+ 添加一笔阶段性支出');
+ assert.equal(r.find('MonthInput',p=>p.label==='孩子出生年月'),undefined);
+ click(r,'子女教育');
+ enter(r,'CentInput','阶段性支出每月金额','300000');
+ enter(r,'MonthInput','孩子出生年月','2030-11');
+ assert.equal(r.find('MonthInput',p=>p.label==='支出结束月份').props.value,'2052-11');
+ enter(r,'input','负担到孩子几岁','18');
+ assert.equal(r.find('MonthInput',p=>p.label==='支出结束月份').props.value,'2048-11');
+ enter(r,'MonthInput','支出结束月份','2050-03');
+ assert.equal(r.find('MonthInput',p=>p.label==='支出结束月份').props.value,'2050-03');
+ enter(r,'input','负担到孩子几岁','99');
+ assert.equal(r.find('MonthInput',p=>p.label==='支出结束月份').props.value,'2050-03');
+ enter(r,'input','负担到孩子几岁','20');
+ assert.equal(r.find('MonthInput',p=>p.label==='支出结束月份').props.value,'2050-11');
+ click(r,'加入列表');r.button('保存，查看结果').props.onClick();await r.settle();
+ const i=r.calls.at(-1).fields.budget.spend_items.find(i=>i.label==='子女教育');
+ assert.equal(i.end_month,'2050-11');
+ assert.equal(JSON.stringify(r.calls.at(-1)).includes('2030-11'),false);
+});
+
 test('extra spend item only raises retirement-month spending and removal drops its scope', () => {
   const s = sources(), base = saved(s), d = draftOf(base, s.snapshot.value);
   const item = { id: 'fx-care', label: '医疗与护理', monthly_cents: '100000', start_month: null, end_month: null, time_unconfirmed: false, inflation_hundredths: null, essential: true };

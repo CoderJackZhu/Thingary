@@ -4,7 +4,7 @@ import { money } from './asset';
 import { CentInput, FormRow, Switch } from './FormControls';
 import { pctToHundredths, rateText } from './plan';
 import type { StoredSpendItem } from './plan';
-import { withSpendItem, withoutSpendItem } from './planning-basic-forms';
+import { monthChildReachesAge, withSpendItem, withoutSpendItem } from './planning-basic-forms';
 import type { Draft } from './planning-basic-forms';
 
 const MAX_ITEMS = 20;
@@ -31,8 +31,11 @@ export function SpendItems({ d, setD, frozen, today }: { d: Draft; setD: React.D
 function NewSpend({ target, today: _today, frozen, onAdd, onCancel }: { target: string; today: string; frozen: boolean; onAdd: (i: StoredSpendItem) => void; onCancel: () => void }) {
   const [template, setTemplate] = useState<Template | null>(null);
   const [label, setLabel] = useState(''), [cents, setCents] = useState(''), [start, setStart] = useState(''), [end, setEnd] = useState(''), [essential, setEssential] = useState(true), [infl, setInfl] = useState(''), [err, setErr] = useState('');
+  const [birth, setBirth] = useState(''), [age, setAge] = useState('22');
   const beforeRetire = end !== '' && target !== '' && end < target;
-  const pick = (t: Template) => { setTemplate(t); setLabel(t.label); setStart(''); setEssential(true); setErr(''); };
+  const pick = (t: Template) => { setTemplate(t); setLabel(t.label); setStart(''); setEssential(true); setErr(''); setBirth(''); setAge('22'); };
+  // 换算只在孩子信息变化时覆盖结束月份；之后手动改结束月份以手动值为准。
+  const helper = (nextBirth: string, nextAge: string) => { setBirth(nextBirth); setAge(nextAge); const m = monthChildReachesAge(nextBirth, nextAge); if (m) setEnd(m); };
   function add() {
     const s = start || null, e = end || null, rate = infl.trim() === '' ? null : pctToHundredths(infl);
     if (!label.trim() || label.trim().length > 40) return setErr('请填写名称（不超过 40 字）。');
@@ -47,6 +50,10 @@ function NewSpend({ target, today: _today, frozen, onAdd, onCancel }: { target: 
     {template && <p className="muted small">{template.hint}</p>}
     <FormRow label="名称"><input aria-label="支出名称" value={label} disabled={frozen} onChange={e => setLabel(e.target.value)}/></FormRow>
     <FormRow label="每月金额" hint="今天的钱"><CentInput label="阶段性支出每月金额" value={cents} disabled={frozen} onChange={setCents}/></FormRow>
+    {template?.key === 'child' && <>
+      <FormRow label="孩子出生年月" hint="只用来换算结束月份，不会保存。"><MonthInput yearIntent="long" label="孩子出生年月" value={birth} disabled={frozen} allowClear onChange={v => helper(v, age)}/></FormRow>
+      <FormRow label="负担到孩子几岁" hint="1 到 40 之间的整数，默认 22；填好后自动算出结束月份，仍可手动修改。"><input aria-label="负担到孩子几岁" inputMode="numeric" value={age} disabled={frozen} onChange={e => helper(birth, e.target.value)}/></FormRow>
+    </>}
     <FormRow label="开始月份" hint="留空：从目标月份起"><MonthInput yearIntent="long" label="支出开始月份" value={start} disabled={frozen} allowClear onChange={setStart}/></FormRow>
     <FormRow label="结束月份" hint="留空：到规划终点"><MonthInput yearIntent="long" label="支出结束月份" value={end} disabled={frozen} allowClear onChange={setEnd}/></FormRow>
     <FormRow label="每年上涨（%）" hint="留空跟随通胀；这是假设"><input aria-label="支出每年上涨" inputMode="decimal" value={infl} disabled={frozen} onChange={e => setInfl(e.target.value)}/></FormRow>
