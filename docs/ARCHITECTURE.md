@@ -67,6 +67,8 @@ flowchart TD
 
 保存共用 `submit`、`storedPending` 与 `resolvePending`。未知回执保留原请求并暂停编辑和切页，以原请求身份只读核对，不自动继续剩余账户；确认成功后清除对应行输入并刷新来源，未保存时保留当前输入。普通输入只在当前页面内存保留，离页不存草稿。读取拒绝 generation／日期不匹配和已失效响应。
 
+手机的支出模块位于 `src/mobile/spending/`：`spending.home`（重要支出／周期费用）、`spending.recurring`（计划详情）、`spending.virtual`（虚拟资产）、`spending.review`（期间汇总、收入、年度回顾）及各编辑页。纯逻辑在 `model.ts`、`forms.ts`，复用桌面 `expenses.ts`、`recurring*.ts`、`rent-plan.ts`、`virtual.ts`、`finance-*.ts`、`annual-review.ts`，命令与载荷不变，保存统一经 `submit`（`read.ts` 的 `useSaver`：单次发送、结果未知时进入共享的核对流程、释放忙状态后才关闭页面）。手机版计划编辑只用简易表单（固定天数、试用、分段价格、续费价格分段、关联修复、统一名称、合并旧订阅、投资资金流动核对、标签新建、复制年度摘要仍只在桌面）；复杂计划在手机上只读其高级字段。预览 `mobile-state=unknown|save-error` 对支出的保存命令同样生效。
+
 `mobile-preview.html` → `src/mobile/preview.ts` 仅用于开发，经 `mockIPC` 使用与桌面预览共用的 `src/preview-ipc.ts` 虚构数据，不进入生产构建。`?theme=light|dark` 固定外观，`wealth=empty|missing|error` 覆盖空白／缺项／读取错误，`mobile-state=unknown|save-error` 模拟保存响应丢失和保存错误，`?tab=` 与 `?route=` 直接打开某个标签或页面，`route=dev.gallery` 展示组件库。浏览器预览刷新会重建虚构数据；它不证明原生持久性。手机逻辑测试位于 `tests/mobile-*.test.mjs`；浏览器尺寸与状态截图不替代 iOS 工程、WKWebView、安全区、软键盘或 VoiceOver 实机验收。
 
 ## 规划计算核心
