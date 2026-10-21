@@ -44,6 +44,18 @@ flowchart TD
 
 前端不直接访问 SQLite。阻塞的数据库与文件工作通过后端工作线程处理；写操作串行化并在事务中维护业务事实与引用。界面刷新和缓存失效必须随业务提交结果更新。
 
+### 手机界面
+
+`mobile.html` → `src/mobile/main.tsx` 是独立的手机前端入口，和 `index.html` 一起由 Vite 多页面构建；iOS 宿主约定打开 `mobile.html`。手机布局只加载 `theme.css` 与局部 `mobile.css`，使用安全区和至少 44px 的触控区域，外观跟随系统明暗。桌面入口、样式与后端保持原有行为。
+
+底部入口为「家底／盘点／测算」。家底通过 `wealth_summary` 直接使用桌面完整盘点的资产、负债、净资产及比较结果；「总资产」明确限定为计入金融净资产的资产账户，房产等不计入账户不混入总额。最近不完整时披露缺项并沿用最近完整盘点，没有完整盘点时只显示已知资产／负债，净资产保持未知。「还要上几年班」卡片只提供测算占位入口，尚无手机测算实现。
+
+盘点通过 `wealth_accounts`、`wealth_snapshot_draft` 与 `wealth.ts` 的可用范围及金额／外币／持仓事实构建器录入。一个「保存本次盘点」按钮按账户串行调用 `wealth_quick_update`：现有命令只支持单账户更新或双账户转账，因此多账户保存不是原子事务；整批先校验，每笔独立 `request_id`、同一 `generation`，失败或结果未知即停止，已成功部分保留。未输入账户遵循后端原有沿用／未知规则，不视作本月重新核对。首次建账户复用 `wealth_account_save`，手机简表创建人民币账户，类型及默认计入范围沿用桌面规则。
+
+保存共用 `submit`、`storedPending` 与 `resolvePending`。未知回执保留原请求并暂停编辑和切页，以原请求身份只读核对，不自动继续剩余账户；确认成功后清除对应行输入并刷新来源，未保存时保留当前输入。普通输入只在当前页面内存保留，离页不存草稿。读取拒绝 generation／日期不匹配和已失效响应。
+
+`mobile-preview.html` → `src/mobile/preview.ts` 仅用于开发，以 `mockIPC` 和既有 `wealth-preview.ts` 虚构数据运行，不进入生产构建。启动开发服务器后访问该页面，`?theme=light|dark` 固定外观，`wealth=empty|missing|error` 覆盖空白／缺项／读取错误，`mobile-state=unknown|save-error` 模拟保存响应丢失和保存错误；未知场景首次自动核对失败，用户再次核对可确认结果。浏览器预览刷新会重建虚构余额；它不证明原生持久性。手机逻辑测试位于 `tests/mobile-*.test.mjs`；浏览器尺寸与状态截图不替代 iOS 工程、WKWebView、安全区、软键盘或 VoiceOver 实机验收。
+
 ## 规划计算核心
 
 `crates/planning-engine` 是无存储、文件和网络访问的 Rust 计算库。`plan-ledger.ts` 与 `plan-risk.ts` 保留数据接口、展示适配和取消控制；逐月账本、资金需求、投入额反求、覆盖、市场模拟、敏感性与收益顺序由同一 Rust 实现承担。`plan-basic` 仍负责资料读取、来源核对、未知值门控与输入编译；年龄参考只影响基本模式的展示，不移动日历现金流。
