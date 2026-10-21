@@ -373,6 +373,8 @@ let mobileAssumptionConfirmation: 'confirmed' | 'unconfirmed' | null = null;
 // Mobile full-inventory preview: a committed write can lose its response and first receipt read.
 const mobileSnapshotLost = new Set<string>();
 const mobileSnapshotLookup = new Set<string>();
+// Mobile item save fixtures supplement the existing handlers; all state is fictional and in memory.
+let mobileItemDispatch = false, mobileItemLost = false, mobileItemLookupLost = false;
 export async function handle(command: string, payload: unknown): Promise<unknown> {
   const mobilePlanState = params.get('mobile-state');
   const mobilePlanArgs = (payload ?? {}) as Record<string, unknown>;
@@ -413,6 +415,33 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'wealth_request_result' && mobileSnapshotInput?.request && mobileSnapshotLookup.delete(mobileSnapshotInput.request)) {
     throw { message: '虚构盘点回执暂不可用，请核对原请求。' };
+  }
+  const mobileArgs = (payload ?? {}) as { input?: { request_id?: string; generation?: string; base?: SaveAsset['base']; options?: SaveAsset['options'] }; request?: string };
+  const mobileInput = mobileArgs.input;
+  const mobileCatalogWrites = ['save_asset','change_warranty','change_maintenance','change_sale','change_lifecycle','change_trash','change_record_trash','batch_change'];
+  if (command === 'wealth_request_result' && batchReceipts.has(String(mobileArgs.request))) return 'mobile-batch-receipt';
+  if (['saved_request','saved_record_trash_request','wealth_request_result'].includes(command) && params.get('mobile-state') === 'unknown' && mobileItemLost && !mobileItemLookupLost) {
+    mobileItemLookupLost = true; throw {message:'虚构物品回执暂不可用，请核对原请求。'};
+  }
+  if (mobileCatalogWrites.includes(command) && (params.has('tab') || params.has('route')) && !mobileItemDispatch) {
+    if (params.get('mobile-state') === 'save-error') throw {code:'PREVIEW_ERROR',message:'虚构保存失败，输入保留。'};
+    const identity = mobileInput?.base ?? mobileInput;
+    if (identity?.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const prior = requests.get(identity?.request_id ?? '');
+    if (prior && command !== 'batch_change') return structuredClone(prior);
+    mobileItemDispatch = true;
+    let value: unknown;
+    try { value = await handle(command, payload); } finally { mobileItemDispatch = false; }
+    if (command === 'save_asset' && mobileInput?.options?.warranty && value) {
+      const record = value as AssetRecord, options = mobileInput.options.warranty;
+      const stored = records.find(r => r.asset.id === record.asset.id);
+      if (stored && !stored.warranties.length) {
+        stored.warranties.push({id:crypto.randomUUID(),fields:{kind:'manufacturer',provider:'',start_date:options.start_date,end_date:options.end_date,notes:''},status:'pending',remaining_days:null,photos:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString(),reminder:options.reminder});
+        value=previewRecord(stored); requests.set(identity!.request_id!,value as AssetRecord);
+      }
+    }
+    if (params.get('mobile-state') === 'unknown' && !mobileItemLost) { mobileItemLost = true; throw {message:'虚构物品保存响应丢失。'}; }
+    return value;
   }
   if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
   if (command === 'notification_status') return '';
