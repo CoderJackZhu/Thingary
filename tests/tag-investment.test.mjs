@@ -283,7 +283,7 @@ test('前端占比用 BigInt 精确整数比，不做浮点累加', () => {
 });
 
 test('预览与原生共享虚构标签事实；状态文案区分空、排除与搜索无结果', () => {
-  const preview = src('visual-preview.ts');
+  const preview = src('preview-ipc.ts');
   assert.match(preview, /id:'label-photo',name:'摄影'/);
   assert.match(preview, /previewPrefs\(\(a as \{label\?: string\}\)\.label\)/);
   assert.match(preview, /tag_investment_view/);

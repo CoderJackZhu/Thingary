@@ -25,6 +25,7 @@ export const normalFields = (): SimplifiedPlanningFieldsV1 => ({
   time: { reference: { month: '2026-10', age_months: 436 }, target_month: '2049-10', horizon_month: '2086-10' },
   income_mode: 'manual',
   future_incomes: [pensionIncome(), rentIncome()],
+  household: { mode: 'single', partner: null },
 });
 
 export const unknownFields = (): SimplifiedPlanningFieldsV1 => ({
@@ -35,6 +36,7 @@ export const unknownFields = (): SimplifiedPlanningFieldsV1 => ({
     { ...pensionIncome(), monthly_cents: null, start_month: null },
     { ...rentIncome(), included: false },
   ],
+  household: { mode: 'single', partner: null },
 });
 
 export const emptyFields = (): SimplifiedPlanningFieldsV1 => simplifiedEmpty();
@@ -44,6 +46,7 @@ export const legacyFields = (): SimplifiedPlanningFieldsV1 => ({
   time: { reference: null, target_month: null, horizon_month: null },
   income_mode: 'unconfirmed',
   future_incomes: [],
+  household: { mode: 'single', partner: null },
 });
 
 const rejectedIssues = (): FieldIssueV1[] => [

@@ -8,9 +8,10 @@ export function annotationSummary(annotations: readonly PlanningAnnotation[] = [
   for (const effect of ['requirement_lower', 'requirement_higher', 'uncertain'] as const) {
     const group = rows.filter(a => a.effect === effect || effect === 'uncertain' && a.effect === 'none');
     if (!group.length) continue;
-    const omitted = new Set(group.filter(a => a.treatment === 'omitted').flatMap(a => a.source_ids)).size;
+    const partner = group.some(a => a.reason_code.startsWith('HOUSEHOLD_'));
+    const omitted = new Set(group.filter(a => a.treatment === 'omitted' && !a.reason_code.startsWith('HOUSEHOLD_')).flatMap(a => a.source_ids)).size;
     const extra = new Set(group.filter(a => a.treatment === 'assumed_extra').flatMap(a => a.source_ids)).size;
-    const parts = [omitted ? `有 ${omitted} 项安排未计入` : '', extra ? `${extra} 项费用暂按额外费用计入，可能重复包含` : ''].filter(Boolean);
+    const parts = [partner ? '伴侣的存款没有单独计算' : '', omitted ? `有 ${omitted} 项安排未计入` : '', extra ? `${extra} 项费用暂按额外费用计入，可能重复包含` : ''].filter(Boolean);
     out.push(parts.join('；') + (effect === 'requirement_lower' ? '，每月需要存的钱可能偏低' : effect === 'requirement_higher' ? '，每月需要存的钱可能偏高' : '，每月需要存的钱可能变化，方向尚不确定'));
   }
   return out;

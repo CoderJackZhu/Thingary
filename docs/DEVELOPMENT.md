@@ -149,6 +149,8 @@ npm run dev -- --port 1429
 
 访问 <http://127.0.0.1:1429/visual-preview.html>。页面仅使用内存虚构资料，刷新重置，不包含于普通发布构建；预览保存提示不证明原生持久化或系统文件能力。
 
+手机预览访问 `/mobile-preview.html`，与桌面预览共用 `src/preview-ipc.ts` 的虚构数据；参数 `theme`、`wealth`、`mobile-state`、`tab`、`route` 见 [src/mobile/README.md](../src/mobile/README.md)。
+
 | 参数／入口 | 用途 |
 |---|---|
 | `?state=empty`、`?state=error`、`?state=save-error` | 空白、读取失败、保存失败 |
@@ -156,6 +158,7 @@ npm run dev -- --port 1429
 | `?section=overview&started=first-use&state=empty` | 未开始的虚构资料与起步卡；可加 `module-write-error`／`module-read-error` 注入模块写入／读取失败，模块仅在预览内存中更新 |
 | `?section=planning&plan-basic=saved|unknown|negative|blank&capabilities=real` | 已保存通用规划、投入未知／负值、基础未填；真实纯计算 |
 | `?section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed` | 当前目标、大额计划、计算详情与真实报告入口 |
+| `?section=planning&plan-basic=saved&capabilities=real&plan-household=couple-same|couple-age|couple-age-empty`（可加 `plan-household-mode=fire`） | 虚构两人规划：伴侣同时停工、指定年龄并填存款、指定年龄但存款为空 |
 | `?plan=error`、`?plan-profile=empty` | 规划读取失败／没有已保存规划 |
 | `?plan-core=occurred|partial|overdue` | 已发生接续、付款缺项与过期待核对 |
 | `?section=planning&plan-debt=normal|unknown|empty|error|changed|zero|saved` | 已有贷款直接还款安排 |

@@ -34,11 +34,13 @@ export type RequirementResult = { before_hundredths: number; after_hundredths: n
   | { status: 'out_of_bounds'; message: string }
 );
 export type RequirementValue = { set: RequirementResult; lower: RequirementResult; upper: RequirementResult; target_month: string; horizon_month: string; budget_scope: 'complete' };
-export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cents: string; plan: Plan; plan0: Plan; projection: Projection; outcome: Outcome; terminal: 'surplus' | 'no_margin' | 'gap' };
+/** Couple-only summary (YYYY-MM). partner_stop_month null = partner stops with me. same_time_stop_month: my earliest stop month had the partner stopped with me; only when the saving was split by the partner's share, else null. */
+export type HouseholdSummary = { partner_stop_month: string | null; both_stop_month: string | null; same_time_stop_month: string | null };
+export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cents: string; plan: Plan; plan0: Plan; projection: Projection; outcome: Outcome; terminal: 'surplus' | 'no_margin' | 'gap'; household?: HouseholdSummary };
 export type AnnotationEffect = 'requirement_lower' | 'requirement_higher' | 'uncertain' | 'none';
 /** Read-only calculation coverage. Never part of ProfileUpdate or stored profile JSON. */
 export type PlanningAnnotation = {
-  id: string; reason_code: 'INCOME_INCOMPLETE' | 'TIME_PENDING' | 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
+  id: string; reason_code: 'INCOME_INCOMPLETE' | 'TIME_PENDING' | 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING' | 'HOUSEHOLD_SHARE_UNKNOWN' | 'HOUSEHOLD_PARTNER_STOPPED';
   actionable?: boolean;
   message: string; effect: AnnotationEffect; treatment: 'omitted' | 'assumed_extra' | 'not_used' | 'included';
   source_ids: string[]; missing_fields: string[];

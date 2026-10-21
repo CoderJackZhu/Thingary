@@ -46,15 +46,28 @@ flowchart TD
 
 ### 手机界面
 
-`mobile.html` → `src/mobile/main.tsx` 是独立的手机前端入口，和 `index.html` 一起由 Vite 多页面构建；iOS 宿主约定打开 `mobile.html`。手机布局只加载 `theme.css` 与局部 `mobile.css`，使用安全区和至少 44px 的触控区域，外观跟随系统明暗。桌面入口、样式与后端保持原有行为。
+`mobile.html` → `src/mobile/main.tsx` 是独立的手机前端入口，和 `index.html` 一起由 Vite 多页面构建；iOS 宿主约定打开 `mobile.html`。手机布局只加载 `theme.css`、`mobile.css` 与 `ui/ui.css`，使用安全区和至少 44px 的触控区域，外观跟随系统明暗。业务逻辑、IPC 命令与 `src/*.ts` 数据层与桌面共用，只有界面另写；桌面入口、样式与后端保持原有行为。设计稿在 [docs/design/mobile](design/mobile/README.md)，开发约定（目录归属、路由注册、页面栈、组件、预览与截图）见 [src/mobile/README.md](../src/mobile/README.md)。
 
-底部入口为「家底／盘点／测算」。家底通过 `wealth_summary` 直接使用桌面完整盘点的资产、负债、净资产及比较结果；「总资产」明确限定为计入金融净资产的资产账户，房产等不计入账户不混入总额。最近不完整时披露缺项并沿用最近完整盘点，没有完整盘点时只显示已知资产／负债，净资产保持未知。「还要上几年班」卡片只提供测算占位入口，尚无手机测算实现。
+底部五个标签：总览、物品、财富、规划、我的。物品、总览、我的始终显示；财富在财富、支出、周期费用、虚拟资产、收入模块全关时隐藏，规划在规划模块关闭时隐藏，关闭的模块同样隐藏其分段和入口，数据不受影响。
 
-盘点通过 `wealth_accounts`、`wealth_snapshot_draft` 与 `wealth.ts` 的可用范围及金额／外币／持仓事实构建器录入。一个「保存本次盘点」按钮按账户串行调用 `wealth_quick_update`：现有命令只支持单账户更新或双账户转账，因此多账户保存不是原子事务；整批先校验，每笔独立 `request_id`、同一 `generation`，失败或结果未知即停止，已成功部分保留。未输入账户遵循后端原有沿用／未知规则，不视作本月重新核对。首次建账户复用 `wealth_account_save`，手机简表创建人民币账户，类型及默认计入范围沿用桌面规则。
+- 总览：物品日均成本、金融净资产、「还要上几年班」、待处理事项与近期记录。
+- 物品：顶部分段「物品 / 心愿 / 统计」。列表含状态分段、分类标签、筛选与排序、列表／网格、置顶、搜索、批量选择；详情、新增与编辑（拍照建档）、图标与素材、心愿及其详情、统计。
+- 心愿（`src/mobile/wishes/`）：路由 `wishes.list`、`wishes.detail`、模态 `wishes.edit`（新增与编辑）和 `wishes.purchase`（记录购入）。读取与写入沿用桌面命令（`list_wishlist`、`save_wish_plan`、`change_wishlist`、`link_wish_asset`、`verify_legacy_wish`、`convert_wishlist`），回执沿用桌面的存储键并按 request_id 只读核对；保存请求构造在 `src/wish-save.ts`，规划影响一行在 `src/wish-plan-line.ts`。结果未确定时页面保留回执、暂停切页，列表页重启后仍提示核对。
+- 财富：顶部分段「概览 / 账户 / 盘点记录」；账户详情、完整盘点、盘点比较，以及支出、周期费用、虚拟资产、财务复盘入口。
+- 规划：顶部分段「目标 / 测算详情 / 试算」；设置条件（一屏一步）、假设分析、职业变化表单版、心愿影响。
+- 我的：时间轴、搜索全部资料、设置分组（功能模块、外观、选项管理、素材库、盘点提醒、隐私）、数据管理（备份与恢复、加密、最近删除、导出表格）、关于；首次打开提供样例、开始记录或从备份导入。
+
+第一版不做：金融表格导入向导、投资流水核对（投资收益只读展示）、职业变化地图版、桌面快捷键与应用内检查更新、自动备份的额外位置（只保留本机最近备份并通过系统分享面板手动导出）、旧版攒钱记录核实流程（只读显示）。
+
+页面由 `src/mobile/routes.ts` 注册表登记（路由名、标题、page／modal／sheet、所属标签），每个标签有独立页面栈，推入页面同步浏览器历史以支持返回手势，刷新回到标签根页。保存结果未确定时暂停切页与后退。
+
+总览、我的与首次打开（`src/mobile/home/`、`src/mobile/me/`）全部复用桌面读取与保存：总览用 `review_overview`、`summaryRetire`、`paymentReminders`、`list_assets`（即将到期保修）与心愿读取，金融金额可用眼睛按钮隐藏（本机偏好 `thingary.hide-financial-amounts.v1`，遮成 `******`），关闭模块的卡片和待处理项不出现；首次打开沿用 `start-choice.ts`，只在非样例、无记录且未跳过的资料库显示。时间轴复用 `timeline_view` 并按月分组，月支出只计购入、维护、重要支出、周期付款与虚拟资产价格并扣除退款，盘点、心愿估价和售出不计入，金额未知的记录单独计数而不当作零。搜索复用 `search_all` 与 `validate_source`。设置的所有子页共用路由 `me.settings`，用参数 `page` 区分：功能模块、外观、选项管理（`useTaxonomy` 与 `useChoices`，后者抽到 `choices-hook.ts`，桌面行为不变）、素材库、盘点提醒、通知、隐私、最近删除、导出表格、样例体验、关于、反馈与开源许可。数据管理复用桌面备份命令：完整备份、检查后恢复（加密备份先解锁、确认前不改资料、结果未知时只读核对）、本机最近 7 份自动备份、备份安全（恢复密钥只显示一次）。上次完整备份时间是手机本机记录 `thingary.mobile-last-backup.v1`（手动备份成功时写入，超过 30 天提醒，不进入资料与备份）。隐私锁与已保存的外观由 `me/runtime.ts` 在首个页面加载时安装（DOM 遮罩，状态机仍是 `privacy-lock.ts`）；所有备份文件的交付与选取都经过 `me/files.ts`，iOS 分享面板与文档选择器只需替换这一处。未移植：查看密钥（应用从不保存私钥）、额外备份位置、检查更新、物品表与金融历史导入、关联订阅整组恢复与修复（最近删除里提示到桌面版处理）。
+
+当前已实现的财富页来自早期手机基础：家底通过 `wealth_summary` 直接使用桌面完整盘点的资产、负债、净资产及比较结果；「总资产」限定为计入金融净资产的资产账户，房产等不计入账户不混入总额。最近不完整时披露缺项并沿用最近完整盘点，没有完整盘点时只显示已知资产／负债，净资产保持未知。盘点通过 `wealth_accounts`、`wealth_snapshot_draft` 与 `wealth.ts` 的可用范围及金额／外币／持仓事实构建器录入，一个「保存本次盘点」按钮按账户串行调用 `wealth_quick_update`：现有命令只支持单账户更新或双账户转账，因此多账户保存不是原子事务；整批先校验，每笔独立 `request_id`、同一 `generation`，失败或结果未知即停止，已成功部分保留。未输入账户遵循后端原有沿用／未知规则。首次建账户复用 `wealth_account_save`，手机简表创建人民币账户。
 
 保存共用 `submit`、`storedPending` 与 `resolvePending`。未知回执保留原请求并暂停编辑和切页，以原请求身份只读核对，不自动继续剩余账户；确认成功后清除对应行输入并刷新来源，未保存时保留当前输入。普通输入只在当前页面内存保留，离页不存草稿。读取拒绝 generation／日期不匹配和已失效响应。
 
-`mobile-preview.html` → `src/mobile/preview.ts` 仅用于开发，以 `mockIPC` 和既有 `wealth-preview.ts` 虚构数据运行，不进入生产构建。启动开发服务器后访问该页面，`?theme=light|dark` 固定外观，`wealth=empty|missing|error` 覆盖空白／缺项／读取错误，`mobile-state=unknown|save-error` 模拟保存响应丢失和保存错误；未知场景首次自动核对失败，用户再次核对可确认结果。浏览器预览刷新会重建虚构余额；它不证明原生持久性。手机逻辑测试位于 `tests/mobile-*.test.mjs`；浏览器尺寸与状态截图不替代 iOS 工程、WKWebView、安全区、软键盘或 VoiceOver 实机验收。
+`mobile-preview.html` → `src/mobile/preview.ts` 仅用于开发，经 `mockIPC` 使用与桌面预览共用的 `src/preview-ipc.ts` 虚构数据，不进入生产构建。`?theme=light|dark` 固定外观，`wealth=empty|missing|error` 覆盖空白／缺项／读取错误，`mobile-state=unknown|save-error` 模拟保存响应丢失和保存错误，`?tab=` 与 `?route=` 直接打开某个标签或页面，`route=dev.gallery` 展示组件库。浏览器预览刷新会重建虚构数据；它不证明原生持久性。手机逻辑测试位于 `tests/mobile-*.test.mjs`；浏览器尺寸与状态截图不替代 iOS 工程、WKWebView、安全区、软键盘或 VoiceOver 实机验收。
 
 ## 规划计算核心
 
@@ -233,7 +246,7 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 schema36 迁移沿用 plan_profile JSON 和 plan_income 事实表。plan_migration 在现有 schema 事务内转换旧资料，通用事实与引用严格校验，政策字段不进入当前 DTO；有语义变化才增加修订，保留原更新时间。旧备份只读检查与恢复复用该转换。全部历史回执保留；旧规划请求只能按原 ID 核对，不重放旧载荷。
 
-plan-simplified-contract.ts 是时间与未来收入的唯一类型入口，Rust plan_simplified 严格拒绝旧字段。时间保存明确月份；UI 默认使用出生年月和退休／终点年龄换算，新确认的出生年月用现有 reference（月、age_months=0）表达。没有新 DTO 字段或迁移，不继承旧政策生日，原非零参考保留；更正参考不自动改已保存月份。plan-basic 编译未来收入与受限资金释放后，所有消费者共用 plan-ledger，不复制政策引擎。Core 仍维护用途、付款、余债与稳定来源引用，releases 仅是未来计划。
+plan-simplified-contract.ts 是时间与未来收入的唯一类型入口，Rust plan_simplified 严格拒绝旧字段。时间保存明确月份；UI 默认使用出生年月和退休／终点年龄换算，新确认的出生年月用现有 reference（月、age_months=0）表达。可选 `household`（单人或夫妻；伴侣含出生年月、停工年龄与每月存款份额）缺省读作单人，无迁移，Rust 与 TS 同规则校验（TS 的与今天相对的日期规则需传入 today，Rust 始终强制）；时间部分没有新 DTO 字段或迁移，不继承旧政策生日，原非零参考保留；更正参考不自动改已保存月份。夫妻且伴侣停工晚于规划起点月、并填了伴侣每月存款时，plan-basic 在编译中把月存拆为「我的部分」并追加一条不落库的生成收入 `household-partner-work`（至伴侣停工前一月），引擎不变；份额未填或停工月已过按未拆分计算并给出 `HOUSEHOLD_SHARE_UNKNOWN`／`HOUSEHOLD_PARTNER_STOPPED` 提示；需求反求结果仍按家庭合计（我的部分加伴侣份额）报告，`PredictionValue.household` 给出伴侣停工月、两人都停工月和同时停工月。plan-basic 编译未来收入与受限资金释放后，所有消费者共用 plan-ledger，不复制政策引擎。Core 仍维护用途、付款、余债与稳定来源引用，releases 仅是未来计划。
 
 ### 规划首次设置
 

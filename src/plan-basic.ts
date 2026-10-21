@@ -1,4 +1,5 @@
 // Basic requirements and confirmed predictions share the existing full month ledger.
+import type { FutureIncomeV1 } from './plan-simplified-contract.ts';
 import type { StoredLifeEvent } from './plan.ts';
 import type { BasicCapabilities, PlanningSources, PlanningMissing, Capability, RequirementResult, RequirementValue, PredictionValue, PlanningContext, CostScope, CapabilityName, PlanningAnnotation } from './plan-basic-contract.ts';
 import { normalizeFunds, costSources, mustStayInLedger } from './plan-core.ts';
@@ -6,12 +7,14 @@ import { applyEvents, monthIndex, offsetOf } from './plan-events.ts';
 import type { LifeEvent } from './plan-events.ts';
 import { project, outcome } from './plan-ledger.ts';
 import { enginePlan, engineRequest, planningModelVersion } from './planning-engine.ts';
-import type { Plan, Flow, SpendItem } from './plan-ledger.ts';
+import type { Plan, Flow, SpendItem, Projection } from './plan-ledger.ts';
 import { basicConstraintMessages } from './plan-basic-validation.ts';
 import { eventCoverage } from './plan-coverage.ts';
 import { uniqueAnnotations } from './plan-annotations.ts';
 import { debtReview, debtMonthIndex } from './plan-debt.ts';
+import { monthIndexV1, monthTextV1 } from './plan-simplified.ts';
 
+const PARTNER_INCOME_ID = 'household-partner-work';
 export const BASIC_SEARCH_LIMIT_CENTS = 100_000_000;
 const missing = (code: PlanningMissing['code'], capability: CapabilityName, owner: PlanningMissing['owner'], field: string, message: string, kind: PlanningMissing['kind'] = 'assumption'): PlanningMissing => ({ code, capability, owner, field, message, kind });
 const blocked = <T>(items: PlanningMissing[]): Capability<T> => ({ status: 'blocked', missing: items });
@@ -19,26 +22,40 @@ const eventValue = (e: StoredLifeEvent): LifeEvent => ({ ...e, price_cents: Numb
 const validSigned = (s: string) => /^-?(0|[1-9]\d*)$/.test(s) && Number.isSafeInteger(Number(s)) && Math.abs(Number(s)) <= BASIC_SEARCH_LIMIT_CENTS && String(Number(s)) === s;
 
 /** Candidates are computation variables, never profile patches or prediction outputs. Dates/pension/fees are fixed. */
-export function solveBasicRequirement(compile: (cents: number, before: number, after: number) => Plan, before: number, after: number, contributionFrom?: number): RequirementResult {
+export type BasicCompile = ((amount: number, before: number, after: number, future?: boolean) => Plan) & { household_share_cents?: number };
+export function solveBasicRequirement(compile: BasicCompile, before: number, after: number, contributionFrom?: number): RequirementResult {
   const rates = { before_hundredths: before, after_hundredths: after };
   if (before < -1000 || before > 2000 || after < -1000 || after > 2000) return { ...rates, status: 'out_of_bounds', message: '调整后的实际收益超出允许范围，本条件未应用。' };
   type Solved = { status: 'payment_constraint' } | { status: 'not_applicable'; required_now: number }
     | { status: 'no_positive_contribution'; monthly_cents: '0' } | { status: 'found'; monthly_cents: string }
     | { status: 'search_not_found'; search_limit_cents: string };
-  const solved = engineRequest<Solved>({ op: 'solve_contribution', plan: enginePlan(compile(0, before, after)), contribution_from_month: contributionFrom, search_limit_cents: BASIC_SEARCH_LIMIT_CENTS });
+  // The engine needs zero base saving; the split's -share is restored as the generated income, so only the base is reset.
+  const base = compile(0, before, after), solverPlan = compile.household_share_cents ? { ...base, saving_cents: 0 } : base;
+  const solved = engineRequest<Solved>({ op: 'solve_contribution', plan: enginePlan(solverPlan), contribution_from_month: contributionFrom, search_limit_cents: BASIC_SEARCH_LIMIT_CENTS });
   if (solved.status === 'payment_constraint') return { ...rates, status: solved.status, message: contributionFrom === undefined
     ? '起点已有资金不足以支付首月付款；月底投入不能补月初支付，请补现有资金或调整付款时间。'
     : '开始这段投入前的已知付款不足；之后的投入不能补救，请核对现有资金和付款时间。' };
   if (solved.status === 'not_applicable') return { ...rates, status: solved.status, message: '没有目标前积累区间；当前退休所需 ' + Math.ceil(solved.required_now) + ' 分，需核对现有资金。' };
+  // Household split (couple, partner works longer than me): the engine solves
+  // the plan's own saving_cents, i.e. "my part". The result is reported as the
+  // HOUSEHOLD total while the partner still works (my part + partner share), so
+  // it stays comparable with the household total the user enters and every
+  // existing consumer (monthly_cents vs contribution) keeps its meaning. The
+  // partner share is exposed on the compiler (`household_share_cents`).
+  if (solved.status === 'found' && compile.household_share_cents) return { ...rates, ...solved, monthly_cents: String(Number(solved.monthly_cents) + compile.household_share_cents) };
   return { ...rates, ...solved };
 }
 
+/** Resolved partner timing for a couple (months YYYY-MM). split is set only when the saving is divided and a generated income is added. */
+export type HouseholdPlan = { partner_stop_month: string | null; share_cents: number | null };
 export type BasicPlanCompiler = {
   included_reference_cents: number;
-  compile: (amount: number, before: number, after: number, future?: boolean) => Plan;
+  compile: BasicCompile;
   contribution: string | null;
   target_month: string;
   horizon_month: string;
+  /** Couple with a known later partner stop: the split share, else null. */
+  household: HouseholdPlan | null;
   before: number;
   after: number;
 };
@@ -146,18 +163,40 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   }
   const preRefs=b.contribution_costs.filter(s=>sourcesPre.includes(s.source_id)&&s.treatment==='included').reduce((sum,s)=>sum+Number(s.reference_cents),0);
   const skeleton:Plan={input_mode:'basic',now_months:now,target_months:target,horizon_months:horizon,search_cap_months:horizon-1,mode:r.mode,assets_cents:available/basisFactor,saving_cents:0,saving_growth_hundredths:0,r_before_hundredths:r.real_return_before_hundredths,r_after_hundredths:r.real_return_after_hundredths,inflation_hundredths:p.assumptions.inflation_hundredths,volatility_hundredths:r.volatility_hundredths,items,incomes:[],future_incomes:selected.filter(i=>!incomplete.includes(i)),transfers,pension_at:()=>({monthly_cents:0,lump_cents:0,unlock_age_months:horizon+1,income_start_age_months:null,eligible:false,short_months:0}),spends:[],spend_flows:flows,saving_flows:savingFlows,rent_cents:allowed('rent',b.retirement_costs)?Number(r.rent_cents):0,anchor_date:anchor,calculation_date:sources.today,monetary_basis_date:core.monetary_basis_date,basis_factor:basisFactor,first_month_fraction:fraction,core,annotations,event_coverage:eventReview.coverage,age_reference:f.time.reference};
-  const compile=(amount:number,before:number,after:number,future=true):Plan=>{
+  // Household (couple): only a known share plus a partner stop after the plan anchor month splits the saving.
+  // Everything else (single, stops with me, unknown share, already stopped) leaves the plan untouched.
+  const hh=f.household, partner=hh?.mode==='couple'?hh.partner:null;
+  let partnerStop:string|null=null, share:number|null=null;
+  if(partner && partner.stop_age_months!==null){
+    partnerStop=monthTextV1(monthIndexV1(partner.birth_month)+partner.stop_age_months);
+    if(monthIndexV1(partnerStop)<=monthIndexV1(anchor)){
+      annotations.push({id:'household:partner-stopped',reason_code:'HOUSEHOLD_PARTNER_STOPPED',message:'伴侣停工月份已过，伴侣存款不再单独计算；请确认每月一共能存多少已不含伴侣。',effect:'uncertain',treatment:'omitted',source_ids:[],missing_fields:['每月一共能存'],refinement:{owner:'basic',field:'household.partner.stop_age_months'}});
+    } else if(partner.monthly_cents===null){
+      annotations.push({id:'household:share-unknown',reason_code:'HOUSEHOLD_SHARE_UNKNOWN',message:'伴侣每月存多少未填，暂按两人同时停工计算。',effect:'uncertain',treatment:'omitted',source_ids:[],missing_fields:['伴侣每月存款'],refinement:{owner:'basic',field:'household.partner.monthly_cents'}});
+    } else share=Number(partner.monthly_cents);
+  }
+  const anchorMonth=anchor.slice(0,7);
+  const partnerIncome:FutureIncomeV1|null=share===null||partnerStop===null?null:{id:PARTNER_INCOME_ID,name:'伴侣停工前的结余',role:'other',included:true,monthly_cents:String(share),start_month:anchorMonth,end_month:monthTextV1(monthIndexV1(partnerStop)-1),basis:'reference_month',basis_month:anchorMonth,growth:'constant_purchasing_power',source:null,source_checked_on:null,notes:''};
+  const compile:BasicCompile=(amount:number,before:number,after:number,future=true):Plan=>{
     const listed=active.filter(e=>future || core.occurrences.some(o=>o.event_id===e.id&&o.status==='occurred'));
-    const withEvents=applyEvents({...skeleton,saving_cents:amount,r_before_hundredths:before,r_after_hundredths:after},listed.map(e=>({e:eventValue(e),offset:offsetOf(e.date,anchor)})));
+    const withEvents=applyEvents({...skeleton,saving_cents:share===null?amount:amount-share,r_before_hundredths:before,r_after_hundredths:after},listed.map(e=>({e:eventValue(e),offset:offsetOf(e.date,anchor)})));
     // Expired factual schedules have no future cash flow. Keep malformed future
     // intervals for kernel validation instead of silently hiding them.
     const remaining = (flow: Flow) => {
       if (!Number.isFinite(flow.from_month) || (flow.to_month !== null && !Number.isFinite(flow.to_month))) return true;
       return flow.to_month === null || (flow.to_month > now && flow.to_month !== flow.from_month);
     };
-    return {...withEvents,saving_flows:[...(withEvents.saving_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id,b.contribution_costs))),{label:'投入里已含费用',from_month:now,to_month:null,cents:preRefs,nominal:false,essential:false,prorate_first:true}],spend_flows:(withEvents.spend_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id,b.retirement_costs)))};
+    const built={...withEvents,saving_flows:[...(withEvents.saving_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id,b.contribution_costs))),{label:'投入里已含费用',from_month:now,to_month:null,cents:preRefs,nominal:false,essential:false,prorate_first:true}],spend_flows:(withEvents.spend_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id,b.retirement_costs)))};
+    return partnerIncome?{...built,future_incomes:[...built.future_incomes??[],partnerIncome]}:built;
   };
-  return {context,annotations,funds,pension,predictionMissing,plan:{status:'ready',value:{compile,contribution,included_reference_cents:preRefs,target_month:f.time.target_month,horizon_month:f.time.horizon_month,before:r.real_return_before_hundredths,after:r.real_return_after_hundredths}}};
+  if(share!==null)compile.household_share_cents=share;
+  return {context,annotations,funds,pension,predictionMissing,plan:{status:'ready',value:{compile,contribution,included_reference_cents:preRefs,target_month:f.time.target_month,horizon_month:f.time.horizon_month,household:partner&&partner.stop_age_months!==null?{partner_stop_month:partnerStop,share_cents:share}:partner?{partner_stop_month:null,share_cents:null}:null,before:r.real_return_before_hundredths,after:r.real_return_after_hundredths}}};
+}
+
+/** My stop month (YYYY-MM): the projected retirement month in FIRE mode, the fixed target month otherwise; null when FIRE is not reached. */
+function stopMonthOf(plan: Plan, projection: Projection): string | null {
+  const offset = plan.mode === 'fire' ? projection.retire_month : plan.target_months;
+  return offset === null ? null : monthTextV1(monthIndexV1(plan.anchor_date!) + offset - plan.now_months);
 }
 
 export function buildBasicCapabilities(sources: PlanningSources, temporaryContribution?: string): BasicCapabilities {
@@ -165,7 +204,7 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   const { context, funds, pension, predictionMissing } = prepared;
   const annotations = uniqueAnnotations(prepared.annotations);
   if (prepared.plan.status === 'blocked') return { context, annotations, funds, pension, requirement: blocked(prepared.plan.missing), prediction: blocked(predictionMissing) };
-  const { compile, contribution, before, after, target_month, horizon_month } = prepared.plan.value;
+  const { compile, contribution, before, after, target_month, horizon_month, household } = prepared.plan.value;
   const set = solveBasicRequirement(compile, before, after);
   const lower = solveBasicRequirement(compile, before - 200, after - 200);
   const upper = solveBasicRequirement(compile, before + 200, after + 200);
@@ -174,7 +213,19 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   if (!predictionMissing.length && contribution !== null) {
     const plan = compile(Number(contribution), before, after), plan0 = compile(Number(contribution), before, after, false);
     const projection = project(plan, Number(plan.anchor_date!.slice(0, 4))), out = outcome(plan, projection);
-    prediction = { status: 'ready', value: { source: temporaryContribution === undefined ? 'saved' : 'temporary', contribution_cents: contribution, plan, plan0, projection, outcome: out, terminal: !out.success ? 'gap' : Math.abs(out.at_horizon) < 0.5 ? 'no_margin' : 'surplus' } };
+    const value: PredictionValue = { source: temporaryContribution === undefined ? 'saved' : 'temporary', contribution_cents: contribution, plan, plan0, projection, outcome: out, terminal: !out.success ? 'gap' : Math.abs(out.at_horizon) < 0.5 ? 'no_margin' : 'surplus' };
+    if (household) {
+      const mine = stopMonthOf(plan, projection);
+      let sameTime: string | null = null;
+      if (household.share_cents !== null) {
+        // One extra engine run: the same household total, no split, partner stops with me.
+        const unsplit: Plan = { ...plan, saving_cents: plan.saving_cents + household.share_cents, future_incomes: (plan.future_incomes ?? []).filter(i => i.id !== PARTNER_INCOME_ID) };
+        sameTime = stopMonthOf(unsplit, project(unsplit, Number(unsplit.anchor_date!.slice(0, 4))));
+      }
+      const later = mine !== null && household.partner_stop_month !== null ? (monthIndexV1(mine) >= monthIndexV1(household.partner_stop_month) ? mine : household.partner_stop_month) : mine;
+      value.household = { partner_stop_month: household.partner_stop_month, both_stop_month: later, same_time_stop_month: sameTime };
+    }
+    prediction = { status: 'ready', value };
   }
   return { context, annotations, funds, requirement, prediction, pension };
 }

@@ -579,7 +579,7 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
       "section":"setup","fields":{
        "basic":{"spend_cents":"750000","mode":"traditional","real_return_before_hundredths":300,"real_return_after_hundredths":200,"volatility_hundredths":500,"emergency_months":6,"inflation_hundredths":200,"monetary_basis_date":date,
         "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":"800000"},"contribution_costs":[],"retirement_costs":[]}},
-       "simplified":{"contract_version":1,"time":{"reference":null,"target_month":day(now.checked_add_months(Months::new(240)).expect("bounded sample date"))[..7],"horizon_month":day(now.checked_add_months(Months::new(600)).expect("bounded sample date"))[..7]},"income_mode":"excluded","future_incomes":[]},
+       "simplified":{"contract_version":1,"time":{"reference":null,"target_month":day(now.checked_add_months(Months::new(240)).expect("bounded sample date"))[..7],"horizon_month":day(now.checked_add_months(Months::new(600)).expect("bounded sample date"))[..7]},"income_mode":"excluded","future_incomes":[],"household":{"mode":"single","partner":null}},
        "budget":null,"funds":{"monetary_basis_date":date,"fund_rules":fund_rules,"releases":[]}
       }
     }))?;

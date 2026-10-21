@@ -1,0 +1,177 @@
+.mp-page {
+  min-width: 0;
+}
+.mp-page h2 {
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+.mp-page h3 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.mp-page p {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.mp-muted {
+  color: var(--muted);
+  font-size: 13px !important;
+}
+.mp-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.mp-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mp-actions > * {
+  flex: 1;
+  min-width: 0;
+}
+.mp-page .m-card {
+  min-width: 0;
+}
+.mp-page .m-hero-title {
+  font-size: 28px;
+}
+.mp-page details > summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mp-page details > summary:after {
+  content: "⌄";
+  margin-left: auto;
+  color: var(--muted);
+}
+.mp-page details[open] > summary {
+  margin-bottom: 12px;
+}
+.mp-page details .m-form-group {
+  margin-top: 14px;
+}
+.mp-page input[type="month"] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  appearance: none;
+}
+.mp-page .m-form-row {
+  min-width: 0;
+}
+.mp-page .m-form-control {
+  min-width: 0;
+}
+.mp-page .m-form-row:has(.m-money),
+.mp-page .m-form-row:has(.m-select) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.mp-page .m-money {
+  width: 100%;
+}
+.mp-page .m-form-label {
+  overflow-wrap: anywhere;
+}
+.mp-page .m-row-value {
+  max-width: 48%;
+  white-space: normal;
+}
+.mp-step-progress {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 4px;
+}
+.mp-step-progress li {
+  font-size: 11px;
+  min-height: 44px;
+  text-align: center;
+  color: var(--muted);
+  border-bottom: 3px solid var(--line);
+  padding: 6px 0;
+}
+.mp-step-progress li[aria-current] {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.mp-chart-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.mp-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.mp-table-scroll table {
+  border-collapse: collapse;
+  min-width: 680px;
+  font-size: 12px;
+  width: 100%;
+}
+.mp-table-scroll th,
+.mp-table-scroll td {
+  padding: 12px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.mp-table-scroll th:first-child,
+.mp-table-scroll td:first-child {
+  text-align: left;
+}
+.mp-report {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-family: var(--display);
+  line-height: 1.7;
+}
+.mp-page .m-metric-value {
+  font-size: 22px;
+}
+.mp-subcard {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-top: 10px;
+}
+.mp-page .m-section-head {
+  flex-wrap: wrap;
+}
+.mp-page fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.mp-page .m-list-group {
+  min-width: 0;
+}
+/* The shell owns the segmented control; enlarge its targets only while a planning page is mounted. */
+.m-main:has(.mp-page, .mp-risk, .m-plan-trials)
+  > .m-segment-bar
+  .m-segmented
+  button {
+  min-height: 44px;
+}
+.mp-page .m-segmented button {
+  min-height: 44px;
+}

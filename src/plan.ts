@@ -189,7 +189,7 @@ export type RetireInputs = {
  spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; emergency_months: number;
  mode: 'fire' | 'traditional'; volatility_hundredths: number; spend_items: StoredSpendItem[]; life_events: StoredLifeEvent[]; rent_cents: string;
 };
-export const defaultRetire: RetireInputs = { setup_completed: false, simplified: { contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [] }, spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, emergency_months: 6, mode: 'fire', volatility_hundredths: 500, spend_items: [], life_events: [], rent_cents: '0' };
+export const defaultRetire: RetireInputs = { setup_completed: false, simplified: { contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [], household: { mode: 'single', partner: null } }, spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, emergency_months: 6, mode: 'fire', volatility_hundredths: 500, spend_items: [], life_events: [], rent_cents: '0' };
 export type StoredProfile = { assumptions: { inflation_hundredths: number }; retire: RetireInputs };
 export const planningMode = (p: StoredProfile) => p.retire.basic ? 'basic' as const : 'none' as const;
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string; reference_issues?: string[] } | null };

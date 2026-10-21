@@ -1,4 +1,5 @@
 import * as incomeView from '../src/planning-simplified-ui/income-view.ts';
+import * as householdView from '../src/planning-simplified-ui/household-view.ts';
 import * as simplified from '../src/plan-simplified.ts';
 import * as goalProgress from '../src/goal-progress.ts';
 import { posix } from 'node:path';
@@ -58,7 +59,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     try { return await save(input); } catch (e) { saver.notice = e.message; return null; }
   } };
   const leaf = new Proxy({}, { get: (_, key) => String(key) });
-  const modules = { './goal-progress': goalProgress, '@tauri-apps/api/core': { invoke: async () => [] }, './planning-simplified-ui/income-view': incomeView, './plan-simplified': simplified,
+  const modules = { './goal-progress': goalProgress, '@tauri-apps/api/core': { invoke: async () => [] }, './planning-simplified-ui/income-view': incomeView, './planning-simplified-ui/household-view': householdView, './plan-simplified': simplified,
     './plan-format': forecast, './planning-goal/inputs': goalInputs,
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './topbar-model': { refocusHeading: () => focuses.push('page-heading') }, './planning-fund-scope': fundScope, './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
@@ -76,7 +77,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     vm.runInNewContext(js, { module: m, exports: m.exports, require: id => modules[(id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id).replace(/\.ts$/, '')] ?? leaf, structuredClone, crypto: globalThis.crypto, console, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn(), ...options.globals });
     modules[`./${file}`] = m.exports;
   }
-  for (const file of options.components ?? ['planning-goal/Overview', 'PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningSpendItems', 'planning-simplified-ui/FutureIncomeFields', 'planning-simplified-ui/FutureIncomeSection', 'planning-simplified-ui/TimeFields', 'PlanningRetirementIncome', 'PlanningRefinements']) load(file);
+  for (const file of options.components ?? ['planning-goal/Overview', 'PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningSpendItems', 'planning-simplified-ui/FutureIncomeFields', 'planning-simplified-ui/FutureIncomeSection', 'planning-simplified-ui/HouseholdFields', 'planning-simplified-ui/HouseholdLines', 'planning-simplified-ui/TimeFields', 'PlanningRetirementIncome', 'PlanningRefinements']) load(file);
   const module = { exports: {} };
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },

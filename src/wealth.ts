@@ -145,7 +145,19 @@ export const pendingKey = 'thingary.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
 export type TrashKind = 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual' | 'topup' | 'balance';
 export type PurgeInput = { request_id: string; generation: string; kind: string | null; id: string; preview?: string };
-export type Pending = { command: 'account_group_save' | 'account_group_delete' | 'account_groups_reorder' | 'savings_goals_save' | 'savings_goals_trash' | 'movement_save' | 'movement_trash' | 'followup_review_save' | 'followup_review_trash' | 'plan_assumptions_save' | 'investment_review_save' | 'investment_review_trash' | 'financial_import_commit' | 'wealth_account_save' | 'wealth_quick_update' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_resume' | 'recurring_cancel_resumption' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: import('./recurring').ResumeSave | import('./recurring').CancelResumptionSave | (import('./planning-followup-contract.ts').FollowupWriteContext & ({ id: string | null; fields: import('./planning-followup-contract.ts').MovementFieldsV1 } | { id: string; deleted: boolean } | { pair: import('./planning-followup-contract.ts').ReviewPairV1; draft: import('./planning-followup-contract.ts').ReviewDraftV1; basis_key: string })) | (import('./planning-followup-contract.ts').FollowupWriteContext & { values: import('./planning-followup-contract.ts').AssumptionValuesV1; confirm: boolean }) | InvestmentReviewSave | InvestmentReviewTrash | import('./plan.ts').ProfileUpdate | PurgeInput | import('./account-groups').GroupSave | import('./account-groups').GroupDelete | import('./account-groups').GroupReorder | AccountSave | QuickUpdate | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
+type FeaturePending = { command: 'account_group_save' | 'account_group_delete' | 'account_groups_reorder' | 'savings_goals_save' | 'savings_goals_trash' | 'movement_save' | 'movement_trash' | 'followup_review_save' | 'followup_review_trash' | 'plan_assumptions_save' | 'investment_review_save' | 'investment_review_trash' | 'financial_import_commit' | 'wealth_account_save' | 'wealth_quick_update' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_resume' | 'recurring_cancel_resumption' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: import('./recurring').ResumeSave | import('./recurring').CancelResumptionSave | (import('./planning-followup-contract.ts').FollowupWriteContext & ({ id: string | null; fields: import('./planning-followup-contract.ts').MovementFieldsV1 } | { id: string; deleted: boolean } | { pair: import('./planning-followup-contract.ts').ReviewPairV1; draft: import('./planning-followup-contract.ts').ReviewDraftV1; basis_key: string })) | (import('./planning-followup-contract.ts').FollowupWriteContext & { values: import('./planning-followup-contract.ts').AssumptionValuesV1; confirm: boolean }) | InvestmentReviewSave | InvestmentReviewTrash | import('./plan.ts').ProfileUpdate | PurgeInput | import('./account-groups').GroupSave | import('./account-groups').GroupDelete | import('./account-groups').GroupReorder | AccountSave | QuickUpdate | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
+/** Catalog requests share the durable guard, but use their original receipt store. */
+type CatalogCommand = 'change_lifecycle' | 'change_sale' | 'change_maintenance' | 'change_warranty' | 'change_trash' | 'change_record_trash';
+type CatalogInput = import('./lifecycle').LifecycleChange | import('./sales').SaleChange | import('./maintenance').MaintenanceChange | import('./warranty').WarrantyChange | import('./Trash').TrashChange | import('./unified-trash').RecordTrashChange;
+type AssetSavePending = { command: 'save_asset'; input: import('./asset').SaveAsset; label: string };
+type StoredAssetPending = { command: 'save_asset'; input: import('./asset').SaveAsset & { request_id: string; generation: string }; label: string };
+export type Pending = { command: FeaturePending['command'] | CatalogCommand | 'save_asset' | 'batch_change'; input: FeaturePending['input'] | StoredAssetPending['input'] | CatalogInput | import('./Batch').BatchInput; label: string };
+const catalogCommands: readonly string[] = ['save_asset', 'change_lifecycle', 'change_sale', 'change_maintenance', 'change_warranty', 'change_trash', 'change_record_trash'];
+function submittedInput(pending: Pending) {
+  if (pending.command !== 'save_asset' || !('base' in pending.input)) return pending.input;
+  const { request_id: _request, generation: _generation, ...input } = pending.input;
+  return input;
+}
 export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;
@@ -161,20 +173,27 @@ export class Unresolved extends Error {}
  * Sends a write once. If the reply is lost, the stored request is checked by
  * its id; a committed one is re-sent unchanged, which returns the original result.
  */
-export async function submit<T>(pending: Pending): Promise<T> {
+export async function submit<T>(request: Pending | AssetSavePending): Promise<T> {
+  let pending: Pending;
+  if (request.command === 'save_asset' && 'base' in request.input) {
+    pending = { ...request, input: { ...request.input, request_id: request.input.base.request_id, generation: request.input.base.generation } };
+  } else {
+    if (!('request_id' in request.input)) throw new Error('请求身份无效，尚未提交。');
+    pending = { ...request, input: request.input };
+  }
   const existing = storedPending();
   if (existing && JSON.stringify(existing) !== JSON.stringify(pending)) {
     throw new Unresolved('还有一个提交结果待核对，原请求已保留；请先核对后再保存。');
   }
   try { localStorage.setItem(pendingKey, JSON.stringify(pending)); }
   catch { throw new Error('无法记录本次请求，尚未提交，请检查可用空间后重试。'); }
-  try { const result = await invoke<T>(pending.command, { input: pending.input }); clearPending(); return result; }
+  try { const result = await invoke<T>(pending.command, { input: submittedInput(pending) }); clearPending(); return result; }
   catch (e) {
     const outcome = await resolvePending(pending).catch(() => 'unknown' as const);
     if (outcome === 'saved') {
       // Keep the exact receipt until the replay reply is obtained as well.
       localStorage.setItem(pendingKey, JSON.stringify(pending));
-      try { const result = await invoke<T>(pending.command, { input: pending.input }); clearPending(); return result; }
+      try { const result = await invoke<T>(pending.command, { input: submittedInput(pending) }); clearPending(); return result; }
       catch { throw new Unresolved('已确认保存，但暂时无法读取回执；原请求已保留，请继续核对。'); }
     }
     if (outcome === 'unknown') throw new Unresolved(errorMessage(e) + ' 暂时无法确认是否已保存，原请求已保留，请在当前页面核对。');
@@ -185,7 +204,12 @@ export async function submit<T>(pending: Pending): Promise<T> {
 /** Every settled outcome clears the receipt; a thrown error keeps it for a later check. */
 export async function resolvePending(pending: Pending): Promise<'saved' | 'unsaved' | 'stale'> {
   try {
-    const id = await invoke<string | null>('wealth_request_result', { request: pending.input.request_id, generation: pending.input.generation });
+    const identity = { request: pending.input.request_id, generation: pending.input.generation };
+    const id = pending.command === 'change_record_trash'
+      ? await invoke<import('./asset').AssetRecord | null>('saved_record_trash_request', { input: pending.input })
+      : catalogCommands.includes(pending.command)
+        ? await invoke<import('./asset').AssetRecord | null>('saved_request', identity)
+        : await invoke<string | null>('wealth_request_result', identity);
     if (id) {
       if (pending.command === 'plan_assumptions_save' || pending.command === 'plan_profile_save' || pending.command === 'plan_profile_update') {
         if (id !== 'profile') throw new Unresolved('规划回执结果不匹配；原请求已保留。');
@@ -200,7 +224,7 @@ export async function resolvePending(pending: Pending): Promise<'saved' | 'unsav
     }
     clearPending(); return 'unsaved';
   } catch (e) {
-    if (code(e) === 'STALE_DATASET') { if (['account_group_save', 'account_group_delete', 'account_groups_reorder', 'savings_goals_save', 'savings_goals_trash', 'movement_save', 'movement_trash', 'followup_review_save', 'followup_review_trash'].includes(pending.command) || pending.command === 'plan_assumptions_save' || pending.command === 'plan_income_save' || pending.command === 'investment_review_save' || pending.command === 'investment_review_trash' || pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
+    if (code(e) === 'STALE_DATASET') { if (catalogCommands.includes(pending.command) || pending.command === 'batch_change' || ['account_group_save', 'account_group_delete', 'account_groups_reorder', 'savings_goals_save', 'savings_goals_trash', 'movement_save', 'movement_trash', 'followup_review_save', 'followup_review_trash'].includes(pending.command) || pending.command === 'plan_assumptions_save' || pending.command === 'plan_income_save' || pending.command === 'investment_review_save' || pending.command === 'investment_review_trash' || pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
     throw e;
   }
 }

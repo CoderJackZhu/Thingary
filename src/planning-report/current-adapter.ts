@@ -12,6 +12,7 @@ const annotationLabels: Record<PlanningAnnotation['reason_code'], string> = {
   DEBT_UNLINKED: '已有负债的还款安排待核对。', DEBT_EXCLUDED: '已有负债的还款按选择未计入。', DEBT_BALANCE_CHANGED: '已有负债的盘点余额已变化，还款安排待核对。',
   REFERENCE_PENDING: '计划的实际来源引用待核对。', COST_ASSUMED_EXTRA: '费用包含关系待核对，暂按额外计入。', COST_PERIOD_PENDING: '费用适用期间待核对。',
   POOL_NOT_USED: '暂时取不出的钱未计入本次可用资金。', TRANSFER_PENDING: '暂时取不出的钱的可用条件待核对，该转移未计入。',
+  HOUSEHOLD_SHARE_UNKNOWN: '伴侣每月存多少未填，暂按两人同时停工计算。', HOUSEHOLD_PARTNER_STOPPED: '伴侣停工月份已过，伴侣存款不再单独计算。',
 };
 
 /** Pure projection of one saved calculation context. No reads, writes or invented historical results. */
