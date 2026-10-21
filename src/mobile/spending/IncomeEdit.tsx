@@ -19,7 +19,7 @@ export default function IncomeEdit({ params }: PageProps) {
     if (id && !income) throw new Error('这条收入已不存在，可能已被删除。');
     return { generation: list.generation, income, hpfDefault: defaults.hpf_cents ?? '' };
   }, id ?? 'new');
-  return <Loaded read={read} what="收入">{data => <Form generation={data.generation} income={data.income} hpfDefault={data.hpfDefault}/>}</Loaded>;
+  return <Loaded nav read={read} what="收入">{data => <Form generation={data.generation} income={data.income} hpfDefault={data.hpfDefault}/>}</Loaded>;
 }
 
 function Form({ generation, income, hpfDefault }: { generation: string; income: Income | null; hpfDefault: string }) {

@@ -25,7 +25,7 @@ export default function PlanEdit({ params }: PageProps) {
     const link = id ? await readLink('plan', id) : null;
     return { generation: overview.generation, plan, link };
   }, id ?? 'new');
-  return <Loaded read={read} what="计划">{data => <Form generation={data.generation} plan={data.plan} link={data.link}/>}</Loaded>;
+  return <Loaded nav read={read} what="计划">{data => <Form generation={data.generation} plan={data.plan} link={data.link}/>}</Loaded>;
 }
 
 function Form({ generation, plan, link }: { generation: string; plan: Plan | null; link: LinkView | null }) {
