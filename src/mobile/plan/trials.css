@@ -1,0 +1,63 @@
+.m-plan-trials {
+  min-width: 0;
+}
+.m-plan-trials .m-card {
+  min-width: 0;
+}
+.m-plan-trials p {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.m-plan-trials .m-trial-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+.m-plan-trials details {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 8px;
+}
+.m-plan-trials summary {
+  min-height: 44px;
+  display: list-item;
+  padding: 10px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+.m-plan-trials .m-trial-item {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+  min-width: 0;
+}
+.m-plan-trials .m-trial-wish-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.m-plan-trials .m-trial-wish-title span {
+  font-family: var(--num);
+  font-variant-numeric: tabular-nums;
+}
+.m-plan-trials .m-form-row {
+  min-width: 0;
+}
+.m-plan-trials .m-form-control,
+.m-plan-trials input,
+.m-plan-trials select {
+  min-width: 0;
+  max-width: 100%;
+}
+.m-plan-trials input[type="month"],
+.m-plan-trials input[type="number"] {
+  width: 100%;
+  min-height: 44px;
+}
+.m-plan-trials .m-form-row:has(.m-switch) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.m-plan-trials .m-button {
+  max-width: 100%;
+  white-space: normal;
+}

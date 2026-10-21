@@ -366,23 +366,52 @@ function checkinStatus() {
   return { months: checkinMonths, last_check_in: last, next_date: checkinMonths ? next.toLocaleDateString('sv') : null };
 }
 let previewUpdateState: UpdateDiscoveryState | null = null;
+// Mobile planning fixtures extend the shared commands; production never imports this module.
+const mobilePlanLost = new Set<string>();
+const mobilePlanLookups = new Set<string>();
+let mobileAssumptionConfirmation: 'confirmed' | 'unconfirmed' | null = null;
 // Mobile full-inventory preview: a committed write can lose its response and first receipt read.
 const mobileSnapshotLost = new Set<string>();
 const mobileSnapshotLookup = new Set<string>();
 export async function handle(command: string, payload: unknown): Promise<unknown> {
-  const mobileInput = (payload as { input?: { request_id?: string }; request?: string } | null);
+  const mobilePlanState = params.get('mobile-state');
+  const mobilePlanArgs = (payload ?? {}) as Record<string, unknown>;
+  if (command === 'wealth_request_result' && mobilePlanLookups.delete(String(mobilePlanArgs.request))) throw { message: '虚构规划回执暂不可用，请稍后核对。' };
+  if (command === 'plan_assumptions_read' && mobileAssumptionConfirmation !== null) {
+    const read = wealthPreview(command, mobilePlanArgs)!.value as import('./planning-followup-contract').AssumptionReadV1;
+    return { ...read, confirmation: mobileAssumptionConfirmation, confirmed_values: mobileAssumptionConfirmation === 'confirmed' ? { ...read.values } : null };
+  }
+  if (command === 'plan_assumptions_save') {
+    const input = mobilePlanArgs.input as import('./planning-followup-contract').FollowupWriteContext & { values: import('./planning-followup-contract').AssumptionValuesV1; confirm: boolean };
+    if (mobilePlanState === 'save-error') throw { message: '虚构规划保存失败，输入保留。' };
+    const state = wealthPreview('plan_profile', {})!.value as ProfileState;
+    if (!state.saved?.profile.retire.basic || !state.saved.profile.retire.core) throw { message: '请先设置目标。' };
+    const r = state.saved.profile.retire;
+    const result = wealthPreview('plan_profile_update', { input: { request_id: input.request_id, generation: input.generation, expected_revision: input.expected_revision, section: 'basic', fields: { spend_cents: r.spend_cents, mode: r.mode, emergency_months: r.emergency_months, monetary_basis_date: r.core!.monetary_basis_date, basic: r.basic, ...input.values } } })!.value as NonNullable<ProfileState['saved']>;
+    mobileAssumptionConfirmation = input.confirm ? 'confirmed' : 'unconfirmed';
+    if (mobilePlanState === 'unknown' && !mobilePlanLost.has(input.request_id)) { mobilePlanLost.add(input.request_id); mobilePlanLookups.add(input.request_id); throw { message: '虚构规划响应丢失。' }; }
+    return { id: 'profile', revision: result.revision };
+  }
+  if (command === 'plan_profile_update' && mobilePlanState) {
+    const input = mobilePlanArgs.input as { request_id: string };
+    if (mobilePlanState === 'save-error') throw { message: '虚构规划保存失败，输入保留。' };
+    const value = wealthPreview(command, mobilePlanArgs)!.value;
+    if (mobilePlanState === 'unknown' && !mobilePlanLost.has(input.request_id)) { mobilePlanLost.add(input.request_id); mobilePlanLookups.add(input.request_id); throw { message: '虚构规划响应丢失。' }; }
+    return value;
+  }
+  const mobileSnapshotInput = (payload as { input?: { request_id?: string }; request?: string } | null);
   if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'save-error') {
     throw { code: 'PREVIEW_ERROR', message: '虚构盘点保存失败，输入已保留。' };
   }
-  if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'unknown' && mobileInput?.input?.request_id && !mobileSnapshotLost.has(mobileInput.input.request_id)) {
+  if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'unknown' && mobileSnapshotInput?.input?.request_id && !mobileSnapshotLost.has(mobileSnapshotInput.input.request_id)) {
     const result = wealthPreview(command, (payload ?? {}) as Record<string, unknown>);
     if (result) {
-      mobileSnapshotLost.add(mobileInput.input.request_id);
-      mobileSnapshotLookup.add(mobileInput.input.request_id);
+      mobileSnapshotLost.add(mobileSnapshotInput.input.request_id);
+      mobileSnapshotLookup.add(mobileSnapshotInput.input.request_id);
       throw { message: '虚构盘点保存响应丢失。' };
     }
   }
-  if (command === 'wealth_request_result' && mobileInput?.request && mobileSnapshotLookup.delete(mobileInput.request)) {
+  if (command === 'wealth_request_result' && mobileSnapshotInput?.request && mobileSnapshotLookup.delete(mobileSnapshotInput.request)) {
     throw { message: '虚构盘点回执暂不可用，请核对原请求。' };
   }
   if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);

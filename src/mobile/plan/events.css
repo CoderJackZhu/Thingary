@@ -1,0 +1,65 @@
+.mp-events {
+  min-width: 0;
+}
+.mp-events .mp-event-card {
+  padding: 16px;
+  margin-block: 12px;
+}
+.mp-event-card h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.mp-event-card p {
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.mp-event-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+.mp-event-head > div {
+  min-width: 0;
+}
+.mp-event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mp-event-editor {
+  margin-block: 12px;
+  padding-block: 12px;
+  border-block: 1px solid var(--line);
+}
+.mp-event-editor h3,
+.mp-event-editor h4 {
+  padding-inline: 16px;
+}
+.mp-event-editor .m-input {
+  max-width: 100%;
+  min-width: 0;
+}
+.mp-event-editor summary {
+  min-height: 44px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+.mp-event-editor fieldset {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-block: 12px;
+}
+.mp-event-editor legend {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.mp-event-help {
+  margin: 12px 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
