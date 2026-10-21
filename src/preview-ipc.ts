@@ -370,6 +370,9 @@ let previewUpdateState: UpdateDiscoveryState | null = null;
 const mobilePlanLost = new Set<string>();
 const mobilePlanLookups = new Set<string>();
 let mobileAssumptionConfirmation: 'confirmed' | 'unconfirmed' | null = null;
+// Mobile full-inventory preview: a committed write can lose its response and first receipt read.
+const mobileSnapshotLost = new Set<string>();
+const mobileSnapshotLookup = new Set<string>();
 export async function handle(command: string, payload: unknown): Promise<unknown> {
   const mobilePlanState = params.get('mobile-state');
   const mobilePlanArgs = (payload ?? {}) as Record<string, unknown>;
@@ -396,7 +399,21 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     if (mobilePlanState === 'unknown' && !mobilePlanLost.has(input.request_id)) { mobilePlanLost.add(input.request_id); mobilePlanLookups.add(input.request_id); throw { message: '虚构规划响应丢失。' }; }
     return value;
   }
-
+  const mobileSnapshotInput = (payload as { input?: { request_id?: string }; request?: string } | null);
+  if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'save-error') {
+    throw { code: 'PREVIEW_ERROR', message: '虚构盘点保存失败，输入已保留。' };
+  }
+  if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'unknown' && mobileSnapshotInput?.input?.request_id && !mobileSnapshotLost.has(mobileSnapshotInput.input.request_id)) {
+    const result = wealthPreview(command, (payload ?? {}) as Record<string, unknown>);
+    if (result) {
+      mobileSnapshotLost.add(mobileSnapshotInput.input.request_id);
+      mobileSnapshotLookup.add(mobileSnapshotInput.input.request_id);
+      throw { message: '虚构盘点保存响应丢失。' };
+    }
+  }
+  if (command === 'wealth_request_result' && mobileSnapshotInput?.request && mobileSnapshotLookup.delete(mobileSnapshotInput.request)) {
+    throw { message: '虚构盘点回执暂不可用，请核对原请求。' };
+  }
   if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
   if (command === 'notification_status') return '';
   if (command === 'goal_progress_list') return previewProgress;
