@@ -1,0 +1,280 @@
+import { useMemo, useState } from "react";
+import { forecastMoney } from "../../plan-format";
+import { trajectory, snapshotRows, coverage } from "../../plan-view";
+import { timeLabel } from "../../plan-ledger";
+import { terminalText } from "../../planning-basic-view";
+import { useNav } from "../nav-context";
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  LargeTitle,
+  ListGroup,
+  ListRow,
+  Loading,
+  Notice,
+  Section,
+  SegmentedControl,
+  HBarChart,
+} from "../ui";
+import { usePlan } from "./data";
+import { budgetComparisons } from "./detail-model";
+import "./plan.css";
+export default function Detail() {
+  const p = usePlan(),
+    nav = useNav();
+  if (p.loading)
+    return (
+      <div className="m-page mp-page">
+        <LargeTitle title="测算详情" />
+        <Loading />
+      </div>
+    );
+  if (p.error)
+    return (
+      <div className="m-page mp-page">
+        <LargeTitle title="测算详情" />
+        <ErrorState message={p.error} onRetry={p.reload} />
+      </div>
+    );
+  if (!p.saved?.profile.retire.basic)
+    return (
+      <div className="m-page mp-page">
+        <LargeTitle title="测算详情" />
+        <EmptyState
+          title="先设置一个目标"
+          action={
+            <Button onClick={() => nav.push("plan.setup")}>设置条件</Button>
+          }
+        />
+      </div>
+    );
+  if (p.capabilities?.prediction.status !== "ready")
+    return (
+      <div className="m-page mp-page">
+        <LargeTitle title="测算详情" />
+        <EmptyState
+          title="还不能展示预测"
+          message={
+            p.capabilities?.prediction.status === "blocked"
+              ? p.capabilities.prediction.missing
+                  .map((m) => m.message)
+                  .join("；")
+              : "规划条件未就绪"
+          }
+          action={
+            <Button
+              onClick={() =>
+                nav.push("plan.setup", { section: "contribution" })
+              }
+            >
+              填写或核对条件
+            </Button>
+          }
+        />
+      </div>
+    );
+  return <Ready pred={p.capabilities.prediction.value} today={p.today} />;
+}
+function Ready({
+  pred,
+  today,
+}: {
+  pred: Extract<
+    NonNullable<ReturnType<typeof usePlan>["capabilities"]>["prediction"],
+    { status: "ready" }
+  >["value"];
+  today: string;
+}) {
+  const nav = useNav(),
+    [mode, setMode] = useState<"today" | "nominal">("today");
+  const points = useMemo(
+      () => trajectory(pred.plan, pred.projection, mode),
+      [pred, mode],
+    ),
+    rows = useMemo(
+      () => snapshotRows(pred.plan, pred.projection, mode),
+      [pred, mode],
+    );
+  const comparisons = useMemo(
+    () => budgetComparisons(pred, Number(today.slice(0, 4))),
+    [pred, today],
+  );
+  const [selected, setSelected] = useState(
+    pred.projection.retire_month ?? pred.plan.target_months,
+  );
+  const cover = coverage(pred.plan, pred.projection, selected, mode);
+  const max = Math.max(1, ...points.flatMap((p) => [p.projected, p.required])),
+    min = Math.min(0, ...points.map((p) => p.projected)),
+    span = max - min || 1;
+  const xy = (key: "projected" | "required") =>
+    points
+      .map(
+        (p, i) =>
+          `${10 + (i / Math.max(1, points.length - 1)) * 280},${170 - ((p[key] - min) / span) * 150}`,
+      )
+      .join(" ");
+  const conclusion = `${terminalText[pred.terminal]}；${timeLabel(pred.plan, pred.plan.horizon_months - 1)} 时预计资金（按今天购买力）${forecastMoney(pred.outcome.at_horizon)}。`;
+  return (
+    <div className="m-page mp-page">
+      <LargeTitle
+        title="测算详情"
+        actions={
+          <Button variant="plain" onClick={() => nav.push("plan.setup")}>
+            调整条件
+          </Button>
+        }
+      />
+      <SegmentedControl
+        label="金额显示方式"
+        value={mode}
+        onChange={setMode}
+        items={[
+          { id: "today", label: "按今天物价" },
+          { id: "nominal", label: "未来账面金额" },
+        ]}
+      />
+      <Card label="预计资金变化">
+        <h2>预计资金变化</h2>
+        <p>{conclusion}</p>
+        <svg
+          role="img"
+          aria-label={`预计资金实线，所需资金虚线。${conclusion}`}
+          viewBox="0 0 300 190"
+          width="100%"
+        >
+          <line
+            x1="10"
+            x2="290"
+            y1={170 - ((0 - min) / span) * 150}
+            y2={170 - ((0 - min) / span) * 150}
+            stroke="var(--line)"
+          />
+          <polyline
+            points={xy("projected")}
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="3"
+          />
+          <polyline
+            points={xy("required")}
+            fill="none"
+            stroke="var(--muted)"
+            strokeDasharray="5 4"
+            strokeWidth="2"
+          />
+        </svg>
+        <div className="mp-chart-labels">
+          <span>{points[0]?.label}</span>
+          <span>{points.at(-1)?.label}</span>
+        </div>
+        <p className="mp-muted">
+          实线：预计资金 ·
+          虚线：此时停止工作所需资金。假设推演，不是证券行情或历史收益。
+        </p>
+      </Card>
+      <Section title="不同生活预算比较">
+        <ListGroup footer="均沿用已保存的收益及收入；停止追加存钱只取消正向投入，取用存款仍保留。">
+          {comparisons.map((c) => (
+            <ListRow
+              key={c.label}
+              title={c.label}
+              subtitle={
+                c.stop
+                  ? `预计停工 ${c.stop} · ${c.success ? "所选期间可覆盖" : "尚未满足完整目标"}`
+                  : "规划终点前尚未达成"
+              }
+              value={forecastMoney(c.required)}
+              valueSub="停止工作所需资金"
+            />
+          ))}
+        </ListGroup>
+      </Section>
+      <Card>
+        <details>
+          <summary>逐年表（共 {rows.length} 行）</summary>
+          <p className="mp-muted">可左右滑动。支出含大额付款，缺口单列。</p>
+          <div
+            className="mp-table-scroll"
+            role="region"
+            aria-label="逐年表，可左右滑动"
+            tabIndex={0}
+          >
+            <table>
+              <thead>
+                <tr>
+                  {[
+                    "期间",
+                    "年龄",
+                    "存入",
+                    "收入与解锁",
+                    "支出",
+                    "期末资金",
+                    "缺口",
+                  ].map((h) => (
+                    <th key={h} scope="col">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <th scope="row">
+                      {r.period ?? r.year}
+                      {r.marks.length > 0 ? ` · ${r.marks.join("/")}` : ""}
+                    </th>
+                    <td>{r.age ?? "未知"}</td>
+                    <td>{forecastMoney(r.contribution)}</td>
+                    <td>{forecastMoney(r.income + r.unlock)}</td>
+                    <td>{forecastMoney(r.spend + r.oneoff)}</td>
+                    <td>{forecastMoney(r.end)}</td>
+                    <td>{forecastMoney(r.unfunded)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </Card>
+      <Card>
+        <h2>退休生活费由什么覆盖</h2>
+        <label className="mp-muted" htmlFor="mp-coverage-month">
+          查看月份：{timeLabel(pred.plan, selected)}
+        </label>
+        <input
+          id="mp-coverage-month"
+          aria-label="查看生活费覆盖月份"
+          type="range"
+          min={pred.projection.retire_month ?? pred.plan.target_months}
+          max={pred.plan.horizon_months - 1}
+          value={selected}
+          onChange={(e) => setSelected(Number(e.target.value))}
+          style={{ width: "100%", minHeight: 44 }}
+        />
+        <p>
+          {cover.calendar_month}，每月生活费 {forecastMoney(cover.spend)}
+          ，其中无资金支持{" "}
+          {forecastMoney(
+            cover.segments.find((s) => s.kind === "unfunded")?.monthly ?? 0,
+          )}
+          。
+        </p>
+        <HBarChart
+          summary="生活费由收入、组合提取和无资金部分构成"
+          rows={cover.segments.map((s) => ({
+            label: s.label,
+            value: s.monthly,
+            display: forecastMoney(s.monthly),
+          }))}
+        />
+      </Card>
+      <Button onClick={() => nav.push("plan.whatif")}>
+        假设分析：压力测试、市场路径与敏感性
+      </Button>
+      <Notice>预测取决于填写的条件和假设，实际结果可能不同。</Notice>
+    </div>
+  );
+}
