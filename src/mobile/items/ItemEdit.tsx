@@ -41,7 +41,7 @@ export default function ItemEdit({ params }: PageProps) {
     return () => { live = false; };
   }, [id, retry]);
   useEffect(() => () => clearIconSession(channel.current), []);
-  useEffect(() => { if (savedId && !session.navBlocked) { session.reload(); nav.replace('items.detail', { id: savedId }); } }, [savedId, session.navBlocked]);
+  useEffect(() => { if (savedId && !session.navBlocked) { session.reload(); if (id) nav.pop(); else nav.replace('items.detail', { id: savedId }); } }, [savedId, session.navBlocked]);
   useEffect(() => {
     const settled = session.settled;
     if (!settled || settled.command !== 'save_asset' || !('base' in settled.input) || !submitted.current || !catalog || settled.input.base.request_id !== submitted.current || settled.input.base.generation !== catalog.generation) return;

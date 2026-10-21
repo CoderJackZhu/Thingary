@@ -87,7 +87,10 @@ export type PaymentDraft = { state: 'paid' | 'skipped'; paid: string; amount: st
 export function paymentDraft(record: Payment | null, due: string, planAmount: string, today: string): PaymentDraft {
   return { state: record?.state ?? 'paid', paid: record?.paid_date ?? (due < today ? due : today), amount: record?.amount_cents ?? planAmount, notes: record?.notes ?? '' };
 }
-export function validatePayment(d: PaymentDraft): Check { return d.state === 'paid' && empty(d.amount) ? fail('请填写实付金额。') : ok; }
+export function validatePayment(d: PaymentDraft): Check {
+  if (d.state !== 'paid') return ok;
+  return !d.paid ? fail('请填写实付日期。') : empty(d.amount) ? fail('请填写实付金额。') : ok;
+}
 export function paymentSave(d: PaymentDraft, target: { plan_id: string; due_date: string }, record: Payment | null, generation: string, requestId: string): PaymentSave {
   return { request_id: requestId, generation, id: record?.id ?? null, expected_revision: record?.revision ?? null, plan_id: target.plan_id, due_date: target.due_date, state: d.state, paid_date: d.state === 'paid' ? d.paid : null, amount_cents: d.state === 'paid' ? d.amount : null, notes: d.notes };
 }

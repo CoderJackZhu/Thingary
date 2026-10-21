@@ -29,7 +29,7 @@ export function ReminderGroup({ assetId, assetRevision, reminder, nextDue, hasSe
     <FormRow label="备款提醒"><Switch label="备款提醒" checked={on} disabled={saver.busy} onChange={next => { setOn(next); const day = date || single; setDate(day); void persist(next, day); }}/></FormRow>
     {on && hasServiceStart && <div className="m-form-row m-stacked"><SegmentedControl label="备款提醒方式" value={repeat ? 'period' : 'once'} items={[{ id: 'period', label: '每期提醒' }, { id: 'once', label: '仅本次' }]} onChange={v => { const r = v === 'period'; setRepeat(r); void persist(true, date || single, r); }}/></div>}
     {on && repeat && <SelectField label="扣款前提醒" value={String(lead)} disabled={saver.busy} options={Array.from({ length: 31 }, (_, n) => ({ id: String(n), label: `${n} 天` }))} onChange={v => { const n = Number(v); setLead(n); void persist(true, date || single, true, n); }}/>}
-    {on && !repeat && <DateField label="提醒日期" value={date} disabled={saver.busy} onChange={v => { setDate(v); if (v) void persist(true, v, false); }}/>}
+    {on && !repeat && <DateField label="提醒日期" value={date} disabled={saver.busy} onChange={v => { setDate(v); if (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v + 'T00:00:00Z'))) void persist(true, v, false); }}/>}
     {warning && <Notice>{warning}</Notice>}
     {saver.error && <Notice tone="danger">{saver.error}</Notice>}
   </FormGroup>;

@@ -26,13 +26,14 @@ function Form({ generation, item }: { generation: string; item: VirtualAsset }) 
   const [cents, setCents] = useState(item.balance?.balance_cents ?? ''), [date, setDate] = useState(today), [notes, setNotes] = useState(''), [problem, setProblem] = useState('');
   function save() {
     if (!cents) { setProblem('请填写当前余额；不知道就先不记，余额会保持未知。'); return; }
+    if (!date) { setProblem('请填写盘点日期。'); return; }
     void saver.run(requestId => submit({ command: 'virtual_balance_save', input: balanceSave({ cents, date, notes }, item, generation, requestId), label: '余额 ' + item.fields.name }), { close: true });
   }
   return <EditorFrame title="记录余额" onSave={save} busy={saver.busy} error={problem || saver.error}>
     <p className="sp-note sp-note-pad">{item.fields.name}。按你看到的剩余额度记录；余额不会按充值和消费自动推算。</p>
     <FormGroup>
       <MoneyField label="当前余额" value={cents} onChange={v => { setProblem(''); setCents(v); }} disabled={saver.busy}/>
-      <DateField label="盘点日期" value={date} max={today} onChange={v => { if (v) setDate(v); }} disabled={saver.busy}/>
+      <DateField label="盘点日期" value={date} max={today} onChange={setDate} disabled={saver.busy}/>
       <TextField label="备注" value={notes} onChange={setNotes} disabled={saver.busy}/>
     </FormGroup>
   </EditorFrame>;
