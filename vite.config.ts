@@ -1,2 +1,2 @@
 import { defineConfig } from 'vite';
-export default defineConfig({ clearScreen: false, server: { port: 1420, strictPort: true }, build: { target: 'safari14' } });
+export default defineConfig({ clearScreen: false, server: { port: 1420, strictPort: true }, build: { target: 'safari14', rolldownOptions: { input: { desktop: 'index.html', mobile: 'mobile.html' } } } });
