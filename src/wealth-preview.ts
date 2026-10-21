@@ -1239,6 +1239,89 @@ export function previewReadWish(id: string): WishlistItem | null {
   return found ? structuredClone(found) : null;
 }
 
+// ---- 手机心愿预览（只加不改）：?wish-fixture=mobile 给出一组覆盖各状态的虚构心愿；写入命令在内存里生效，刷新重置。
+// ?mobile-state=save-error 让心愿写入失败（输入保留）；?mobile-state=unknown 让第一次心愿写入已生效但回执丢失、第一次核对也失败。
+if (params.get('wish-fixture') === 'mobile') {
+  const day = (offset: number) => iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset));
+  const made = (id: string, name: string, cents: string | null, added: string, notes: string, part: Partial<PreviewWish> & { prefs?: Partial<NonNullable<PreviewWish['preferences']>>; target?: string; category?: string | null } = {}): PreviewWish => {
+    const base = wishFixture(id, name, cents, added + 'T09:00:00.000Z');
+    const { prefs, target, category, ...rest } = part;
+    return { ...base, ...rest, fields: { ...base.fields, notes, target_date: target ?? '', category_id: category ?? null }, preferences: { added_date: added, channel_id: null, mode: null, saved_cents: '0', achievement_source: null, pinned: false, reminder: false, ...prefs } };
+  };
+  wishes = [
+    made('wish-tent', '露营帐篷', null, day(-18), '周末想和朋友去郊外露营，先看看口碑和重量', { category: 'outdoor', cover: { id: 'object3d-tent', name: '露营帐篷示意图（非实物照片）' } }),
+    made('wish-vacuum', '戴森吸尘器', '399000', day(-49), '现在这台吸力变弱，电池只能用 10 分钟，拖线又不方便。想要能吸地毯、还能吸床垫的。\n顾虑：价格偏高；集尘桶容量小，家里有宠物毛发要常倒。等 11 月促销再看。', { category: 'home', cover: { id: 'icon-robot-vacuum', name: '吸尘器示意图（非实物照片）' }, target: day(21), external_link: 'https://dyson.example.cn/vacuum' as never, replacement_asset: { id: 'coffee', name: '家里的咖啡机', deleted: false }, prefs: { reminder: true } } as never),
+    made('wish-grinder', '咖啡磨豆机', '131200', day(-62), '手冲用，想要研磨更均匀的', { category: 'home' }),
+    made('wish-monitor', '4K 显示器', '429900', day(-95), '写稿和修图时屏幕太小，色准也不够', { category: 'computer', cover: { id: 'icon-monitor', name: '显示器示意图（非实物照片）' }, target: day(-20) }),
+    made('wish-lens-fe', '索尼 FE 24-70 镜头', '899900', day(-144), '等相机用满一年后再决定要不要加镜头', { category: 'audio', cover: { id: 'icon-lens', name: '相机镜头示意图（非实物照片）' }, target: day(120), prefs: { pinned: true } }),
+    made('wish-projector', '便携投影仪', '259900', day(-243), '客厅没有电视，想在墙上看电影', { category: 'computer', cover: { id: 'icon-projector', name: '投影仪示意图（非实物照片）' }, decision_state: 'purchased', status: 'achieved', converted_asset: { id: 'tablet', name: 'iPad Air 4', deleted: false }, target: day(-190) } as never),
+    made('wish-watch', '智能手表', '199900', day(-285), '试戴后发现不常戴，记步用手机就够了', { category: 'phone', cover: { id: 'icon-watch', name: '手表示意图（非实物照片）' }, decision_state: 'dropped', status: 'abandoned', decision_note: '试戴后发现不常戴，记步用手机就够了。' } as never),
+    made('wish-old', '旧版显示器（历史待核实）', '300000', day(-300), '旧攒钱达标，购入情况尚未确认', { decision_state: 'legacy_achieved', status: 'achieved', prefs: { mode: 'savings', saved_cents: '300000', achievement_source: 'savings' } } as never),
+  ];
+}
+const wishReceipts = new Map<string, WishlistItem>();
+let wishLost = false, wishCheckFailed = false;
+const wishError = (code: string, message: string) => ({ code, message });
+function wishWrite(requestId: string, input: { generation?: string }, change: (found: PreviewWish | undefined) => PreviewWish | void, id: string | null, revision: number | null, lose = true): PreviewWish {
+  if (params.get('mobile-state') === 'save-error') throw wishError('PREVIEW_ERROR', '虚构保存失败，请核对输入后重试。');
+  if (input.generation && input.generation !== generation) throw wishError('STALE_DATASET', '资料已切换。');
+  const previous = wishReceipts.get(requestId);
+  if (previous) return structuredClone(previous) as PreviewWish;
+  const found = id ? wishes.find(w => w.id === id) : undefined;
+  if (id && !found) throw wishError('NOT_FOUND', '找不到这条心愿。');
+  if (found && revision !== null && found.revision !== revision) throw wishError('REVISION_CONFLICT', '心愿已变化，请返回重新读取。');
+  const next = (change(found) ?? found) as PreviewWish;
+  next.revision = (found?.revision ?? 0) + 1; next.updated_at = new Date().toISOString();
+  wishes = found ? wishes.map(w => w.id === next.id ? next : w) : [next, ...wishes];
+  wishReceipts.set(requestId, structuredClone(next));
+  if (lose && params.get('mobile-state') === 'unknown' && !wishLost) { wishLost = true; throw new Error('虚构保存响应丢失。'); }
+  return structuredClone(next);
+}
+function wishCheck(requestId: string): WishlistItem | null {
+  if (params.get('mobile-state') === 'unknown' && wishLost && !wishCheckFailed) { wishCheckFailed = true; throw new Error('虚构回执暂不可用。'); }
+  const saved = wishReceipts.get(requestId);
+  return saved ? structuredClone(saved) : null;
+}
+/** 购入转换：物品已由 save_asset 的预览处理创建，这里把心愿记为已购入并关联。 */
+export function previewMarkWishPurchased(wishlistId: string, expectedRevision: number, asset: { id: string; name: string }, requestId: string): void {
+  wishWrite('convert:' + requestId, {}, found => { if (!found) return; return { ...found, decision_state: 'purchased', status: 'achieved', achieved_at: new Date().toISOString(), converted_asset: { id: asset.id, name: asset.name, deleted: false } }; }, wishlistId, expectedRevision, false);
+}
+export function previewWishCommand(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  const input = args.input as Record<string, any> | undefined;
+  if (command === 'saved_wishlist_request') return { value: wishCheck((input as { request_id: string }).request_id) };
+  if (command === 'saved_wish_feature') return { value: wishCheck(String(args.request)) };
+  if (command === 'stage_wishlist_cover') return { value: wishes.find(w => w.id === args.wishlistId)?.cover ?? { id: 'staged-' + String(args.wishlistId), name: '心愿封面' } };
+  if (command === 'change_wishlist') {
+    const action = input!.action as { type: string; wishlist_id: string; decision_note: string };
+    return { value: wishWrite(input!.request_id, input!, found => found && ({ ...found, decision_state: action.type === 'drop' ? 'dropped' : 'considering', status: action.type === 'drop' ? 'abandoned' : 'ongoing', decision_note: action.decision_note, abandoned_at: action.type === 'drop' ? new Date().toISOString() : null }), action.wishlist_id, input!.expected_revision) };
+  }
+  if (command === 'link_wish_asset') {
+    const name = demoAssets.find(a => a.key === input!.asset_id)?.name ?? String(input!.asset_id);
+    return { value: wishWrite(input!.request_id, input!, found => found && ({ ...found, decision_state: 'purchased', status: 'achieved', achieved_at: new Date().toISOString(), converted_asset: { id: input!.asset_id, name, deleted: false } }), input!.wishlist_id, input!.expected_revision) };
+  }
+  if (command === 'verify_legacy_wish') {
+    const outcome = input!.outcome as 'purchased' | 'considering' | 'dropped';
+    return { value: wishWrite(input!.request_id, input!, found => found && ({ ...found, decision_state: outcome, status: outcome === 'purchased' ? 'achieved' : outcome === 'dropped' ? 'abandoned' : 'ongoing', decision_note: input!.decision_note }), input!.wishlist_id, input!.expected_revision) };
+  }
+  if (command === 'save_wish_plan') {
+    const fields = input!.fields as PreviewWish['fields'];
+    const photos = (input!.photos as { ids: string[]; cover_id: string | null }), named = (id: string) => ({ id, name: id.startsWith('icon-') ? '图标示意图（非实物照片）' : '图片 ' + id.slice(0, 4) });
+    return { value: wishWrite(input!.request_id, input!, found => ({
+      ...(found ?? wishFixture(crypto.randomUUID(), fields.name, fields.estimated_price_cents, new Date().toISOString())),
+      fields: { ...fields, priority: null, target_date: fields.target_date ?? '' }, preferences: input!.preferences, photos: photos.ids.map(named), cover: photos.cover_id ? named(photos.cover_id) : null,
+      replacement_asset: input!.replacement_asset_id ? { id: input!.replacement_asset_id, name: demoAssets.find(a => a.key === input!.replacement_asset_id)?.name ?? String(input!.replacement_asset_id), deleted: false } : input!.replacement_asset_id === null && input!.clear_replacement ? null : found?.replacement_asset,
+    }), input!.id, input!.expected_revision) };
+  }
+  if (command === 'wealth_trash' && input!.kind === 'wish') {
+    const found = wishes.find(w => w.id === input!.id);
+    if (!found) throw wishError('NOT_FOUND', '找不到这条心愿。');
+    if (found.revision !== input!.expected_revision) throw wishError('REVISION_CONFLICT', '心愿已变化，请返回重新读取。');
+    wishes = wishes.filter(w => w.id !== input!.id); receipts.set(input!.request_id, input!.id);
+    return { value: null };
+  }
+  return null;
+}
+
 export type PreviewEvent = { id: string; kind: string; date: string | null; asset_id: string | null; wishlist_id: string | null; title: string; note: string; amount_cents: string | null; target: SourceTarget; domain: string; missing?: number };
 /** Financial + wish events for the preview timeline; physical events come from
  * visual-preview's demo records. Mirrors the Rust projection loosely. */
