@@ -1,5 +1,5 @@
 // Runtime pieces owned by 我的 that must be active from the first screen: the saved appearance and the privacy lock.
-// The first module that loads (总览 or 我的) calls installMobileRuntime(); repeated calls do nothing.
+// main.tsx installs it at start; pages may call it again, repeated calls do nothing.
 import { applyAppearance, readMode, readStyle, watchSystemMode } from '../../appearance';
 import { installPrivacy } from './privacy-runtime';
 import './me.css';
