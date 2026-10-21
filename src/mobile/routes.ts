@@ -36,8 +36,10 @@ export const routes = {
   'items.edit': { tab: 'items', kind: 'modal', title: '新增物品', design: '05' },
   'items.icon': { tab: 'items', kind: 'sheet', title: '图标与素材', design: '06' },
   'items.stats': { tab: 'items', title: '统计', design: '09' },
-  'wishes.list': { tab: 'items', title: '心愿', design: '07' },
-  'wishes.detail': { tab: 'items', title: '心愿详情', design: '08' },
+  'wishes.list': { tab: 'items', title: '心愿', design: '07', load: () => import('./wishes/WishList') },
+  'wishes.detail': { tab: 'items', title: '心愿详情', design: '08', load: () => import('./wishes/WishDetail') },
+  'wishes.edit': { tab: 'items', kind: 'modal', title: '新增心愿', design: '08', load: () => import('./wishes/WishEdit') },
+  'wishes.purchase': { tab: 'items', kind: 'modal', title: '记录购入', design: '08', load: () => import('./wishes/WishPurchase') },
   // 财富
   'wealth.overview': { tab: 'wealth', title: '财富', design: '10', load: () => import('./wealth/LegacyHome') },
   'wealth.accounts': { tab: 'wealth', title: '账户', design: '10' },

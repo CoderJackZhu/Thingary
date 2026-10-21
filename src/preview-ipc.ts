@@ -19,7 +19,7 @@ import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materia
 import { previewRecord } from './preview-costs';
 import { previewResaleRate } from './resale';
 import demoAssets from './demo-assets.json';
-import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewWishPage, previewReadWish, validatePreviewSource, searchPreview } from './wealth-preview';
+import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewWishPage, previewReadWish, previewMarkWishPurchased, validatePreviewSource, searchPreview } from './wealth-preview';
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { IncomeList, PlanReview, ProfileState } from './plan';
@@ -49,6 +49,7 @@ let records: AssetRecord[] = demoAssets.map((a, i) => ({
   classification: {category_id:categoryId(a.category),channel_id:a.channel ? 'demo-channel-'+channelNames.indexOf(a.channel) : null},
   deleted:false,deleted_at:null,photos:[{id:a.key,name:'原始 Demo 虚构物品示意图'}],cover_id:a.key,
 }));
+let convertLost = false, convertCheckFailed = false;
 let taxonomyRevision = 0;
 const taxonomyReceipts = new Map<string,string>();
 let catalog: PreviewCatalog = {categories:[...categoryNames,['apparel','服饰配饰'],['outdoor','出行运动'],['box','其他']].map(([id,name])=>({id,name,icon:(['apparel','outdoor'].includes(id)?'box':id) as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:channelNames.map((name,i)=>({id:'demo-channel-'+i,name,references:{activeAssets:0,deletedAssets:0}})),assets:[]};
@@ -674,6 +675,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     return { generation, items: found.slice(query.offset,args.all ? undefined : query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
   }
   if (command === 'read_asset') { if(params.get('replacement-read')==='error') throw {message:'虚构原物品读取失败'}; const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }
+  if (command === 'saved_request' && params.get('mobile-state') === 'unknown' && convertLost && !convertCheckFailed) { convertCheckFailed = true; throw new Error('虚构回执暂不可用。'); }
   if (command === 'saved_request') {
     const request=String(args.request);
     if(lostMaintenanceReceipts.delete(request)) throw {message:'模拟首次回执查询失败。'};
@@ -691,6 +693,15 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     return record ? previewRecord(record) : null;
   }
   if (command === 'trash_request') return structuredClone(requests.get(String(args.request)) ?? null);
+  // 手机心愿：记录购入一次完成物品与心愿（预览用 save_asset 建物品，再把心愿记为已购入）；?mobile-state=unknown 时第一次回复丢失、第一次核对失败。
+  if (command === 'convert_wishlist') {
+    if (params.get('mobile-state') === 'save-error') throw { message: '虚构保存失败，请核对输入后重试。' };
+    const input = args.input as { wishlist_id: string; expected_revision: number; asset: SaveAsset };
+    const record = await handle('save_asset', { input: input.asset }) as AssetRecord;
+    previewMarkWishPurchased(input.wishlist_id, input.expected_revision, record.asset, input.asset.base.request_id);
+    if (params.get('mobile-state') === 'unknown' && !convertLost) { convertLost = true; throw new Error('虚构保存响应丢失。'); }
+    return record;
+  }
   if (command === 'save_asset') {
     if(params.get('state')==='save-error') throw {message:'模拟保存失败，输入应保留。'};
     const input=args.input as SaveAsset;
