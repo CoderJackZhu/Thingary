@@ -25,7 +25,10 @@
 .me-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0;font-size:13px;color:var(--muted)}
 .me-pager .m-button{min-height:44px;padding:8px 14px}
 .me-details{margin:8px 4px;font-size:14px;color:var(--muted)}
-.me-details summary{min-height:44px;display:flex;align-items:center}
+.me-details summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none}
+.me-details summary::-webkit-details-marker{display:none}
+.me-details summary::after{content:'';flex:none;width:7px;height:7px;margin-right:6px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);transition:transform .15s}
+.me-details[open] summary::after{transform:rotate(-135deg)}
 .me-pad{padding:12px 16px}
 .me-pad-x{padding:0}
 .me-stack{display:flex;flex-direction:column;gap:10px}
@@ -58,8 +61,8 @@
 .me-identity{display:flex;align-items:center;gap:12px}
 .me-identity h2{margin:0;font-size:18px}
 .me-identity p{margin:2px 0 0;font-size:13px;color:var(--muted)}
-.me-link-row{margin:0;padding:12px 16px 12px 0;min-height:44px;border-bottom:1px solid var(--line-soft);font-size:16px;display:flex;align-items:center}
-.me-link-row a{color:var(--accent)}
+.me-link-row{margin:0;padding:0 16px 0 0;min-height:44px;border-bottom:1px solid var(--line-soft);font-size:16px;display:flex;align-items:center}
+.me-link-row a,.me-help-link a{display:inline-flex;align-items:center;min-height:44px;color:var(--accent)}
 .me-license{max-height:50vh;overflow:auto;margin:8px 0;padding:12px;border-radius:var(--m-radius-control);background:var(--card);font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
 
 /* Privacy lock: covers the whole app (privacy-runtime.ts). */

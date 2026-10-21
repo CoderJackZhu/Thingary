@@ -14,7 +14,7 @@ import { useRead, useSaver } from './read';
 export default function PaymentRange({ params }: PageProps) {
   const id = String(params.plan ?? '');
   const read = useRead(() => invoke<Overview>('recurring_overview'), id);
-  return <Loaded read={read} what="计划">{overview => {
+  return <Loaded nav read={read} what="计划">{overview => {
     const plan = overview.plans.find(p => p.id === id);
     return plan ? <Form overview={overview} planId={id}/> : <p className="sp-note sp-note-pad">这个计划已不存在。</p>;
   }}</Loaded>;

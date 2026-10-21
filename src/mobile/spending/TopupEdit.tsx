@@ -20,7 +20,7 @@ export default function TopupEdit({ params }: PageProps) {
     if (id && !record) throw new Error('这笔充值已不存在。');
     return { generation: overview.generation, item, record };
   }, `${asset}:${id ?? ''}`);
-  return <Loaded read={read} what="充值">{data => <Form generation={data.generation} item={data.item} record={data.record}/>}</Loaded>;
+  return <Loaded nav read={read} what="充值">{data => <Form generation={data.generation} item={data.item} record={data.record}/>}</Loaded>;
 }
 
 function Form({ generation, item, record }: { generation: string; item: VirtualAsset; record: { id: string; revision: number; fields: TopupFields } | null }) {
