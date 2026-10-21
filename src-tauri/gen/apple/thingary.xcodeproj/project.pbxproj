@@ -26,6 +26,7 @@
 		BEE6A0AB07341D58A1FBAD1C /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9CC99A1F0F4C7716028D6791 /* UIKit.framework */; };
 		CB05877F971D8DF31BFA855B /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 090485D925B2D8B87E7772AF /* UniformTypeIdentifiers.framework */; };
 		EC0276EF5C1F88D06A94CF6D /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83F2AC9B5968A38249263444 /* WebKit.framework */; };
+		A1B2C3D4E5F60718293A4B5C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -175,6 +176,7 @@
 		F608F515D292117CAE5E2C02 /* window_size.rs */ = {isa = PBXFileReference; path = window_size.rs; sourceTree = "<group>"; };
 		F6D54E1B0B334FACE4C0016B /* savings_goals.rs */ = {isa = PBXFileReference; path = savings_goals.rs; sourceTree = "<group>"; };
 		F752B047DC999ECB303698D4 /* maintenance.rs */ = {isa = PBXFileReference; path = maintenance.rs; sourceTree = "<group>"; };
+		B1C2D3E4F5061728394A5B6C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -273,6 +275,7 @@
 			isa = PBXGroup;
 			children = (
 				69C0B52A9B98BA44285CF792 /* Info.plist */,
+				B1C2D3E4F5061728394A5B6C /* PrivacyInfo.xcprivacy */,
 				CD5ECAA75A4499B8CB6A8525 /* thingary_iOS.entitlements */,
 			);
 			path = thingary_iOS;
@@ -535,6 +538,7 @@
 				39B7D7BA6D0A00B809A53CCE /* Assets.xcassets in Resources */,
 				6D6B15ECE343FA366583CE9A /* LaunchScreen.storyboard in Resources */,
 				AF5A29808C61190D18A7C13C /* assets in Resources */,
+				A1B2C3D4E5F60718293A4B5C /* PrivacyInfo.xcprivacy in Resources */,
 				8F21F3C53457BC4B0880AEA6 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
