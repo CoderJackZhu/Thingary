@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { errorMessage } from '../../../asset';
 import { useChoices } from '../../../choices-hook';
 import type { Entry } from '../../../choices-hook';
@@ -140,7 +140,7 @@ function OptionList({ kind, a }: { kind: Kind; a: Adapter }) {
 
 function TaxonomyPane({ kind, onGeneration }: { kind: TaxonomyKind; onGeneration: (value: string | undefined) => void }) {
   const a = useTaxonomyAdapter(kind);
-  onGeneration(a.generation);
+  useEffect(() => { onGeneration(a.generation); }, [a.generation]);
   return <OptionList kind={kind} a={a}/>;
 }
 function ChoicePane({ kind, generation }: { kind: 'label' | 'sale_channel'; generation: string }) {
