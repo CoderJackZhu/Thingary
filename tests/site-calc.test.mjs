@@ -99,8 +99,7 @@ test('durations and amounts read naturally', () => {
 test('analytics stay off until configured and only send named events', async () => {
   const config = await import('../site/calc/config.js');
   assert.equal(config.GOATCOUNTER_ENDPOINT, '');
-  assert.equal(config.WAITLIST_URL, '');
   const app = readFileSync(join(root, 'site/calc/app.js'), 'utf8');
   const events = [...app.matchAll(/track\(([^)]*)\)/g)].map(m => m[1]).filter(arg => arg !== 'name');
-  assert.deepEqual(events.sort(), ["'calc-done'", "'calc-record'", "'calc-return'", "'calc-waitlist'"]);
+  assert.deepEqual(events.sort(), ["'calc-done'", "'calc-record'", "'calc-return'"]);
 });

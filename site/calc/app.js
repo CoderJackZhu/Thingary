@@ -1,6 +1,6 @@
 // Calculator page: reads the form, runs the planning engine (WASM) locally, renders the result.
 import { RETURN_PRESETS, DEFAULTS, validate, calculate, durationText, yuanText } from './model.js';
-import { GOATCOUNTER_ENDPOINT, WAITLIST_URL } from './config.js';
+import { GOATCOUNTER_ENDPOINT } from './config.js';
 
 const STORE = 'thingary-calc-v1';
 const form = document.getElementById('calc-form');
@@ -24,7 +24,7 @@ function load() {
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify(state)); } catch { /* private mode: the page still works */ }
 }
-// Counts only page views and these events: calc-done, calc-return, calc-record, calc-waitlist.
+// Counts only page views and these events: calc-done, calc-return, calc-record.
 const pending = [];
 function track(name) {
   if (!GOATCOUNTER_ENDPOINT) return;
@@ -120,10 +120,8 @@ function render(v, r) {
   if (r.extra_1000_months > 0) parts.push(`<p class="result-tip">每月多存 1000 元，可以提前约 <strong>${durationText(r.extra_1000_months)}</strong>。</p>`);
   parts.push(chart(r.series, r.reachable ? r.stop_age : null, v.age, resultBox.clientWidth - 42));
   parts.push(`<div class="result-actions"><button type="button" class="button" data-record>记下这次结果</button><small>下个月更新数字再来对比</small></div>`);
-  if (/^https:\/\//.test(WAITLIST_URL)) parts.push(`<p class="result-waitlist"><a href="${esc(WAITLIST_URL)}" target="_blank" rel="noopener" data-waitlist>想要手机 App？花 1 分钟告诉我们 →</a></p>`);
   resultBox.innerHTML = `<div class="result-card">${parts.join('')}</div>`;
   resultBox.querySelector('[data-record]').addEventListener('click', record);
-  resultBox.querySelector('[data-waitlist]')?.addEventListener('click', () => track('calc-waitlist'));
 }
 
 function showIssues(issues) {

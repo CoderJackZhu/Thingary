@@ -26,7 +26,7 @@
 
 计算直接调用应用同一份规划引擎：构建时从 `src/planning-engine-wasm.ts` 解出 `calc/engine.wasm`，`calc/model.js` 把回答拼成基础模式的 FIRE 计划（`project`、`required`、`solve_contribution`），不另写公式。金额按今天的钱，通胀默认 2%。它不含大额计划、贷款、养老金政策和市场模拟，页面写明是估算。
 
-填写内容与「记下这次结果」的历史只存在本机浏览器的 `localStorage`，不上传；历史按停工日期比较，单纯过了一个月不会显示为提前。为验证手机端需求，`calc/config.js` 可配置 GoatCounter 计数地址和「想要 App」问卷链接，留空即关闭。配置后测算页（仅此页）加载 GoatCounter 脚本，统计页面打开及 `calc-done`（本次访问第一次自己填完并算出结果）、`calc-return`（浏览器里已有上次的填写或记录）、`calc-record`、`calc-waitlist` 四个事件的次数，不发送任何填写内容或结果，页面「资料存在哪里」会同时显示说明；问卷在结果卡片下方以新窗口打开。主页和帮助页仍不统计。`tests/site-calc.test.mjs` 检查发布的引擎与提交的引擎一致、结果等于引擎自身的退休月及单调性。
+填写内容与「记下这次结果」的历史只存在本机浏览器的 `localStorage`，不上传；历史按停工日期比较，单纯过了一个月不会显示为提前。为验证手机端需求，`calc/config.js` 可配置 GoatCounter 计数地址，留空即关闭。配置后测算页（仅此页）加载 GoatCounter 脚本，统计页面打开及 `calc-done`（本次访问第一次自己填完并算出结果）、`calc-return`（浏览器里已有上次的填写或记录）、`calc-record` 三个事件的次数，不发送任何填写内容或结果，页面「资料存在哪里」会同时显示说明。主页和帮助页仍不统计。`tests/site-calc.test.mjs` 检查发布的引擎与提交的引擎一致、结果等于引擎自身的退休月及单调性。
 
 ## 本地预览
 

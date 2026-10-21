@@ -127,5 +127,3 @@ legend { padding: 0 6px; font-weight: 600; font-size: 15px; }
 }
 @media (prefers-reduced-motion: no-preference) { .button { transition: background .15s, border-color .15s; } }
 .calc-history li span:first-child { white-space: nowrap; }
-.result-waitlist { font-size: 14px; }
-.result-waitlist a { font-weight: 600; }
