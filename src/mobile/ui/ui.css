@@ -17,7 +17,7 @@
 .m-navbar-back{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34vw}
 .m-navbar-primary{font-weight:600}
 .m-segmented{display:flex;gap:2px;padding:3px;border-radius:12px;background:var(--m-fill)}
-.m-segmented button{flex:1;min-width:0;min-height:38px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:14px;padding:4px 6px;white-space:nowrap}
+.m-segmented button{flex:1;min-width:0;min-height:44px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:14px;padding:4px 6px;white-space:nowrap}
 .m-segmented button[aria-pressed=true]{background:var(--m-fill-active);color:var(--text);font-weight:600;box-shadow:0 1px 3px #0000001f}
 .m-actionbar{position:sticky;bottom:var(--m-dock,0px);z-index:5;margin:auto calc(-1*max(var(--m-gutter),env(safe-area-inset-right,0px))) 0 calc(-1*max(var(--m-gutter),env(safe-area-inset-left,0px)));padding:10px max(var(--m-gutter),env(safe-area-inset-right,0px)) 10px max(var(--m-gutter),env(safe-area-inset-left,0px));background:var(--m-nav-bg);-webkit-backdrop-filter:saturate(1.8) blur(18px);backdrop-filter:saturate(1.8) blur(18px);border-top:1px solid var(--line)}
 .m-main .m-actionbar{bottom:var(--m-tabbar-h)}
@@ -116,6 +116,13 @@ button.m-hero,button.m-metric{display:flex}
 .m-date button{min-height:44px}
 /* Desktop DateInput uses 13px; 16px prevents iOS focus zoom without disabling pinch zoom. */
 .m-date .date-input .date-input-row input{font-size:16px;min-height:44px}
+/* Date picker: every module gets 44px targets (items and wealth used to patch this on their own). */
+.m-date .date-input .date-picker-toggle{flex:0 0 44px;width:44px;min-height:44px}
+:root .date-calendar{width:min(360px,calc(100vw - 8px));padding:4px;max-height:80dvh}
+:root .date-calendar .date-calendar-grid{gap:0}
+:root .date-calendar button,:root .date-calendar select{min-width:44px;min-height:44px}
+:root .date-calendar .year-select-trigger,:root .date-calendar .date-calendar-heading select,:root .date-calendar .date-calendar-heading .year-select>select{min-height:44px;height:44px}
+:root .date-calendar .date-calendar-actions button{min-height:44px;font-size:14px}
 
 /* Sheet */
 .m-sheet-layer{position:fixed;inset:var(--m-viewport-top,0px) 0 auto;height:var(--m-viewport-height,100dvh);z-index:30}
@@ -148,8 +155,8 @@ button.m-hero,button.m-metric{display:flex}
 .m-chart{display:block;width:100%;height:auto;overflow:visible}
 .m-donut{display:block;flex:none}
 .m-hbars{display:flex;flex-direction:column;gap:10px}
-.m-hbar{display:grid;grid-template-columns:minmax(56px,28%) minmax(0,1fr) auto;align-items:center;gap:10px;font-size:13px}
-.m-hbar-label{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-hbar{display:grid;grid-template-columns:minmax(64px,34%) minmax(0,1fr) auto;align-items:center;gap:10px;font-size:13px}
+.m-hbar-label{color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
 .m-hbar-track{height:8px;border-radius:4px;background:var(--m-fill);overflow:hidden}
 .m-hbar-track span{display:block;height:100%;border-radius:4px}
 .m-hbar-value{font-variant-numeric:tabular-nums;font-family:var(--num)}

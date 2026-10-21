@@ -21,7 +21,7 @@ export default function PlanResume({ params }: PageProps) {
     if (detail.generation !== link.generation) throw new Error('资料刚刚发生变化，请重试。');
     return { plan: detail.plan, link };
   }, id);
-  return <Loaded read={read} what="订阅">{({ plan, link }) => <Form plan={plan} link={link}/>}</Loaded>;
+  return <Loaded nav read={read} what="订阅">{({ plan, link }) => <Form plan={plan} link={link}/>}</Loaded>;
 }
 
 function Form({ plan, link }: { plan: Plan; link: LinkView }) {

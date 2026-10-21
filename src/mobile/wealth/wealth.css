@@ -22,3 +22,7 @@ body:has(.m-wealth) .date-calendar .date-calendar-heading .year-select>select,bo
 @media(max-width:350px){body:has(.m-wealth) .date-calendar{left:4px!important}}
 .mw-fixed .m-notice{margin:0 0 8px;font-size:13px}.mw-checkin:has(.m-notice-danger){padding-bottom:250px!important}
 .mw-editor-alert{position:sticky;top:52px;z-index:5;background:var(--bg)}
+/* QA: form pages wrap their groups in a fieldset (disabled while saving); keep the page rhythm between groups. */
+.m-wealth fieldset{display:flex;flex-direction:column;gap:var(--m-gap)}
+.m-wealth .mw-equation{margin:0;padding:12px 0}
+.m-wealth .m-notice .m-button{display:flex;margin-top:8px}

@@ -133,7 +133,7 @@ export default function Data({ params }: PageProps) {
     {readError ? <ErrorState title="资料库读取失败" message={readError} onRetry={load}/> : !gate ? <Loading/> : <>
       {demo && <Notice>当前是独立样例库。切换到「我的资料」后可备份、恢复与导出。</Notice>}
       {blocked && !demo && <Notice>请先处理正在编辑或待核对的内容，再进行备份或恢复。</Notice>}
-      <p className="m-group-footer"><SupportLink target="backup">备份与恢复说明</SupportLink></p>
+      <p className="m-group-footer me-help-link"><SupportLink target="backup">备份与恢复说明</SupportLink></p>
 
       <section id="data-backup" className="m-list-group" aria-label="完整备份">
         <Card label="完整备份">

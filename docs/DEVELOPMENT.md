@@ -26,7 +26,7 @@ npm run ios:check
 npm run ios:dev -- "<可用的标准 iPhone 名称>" --no-watch
 ```
 
-工程已通过官方 `npm run tauri ios init` 生成；需要重建时用 `npm run ios:init`，并检查生成差异，保留下面的框架、plist 和构建脚本配置。提交 `src-tauri/gen/apple` 中的工程、共享 scheme、源文件、图标、plist、Podfile 和 project.yml；不提交 Externals、assets、build、Pods 或 xcuserdata。根目录忽略规则保持不变，首次加入生成源文件需逐项 `git add -f`。修改 project.yml 后在其目录运行 `xcodegen generate`，权限用途与 UIScene 配置同时保存在 project.yml 和 Info.ios.plist，保证 XcodeGen 重建不丢失。不得加入个人开发团队或发行签名。
+工程已通过官方 `npm run tauri ios init` 生成；需要重建时用 `npm run ios:init`，并检查生成差异，保留下面的框架、plist 和构建脚本配置。提交 `src-tauri/gen/apple` 中的工程、共享 scheme、源文件、图标、plist、Podfile 和 project.yml；不提交 Externals、assets、build、Pods 或 xcuserdata。根目录忽略规则保持不变，首次加入生成源文件需逐项 `git add -f`。修改 project.yml 后在其目录运行 `xcodegen generate`，权限用途与 UIScene 配置同时保存在 project.yml 和 Info.ios.plist，保证 XcodeGen 重建不丢失。不得加入个人开发团队或发行签名。隐私清单 `thingary_iOS/PrivacyInfo.xcprivacy` 随工程提交（`project.yml` 的 `thingary_iOS` 目录源自动作为资源），新增需说明理由的 API 时同步更新，核对办法见[发布流程的 iOS 小节](RELEASING.md#ios)。
 
 Xcode 27 要求 UIScene；Info.ios.plist 使用锁定 Tao 已有的 TaoSceneDelegate，并提供非空的场景配置。桌面锁定的 CLI 2.11.5 会把 Xcode 27 devicectl 返回的模拟器当作真机；iOS 专用脚本固定使用官方 CLI 2.12.3，不升级桌面依赖和锁文件，首次执行需联网取得 npm 缓存。生成工程的预构建脚本也必须调用 `npm run -- ios:tauri ios xcode-script …`，与父进程使用同一 CLI，避免通信端口不一致。`ios:dev` 使用本机回环地址；真机开发改用 `npm run ios:tauri -- ios dev --host <Mac局域网IP>`，由维护者配置开发证书。交叉编译通过不代表真机安装通过。需要完整编译真机 Rust 静态库时，运行 `cargo build --manifest-path src-tauri/Cargo.toml --lib --target aarch64-apple-ios`，不涉及设备安装或签名。
 

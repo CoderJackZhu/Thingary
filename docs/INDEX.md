@@ -24,7 +24,7 @@
 | [开发与测试](DEVELOPMENT.md) | 环境、预览、检查入口与当前验证边界 |
 | [架构说明](ARCHITECTURE.md) | 分层、存储、来源、请求与恢复约束 |
 | [文档维护](MAINTAINING.md) | 唯一权威入口与变更同步职责 |
-| [发布流程](RELEASING.md#release-lifecycle) | 版本迭代、冻结、验收、文档截图、平台放行与发布回查；含打包步骤 |
+| [发布流程](RELEASING.md#release-lifecycle) | 版本迭代、冻结、验收、文档截图、平台放行与发布回查；含打包步骤；iOS 上架准备见[iOS 小节](RELEASING.md#ios)与[App Store 文案草稿](releases/app-store-listing.md) |
 | [Windows 验收清单](WINDOWS_ACCEPTANCE.md) | 隔离安装、资料往返、通知、交互与候选包验收边界 |
 | [截图清单](images/README.md) | 虚构截图来源、尺寸、基线与复现 |
 | [安全政策](../SECURITY.md) · [品牌使用](brand/README.md) | 漏洞与名称图标边界 |

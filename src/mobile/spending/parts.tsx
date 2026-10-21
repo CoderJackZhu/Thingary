@@ -23,10 +23,12 @@ export function Tag({ tone = 'neutral', children }: { tone?: Tone | 'accent'; ch
 }
 
 /** Loading, error (with retry) or the content. `empty` shows when the read succeeded with nothing to show. */
-export function Loaded<T>({ read, what, children }: { read: Read<T>; what: string; children: (data: T) => ReactNode }) {
-  if (read.error) return <ErrorState title={`${what}读取失败`} message={read.error} onRetry={read.reload}/>;
-  if (read.loading || read.data === null) return <Loading label={`正在读取${what}…`}/>;
-  return <>{children(read.data)}</>;
+/** `nav` gives a modal editor its 取消 button while it has no form yet, so a failed read never traps the user. */
+export function Loaded<T>({ read, what, nav, children }: { read: Read<T>; what: string; nav?: boolean; children: (data: T) => ReactNode }) {
+  const state = read.error ? <ErrorState title={`${what}读取失败`} message={read.error} onRetry={read.reload}/>
+    : read.loading || read.data === null ? <Loading label={`正在读取${what}…`}/> : null;
+  if (state) return nav ? <div className="m-page"><NavBar/>{state}</div> : state;
+  return <>{children(read.data as T)}</>;
 }
 
 export function SearchBox({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
