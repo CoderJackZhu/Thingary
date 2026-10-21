@@ -19,7 +19,7 @@ import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materia
 import { previewRecord } from './preview-costs';
 import { previewResaleRate } from './resale';
 import demoAssets from './demo-assets.json';
-import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewWishPage, previewReadWish, previewMarkWishPurchased, validatePreviewSource, searchPreview } from './wealth-preview';
+import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewWishPage, previewReadWish, previewMarkWishPurchased, previewWishCommand, validatePreviewSource, searchPreview } from './wealth-preview';
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { IncomeList, PlanReview, ProfileState } from './plan';
@@ -566,6 +566,8 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'modules_set' && params.has('module-write-error')) throw { message: '虚构模块写入失败，用于起步卡重试验证。' };
   if (command === 'modules_get' && params.has('module-read-error')) throw { message: '虚构模块读取失败，用于保留当前偏好验证。' };
+  // 手机心愿写入命令（只在命令匹配时才引用心愿预览实现）。
+  if (['saved_wishlist_request', 'saved_wish_feature', 'stage_wishlist_cover', 'change_wishlist', 'link_wish_asset', 'verify_legacy_wish', 'save_wish_plan'].includes(command) || (command === 'wealth_trash' && (args.input as { kind?: string }).kind === 'wish')) return previewWishCommand(command, args)!.value;
   const wealth = wealthPreview(command,args); if (wealth) { if (command.endsWith('_save')) previewStarted = true; return wealth.value; }
   const search = searchPreview(command,args); if (search) return search.value;
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:previewStarted || params.get('started') === '1'};

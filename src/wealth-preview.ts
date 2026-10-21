@@ -588,7 +588,6 @@ const previewGroups = new Map<string, { assetId: string; planId: string; assetNa
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
-  const wish = previewWishCommand(command, args); if (wish) return wish;
   // Fictional capability only; browser preview never calls device authentication.
   if (command === 'privacy_auth_available') return { value: ['success', 'cancel'].includes(params.get('privacy-auth') ?? '') };
   if (command === 'privacy_authenticate') {
