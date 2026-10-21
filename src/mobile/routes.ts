@@ -27,8 +27,8 @@ export type RouteDef = {
 // Replace a placeholder by adding `load: () => import('./<module>/<Page>')` to its line.
 export const routes = {
   // 总览
-  'home.overview': { tab: 'overview', title: '总览', design: '01' },
-  'welcome': { tab: 'overview', title: '首次打开', design: '25', fullscreen: true },
+  'home.overview': { tab: 'overview', title: '总览', design: '01', load: () => import('./home/Overview') },
+  'welcome': { tab: 'overview', title: '首次打开', design: '25', fullscreen: true, load: () => import('./home/Welcome') },
   // 物品
   'items.list': { tab: 'items', title: '物品', design: '02', load: () => import('./items/ItemList') },
   'items.filter': { tab: 'items', kind: 'sheet', title: '筛选与排序', design: '03', load: () => import('./items/ItemFilter') },
@@ -67,11 +67,11 @@ export const routes = {
   'plan.trials': { tab: 'plan', title: '试算', design: '20', load: () => import('./plan/Trials') },
   'plan.setup': { tab: 'plan', kind: 'modal', title: '设置条件', design: '21', load: () => import('./plan/Setup') },
   // 我的
-  'me.home': { tab: 'me', title: '我的', design: '22' },
-  'me.timeline': { tab: 'me', title: '时间轴', design: '23' },
-  'me.search': { tab: 'me', title: '搜索全部资料' },
-  'me.settings': { tab: 'me', title: '设置', design: '22' },
-  'me.data': { tab: 'me', title: '数据管理', design: '24' },
+  'me.home': { tab: 'me', title: '我的', design: '22', load: () => import('./me/Me') },
+  'me.timeline': { tab: 'me', title: '时间轴', design: '23', load: () => import('./me/Timeline') },
+  'me.search': { tab: 'me', title: '搜索全部资料', load: () => import('./me/Search') },
+  'me.settings': { tab: 'me', title: '设置', design: '22', load: () => import('./me/Settings') },
+  'me.data': { tab: 'me', title: '数据管理', design: '24', load: () => import('./me/Data') },
 } satisfies Record<string, RouteDef>;
 export type RouteName = keyof typeof routes;
 
