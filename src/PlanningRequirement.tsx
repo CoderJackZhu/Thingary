@@ -22,21 +22,22 @@ export function CapabilityNotice({ result }: { result: Exclude<CapabilityResult,
 }
 
 /** The primary result. Shows the real DTO status for both return conditions; a candidate is never a saved contribution. */
-export function RequirementCard({ caps, onOwner, busy }: { caps: BasicCapabilities; onOwner: (owner: PlanningMissing['owner'], field?: string) => void; busy?: boolean }) {
+export function RequirementCard({ caps, onOwner, busy, note }: { caps: BasicCapabilities; onOwner: (owner: PlanningMissing['owner'], field?: string) => void; busy?: boolean; note?: string | null }) {
   const req = caps.requirement;
   return <article className="ui-card ui-content plan-req" aria-label="每月需要存多少钱">
     <div className="ui-section-head"><div><p className="eyebrow">软件帮你算</p><h3>为这个目标，每月大约要存多少钱？<Info text="这是软件算出的参考金额，不用你填写，也不会自动保存成你每月能存的钱。这里的存钱是收入减去开销后留下的钱，买基金等投入也算，投资涨跌另算。"/></h3></div></div>
     {req.status === 'blocked' ? <>
       <p className="plan-req-main muted">再补几项，就能算了</p>
       <MissingList missing={req.missing} onOwner={onOwner} disabled={busy}/>
-    </> : <RequirementBody value={req.value} annotations={caps.annotations}/>}
+    </> : <RequirementBody value={req.value} annotations={caps.annotations} note={note}/>}
   </article>;
 }
 
-function RequirementBody({ value, annotations }: { annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
+function RequirementBody({ value, annotations, note }: { note?: string | null; annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
   const set = requirementLine(value.set, yuanOf), lower = requirementLine(value.lower, yuanOf), upper = requirementLine(value.upper, yuanOf);
   return <>
     <p className={`plan-req-main ${set.tone}`}><span>如果想在 {monthText(value.target_month)} 退休：</span><strong>{set.text}</strong></p><CoverageNote annotations={annotations}/>
+    {note && 'monthly_cents' in value.set && <p className="muted small">{note}</p>}
     <p className="muted small">准备支付生活费到 {monthText(value.horizon_month)}。金额按今天的物价计算。</p>
     <details className="plan-req-lower"><summary>查看计算假设，以及收益变化的影响</summary>
       <p className="muted small">当前假设：{returnBasisText(value.set.before_hundredths, value.set.after_hundredths)}，已扣除通胀，可随时修改。</p>

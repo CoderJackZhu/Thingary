@@ -10,11 +10,12 @@ import assert from 'node:assert/strict';
 import * as planSimplified from '../src/plan-simplified.ts';
 import { createSimplifiedPlanningPortV1 } from '../src/planning-simplified-port.ts';
 import * as incomeView from '../src/planning-simplified-ui/income-view.ts';
+import * as householdView from '../src/planning-simplified-ui/household-view.ts';
 import { fictionalPort, normalFields, unknownFields } from '../src/planning-simplified-ui/fixtures.ts';
 
 const ts = createRequire(import.meta.url)('typescript');
-const COMPONENTS = ['planning-simplified-ui/OfficialToolLink', 'planning-simplified-ui/TimeFields', 'planning-simplified-ui/FutureIncomeFields', 'planning-simplified-ui/FutureIncomeSection', 'planning-simplified-ui/SimplifiedPlanningDialog'];
-const EXPORTS = { 'planning-simplified-ui/OfficialToolLink': 'OfficialToolLink', 'planning-simplified-ui/TimeFields': 'TimeFields', 'planning-simplified-ui/FutureIncomeFields': 'FutureIncomeFields', 'planning-simplified-ui/FutureIncomeSection': 'FutureIncomeSection', 'planning-simplified-ui/SimplifiedPlanningDialog': 'SimplifiedPlanningDialog' };
+const COMPONENTS = ['planning-simplified-ui/OfficialToolLink', 'planning-simplified-ui/HouseholdFields', 'planning-simplified-ui/TimeFields', 'planning-simplified-ui/FutureIncomeFields', 'planning-simplified-ui/FutureIncomeSection', 'planning-simplified-ui/SimplifiedPlanningDialog'];
+const EXPORTS = { 'planning-simplified-ui/HouseholdFields': 'HouseholdFields', 'planning-simplified-ui/OfficialToolLink': 'OfficialToolLink', 'planning-simplified-ui/TimeFields': 'TimeFields', 'planning-simplified-ui/FutureIncomeFields': 'FutureIncomeFields', 'planning-simplified-ui/FutureIncomeSection': 'FutureIncomeSection', 'planning-simplified-ui/SimplifiedPlanningDialog': 'SimplifiedPlanningDialog' };
 
 // 受控 hook 状态在渲染间持久；卸载丢弃。只替换叶子控件与端口，不实现第二套界面。
 export function runtime(file, props) {
@@ -38,7 +39,7 @@ export function runtime(file, props) {
   const modules = {
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './plan-simplified.ts': planSimplified, './planning-simplified-port.ts': { createSimplifiedPlanningPortV1 },
-    './planning-simplified-ui/income-view': incomeView,
+    './planning-simplified-ui/income-view': incomeView, './planning-simplified-ui/household-view': householdView,
   };
   function load(f) {
     const m = { exports: {} };
@@ -312,6 +313,22 @@ test('dialog reads through the port, saves once with the draft and closes only o
   assert.equal(saved[0].c.generation, 'fictional-preview-generation');
   assert.equal(saved[0].c.expected_revision, 3);
   assert.equal(saved[0].f.income_mode, 'excluded');
+  assert.deepEqual(r.closes, [true]);
+});
+
+test('dialog saves the household with the draft and blocks an incomplete partner', async () => {
+  const saved = [];
+  const port = { ...fictionalPort('normal'), save: async (f, c) => { saved.push(structuredClone(f)); return { status: 'saved', revision: 4 }; } };
+  const r = runtime('planning-simplified-ui/SimplifiedPlanningDialog', { port });
+  await r.settle();
+  assert.equal(r.find('MonthInput', p => p.label === '伴侣出生年月'), undefined);
+  r.find('Segments', p => p.label === '规划给谁').props.onChange('couple'); r.render();
+  r.button('保存').props.onClick(); await r.settle();
+  assert.equal(saved.length, 0);
+  assert.match(r.text(r.find('dialog')), /请填写有效的伴侣出生年月/);
+  r.find('MonthInput', p => p.label === '伴侣出生年月').props.onChange('1991-02'); r.render();
+  r.button('保存').props.onClick(); await r.settle();
+  assert.deepEqual(saved.at(-1).household, { mode: 'couple', partner: { birth_month: '1991-02', stop_age_months: null, monthly_cents: null } });
   assert.deepEqual(r.closes, [true]);
 });
 

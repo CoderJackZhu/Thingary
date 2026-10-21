@@ -3,6 +3,7 @@ import { CloseButton } from '../CloseButton';
 import type { FieldIssueV1, SaveContextV1, SimplifiedPlanningFieldsV1, SimplifiedPlanningPortV1, SimplifiedPlanningReadV1 } from '../plan-simplified-contract.ts';
 import { resetReasonText } from './income-view';
 import { TimeFields } from './TimeFields';
+import { householdIssues, householdOf } from './household-view';
 import { FutureIncomeSection } from './FutureIncomeSection';
 import './simplified-ui.css';
 
@@ -68,6 +69,8 @@ export function SimplifiedPlanningDialog({ port, today, onClose, pendingContext 
   }
   async function submit() {
     if (!draft || read.status !== 'ready' || locked.current || pending.current || editing.current) return;
+    const problems = householdIssues(draft, today);
+    if (problems.length) { setIssues(problems); return; }
     const context: SaveContextV1 = { request_id: crypto.randomUUID(), generation: read.read.generation, expected_revision: read.read.revision };
     locked.current = true;
     setBusy(true); setNotice('');
@@ -119,7 +122,7 @@ export function SimplifiedPlanningDialog({ port, today, onClose, pendingContext 
         {read.read.reset_reasons.length > 0 && <div className="caution" role="status"><strong>规划条件已简化</strong>
           <p>{resetReasonText(read.read.reset_reasons)}</p>
           <p className="muted small">旧政策资料已移除；下面的时间和收入按你的安排重新确认即可。</p></div>}
-        <TimeFields value={draft.time} issues={issues} busy={frozen} today={today} onChange={time => setDraft({ ...draft, time })}/>
+        <TimeFields value={draft.time} issues={issues} busy={frozen} today={today} onChange={time => setDraft({ ...draft, time })} household={householdOf(draft)} onHouseholdChange={household => setDraft({ ...draft, household })}/>
         <FutureIncomeSection fields={draft} issues={issues} busy={frozen} today={today} onOpenOfficial={onOpenOfficial} onEditingChange={active => { editing.current = active; setEditingIncome(active); }} onDraftChange={setDraft}/>
         <p className="muted small">关闭不保存草稿；金额或时间没填的收入会保留为「未计入」，不会当成 0。</p>
       </>}

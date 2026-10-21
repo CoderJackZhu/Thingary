@@ -3,6 +3,7 @@ import { Switch } from '../FormControls';
 import type { FieldIssueV1, FutureIncomeV1, SimplifiedPlanningFieldsV1 } from '../plan-simplified-contract.ts';
 import { basisSentence, duplicateNameIds, excludedIncomeNote, incomeState, incomeStateText, newIncome, startText, yuanText } from './income-view';
 import { FutureIncomeFields } from './FutureIncomeFields';
+import { householdOf, partnerReference } from './household-view';
 
 /**
  * 第四问「以后还有哪些固定收入」：暂不计入／填写预计收入二选一，
@@ -19,7 +20,7 @@ export function FutureIncomeSection({ fields, issues, busy, today, onOpenOfficia
   const modeName = useId();
   const isEditing = adding !== null || editingId !== null;
   useEffect(() => { onEditingChange?.(isEditing); }, [isEditing, onEditingChange]);
-  const mode = fields.income_mode;
+  const mode = fields.income_mode, partnerRef = partnerReference(householdOf(fields));
   const patch = (v: Partial<SimplifiedPlanningFieldsV1>) => onDraftChange({ ...fields, ...v });
   const patchIncome = (id: string, v: Partial<FutureIncomeV1>) => patch({ future_incomes: fields.future_incomes.map(i => i.id === id ? { ...i, ...v } : i) });
   const note = excludedIncomeNote(fields);
@@ -45,10 +46,10 @@ export function FutureIncomeSection({ fields, issues, busy, today, onOpenOfficia
             ? <><button type="button" className="danger" disabled={busy || isEditing} onClick={() => { patch({ future_incomes: fields.future_incomes.filter(x => x.id !== i.id) }); setPendingDelete(null); setEditingId(null); }}>确认删除</button><button type="button" disabled={busy || isEditing} onClick={() => setPendingDelete(null)}>不删</button></>
             : <button type="button" disabled={busy || isEditing} onClick={() => setPendingDelete(i.id)}>删除</button>}
         </div>
-        {editingId === i.id && <FutureIncomeFields key={i.id} value={i} reference={fields.time.reference} issues={issues} busy={busy} today={today} onOpenOfficial={onOpenOfficial}
+        {editingId === i.id && <FutureIncomeFields key={i.id} value={i} reference={fields.time.reference} partnerReference={partnerRef} issues={issues} busy={busy} today={today} onOpenOfficial={onOpenOfficial}
           onCancel={() => setEditingId(null)} onMerge={next => { patchIncome(i.id, next); setEditingId(null); }}/>}
       </div>)}
-      {adding && <FutureIncomeFields key={adding.id} value={adding} reference={fields.time.reference} issues={issues} busy={busy} today={today} onOpenOfficial={onOpenOfficial}
+      {adding && <FutureIncomeFields key={adding.id} value={adding} reference={fields.time.reference} partnerReference={partnerRef} issues={issues} busy={busy} today={today} onOpenOfficial={onOpenOfficial}
         onCancel={() => setAdding(null)}
         onMerge={next => { patch({ future_incomes: [...fields.future_incomes, next] }); setAdding(null); }}/>}
       <div className="simplified-income-add">
