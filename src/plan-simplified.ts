@@ -1,5 +1,5 @@
-import type { FieldIssueV1, TimeInputV1, FutureIncomeV1, SimplifiedPlanningFieldsV1 } from './plan-simplified-contract.ts';
-export const simplifiedEmpty = (): SimplifiedPlanningFieldsV1 => ({ contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [] });
+import type { HouseholdV1, FieldIssueV1, TimeInputV1, FutureIncomeV1, SimplifiedPlanningFieldsV1 } from './plan-simplified-contract.ts';
+export const simplifiedEmpty = (): SimplifiedPlanningFieldsV1 => ({ contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [], household: { mode: 'single', partner: null } });
 export const monthIndexV1 = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1;
 export const monthTextV1 = (m: number): string => `${String(Math.floor(m / 12)).padStart(4, '0')}-${String(m % 12 + 1).padStart(2, '0')}`;
 export const validMonthV1 = (m: unknown): m is string => typeof m === 'string' && /^(19\d\d|[2-9]\d{3})-(0[1-9]|1[0-2])$/.test(m);
@@ -10,7 +10,31 @@ export function ageToMonthV1(reference: TimeInputV1['reference'], ageMonths: num
   return result;
 }
 const validDate = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && validMonthV1(v.slice(0, 7)) && Number.isFinite(Date.parse(v + 'T00:00:00Z')) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
-export function validateSimplifiedPlanningV1(f: SimplifiedPlanningFieldsV1): FieldIssueV1[] {
+/** `today` (YYYY-MM-DD) is optional: when given, the household date rules relative to today are also enforced (Rust always enforces them). */
+type IssueFn = (path: string, code: string, message: string) => void;
+type ShapeFn = (v: unknown, path: string, keys: string[]) => boolean;
+function validateHousehold(h: HouseholdV1, issue: IssueFn, shape: ShapeFn, today?: string): boolean {
+  if (!shape(h, 'household', ['mode', 'partner'])) return false;
+  if (h.mode !== 'single' && h.mode !== 'couple') { issue('household.mode', 'invalid_mode', '家庭类型无效'); return true; }
+  if (h.mode === 'single') { if (h.partner !== null) issue('household.partner', 'invalid_partner', '单人规划不应填写伴侣'); return true; }
+  if (h.partner === null) { issue('household.partner', 'required', '请填写伴侣信息'); return true; }
+  const p = h.partner;
+  if (!shape(p, 'household.partner', ['birth_month', 'stop_age_months', 'monthly_cents'])) return false;
+  const thisMonth = today && /^\d{4}-\d{2}-\d{2}/.test(today) ? today.slice(0, 7) : null;
+  const birthOk = validMonthV1(p.birth_month) && (thisMonth === null || p.birth_month <= thisMonth);
+  if (!birthOk) issue('household.partner.birth_month', 'invalid_month', '伴侣出生年月无效');
+  const age = p.stop_age_months;
+  if (age === null) {
+    if (p.monthly_cents !== null) issue('household.partner.monthly_cents', 'invalid_amount', '「跟我同时」时不填伴侣存款');
+    return true;
+  }
+  if (!Number.isInteger(age) || age < 0 || age > 1440) issue('household.partner.stop_age_months', 'invalid_age', '伴侣停工年龄须为 0—1440 个整月');
+  else if (birthOk && thisMonth !== null && monthIndexV1(p.birth_month) + age <= monthIndexV1(thisMonth)) issue('household.partner.stop_age_months', 'invalid_order', '伴侣停工年龄须晚于现在');
+  const c = p.monthly_cents;
+  if (c !== null && (typeof c !== 'string' || c.length > 11 || !/^(0|[1-9]\d*)$/.test(c) || BigInt(c) > 99999999999n)) issue('household.partner.monthly_cents', 'invalid_amount', '伴侣每月存款须为规范整数分');
+  return true;
+}
+export function validateSimplifiedPlanningV1(f: SimplifiedPlanningFieldsV1, today?: string): FieldIssueV1[] {
   const out: FieldIssueV1[] = [];
   const issue = (path: string, code: string, message: string) => out.push({ path, code, message });
   const month = (v: unknown, path: string) => { if (v !== null && !validMonthV1(v)) issue(path, 'invalid_month', '月份须为 YYYY-MM'); };
@@ -21,9 +45,10 @@ export function validateSimplifiedPlanningV1(f: SimplifiedPlanningFieldsV1): Fie
     if (keys.some(k => !(k in o)) || Object.keys(o).some(k => !keys.includes(k))) { issue(path, 'invalid_shape', '规划输入存在缺项或旧字段'); return false; }
     return true;
   };
-  if (!shape(f, '', ['contract_version','time','income_mode','future_incomes']) || !shape(f.time, 'time', ['reference','target_month','horizon_month'])) return out;
+  if (!shape(f, '', ['contract_version','time','income_mode','future_incomes','household']) || !shape(f.time, 'time', ['reference','target_month','horizon_month'])) return out;
   if (!Array.isArray(f.future_incomes)) {issue('future_incomes','invalid_shape','收入须为数组');return out;}
   if (f.time.reference !== null && !shape(f.time.reference, 'time.reference', ['month','age_months'])) return out;
+  if (!validateHousehold(f.household, issue, shape, today)) return out;
   if (f.contract_version !== 1) issue('contract_version', 'unsupported_version', '不支持此规划契约');
   month(f.time.target_month, 'time.target_month'); month(f.time.horizon_month, 'time.horizon_month');
   if (f.time.reference !== null) {

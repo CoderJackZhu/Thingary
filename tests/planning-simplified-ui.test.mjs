@@ -258,7 +258,7 @@ test('income-level issues surface with the domain path', () => {
 
 test('unconfirmed mode asks for an explicit choice; excluded and manual both save directly', () => {
   const drafts = [];
-  const r = runtime('planning-simplified-ui/FutureIncomeSection', { fields: { contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [] }, issues: [], busy: false, today, onDraftChange: f => drafts.push(f) });
+  const r = runtime('planning-simplified-ui/FutureIncomeSection', { fields: { contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [], household: { mode: 'single', partner: null } }, issues: [], busy: false, today, onDraftChange: f => drafts.push(f) });
   assert.equal(r.find('input', p => p['aria-label'] === '暂不计入').props.checked, false);
   assert.equal(r.find('input', p => p['aria-label'] === '填写预计收入').props.checked, false);
   assert.match(r.text(r.find('section', p => p['aria-label'] === '未来收入')), /先选择本次怎么处理未来收入/);

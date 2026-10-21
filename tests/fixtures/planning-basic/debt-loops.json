@@ -251,7 +251,11 @@
                 "horizon_month": "2080-06"
               },
               "income_mode": "excluded",
-              "future_incomes": []
+              "future_incomes": [],
+              "household": {
+                "mode": "single",
+                "partner": null
+              }
             }
           }
         },

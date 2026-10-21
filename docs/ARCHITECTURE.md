@@ -221,7 +221,7 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 schema36 迁移沿用 plan_profile JSON 和 plan_income 事实表。plan_migration 在现有 schema 事务内转换旧资料，通用事实与引用严格校验，政策字段不进入当前 DTO；有语义变化才增加修订，保留原更新时间。旧备份只读检查与恢复复用该转换。全部历史回执保留；旧规划请求只能按原 ID 核对，不重放旧载荷。
 
-plan-simplified-contract.ts 是时间与未来收入的唯一类型入口，Rust plan_simplified 严格拒绝旧字段。时间保存明确月份；UI 默认使用出生年月和退休／终点年龄换算，新确认的出生年月用现有 reference（月、age_months=0）表达。没有新 DTO 字段或迁移，不继承旧政策生日，原非零参考保留；更正参考不自动改已保存月份。plan-basic 编译未来收入与受限资金释放后，所有消费者共用 plan-ledger，不复制政策引擎。Core 仍维护用途、付款、余债与稳定来源引用，releases 仅是未来计划。
+plan-simplified-contract.ts 是时间与未来收入的唯一类型入口，Rust plan_simplified 严格拒绝旧字段。时间保存明确月份；UI 默认使用出生年月和退休／终点年龄换算，新确认的出生年月用现有 reference（月、age_months=0）表达。可选 `household`（单人或夫妻；伴侣含出生年月、停工年龄与每月存款份额）缺省读作单人，无迁移，Rust 与 TS 同规则校验（TS 的与今天相对的日期规则需传入 today，Rust 始终强制）；时间部分没有新 DTO 字段或迁移，不继承旧政策生日，原非零参考保留；更正参考不自动改已保存月份。plan-basic 编译未来收入与受限资金释放后，所有消费者共用 plan-ledger，不复制政策引擎。Core 仍维护用途、付款、余债与稳定来源引用，releases 仅是未来计划。
 
 ### 规划首次设置
 

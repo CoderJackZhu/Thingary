@@ -44,7 +44,7 @@ export const basicInputFixtures = {
 export function basicFixtureSources(fields: BasicFields = basicInputFixtures.unknown): PlanningSources {
  const generation = 'fictional-generation', { inflation_hundredths, monetary_basis_date, ...general } = fields;
  return { generation, write_version:1, today:'2026-10-12', modules:{planning:true,wealth:false},
- profile:{status:'ready',value:{generation,saved:{revision:1,updated_at:'2026-10-12T00:00:00Z',profile:{assumptions:{inflation_hundredths},retire:{...structuredClone(defaultRetire),...structuredClone(general),setup_completed:true,core:emptyCore(monetary_basis_date),simplified:{contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-05'},income_mode:'excluded',future_incomes:[]}}}}}},
+ profile:{status:'ready',value:{generation,saved:{revision:1,updated_at:'2026-10-12T00:00:00Z',profile:{assumptions:{inflation_hundredths},retire:{...structuredClone(defaultRetire),...structuredClone(general),setup_completed:true,core:emptyCore(monetary_basis_date),simplified:{contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-05'},income_mode:'excluded',future_incomes:[],household: { mode: 'single', partner: null } }}}}}},
  snapshot:{status:'ready',value:null},accounts:{status:'ready',value:[]},incomes:{status:'ready',value:[]},review:{status:'error',value:{code:'FICTIONAL',message:'虚构历史未知'}} };
 }
 export const unknownCapabilityFixture = buildBasicCapabilities(basicFixtureSources());

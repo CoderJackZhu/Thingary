@@ -9,7 +9,7 @@ const today='2026-10-07';
 const ready=value=>({status:'ready',value});
 const unavailable={status:'error',value:{code:'DISABLED',message:'虚构来源关闭'}};
 const blank=()=>({generation:'fictional',today,write_version:0,modules:{planning:true,wealth:false},profile:ready({generation:'fictional',saved:null}),snapshot:unavailable,accounts:unavailable,review:unavailable,incomes:unavailable});
-const fill=()=>({...draftOf(null,null),mode:'traditional',before:'0',after:'0',emergency:'0',infl:'0',budget:'400000',start:'simulation',simAmount:'10000000',simDate:'2026-09-30',simplified:{contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-05'},income_mode:'manual',future_incomes:[fictionalFutureIncome({id:'annuity',name:'虚构年金',monthly_cents:'100000',start_month:'2050-06'})]}});
+const fill=()=>({...draftOf(null,null),mode:'traditional',before:'0',after:'0',emergency:'0',infl:'0',budget:'400000',start:'simulation',simAmount:'10000000',simDate:'2026-09-30',simplified:{contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-05'},income_mode:'manual',future_incomes:[fictionalFutureIncome({id:'annuity',name:'虚构年金',monthly_cents:'100000',start_month:'2050-06'})],household:{mode:'single',partner:null}}});
 const timeIncome = d => ({section:'simplified',fields:d.simplified});
 test('production provider computes a fresh unsaved manual-income draft without writing sources or contribution',()=>{
  const source=blank(), d=fill(), base=basicInput(d,null,today);
@@ -44,7 +44,7 @@ test('a new planning save cannot overwrite an unresolved receipt from a closed e
 
 test('basic FIRE searches the selected calendar horizon without an implicit age cap',()=>{
  const d=fill();Object.assign(d,{mode:'fire',budget:'600000',simAmount:'0',contribution:'200000'});
- d.simplified={...d.simplified,time:{reference:null,target_month:'2070-06',horizon_month:'2080-05'},income_mode:'excluded',future_incomes:[]};
+ d.simplified={...d.simplified,time:{reference:null,target_month:'2070-06',horizon_month:'2080-05'},income_mode:'excluded',future_incomes:[],household: { mode: 'single', partner: null } };
  const result=readCapabilities(overlayPlanningDrafts(blank(),[basicInput(d,null,today),timeIncome(d)]));
  assert.equal(result.status,'ready');assert.equal(result.caps.prediction.status,'ready');
  const p=result.caps.prediction.value;
