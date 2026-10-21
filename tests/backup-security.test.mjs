@@ -51,7 +51,7 @@ test('recovery-key prechecks mirror the backend strictness', () => {
 const dataManagement = readFileSync(new URL('../src/DataManagement.tsx', import.meta.url), 'utf8');
 const securityPanel = readFileSync(new URL('../src/BackupSecurity.tsx', import.meta.url), 'utf8');
 const autoBackup = readFileSync(new URL('../src/AutoBackup.tsx', import.meta.url), 'utf8');
-const preview = readFileSync(new URL('../src/visual-preview.ts', import.meta.url), 'utf8');
+const preview = readFileSync(new URL('../src/preview-ipc.ts', import.meta.url), 'utf8');
 
 test('encrypted restore goes through unlock then the session token, never a path', () => {
   assert.match(dataManagement, /'unlock_backup_session', \{ token: candidate\.token, keyText: unlockKey, taskId \}/);
