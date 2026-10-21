@@ -8,7 +8,7 @@
 
 <p align="center"><strong>A monthly view of your net worth, and a clearer path toward life beyond a paycheck.</strong></p>
 
-Thingary is a local desktop app for checking account balances, tracking assets and debts, and planning with the money you have. Update your balances monthly or quarterly, then explore three questions: **How much should I save each month? When could I stop relying on a salary? How long could I take a break?** Optional belongings records keep photos, purchase costs, repairs, and warranties together.
+Thingary is a local app (Mac and Windows desktop; an iPhone version is coming soon and in TestFlight testing, not yet on the App Store; each device keeps its own library, moved only through backup files) for checking account balances, tracking assets and debts, and planning with the money you have. Update your balances monthly or quarterly, then explore three questions: **How much should I save each month? When could I stop relying on a salary? How long could I take a break?** Optional belongings records keep photos, purchase costs, repairs, and warranties together.
 
 The app currently has a **Simplified Chinese interface only**. Its account types are designed around mainland China, including housing provident funds (公积金), individual pension accounts (个人养老金), and mortgages. Financial amounts are recorded in Chinese yuan (CNY).
 

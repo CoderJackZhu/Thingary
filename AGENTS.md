@@ -1,6 +1,6 @@
 # Thingary 贡献辅助规则
 
-物谱是本地使用的 macOS 应用，个人物品档案与金融净资产盘点并重。当前业务范围与语义以 [PRODUCT_RULES](docs/PRODUCT_RULES.md) 为准，参与流程见 [CONTRIBUTING](CONTRIBUTING.md)。
+物谱是本地使用的应用（macOS／Windows 桌面，另有 iOS 手机界面），个人物品档案与金融净资产盘点并重。当前业务范围与语义以 [PRODUCT_RULES](docs/PRODUCT_RULES.md) 为准，参与流程见 [CONTRIBUTING](CONTRIBUTING.md)。
 
 ## 开始工作
 
