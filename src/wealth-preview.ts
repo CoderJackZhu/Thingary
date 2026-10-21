@@ -133,6 +133,8 @@ if (params.get('holding') === '1') {
   })}));
 }
 const receipts = new Map<string, string>();
+/** Valid calendar day in YYYY-MM-DD form, as the native backend requires. */
+const previewDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v && v >= '1900-01-01';
 const quickFingerprints = new Map<string, string>();
 let quickStaleShown = false;
 
@@ -344,7 +346,7 @@ function virtualOverview(): VirtualOverview {
     const credit = mine.reduce((t, x) => t + BigInt(x.fields.credit_cents ?? '0'), 0n);
     const unknownPaid = mine.filter(x => x.fields.paid_cents == null).length;
     const balance = balances.filter(b => b.asset_id === v.id).sort((a, b) => b.recorded_on.localeCompare(a.recorded_on))[0] ?? null;
-    return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent,
+    return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: v.fields.billing === 'topup' ? (mine.length ? String(known) : null) : spent,
       label_name: null, reminder, payment_due, topup_count: mine.length, topups: mine.slice().sort((a, b) => (b.fields.topup_date ?? '').localeCompare(a.fields.topup_date ?? '')), topup_unknown_paid: unknownPaid, topup_known_cents: mine.length ? String(known) : null, topup_credit_cents: mine.length ? String(credit) : null, balance };
   }).sort((a, b) => a.fields.name.localeCompare(b.fields.name));
   return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped' && v.status !== 'expired').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
@@ -725,6 +727,13 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as PaymentSave, p = plans.find(x => x.id === input.plan_id)!;
     if (!input.id && payments.some(x => x.plan_id === input.plan_id && x.due_date === input.due_date)) throw { code: 'PAYMENT_EXISTS', message: '这一期已经记录过，请打开原记录更正' };
+    if (input.state === 'paid') {
+      const day = input.paid_date ?? '';
+      if (!day) throw { code: 'PAYMENT_DATE', message: '请填写实付日期' };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) !== day) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (day > todayIso) throw { code: 'PAYMENT_DATE', message: '实付日期不能晚于今天' };
+      if (!/^\d+$/.test(input.amount_cents ?? '') || BigInt(input.amount_cents!) <= 0n) throw { code: 'PAYMENT_AMOUNT', message: '实付金额须为正数' };
+    }
     const id = input.id ?? crypto.randomUUID(), old = payments.find(x => x.id === id);
     const next: Payment = { coverage_start: old?.coverage_start ?? coverageFor(p.fields,input.due_date)?.[0], coverage_end: old?.coverage_end ?? coverageFor(p.fields,input.due_date)?.[1], id, plan_id: p.id, plan_name: p.fields.name, due_date: input.due_date, state: input.state, paid_date: input.paid_date, amount_cents: input.amount_cents, notes: input.notes, revision: (old?.revision ?? 0) + 1, off_schedule: false };
     payments = old ? payments.map(x => x.id === id ? next : x) : [...payments, next];
@@ -752,6 +761,12 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       balances = input.deleted ? balances.filter(b => b.id !== input.id) : balances;
       return { value: null };
     }
+    // Mock only: deleted records are dropped (not listed in 最近删除), so lists and totals update after a delete.
+    if (input.deleted && input.kind === 'account') { accounts = accounts.filter(a => a.id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'expense') { expenses = expenses.filter(e => e.id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'payment') { payments = payments.filter(p => p.id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'plan') { plans = plans.filter(p => p.id !== input.id); payments = payments.filter(p => p.plan_id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'virtual') { virtuals = virtuals.filter(v => v.id !== input.id); topups = topups.filter(t => t.asset_id !== input.id); balances = balances.filter(b => b.asset_id !== input.id); return { value: null }; }
     if (input.kind === 'income') {
       if (input.deleted) { const row = planIncomes.find(i => i.id === input.id); if (row) { planTrash = [...planTrash, { ...row, revision: row.revision + 1 }]; planIncomes = planIncomes.filter(i => i.id !== input.id); } }
       else { const row = planTrash.find(i => i.id === input.id); if (row) { planIncomes = [...planIncomes, { ...row, revision: row.revision + 1 }]; planTrash = planTrash.filter(i => i.id !== input.id); } }
@@ -762,20 +777,34 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'virtual_topup_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as TopupSave;
-    topups = [...topups, { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, fields: input.fields, revision: 1 }];
+    if (input.fields.topup_date && !previewDay(input.fields.topup_date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+    if (input.fields.topup_date && input.fields.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: '充值日期不能晚于今天' };
+    if (!input.fields.paid_cents && !input.fields.gift_cents && !input.fields.credit_cents) throw { code: 'TOPUP_EMPTY', message: '请至少填写实付、赠送或到账额度中的一项' };
+    topups = [...topups.filter(t => t.id !== input.id), { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, fields: input.fields, revision: 1 }];
     receipts.set(input.request_id, input.asset_id);
     return { value: { id: input.id ?? '', asset_id: input.asset_id, fields: input.fields, revision: 1 } };
   }
   if (command === 'virtual_balance_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as BalanceSave;
-    balances = [...balances, { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 }];
+    if (!previewDay(input.recorded_on)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+    if (input.recorded_on > todayIso) throw { code: 'BALANCE_DATE', message: '记录日期不能晚于今天' };
+    balances = [...balances.filter(b => b.id !== input.id), { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 }];
     receipts.set(input.request_id, input.asset_id);
     return { value: { id: input.id ?? '', asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 } };
   }
   if (command === 'virtual_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as VirtualSave, id = input.id ?? crypto.randomUUID(), old = virtuals.find(v => v.id === id);
+    {
+      const f = input.fields;
+      if (!f.name.trim() || [...f.name.trim()].length > 80) throw { code: 'VIRTUAL_NAME', message: '名称须为 1–80 字' };
+      for (const d of [f.purchase_date, f.expires, f.stopped_on, input.first_topup?.topup_date]) if (d && !previewDay(d)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (f.purchase_date && f.purchase_date > todayIso) throw { code: 'VIRTUAL_DATE', message: '购买日期不能晚于今天' };
+      if (f.stopped_on && f.stopped_on > todayIso) throw { code: 'VIRTUAL_STOP', message: '停用日期不能晚于今天' };
+      if (f.stopped_on && f.purchase_date && f.stopped_on < f.purchase_date) throw { code: 'VIRTUAL_STOP', message: '停用日期不能早于购买日期' };
+      if (input.first_topup?.topup_date && input.first_topup.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: '充值日期不能晚于今天' };
+    }
     const taken = input.fields.plan_id && virtuals.find(v => v.fields.plan_id === input.fields.plan_id && v.id !== id);
     if (taken) throw { code: 'VIRTUAL_PLAN_TAKEN', message: `这项计划已关联「${taken.fields.name}」` };
     if(input.plan) {
@@ -802,6 +831,20 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'expense_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as ExpenseSave, id = input.id ?? crypto.randomUUID(), old = expenses.find(e => e.id === id);
+    {
+      const f = input.fields, day = iso(now), valid = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v && v >= '1900-01-01';
+      if (!f.title.trim() || [...f.title.trim()].length > 80) throw { code: 'EXPENSE_TITLE', message: '名称须为 1–80 字' };
+      if (!valid(f.date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (f.date > day) throw { code: 'EXPENSE_DATE', message: '支出日期不能晚于今天' };
+      if (!/^\d+$/.test(f.amount_cents) || BigInt(f.amount_cents) <= 0n) throw { code: 'EXPENSE_AMOUNT', message: '金额须为正数' };
+      if ((f.refund_cents === null) !== (f.refund_date === null)) throw { code: 'EXPENSE_REFUND', message: '退款须同时填写金额和日期' };
+      if (f.refund_cents !== null && f.refund_date !== null) {
+        if (!/^\d+$/.test(f.refund_cents) || BigInt(f.refund_cents) <= 0n) throw { code: 'EXPENSE_REFUND', message: '退款金额须为正数' };
+        if (BigInt(f.refund_cents) > BigInt(f.amount_cents)) throw { code: 'EXPENSE_REFUND', message: '退款不能超过支出金额' };
+        if (!valid(f.refund_date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+        if (f.refund_date < f.date || f.refund_date > day) throw { code: 'EXPENSE_REFUND', message: '退款日期须在支出日期与今天之间' };
+      }
+    }
     const next: Expense = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, asset_name: input.fields.asset_id ? demoAssets.find(a => a.key === input.fields.asset_id)?.name ?? '虚构物品' : null, asset_deleted: false };
     expenses = old ? expenses.map(e => e.id === id ? next : e) : [...expenses, next];
     receipts.set(input.request_id, id);
@@ -910,6 +953,9 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (command === 'plan_income_save') {
       if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
       const input = args.input as IncomeSave, id = input.id ?? crypto.randomUUID(), old = planIncomes.find(i => i.id === id);
+      if (!previewDay(input.fields.date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (input.fields.date > todayIso) throw { code: 'INCOME_DATE', message: '到账日期不能晚于今天' };
+      if ([...(input.fields.notes ?? '')].length > 500) throw { code: 'INCOME_NOTES', message: '备注最多 500 字，且不能含空字符' };
       const next: Income = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, classification_changed: old?.classification_changed === true || !!old && (old.fields.category ?? 'unclassified') !== (input.fields.category ?? 'unclassified') };
       planIncomes = old ? planIncomes.map(i => i.id === id ? next : i) : [...planIncomes, next];
       receipts.set(input.request_id, id);
@@ -1070,6 +1116,14 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if ((f.purchase_cents != null || f.purchased_on != null) && !['property','vehicle'].includes(f.kind)) throw { code: 'ACCOUNT_PURCHASE', message: '只有房产和车辆可以填写购入价和购入日期' };
     if (f.purchase_cents != null && (!/^\d+$/.test(f.purchase_cents) || BigInt(f.purchase_cents) > 99999999999n)) throw { code: 'ACCOUNT_PURCHASE', message: '购入价超出可保存的金额范围' };
     if (f.purchased_on != null && (!/^\d{4}-\d{2}-\d{2}$/.test(f.purchased_on) || Number.isNaN(Date.parse(f.purchased_on)) || new Date(f.purchased_on).toISOString().slice(0,10) !== f.purchased_on || f.purchased_on < '1900-01-01' || f.purchased_on > iso(now))) throw { code: 'ACCOUNT_PURCHASE', message: '购入日期须在 1900-01-01 至今天之间' };
+    const validDay = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day) && new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) === day && day >= '1900-01-01';
+    if (!validDay(f.opened_on)) throw { code: 'ACCOUNT_DATE', message: '启用日期须为 1900-01-01 之后的有效日期' };
+    if (f.opened_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: '启用日期不能晚于今天' };
+    if (f.closed_on != null) {
+      if (!validDay(f.closed_on)) throw { code: 'ACCOUNT_DATE', message: '停用日期须为有效日期' };
+      if (f.closed_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: '停用日期不能晚于今天' };
+      if (f.closed_on <= f.opened_on) throw { code: 'ACCOUNT_DATE', message: '停用日期须晚于启用日期' };
+    }
     const next: Account = { id, fields: input.fields, position: old?.position ?? accounts.length, revision: (old?.revision ?? 0) + 1, latest: null };
     accounts = old ? accounts.map(a => a.id === id ? next : a) : [...accounts, next];
     receipts.set(input.request_id, id);
