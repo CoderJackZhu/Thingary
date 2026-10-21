@@ -165,6 +165,126 @@ NSIS 使用 `currentUser`、简体中文，不配置 Authenticode 签名。缺�
 
 放行前登记故障处理负责人、触发条件、暂停分发与告知入口、受影响版本及资料保护／恢复步骤。发现资料安全或关键主线问题时优先暂停问题包分发，保全证据，判断用户影响并提供安全处理说明；不能以撤包推定已收回下载副本。修复后重新走适用关卡，以新补丁版本交付，并将漏检原因转为回归或清单检查项。
 
+<a id="ios"></a>
+
+## iOS（App Store）
+
+只做上架准备，不提交审核、不发布。标识、名称、价格、账号类型、出口合规申报方式、是否保留 iPad 都由维护者决定；凡标「需维护者确认」的内容，不能由本文推定。文案草稿见 [App Store 上架文案](releases/app-store-listing.md)，隐私页在官网 `/privacy/`。Linux 容器无法编译 `src-tauri`，下列构建与签名步骤只能在维护者的 Mac 完成。
+
+### 当前工程状态
+
+- 工程在 `src-tauri/gen/apple/`，由 XcodeGen 的 `project.yml` 描述；当前身份是预览身份 `local.thingary.preview`、产品名 `Thingary Preview`（来自 `tauri.conf.json`，开发用）。上架用的应用标识与名称**需维护者确认**，不得沿用预览身份；`local.thingary.main` 是桌面正式资料身份，iOS 是否复用同名需维护者决定。
+- 隐私清单 `thingary_iOS/PrivacyInfo.xcprivacy` 已加入，并在 `project.pbxproj` 登记为资源；`project.yml` 的 `thingary_iOS` 目录源会在 `xcodegen generate` 时自动把它作为资源。首次在 Mac 打开工程时确认 Build Phases › Copy Bundle Resources 里有它。
+- iPhone 只支持竖屏（`project.yml`、`Info.plist`、`Info.ios.plist` 三处一致）。设备族 `TARGETED_DEVICE_FAMILY = "1,2"`（含 iPad）和 iPad 方向未改，见下文建议。
+- 不提交个人开发团队、发行证书或描述文件。`ExportOptions.plist` 的 method 仍是 `debugging`，导出 App Store 包时用 Xcode Organizer 或另写不含团队号的本地副本。
+
+### 1. 版本号
+
+- `CFBundleShortVersionString` 是用户看到的版本，`CFBundleVersion` 是构建号；两者目前在 `project.yml` 与 `thingary_iOS/Info.plist` 写死为 0.0.8，与 §1 的版本清单不是同一批文件，发版时需同步。
+- App Store Connect 要求同一版本下每次上传的构建号不同且递增（见 [构建版本字符串](https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleversion)）。是否沿用 `0.0.8` 形式、重新上传时如何递增，**需维护者确认**。
+
+### 2. 构建
+
+在 Mac 上，先 `npm ci`，再按[开发与测试](DEVELOPMENT.md#ios-开发)的 iOS 小节装好 Rust 目标和 XcodeGen：
+
+```sh
+npm run ios:check                       # 真机与模拟器目标的 cargo check
+npm run ios:tauri -- ios build          # 以官方 CLI 2.12.3 生成 Release 静态库与归档，需已配置签名
+```
+
+也可在 `src-tauri/gen/apple/thingary.xcodeproj` 中选择 Any iOS Device (arm64) 后 Product › Archive。上架身份的 Tauri 配置（identifier、productName）尚未建立，建立前不要用预览身份归档。Release 构建不得带 `fault-injection` feature。
+
+### 3. 签名
+
+维护者在 Xcode 的 Signing & Capabilities 中选择自己的开发者团队、勾选自动签名，或手动指定发行证书与描述文件。不要把团队号、证书、描述文件或 App Store Connect API 密钥提交到仓库。账号类型（个人／组织）决定 App Store 上的卖家名称和中国大陆合规项，**需维护者确认**。注册与计划见 [Apple Developer Program](https://developer.apple.com/programs/)。
+
+### 4. TestFlight 内测
+
+Archive 后在 Organizer 选 Distribute App › App Store Connect › Upload。处理完成后，在 App Store Connect 的 TestFlight 中先加内部测试员；每个新构建的首次提交会要求回答出口合规问题（见下）。外部测试需要 Beta App Review。官方说明：[TestFlight 概览](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)（本文未逐页核对其细节）。TestFlight 验收按本文 §3 的 Mac 清单思路，用虚构资料走完：样例、记录、盘点、规划、备份分享与恢复、相机、相册、面容 ID、通知、断网使用。不使用真实资料。
+
+### 5. App Store Connect 填写
+
+| 项目 | 内容 |
+|---|---|
+| 应用信息 | 名称、副标题、类别、价格、可售地区：草稿见[上架文案](releases/app-store-listing.md)，均需维护者确认 |
+| 隐私政策网址 | `https://thingary.jackzhu.top/privacy/`，须在提交前已部署可访问 |
+| App 隐私标签 | 建议选「不收集数据」，依据见下文隐私清单核对；官方说明 [App 隐私详情](https://developer.apple.com/app-store/app-privacy-details/)（未逐页核对） |
+| 年龄分级 | 建议答案见上架文案，问卷定义见 [年龄分级值与定义](https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions) |
+| 截图 | 规格见 [截图规格](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)：该页写明 6.1 寸一组（1179×2556 或 1206×2622）至少一张为必填，6.9／6.7 寸一组缺失时由其他尺寸缩放；清单见上架文案 |
+| 出口合规 | 见下文，需维护者确认 |
+| 中国大陆 | 见下文，需维护者确认 |
+
+#### 隐私清单核对（PrivacyInfo.xcprivacy）
+
+依据：[描述 required reason API 的使用](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)——使用了需说明理由的 API，必须在隐私清单中声明被认可的理由，且 App 自身和每个动态库／SDK 各自声明。物谱的 Rust 代码与依赖被静态链接进主可执行文件，所以统一声明在 App 的清单里。理由代码的具体措辞出自我对 Apple 文档的记忆，该页在本次检查中未能取回（需 JavaScript 或子页打不开），**请在 Mac 上对照 [NSPrivacyAccessedAPITypes](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes) 原文复核**。
+
+| 类别 | 是否使用 | 理由代码 | 代码出处 |
+|---|---|---|---|
+| 文件时间戳 `NSPrivacyAccessedAPICategoryFileTimestamp` | 是 | `C617.1`（读取 App 容器内文件的时间戳／大小等元数据）；`3B52.1`（读取用户通过文件选择器授予访问的文件） | `src-tauri/src/auto_backup.rs`（备份文件 mtime 与复制后还原 mtime）、`purge.rs`（清理暂存区时只保留 24 小时内的暂存选择）、`photos.rs` 与 `storage.rs`（图片校验缓存的文件戳）、`financial_import.rs`（偏好文件指纹）；`native/ios.m` 对用户所选备份／图片的 `copyItemAtURL` 与 `NSURLIsRegularFileKey`（用户经系统选择器授予的文件，随后复制到应用临时目录）。Rust 标准库的 `std::fs::metadata` 与 SQLite 的 `stat` 同样会被扫描到。 |
+| 系统启动时间 `NSPrivacyAccessedAPICategorySystemBootTime` | 是 | `35F9.1`（测量 App 内事件之间经过的时间） | `std::time::Instant`：`backup_security.rs`（会话空闲超时）、`worker.rs`（变更与失败间隔）、`backup_jobs.rs`。Rust 在 Apple 平台的 `Instant` 基于单调时钟，Apple 把 `mach_absolute_time` 等归入此类；具体符号是否出现在最终二进制，是我的推断，需 Mac 上确认 |
+| 磁盘空间 `NSPrivacyAccessedAPICategoryDiskSpace` | 未发现调用 | 不声明 | 代码没有调用 `statvfs`／`NSURLVolumeAvailableCapacity` 等；`native/ios.m` 中「请检查可用空间」只是失败提示文字。`fs2` 只用于文件锁（`storage.rs`），其磁盘空间函数未被调用，链接时应被剔除 |
+| 用户默认设置 `NSPrivacyAccessedAPICategoryUserDefaults` | 未发现调用 | 不声明 | `native/*.m`、`gen/apple/Sources` 无 `NSUserDefaults`；偏好保存在应用资料目录的文件里。WebKit 与 UIKit 是系统框架，由系统处理 |
+| 活动键盘 `NSPrivacyAccessedAPICategoryActiveKeyboards` | 未发现调用 | 不声明 | 无 `activeInputModes` |
+
+静态扫描不等于二进制扫描：第三方 crate（`wry`、`tao`、`tauri`、`rusqlite`/SQLite、`image`、`zip`、`age`）的代码在源码层没有被逐行审读。Archive 后请用 Xcode 的 Product › Archive › Distribute 或 Organizer 的「Generate Privacy Report」，再对最终二进制 `nm`/`strings` 核对 `stat`、`fstat`、`mach_absolute_time`、`statvfs`、`NSUserDefaults`，上传后留意 App Store Connect 的 ITMS-91053 邮件，按其列出的类别补充声明。依赖自带隐私清单的 SDK 不重复声明；目前没有以 xcframework／动态库形式嵌入的第三方 SDK。
+
+数据收集：`NSPrivacyTracking=false`，`NSPrivacyTrackingDomains` 与 `NSPrivacyCollectedDataTypes` 为空。依据（iOS 构建）：
+
+- `src-tauri/src/update_check.rs`：`supported()` 在 iOS 返回 false，`check()` 在发请求前返回「iOS 更新由 App Store 管理」；网络请求只通过系统 `curl` 子进程（`fetch`），iOS 无此二进制，且更新模块被禁用。
+- `src-tauri/src/support.rs`：只有固定链接，`open` 在 iOS 经 `UIApplication openURL` 交给系统浏览器，且拒绝 `update`；应用自身不发请求。心愿的「相关链接」是 `WishDetail.tsx` 中用户自己填写的 `<a target="_blank">`，点击后的行为（WKWebView 是否转交 Safari）**未在设备上验证**。
+- `src-tauri/Cargo.toml` 无 `reqwest`／`hyper`／`ureq` 等 HTTP 客户端；`src/` 前端无 `fetch`／`XMLHttpRequest`／`WebSocket`（`src/` 中仅有 `invoke` 到本机 IPC）；`tauri.conf.json` 的 CSP 为 `default-src 'self'; … connect-src ipc: http://ipc.localhost`，WebView 不能连外网。
+- PDF 导出的 WKWebView 为无脚本、无网络、非持久（`native/ios_pdf.m`，CSP `default-src 'none'`）。
+- 开发时的 `devUrl` 与 `--host` 仅用于 `ios dev`，Release 归档不使用。
+
+此外，`UIFileSharingEnabled` 与 `LSSupportsOpeningDocumentsInPlace` 为 true，使用户能在「文件」App 中看到 Documents（备份在此）；这是有意的，但会让 App 容器的 Documents 对用户可见，审核备注里说明。
+
+#### Info.plist 与设备族建议
+
+- 权限说明文字齐全且为中文：`NSCameraUsageDescription`（拍摄物品照片）、`NSPhotoLibraryUsageDescription`（选择物品照片）、`NSFaceIDUsageDescription`（验证机主身份解锁，生物识别信息不进入物谱）。通知没有对应的 Info.plist 键，由系统授权弹窗处理，用途说明在应用内（`src/notification-permission.ts`）。`<input capture>` 只拍照片，不涉及麦克风；未使用定位、通讯录、蓝牙，故不需其他说明键。
+- 方向：iPhone 已改为只竖屏。iPad 的 `UISupportedInterfaceOrientations~ipad` 保持四方向不变——据我的记忆，iPad 支持多任务时需要四个方向，限制方向需同时设置 `UIRequiresFullScreen`（推断，未逐页核对 Apple 文档），**需维护者决定**。
+- 是否保留 iPad（`TARGETED_DEVICE_FAMILY = "1,2"`）：手机界面按 390 pt 宽设计，目前没有 iPad 版式验证，也没有 iPad 截图。建议先只上 iPhone（设为 `1`），验证通过后再扩展，理由是 iPad 上架要求 iPad 截图与多任务适配，增加审核面。这是我的建议，不是 Apple 的规定。`UIRequiredDeviceCapabilities` 目前为 `arm64`、`metal`；`metal` 来自 Tauri 模板，物谱不直接使用，可由维护者决定是否保留，保留不影响现有 iPhone。
+
+#### 出口合规（需维护者确认）
+
+事实：iOS 版**不联网**，不使用 HTTPS，但"备份加密"是 App 自己实现的加密：`src-tauri/src/backup_crypto.rs` 使用 Rust 的 `age` 库（age-encryption.org 规范：X25519 密钥协商、ChaCha20-Poly1305 分块认证加密）对备份文件加密。它不是 iOS 系统内置的加密。
+
+Apple 的相关说明（已核对原文）：
+
+- [Complying with Encryption Export Regulations](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations)：`ITSAppUsesNonExemptEncryption` 设为 `NO` 的条件是「不使用加密，或只使用豁免于出口合规文档要求的加密形式」，否则为 `YES`；并说明使用系统内置加密（如 URLSession 的 HTTPS）通常豁免，而专有加密不豁免。
+- [Overview of export compliance](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance)：「需要出口合规判定的 App 示例」包括使用标准加密算法、使用 Apple 系统内的加密功能、使用专有或非标准算法的 App；并写明「你有责任查阅 EAR 判定是否需要 BIS 的 CCATS，错误解读或错误声明豁免的责任由你承担」。法国对「安全存储」类 App 另有管制，银行与医疗类豁免，详见 ANSSI。
+- [Determine and upload app encryption documentation](https://developer.apple.com/help/app-store-connect/manage-app-information/determine-and-upload-app-encryption-documentation)：App Store Connect 用一组问题判断是否需要文档；批准后得到密钥值写入 `ITSEncryptionExportComplianceCode`。
+
+我的推断（非官方结论，也不是法律意见）：age 使用公开标准算法，且加密只用于用户自己的备份文件，不用于通信，因此很可能属于「使用标准加密算法」而非「专有算法」。是否因此满足 EAR 对 Category 5 Part 2 的某项豁免、是否仍要上传文档或年度自我分类报告，我无法从上述页面确定。三个可选方式：
+
+| 选项 | 做法 | 风险与适用 |
+|---|---|---|
+| A 保守申报 | `ITSAppUsesNonExemptEncryption = YES`，按 App Store Connect 问卷如实回答，必要时上传加密文档取得 `ITSEncryptionExportComplianceCode` | 流程更长，但不涉及"错误声明豁免"。适合没有法务意见时。有可能需要向 BIS 提交年度自我分类报告（见上述 Apple 说明里的 [BIS 年度自我分类](https://www.bis.doc.gov/index.php/policy-guidance/encryption/4-reports-and-reviews/a-annual-self-classification)） |
+| B 声明豁免 | `ITSAppUsesNonExemptEncryption = NO` | 仅当维护者确信备份加密属于豁免（例如依据 EAR 的豁免条款，需自行核对 BIS 原文）时使用；Apple 明确责任在开发者 |
+| C 不写键、逐次回答 | 不在 Info.plist 写键，每个构建上传后在 App Store Connect 回答问卷 | 最稳妥的起步：不预设结论，答案留在 App Store Connect 记录；每次构建都要再答 |
+
+建议：首个 TestFlight 构建采用 C，按问卷实际分支结果再决定是否固化为 A 或 B。本仓库**不写入** `ITSAppUsesNonExemptEncryption`。若选择「不提供加密备份」可免去此项判断，但会删减已有功能，不建议。
+
+#### 中国大陆（需维护者确认）
+
+- 工信部《关于开展移动互联网应用程序备案工作的通知》（工信部信管〔2023〕105号，2023-07-21）规定：未备案的 APP 不得从事互联网信息服务；应用分发平台不得为未备案 APP 提供分发服务，并须展示备案号。原文见 [gov.cn](https://www.gov.cn/zhengce/zhengceku/202308/content_6897341.htm)。
+- Apple 有对应的 App Store Connect 页面 [查看中国大陆合规信息](https://developer.apple.com/cn/help/app-store-connect/manage-compliance-information/view-china-mainland-compliance-information)（说明为「常驻中国大陆的组织需要提供哪些合规信息」），本次检查无法读取其正文。具体是否要求 ICP／APP 备案号、对个人开发者与非大陆主体是否适用，**我无法从官方来源确认**（论坛中只有开发者个人说法，不作依据）。
+- 选项：①不在中国大陆地区上架（取消勾选可售地区，最省事，但中文用户主要在大陆）；②按平台要求办理 APP 备案后填写备案号上架；③先只做 TestFlight。备案需要大陆主体、域名、服务器等材料，个人主体的可行性请向所在省通信管理局或阿里云／腾讯云等备案服务确认。建议维护者先读 Apple 上述页面与自己 App Store Connect 里的实际字段再定。
+- 另需确认：应用若涉及金融类展示（类别选「财务」），是否有额外的金融类资质要求；物谱仅为本地记录与估算工具，不提供投资、借贷或支付服务，这是产品事实，但合规判断需维护者确认。
+
+### 6. 提交审核前检查清单
+
+- [ ] 维护者已确定：应用标识、名称、价格、可售地区、账号类型、iPad 取舍、出口合规方式、大陆备案策略
+- [ ] 版本号与构建号已同步（`project.yml`、`Info.plist`、`Info.ios.plist` 与 §1 的版本文件），构建号递增
+- [ ] `npm run build`、`npm run test:ui`、`npm run check`、`npm test` 通过；`npm run ios:check` 通过
+- [ ] Release 构建不含 `fault-injection`、验收身份或开发 `devUrl`
+- [ ] Archive 包含 `PrivacyInfo.xcprivacy`，隐私报告与二进制符号核对完毕，无 ITMS-91053 邮件遗漏项
+- [ ] 虚构资料走完 TestFlight 验收；真机拍照、面容 ID、通知实际送达、备份分享与恢复、断网使用各有记录；未验项如实登记
+- [ ] 隐私政策页已部署并可未登录访问，内容与应用实际一致；官网首页页脚有入口
+- [ ] App 隐私标签、年龄分级、出口合规问卷、截图（各尺寸）、描述、关键词、支持网址已填并复核；文案没有同步、联网行情、AI 等未实现功能
+- [ ] 审核备注说明：无需登录、样例入口、相机／面容 ID／通知用途、`UIFileSharingEnabled` 的原因
+- [ ] 使用指南中「没有手机客户端」等与 iOS 版冲突的描述已修订，`docs/INDEX.md` 与 README 状态一致
+- [ ] 未经维护者授权不点「提交以供审核」；提交与发布均由维护者执行
+
 ## 平台更新与附件约定
 
 应用按实际发布附件匹配可用更新，不以最高版本标签代替兼容性。当前 Mac 文件名使用 `Thingary-<版本>-universal.dmg`；分包可用 `arm64`／`aarch64` 或 `x86_64`／`x64` 后缀。Windows NSIS 使用 `物谱_<版本>_x64-setup.exe`（也接受 Thingary 前缀），ARM64 命名使用 `arm64`；其他约定见 `src-tauri/src/update_check.rs` 的 installer。命名约定本身不证明对应平台／架构已发布或验收。调整命名必须同步匹配规则及测试，不靠模糊扩展名猜平台。

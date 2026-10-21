@@ -21,7 +21,7 @@ test('built website has local working links, images, fragments and all canonical
   try {
     execFileSync(process.execPath, ['scripts/build-site.mjs', output], {cwd: root});
     const files = readdirSync(output,{recursive:true}).filter(f=>f.endsWith('.html'));
-    assert.equal(files.length, 12);
+    assert.equal(files.length, 13);
     const documents = new Map(files.map(f=>[join(output,f),readFileSync(join(output,f),'utf8')]));
     const homeHeader = documents.get(join(output, 'index.html')).match(/<header class="header wrap">[\s\S]*?<\/header>/)[0];
     for (const [file,html] of documents) {
