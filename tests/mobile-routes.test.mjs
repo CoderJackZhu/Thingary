@@ -4,7 +4,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { isRootRoute, routeDef, routeKind, routes, tabDef, tabRoot, tabs, visibleSegments, visibleTabs } from '../src/mobile/routes.ts';
 import { allModules } from '../src/modules.ts';
 
-const required = ['items.list', 'items.filter', 'items.detail', 'items.edit', 'items.icon', 'items.stats', 'wishes.list', 'wishes.detail', 'wealth.overview', 'wealth.accounts', 'wealth.snapshots', 'wealth.account', 'wealth.accountEdit', 'wealth.checkin', 'wealth.compare', 'spending.home', 'spending.recurring', 'spending.virtual', 'spending.review', 'spending.virtualDetail', 'spending.expenseEdit', 'spending.recurringEdit', 'spending.payment', 'spending.paymentRange', 'spending.planResume', 'spending.virtualEdit', 'spending.topup', 'spending.balance', 'spending.incomeEdit', 'plan.goal', 'plan.detail', 'plan.whatif', 'plan.trials', 'plan.setup', 'home.overview', 'me.home', 'me.timeline', 'me.search', 'me.settings', 'me.data', 'welcome'];
+const required = ['items.list', 'items.filter', 'items.detail', 'items.edit', 'items.icon', 'items.stats', 'wishes.list', 'wishes.detail', 'wishes.edit', 'wishes.purchase', 'wealth.overview', 'wealth.accounts', 'wealth.snapshots', 'wealth.account', 'wealth.accountEdit', 'wealth.checkin', 'wealth.compare', 'spending.home', 'spending.recurring', 'spending.virtual', 'spending.review', 'spending.virtualDetail', 'spending.expenseEdit', 'spending.recurringEdit', 'spending.payment', 'spending.paymentRange', 'spending.planResume', 'spending.virtualEdit', 'spending.topup', 'spending.balance', 'spending.incomeEdit', 'plan.goal', 'plan.detail', 'plan.whatif', 'plan.trials', 'plan.setup', 'home.overview', 'me.home', 'me.timeline', 'me.search', 'me.settings', 'me.data', 'welcome'];
 const ids = tabs.map(tab => tab.id);
 const off = (...keys) => ({ ...allModules, incomes: true, ...Object.fromEntries(keys.map(key => [key, false])) });
 
@@ -15,7 +15,7 @@ test('约定的路由名全部登记，且都有标题和所属标签', () => {
 });
 test('路由类型：默认 page，模态与弹窗按设计稿', () => {
   assert.equal(routeKind('items.detail'), 'page');
-  for (const name of ['items.edit', 'wealth.checkin', 'wealth.accountEdit', 'plan.setup']) assert.equal(routeKind(name), 'modal', name);
+  for (const name of ['items.edit', 'wishes.edit', 'wishes.purchase', 'wealth.checkin', 'wealth.accountEdit', 'plan.setup']) assert.equal(routeKind(name), 'modal', name);
   for (const name of ['items.filter', 'items.icon']) assert.equal(routeKind(name), 'sheet', name);
   assert.equal(routeDef('welcome').fullscreen, true);
 });
