@@ -293,7 +293,7 @@ mod household_tests {
         let f = couple("1990-01", Some(600), Some("120000"));
         let back: Fields = serde_json::from_str(&serde_json::to_string(&f).unwrap()).unwrap();
         assert_eq!(back, f);
-        let j = serde_json::to_value(&Fields::default()).unwrap();
+        let j = serde_json::to_value(Fields::default()).unwrap();
         assert_eq!(
             j["household"],
             serde_json::json!({"mode":"single","partner":null})
