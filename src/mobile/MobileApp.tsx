@@ -42,6 +42,19 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
   const tabs = visibleTabs(modules);
   useEffect(() => { if (!tabs.some(tab => tab.id === state.tab)) nav.switchTab('overview'); }, [tabs.length, state.tab]);
   useEffect(() => { session.setNotice(''); }, [state.tab]);
+  // An amount that cannot be read reports '' (unknown) to its form, so an optional amount would be saved as unknown
+  // without a word. Primary save buttons stay inert while a visible amount field on the same page shows its error.
+  useEffect(() => {
+    const guard = (event: MouseEvent) => {
+      const button = (event.target as Element | null)?.closest?.('.m-navbar-primary, .m-button-primary');
+      const invalid = button?.closest('.m-modal, .m-page, .m-sheet')?.querySelector<HTMLInputElement>('.currency-input input[aria-invalid="true"]');
+      if (!invalid) return;
+      event.preventDefault(); event.stopPropagation();
+      invalid.scrollIntoView({ block: 'center' }); invalid.focus({ preventScroll: true });
+    };
+    document.addEventListener('click', guard, true);
+    return () => document.removeEventListener('click', guard, true);
+  }, []);
 
   // Scroll position is remembered per page entry; focus moves to the new page for VoiceOver.
   const scrolls = useRef(new Map<number, number>()), current = useRef(baseEntry.id), first = useRef(true), main = useRef<HTMLElement>(null);
