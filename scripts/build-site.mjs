@@ -8,6 +8,10 @@ const output = resolve(process.argv[2] ?? join(root, '.local/pages-preview'));
 if (output === root || output === join(root, 'site')) throw new Error('Choose a separate build output directory');
 mkdirSync(output, { recursive: true });
 cpSync(join(root, 'site'), output, { recursive: true });
+// The calculator runs the same planning engine as the app, from its committed WASM build.
+const engineSource = readFileSync(join(root, 'src/planning-engine-wasm.ts'), 'utf8').match(/planningEngineWasm = '([A-Za-z0-9+/=]+)'/);
+if (!engineSource) throw new Error('Planning engine WASM not found');
+writeFileSync(join(output, 'calc/engine.wasm'), Buffer.from(engineSource[1], 'base64'));
 mkdirSync(join(output, 'docs/images'), { recursive: true });
 // Copy only image assets; never publish internal acceptance or user records.
 const homepage = readFileSync(join(root, 'site/index.html'), 'utf8').replaceAll('../docs/images/', 'docs/images/');
@@ -17,7 +21,7 @@ writeFileSync(join(output, 'index.html'), homepage);
 const sharedPrelude = homepage.match(/<body>([\s\S]*?)<div class="site">/)[1];
 const sharedHeader = homepage.match(/<header class="header wrap">[\s\S]*?<\/header>/)[0];
 function siteHeader(prefix) {
-  return sharedHeader.replace(/href="(#main|#features|#privacy|guide\/)"/g,
+  return sharedHeader.replace(/href="(#main|#features|#privacy|guide\/|calc\/)"/g,
     (_, target) => `href="${prefix}${target}"${target === 'guide/' ? ' aria-current="page"' : ''}`);
 }
 

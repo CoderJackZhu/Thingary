@@ -1,6 +1,6 @@
 # 产品主页
 
-纯静态页面，无构建依赖、第三方脚本、网络字体或统计服务。`index.html` 维护中英文内容，`style.css` 维护排版与浅／深色令牌；本地 `download.js` 只负责下载平台的默认选择与切换。中英文使用原生单选按钮与 CSS 切换，可用键盘方向键选择；深浅色跟随系统，规划问题使用原生折叠项。尊重减少动态效果的系统偏好。
+纯静态页面，无构建依赖、第三方脚本、网络字体或统计服务；`/calc/` 测算页额外加载本站托管的规划引擎 WASM。`index.html` 维护中英文内容，`style.css` 维护排版与浅／深色令牌；本地 `download.js` 只负责下载平台的默认选择与切换。中英文使用原生单选按钮与 CSS 切换，可用键盘方向键选择；深浅色跟随系统，规划问题使用原生折叠项。尊重减少动态效果的系统偏好。
 
 页面以完整应用总览和交替图文布局介绍盘点、规划、物品与回顾，复用现有五线品牌标志和虚构截图。没有复制第三方模板源码，也不依赖模板平台。截图可点击查看原图；它们是实际应用画面的展示，不是网页内可操作的应用。首屏下方 `#film` 是 53 秒介绍视频（来源见[截图清单](../docs/images/README.md)），`preload="none"`，点播放前不下载视频，也不自动播放。
 
@@ -20,13 +20,21 @@
 
 `help.css` 复用主页的色彩令牌；`scripts/guide-renderer.mjs` 是网站构建使用的纯 JavaScript 渲染器。它只处理项目文档中约定的 Markdown 子集（标题、段落、链接、图片、代码、列表、引用、表格、显式锚点），不渲染任意原始 HTML。新增顶级指南章节时需要同时在 `scripts/build-site.mjs` 中归入一个主题；遗漏会让构建失败，不会静默丢失内容。
 
+## 在线测算 `/calc/`
+
+「还要上几年班」网页测算，手机和电脑浏览器都能独立用完，不需要安装桌面版。填年龄、可用资金、每月生活费、每月能存、退休后固定收入与开始年龄，选择三档实际收益假设（保守 0%／0%，中性 2%／1%，积极 4%／3%，分别为停工前／后，都可在源码里调整），算出最早可以不靠工资的年龄与月份、那时需要的资金、每月多存 1000 元能提前多久；选填「希望几岁不上班」时再求每月需存多少。
+
+计算直接调用应用同一份规划引擎：构建时从 `src/planning-engine-wasm.ts` 解出 `calc/engine.wasm`，`calc/model.js` 把回答拼成基础模式的 FIRE 计划（`project`、`required`、`solve_contribution`），不另写公式。金额按今天的钱，通胀默认 2%。它不含大额计划、贷款、养老金政策和市场模拟，页面写明是估算。
+
+填写内容与「记下这次结果」的历史只存在本机浏览器的 `localStorage`，不上传、不统计；历史按停工日期比较，单纯过了一个月不会显示为提前。`tests/site-calc.test.mjs` 检查发布的引擎与提交的引擎一致、结果等于引擎自身的退休月及单调性。
+
 ## 本地预览
 
 在仓库根目录使用 Node 22 或更新版本，无需安装依赖：
 
 ```sh
 node scripts/build-site.mjs .local/pages-preview
-node --test tests/site-guide.test.mjs tests/site-download.test.mjs
+node --test tests/site-guide.test.mjs tests/site-download.test.mjs tests/site-calc.test.mjs
 python3 -m http.server 1430 --bind 127.0.0.1 --directory .local/pages-preview
 ```
 
