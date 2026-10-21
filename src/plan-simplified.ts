@@ -29,7 +29,6 @@ function validateHousehold(h: HouseholdV1, issue: IssueFn, shape: ShapeFn, today
     return true;
   }
   if (!Number.isInteger(age) || age < 0 || age > 1440) issue('household.partner.stop_age_months', 'invalid_age', '伴侣停工年龄须为 0—1440 个整月');
-  else if (birthOk && thisMonth !== null && monthIndexV1(p.birth_month) + age <= monthIndexV1(thisMonth)) issue('household.partner.stop_age_months', 'invalid_order', '伴侣停工年龄须晚于现在');
   const c = p.monthly_cents;
   if (c !== null && (typeof c !== 'string' || c.length > 11 || !/^(0|[1-9]\d*)$/.test(c) || BigInt(c) > 99999999999n)) issue('household.partner.monthly_cents', 'invalid_amount', '伴侣每月存款须为规范整数分');
   return true;

@@ -166,7 +166,8 @@ test('household: single by default, couple rules, strict shape and today-relativ
   assert.deepEqual(paths(couple({ stop_age_months: 1441 })), ['household.partner.stop_age_months']);
   assert.deepEqual(paths(couple({ stop_age_months: -1 })), ['household.partner.stop_age_months']);
   assert.deepEqual(paths(couple({ stop_age_months: 1.5 })), ['household.partner.stop_age_months']);
-  assert.deepEqual(paths(couple({ stop_age_months: 441 }), T), ['household.partner.stop_age_months']);
+  // A stop month already past stays valid: saved plans must not become unsavable or unrestorable as time passes.
+  assert.deepEqual(paths(couple({ stop_age_months: 441 }), T), []);
   assert.deepEqual(paths(couple({ stop_age_months: 442 }), T), []);
   // monthly cents
   assert.deepEqual(paths(couple({ stop_age_months: null, monthly_cents: '100' })), ['household.partner.monthly_cents']);

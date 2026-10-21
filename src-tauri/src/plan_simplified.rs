@@ -124,14 +124,8 @@ impl Fields {
             }
             return Ok(());
         };
-        let idx = |m: &str| -> i64 {
-            m[..4].parse::<i64>().unwrap_or(0) * 12 + m[5..7].parse::<i64>().unwrap_or(1) - 1
-        };
         if age > 1440 {
             return Err(bad("伴侣停工年龄须为 0 到 1440 个整月"));
-        }
-        if idx(&p.birth_month) + i64::from(age) <= idx(this_month) {
-            return Err(bad("伴侣停工年龄须晚于现在"));
         }
         if let Some(v) = &p.monthly_cents {
             let ok = v
@@ -281,8 +275,9 @@ mod household_tests {
         assert!(!ok(couple("90-01", None, None)));
         // stop age
         assert!(!ok(couple("1990-01", Some(1441), None)));
-        assert!(!ok(couple("1990-01", Some(432), None))); // 2026-01, past
-        assert!(!ok(couple("1990-01", Some(441), None))); // 2026-10 == today
+        // A past stop month stays valid so saved plans and backups keep working as time passes.
+        assert!(ok(couple("1990-01", Some(432), None)));
+        assert!(ok(couple("1990-01", Some(441), None)));
         assert!(ok(couple("1990-01", Some(442), None)));
         // cents
         assert!(!ok(couple("1990-01", None, Some("100"))));
