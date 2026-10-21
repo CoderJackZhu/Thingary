@@ -1,6 +1,6 @@
 # App Store 上架文案草稿（iOS）
 
-维护者提交 App Store Connect 时的素材草稿，不是版本说明，也不代表已提交审核。标注「占位」的项目由维护者决定。用语以[使用指南](../USER_GUIDE.md)和[业务规则](../PRODUCT_RULES.md)为准；没有账号、同步、联网行情或 AI，文案不得出现这些。使用指南目前写「没有手机客户端」，iOS 版公开前需维护者同步修订该说法（本草稿不改指南）。
+维护者提交 App Store Connect 时的素材草稿，不是版本说明，也不代表已提交审核。标注「占位」的项目由维护者决定。用语以[使用指南](../USER_GUIDE.md)和[业务规则](../PRODUCT_RULES.md)为准；没有账号、同步、联网行情或 AI，文案不得出现这些。使用指南已增加「iPhone 版」一节及备份、更新、隐私、通知各章的 iPhone 说明（标注 TestFlight 测试中、尚未上架）；上架后需维护者把「即将推出」改为 App Store 链接。
 
 字数限制：宣传文本 170 字符、描述 4000 字符、关键词 100 bytes，出自 [App Store Connect 平台版本信息](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)；名称与副标题 30 字符是常见限制，该页未列出，需维护者在填写时核实。
 
