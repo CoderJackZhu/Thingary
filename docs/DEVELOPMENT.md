@@ -141,6 +141,7 @@ npm run dev -- --port 1429
 | `?section=overview&started=first-use&state=empty` | 未开始的虚构资料与起步卡；可加 `module-write-error`／`module-read-error` 注入模块写入／读取失败，模块仅在预览内存中更新 |
 | `?section=planning&plan-basic=saved|unknown|negative|blank&capabilities=real` | 已保存通用规划、投入未知／负值、基础未填；真实纯计算 |
 | `?section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed` | 当前目标、大额计划、计算详情与真实报告入口 |
+| `?section=planning&plan-basic=saved&capabilities=real&plan-household=couple-same|couple-age|couple-age-empty`（可加 `plan-household-mode=fire`） | 虚构两人规划：伴侣同时停工、指定年龄并填存款、指定年龄但存款为空 |
 | `?plan=error`、`?plan-profile=empty` | 规划读取失败／没有已保存规划 |
 | `?plan-core=occurred|partial|overdue` | 已发生接续、付款缺项与过期待核对 |
 | `?section=planning&plan-debt=normal|unknown|empty|error|changed|zero|saved` | 已有贷款直接还款安排 |

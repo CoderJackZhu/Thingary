@@ -423,6 +423,13 @@ if (firstRunFixture && planProfile?.profile.retire.basic) {
   if (firstRunFixture === '2b') { r.simplified.income_mode = 'unconfirmed'; r.rent_cents = '100000'; b.retirement_costs = []; b.contribution.monthly_cents = null; }
   if (firstRunFixture === 'overdue') { r.simplified.income_mode = 'excluded'; b.contribution.monthly_cents = null; }
 }
+// ?plan-household=couple-same|couple-age|couple-age-empty: fictional two-person fixtures for the saved plan.
+const householdFixture = params.get('plan-household');
+if (householdFixture && planProfile?.profile.retire.basic) {
+  const partner = { birth_month: '1992-04', stop_age_months: householdFixture === 'couple-same' ? null : 62 * 12, monthly_cents: householdFixture === 'couple-age' ? '150000' : null };
+  planProfile.profile.retire.simplified.household = { mode: 'couple', partner };
+  if (params.get('plan-household-mode') === 'fire') planProfile.profile.retire.mode = 'fire';
+}
 const reviewFixture = params.get('review-fixture');
 if (reviewFixture && snapshots.length >= 2) {
   const last = snapshots.at(-1)!;

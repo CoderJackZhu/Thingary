@@ -11,7 +11,7 @@ export function careerSources(): PlanningSources {
   basic.contribution.monthly_cents = '1500000';
   const profile = {
     assumptions: { inflation_hundredths: 0 },
-    retire: { ...structuredClone(defaultRetire), basic, spend_cents: '375000', simplified: { contract_version: 1 as const, time: {reference:null,target_month:'2044-10',horizon_month:'2084-09'}, income_mode:'excluded' as const, future_incomes:[] },
+    retire: { ...structuredClone(defaultRetire), basic, spend_cents: '375000', simplified: { contract_version: 1 as const, time: {reference:null,target_month:'2044-10',horizon_month:'2084-09'}, income_mode:'excluded' as const, future_incomes:[], household: { mode: 'single' as const, partner: null } },
       real_return_before_hundredths: 0, real_return_after_hundredths: 0, volatility_hundredths: 0,
       core: emptyCore('2026-09-30') },
   };

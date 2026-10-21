@@ -233,7 +233,7 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 schema36 迁移沿用 plan_profile JSON 和 plan_income 事实表。plan_migration 在现有 schema 事务内转换旧资料，通用事实与引用严格校验，政策字段不进入当前 DTO；有语义变化才增加修订，保留原更新时间。旧备份只读检查与恢复复用该转换。全部历史回执保留；旧规划请求只能按原 ID 核对，不重放旧载荷。
 
-plan-simplified-contract.ts 是时间与未来收入的唯一类型入口，Rust plan_simplified 严格拒绝旧字段。时间保存明确月份；UI 默认使用出生年月和退休／终点年龄换算，新确认的出生年月用现有 reference（月、age_months=0）表达。没有新 DTO 字段或迁移，不继承旧政策生日，原非零参考保留；更正参考不自动改已保存月份。plan-basic 编译未来收入与受限资金释放后，所有消费者共用 plan-ledger，不复制政策引擎。Core 仍维护用途、付款、余债与稳定来源引用，releases 仅是未来计划。
+plan-simplified-contract.ts 是时间与未来收入的唯一类型入口，Rust plan_simplified 严格拒绝旧字段。时间保存明确月份；UI 默认使用出生年月和退休／终点年龄换算，新确认的出生年月用现有 reference（月、age_months=0）表达。可选 `household`（单人或夫妻；伴侣含出生年月、停工年龄与每月存款份额）缺省读作单人，无迁移，Rust 与 TS 同规则校验（TS 的与今天相对的日期规则需传入 today，Rust 始终强制）；时间部分没有新 DTO 字段或迁移，不继承旧政策生日，原非零参考保留；更正参考不自动改已保存月份。夫妻且伴侣停工晚于规划起点月、并填了伴侣每月存款时，plan-basic 在编译中把月存拆为「我的部分」并追加一条不落库的生成收入 `household-partner-work`（至伴侣停工前一月），引擎不变；份额未填或停工月已过按未拆分计算并给出 `HOUSEHOLD_SHARE_UNKNOWN`／`HOUSEHOLD_PARTNER_STOPPED` 提示；需求反求结果仍按家庭合计（我的部分加伴侣份额）报告，`PredictionValue.household` 给出伴侣停工月、两人都停工月和同时停工月。plan-basic 编译未来收入与受限资金释放后，所有消费者共用 plan-ledger，不复制政策引擎。Core 仍维护用途、付款、余债与稳定来源引用，releases 仅是未来计划。
 
 ### 规划首次设置
 

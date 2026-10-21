@@ -135,3 +135,41 @@ test('global planning receipt resolution retains the original until the current 
   }
  } finally {if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;if(oldStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=oldStorage;}
 });
+test('household: single by default, couple rules, strict shape and today-relative dates', () => {
+  const T = '2026-10-21';
+  const withH = household => ({ ...simplifiedEmpty(), household });
+  const couple = (partner) => withH({ mode: 'couple', partner: { birth_month: '1990-01', stop_age_months: 600, monthly_cents: null, ...partner } });
+  const paths = (f, today) => validateSimplifiedPlanningV1(f, today).map(x => x.path);
+  assert.deepEqual(simplifiedEmpty().household, { mode: 'single', partner: null });
+  assert.deepEqual(validateSimplifiedPlanningV1(simplifiedEmpty(), T), []);
+  assert.deepEqual(validateSimplifiedPlanningV1(couple({}), T), []);
+  assert.deepEqual(validateSimplifiedPlanningV1(couple({ stop_age_months: null }), T), []);
+  assert.deepEqual(validateSimplifiedPlanningV1(couple({ monthly_cents: '0' }), T), []);
+  assert.deepEqual(validateSimplifiedPlanningV1(couple({ monthly_cents: '99999999999' }), T), []);
+  // shape: missing / extra keys, missing household entirely
+  const noH = simplifiedEmpty(); delete noH.household;
+  assert.ok(validateSimplifiedPlanningV1(noH).length);
+  assert.ok(validateSimplifiedPlanningV1(withH({ mode: 'single' })).length);
+  assert.ok(validateSimplifiedPlanningV1(withH({ mode: 'single', partner: null, extra: 1 })).length);
+  assert.ok(validateSimplifiedPlanningV1(couple({ extra: 1 })).length);
+  const missingKey = couple({}); delete missingKey.household.partner.monthly_cents;
+  assert.ok(validateSimplifiedPlanningV1(missingKey).length);
+  // mode / partner pairing
+  assert.deepEqual(paths(withH({ mode: 'single', partner: { birth_month: '1990-01', stop_age_months: null, monthly_cents: null } })), ['household.partner']);
+  assert.deepEqual(paths(withH({ mode: 'couple', partner: null })), ['household.partner']);
+  assert.deepEqual(paths(withH({ mode: 'trio', partner: null })), ['household.mode']);
+  // birth month
+  assert.deepEqual(paths(couple({ birth_month: '1990-13' })), ['household.partner.birth_month']);
+  assert.deepEqual(paths(couple({ birth_month: '2026-11' }), T), ['household.partner.birth_month']);
+  assert.deepEqual(paths(couple({ birth_month: '2026-10', stop_age_months: 1 }), T), []);
+  // stop age
+  assert.deepEqual(paths(couple({ stop_age_months: 1441 })), ['household.partner.stop_age_months']);
+  assert.deepEqual(paths(couple({ stop_age_months: -1 })), ['household.partner.stop_age_months']);
+  assert.deepEqual(paths(couple({ stop_age_months: 1.5 })), ['household.partner.stop_age_months']);
+  // A stop month already past stays valid: saved plans must not become unsavable or unrestorable as time passes.
+  assert.deepEqual(paths(couple({ stop_age_months: 441 }), T), []);
+  assert.deepEqual(paths(couple({ stop_age_months: 442 }), T), []);
+  // monthly cents
+  assert.deepEqual(paths(couple({ stop_age_months: null, monthly_cents: '100' })), ['household.partner.monthly_cents']);
+  for (const c of ['01', '-1', '100000000000', '1.5', '', 5]) assert.deepEqual(paths(couple({ monthly_cents: c })), ['household.partner.monthly_cents']);
+});

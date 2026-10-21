@@ -11,7 +11,9 @@ export type FutureIncomeV1 = {
   growth: 'fixed_nominal' | 'constant_purchasing_power';
   source: string | null; source_checked_on: DateOnly | null; notes: string;
 };
-export type SimplifiedPlanningFieldsV1 = { contract_version: 1; time: TimeInputV1; income_mode: 'unconfirmed' | 'excluded' | 'manual'; future_incomes: FutureIncomeV1[] };
+/** Optional household: absent in stored data reads as single; the backend always serializes it. stop_age_months null = stops with me; monthly_cents is the partner's share of the household monthly saving (null = unknown). */
+export type HouseholdV1 = { mode: 'single' | 'couple'; partner: null | { birth_month: Month; stop_age_months: number | null; monthly_cents: Cents | null } };
+export type SimplifiedPlanningFieldsV1 = { contract_version: 1; time: TimeInputV1; income_mode: 'unconfirmed' | 'excluded' | 'manual'; future_incomes: FutureIncomeV1[]; household: HouseholdV1 };
 export type FieldIssueV1 = { path: string; code: string; message: string };
 export type SaveContextV1 = { request_id: string; generation: string; expected_revision: number | null };
 export type SaveOutcomeV1 = { status: 'saved'; revision: number } | { status: 'rejected'; issues: FieldIssueV1[] } | { status: 'unresolved'; request_id: string };

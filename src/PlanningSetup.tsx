@@ -1,4 +1,6 @@
 import { TimeFields } from './planning-simplified-ui/TimeFields';
+import { PartnerShareField } from './planning-simplified-ui/HouseholdFields';
+import { householdIssues, householdOf, isCouple } from './planning-simplified-ui/household-view';
 import './planning-simplified-ui/simplified-ui.css';
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmationField } from './PlanningConfirmation';
@@ -41,6 +43,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   const [incomeEditing, setIncomeEditing] = useState(false);
   const [confirmationIssue, setConfirmationIssue] = useState<ConfirmationIssue | null>(null);
   const [notice, setNotice] = useState('');
+  const [householdShown, setHouseholdShown] = useState(false);
   const [errorFocus, setErrorFocus] = useState<ReturnType<typeof setupErrorLocation>>(null);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
   const [assumptionsStale, setAssumptionsStale] = useState(false);
@@ -62,12 +65,19 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   }, [step, errorFocus]);
   // Native validation arrives via the existing saver notice; an unresolved receipt stays frozen.
   useEffect(() => { if (saver.notice && !frozen) locateError(saver.notice); }, [saver.notice, frozen]);
+  const household = householdOf(d.simplified), couple = isCouple(household);
+  const householdProblems = householdIssues(d.simplified, today);
+  /** Partner facts that cannot be saved send the user back to the field instead of a native error. */
+  function householdBlocked() {
+    if (!householdProblems.length) return false;
+    setHouseholdShown(true); setNotice(householdProblems[0].message); setStep(0); return true;
+  }
   function showError(e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     setNotice(message); locateError(message);
   }
   async function save() {
-    if (frozen || incomeEditing) return;
+    if (frozen || incomeEditing || householdBlocked()) return;
     try { const fields = setupFields(d, saved, today, wealthOn); if (completionId) {
       const after = overlayPlanningDrafts(sources, [{ section: 'setup', fields }]);
       const nextSaved = after.profile.status === 'ready' ? after.profile.value.saved : null;
@@ -81,7 +91,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
     catch (e) { showError(e); }
   }
   function next() {
-    if (frozen || incomeEditing) return;
+    if (frozen || incomeEditing || householdBlocked()) return;
     try { setupFields(d, saved, today, wealthOn); setNotice(''); setStep(n => n + 1); }
     catch (e) { showError(e); }
   }
@@ -92,8 +102,8 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
     <nav className="planning-question-progress" aria-label="规划主要条件">{setupQuestions.map((q, i) => <button type="button" key={q} aria-label={`${i + 1}. ${q}`} aria-current={i === step ? 'step' : undefined} disabled={frozen || incomeEditing} onClick={() => setStep(i)}>{i + 1}. {stepLabels[i]}</button>)}</nav>
     {editMode && <nav className="planning-edit-extras" aria-label="计算假设"><button type="button" className="ui-btn" disabled={frozen || incomeEditing} onClick={() => setStep(5)}>收益与波动假设</button></nav>}
     <div className="planning-setup-body">
-      {step === 0 && <><section className="form-block"><FormRow label="你想怎样退休？"><Segments label="生活目标" value={d.mode} disabled={frozen} options={[{ value: 'fire', label: '财务自由' }, { value: 'traditional', label: '按计划退休' }]} onChange={mode => patch({ mode })}/></FormRow><p className="muted">财务自由：从希望的时间起，资金够用后停止工作。按计划退休：按指定时间停止工作，检查资金是否够用。</p></section><TimeFields value={d.simplified.time} issues={[]} busy={frozen} today={today} onChange={time => patch({ simplified: { ...d.simplified, time } })}/></>}
-      {step === 1 && <section className="form-block"><ConfirmationField label="退休后每月生活预算" issue={confirmationIssue}><FormRow label="每月生活费总额" hint="没想好可以留空；留空不会当作 0"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="例如 4000.00" onChange={v => patch({ budget: v })}/></FormRow></ConfirmationField>
+      {step === 0 && <><section className="form-block"><FormRow label="你想怎样退休？"><Segments label="生活目标" value={d.mode} disabled={frozen} options={[{ value: 'fire', label: '财务自由' }, { value: 'traditional', label: '按计划退休' }]} onChange={mode => patch({ mode })}/></FormRow><p className="muted">财务自由：从希望的时间起，资金够用后停止工作。按计划退休：按指定时间停止工作，检查资金是否够用。</p></section><TimeFields value={d.simplified.time} issues={householdShown ? householdProblems : []} busy={frozen} today={today} onChange={time => patch({ simplified: { ...d.simplified, time } })} household={household} onHouseholdChange={household => patch({ simplified: { ...d.simplified, household } })}/></>}
+      {step === 1 && <section className="form-block"><ConfirmationField label="退休后每月生活预算" issue={confirmationIssue}><FormRow label={couple ? '两人每月生活费总额' : '每月生活费总额'} hint="没想好可以留空；留空不会当作 0"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="例如 4000.00" onChange={v => patch({ budget: v })}/></FormRow></ConfirmationField>
         <SpendItems d={d} setD={setD} frozen={frozen} today={today}/>
         <ConfirmationField label="应急金月数" issue={confirmationIssue}><FormRow label="应急金准备几个月？" hint="用于应急金参考，不从本次退休测算的可用资金中另行扣除"><input type="number" min="0" max="36" aria-label="应急金月数" inputMode="numeric" value={d.emergency} disabled={frozen} onChange={e => patch({ emergency: e.target.value })}/></FormRow></ConfirmationField>
       </section>}
@@ -108,7 +118,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
         </details>
       </section>}
       {step === 3 && <IncomeQuestion today={today} d={d} patch={patch} frozen={frozen} onEditingChange={setIncomeEditing}/>}
-      {step === 4 && <section className="form-block"><p>填写后可以判断按当前投入能否达成目标。暂不填写也能估算目标要求每月存多少，但不能预测你目前的投入能力。</p><ConfirmationField label="每月大约能存下多少钱" issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label="每月大约能存下多少钱？" hint="每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow></ConfirmationField><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
+      {step === 4 && <section className="form-block"><p>填写后可以判断按当前投入能否达成目标。暂不填写也能估算目标要求每月存多少，但不能预测你目前的投入能力。</p><ConfirmationField label="每月大约能存下多少钱" issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label={couple ? '两人每月一共能存多少钱？' : '每月大约能存下多少钱？'} hint={(couple ? '两个人加起来，' : '') + "每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"}><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow></ConfirmationField><PartnerShareField value={household} issues={householdShown ? householdProblems : []} busy={frozen} onChange={household => patch({ simplified: { ...d.simplified, household } })}/><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
       {editMode && step === 5 && <section className="form-block">
       <div className="plan-assumption-summary">
         <p className="muted small">实际收益默认 0%，表示钱只跑平通胀；默认波动率 5% 是程序试算值，不是资产配置的风险估计。收益、通胀和波动率在独立的「假设核对」编辑器里修改和确认；编辑预算、投入等其他分区只会原样携带这些值，不会顺带确认。</p>

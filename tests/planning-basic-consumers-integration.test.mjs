@@ -68,7 +68,7 @@ function sources(contribution = null) {
   f.basic.contribution.monthly_cents = contribution;
   const profile = { assumptions: { inflation_hundredths: 0 },
     retire: { ...structuredClone(plan.defaultRetire), spend_cents: f.spend_cents,
-      simplified: { contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-06'},income_mode:'excluded',future_incomes:[] },
+      simplified: { contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-06'},income_mode:'excluded',future_incomes:[], household: { mode: 'single', partner: null } },
       mode:f.mode,real_return_before_hundredths:f.real_return_before_hundredths,real_return_after_hundredths:f.real_return_after_hundredths,volatility_hundredths:f.volatility_hundredths,emergency_months:f.emergency_months,basic:f.basic,
       core:{contract_version:1,monetary_basis_date:f.monetary_basis_date,fund_rules:[],releases:[],occurrences:[]} } };
   return { generation: 'fictional-consumers', write_version: 1, today: '2026-10-07', modules: { planning: true, wealth: false },

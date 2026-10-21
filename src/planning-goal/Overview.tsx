@@ -1,3 +1,5 @@
+import { HouseholdLines } from '../planning-simplified-ui/HouseholdLines';
+import { SPLIT_REQUIREMENT_HINT, householdOf, isCouple, isSplitCouple } from '../planning-simplified-ui/household-view';
 import { money } from '../asset';
 import { annotationSummary, annotationDirection } from '../plan-annotations';
 import type { ReactNode } from 'react';
@@ -20,7 +22,7 @@ const conditionOrder: GoalAction[] = ['mode', 'time', 'saving', 'spend', 'start'
 
 const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: '试算值，未确认', confirmed: '已核对', needs_review: '条件已变，请确认' };
 
-export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onTrial, savingHint, onReport, reportDisabled = false, assumptionRead }: {
+export function GoalOverview({ saved, caps, today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onTrial, savingHint, onReport, reportDisabled = false, assumptionRead }: {
   saved: Saved; caps: BasicCapabilities; today: string; cards: Refinement[]; accountFunds?: ReturnType<typeof fundScopeSummary>; purchasePlans?: ReactNode;
   onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void; onEdit: (action: GoalAction, from: HTMLElement) => void; onRefine: (card: Refinement, from: HTMLElement) => void; onDetail?: () => void; onTrial?: () => void; savingHint?: SavingHintAction | null;
   onReport?: (from: HTMLElement) => void; reportDisabled?: boolean; assumptionRead?: FollowupRead<AssumptionReadV1> | null;
@@ -37,7 +39,9 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
   const horizonText = horizonAge === null ? time.horizon_month ?? '尚未确定' : `${ageText(horizonAge)}（${time.horizon_month}）`;
   const difference = req && 'monthly_cents' in req.set && b.contribution.monthly_cents !== null && Number(b.contribution.monthly_cents) >= 0 ? Number(b.contribution.monthly_cents) - Number(req.set.monthly_cents) : null;
   const predictedMonth = (m: number | null) => m === null || !plan?.anchor_date ? null : monthTextV1(monthIndexV1(plan.anchor_date) + m - plan.now_months);
+  const household = householdOf(r.simplified), splitCouple = isSplitCouple(household, today);
   const fiMonth = projection?.fi_month ?? null, predictedRetire = projection?.retire_month ?? null;
+  const myStopMonth = r.mode === 'fire' ? predictedMonth(predictedRetire) : plan ? predictedMonth(plan.target_months) : null;
   const capMonth = plan ? predictedMonth(Math.min(plan.search_cap_months, plan.horizon_months - 1)) : null;
   const assumptionTag = assumptionRead === undefined ? '测算假设'
     : assumptionRead === null ? '读取中'
@@ -47,9 +51,9 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
     { id: 'mode', title: '目标类型', value: r.mode === 'fire' ? '财务自由：资金够用后退休' : '按计划月份退休', description: '财务自由按资金是否够用决定退休时间；按计划月份退休固定到目标月份再检查是否够用。需求反求始终按固定目标月份计算。', state: '你选择的方式' },
     { id: 'time', title: '停止工作时间', value: retirementText, description: `规划到 ${horizonText}；${time.reference?.age_months === 0 ? `出生年月 ${time.reference.month}。` : !time.reference ? '填写出生年月后可按年龄设置。' : ''}退休目标不等于养老金领取时间。`, state: '你设定的目标' },
     { id: 'income', title: '未来固定收入', value: r.simplified.income_mode === 'excluded' ? '暂不计入' : r.simplified.income_mode === 'unconfirmed' ? '尚未确认' : `${r.simplified.future_incomes.filter(i => i.included).length} 项已选择`, description: r.simplified.future_incomes.map(i => `${i.name}：${i.start_month ?? '开始月待定'}，${i.monthly_cents === null ? '金额待定' : money(i.monthly_cents) + '/月'}`).join('；') || '可以添加官方测算的养老金或其他固定收入。', state: '用户维护的预计收入' },
-    { id: 'spend', title: '退休生活费', value: r.spend_cents === null ? '还没估计' : `${money(r.spend_cents)} / 月`, description: '按现在物价的生活费总额；缴费、租金等是否包含，单独核对。', state: '你估计的预算' },
+    { id: 'spend', title: '退休生活费', value: r.spend_cents === null ? '还没估计' : `${money(r.spend_cents)} / 月`, description: `${isCouple(household) ? '两人合计，' : ''}按现在物价的生活费总额；缴费、租金等是否包含，单独核对。`, state: '你估计的预算' },
     { id: 'start', title: '现在可用的钱', value: funds ? money(funds.available_cents) : '资金待确认', description: funds ? b.start.kind === 'simulation' ? `截至 ${funds.date} 的手填模拟金额，替代账户盘点。` : `截至 ${funds.date}，包含已确认可动用的现金、存款及可变现投资。暂不能动用的 ${money(funds.restricted_cents)} 单列。` : '选择用于规划的资金来源，并确认账户用途或模拟金额。', state: b.start.kind === 'simulation' ? '模拟金额' : '账户盘点' },
-    { id: 'saving', title: '每月能存的钱', value: b.contribution.monthly_cents === null ? '还没估计' : `${money(b.contribution.monthly_cents)} / 月`, description: '不工作前，扣除日常开支和缴费后的净存入；负数表示取用存款。', state: b.contribution.monthly_cents === null ? '可以稍后填写' : '你估计的投入' },
+    { id: 'saving', title: '每月能存的钱', value: b.contribution.monthly_cents === null ? '还没估计' : `${money(b.contribution.monthly_cents)} / 月`, description: `${isCouple(household) ? '两人合计，' : ''}不工作前，扣除日常开支和缴费后的净存入；负数表示取用存款。`, state: b.contribution.monthly_cents === null ? '可以稍后填写' : '你估计的投入' },
     { id: 'assumptions', title: '计算假设', value: `实际年收益 ${r.real_return_before_hundredths / 100}% / ${r.real_return_after_hundredths / 100}% · 波动率 ${r.volatility_hundredths / 100}%`, description: `依次为退休前／后，已扣除通胀。通胀假设 ${p.assumptions.inflation_hundredths / 100}%；波动率只用于市场模拟。`, state: assumptionTag },
     { id: 'emergency', title: '应急金', value: `${r.emergency_months} 个月`, description: '按退休后每月必需支出计的参考金，用于大额计划的应急金线提示；不会从退休月账本另外扣除。', state: '参考线' },
   ];
@@ -87,7 +91,7 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
       </>}</div>{row.id !== 'assumptions' && <button id={row.id === 'time' ? 'plan-budget-entry' : undefined} className="ui-btn" aria-label={`调整${row.title}`} onClick={e => onEdit(row.id, e.currentTarget)}>调整</button>}</article>;
   const trajectoryInput = pred && plan && projection && outcome ? { plan, projection, outcome, assets: plan.assets_cents } : null;
   return <><div className="goal-layout">
-    <div className="goal-side"><article className="ui-card ui-content goal-answer" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项需确认' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p><div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
+    <div className="goal-side"><article className="ui-card ui-content goal-answer" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项需确认' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p>{pred && <HouseholdLines household={household} summary={pred.household} myStopMonth={myStopMonth}/>}<div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测{splitCouple && req && 'monthly_cents' in req.set ? `。${SPLIT_REQUIREMENT_HINT}` : ''}</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
       <div className="goal-result-actions">
         {onDetail && <button type="button" id="plan-detail-entry" className="primary goal-detail-entry" onClick={onDetail}>查看测算详情与图表</button>}
         {onReport && <button type="button" className="ui-btn goal-report-entry" disabled={reportDisabled} onClick={e => onReport(e.currentTarget)}>查看当前报告</button>}

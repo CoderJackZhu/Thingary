@@ -113,3 +113,16 @@ export function costsInput(d: Draft, saved: NonNullable<Saved>): SectionInput {
 /** 新的阶段性支出按「额外」计入退休预算，避免与生活费总额重复。 */
 export const withSpendItem = (d: Draft, item: StoredSpendItem): Draft => ({ ...d, spendItems: [...d.spendItems, item], retScopes: { ...d.retScopes, [`spend:${item.id}`]: { treatment: 'extra', ref: '' } } });
 export const withoutSpendItem = (d: Draft, id: string): Draft => { const { [`spend:${id}`]: _, ...retScopes } = d.retScopes; return { ...d, spendItems: d.spendItems.filter(i => i.id !== id), retScopes }; };
+
+/** 「孩子出生年月 + 几岁」换算成结束月份 YYYY-MM；任一输入无效返回 null。出生年月只用于换算，不保存。 */
+export function monthChildReachesAge(birthMonth: string, age: string | number): string | null {
+  const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(birthMonth);
+  const text = String(age).trim();
+  if (!m || !/^\d{1,2}$/.test(text)) return null;
+  const years = Number(text);
+  if (years < 1 || years > 40) return null;
+  const index = Number(m[1]) * 12 + Number(m[2]) - 1 + years * 12;
+  const year = Math.floor(index / 12);
+  if (year > 9999) return null;
+  return `${String(year).padStart(4, '0')}-${String(index % 12 + 1).padStart(2, '0')}`;
+}
