@@ -16,6 +16,21 @@ npm run tauri -- dev
 
 开发应用标题为「物谱 · 开发预览」，身份 `local.thingary.preview`。开发、测试和验收一律使用虚构资料、临时目录或独立身份，**不得打开或写入正式资料库 `local.thingary.main`**。样例库不是自己的资料，正式安装包也不是测试环境。
 
+## iOS 开发
+
+使用完整 Xcode（含 iOS SDK、Simulator runtime）、CocoaPods、Node 和 Rust；`xcode-select -p` 应指向 Xcode.app 的 Developer 目录，`xcrun simctl list runtimes` 中的 iOS 运行时不能标为 unavailable。安装 `aarch64-apple-ios`（真机）、`aarch64-apple-ios-sim`（Apple Silicon 模拟器）和按需的 `x86_64-apple-ios` 目标。
+
+```sh
+npm ci
+npm run ios:init
+npm run ios:check
+npm run ios:dev -- "iPhone Duo" --no-watch
+```
+
+`ios:init` 使用官方 Tauri CLI。Xcode 27 必须启用 UIScene：`Info.ios.plist` 声明非空的 TaoScene / TaoSceneDelegate 配置，使用锁定 Tao 已有的实现。当前桌面锁定的 CLI 2.11.5 把 Xcode 27 devicectl 返回的模拟器当作真机，导致错误的 archive／签名请求。`ios:dev` 单独固定调用官方 CLI 2.12.3，正确识别模拟器，不升级桌面依赖或改变锁文件；首次执行需联网取得 npm 缓存。该脚本使用本机回环地址；真机开发使用 `npm exec --yes --package=@tauri-apps/cli@2.12.3 -- tauri ios dev --host <Mac局域网IP>` 并由维护者配置开发证书，不做发行签名。提交 `src-tauri/gen/apple` 中的工程、共享 scheme、源文件、图标、plist、Podfile 和 project.yml；不提交 Externals、assets、build、Pods 或 xcuserdata。根目录现有忽略规则保持不变，首次加入生成源文件需逐项 `git add -f`。不要添加个人开发团队或发行签名。真机安装需要维护者自行配置开发证书；交叉编译检查不等于真机安装通过。
+
+I0 已在 iOS 27.1 的隔离模拟器通过启动、建库、账户保存、未知／正常盘点及回执、原生规划核心小场景和 PNG 预览的真实 IPC 验证；该运行时仅支持 iPhone Duo，不代表标准 iPhone、SE 或 Pro Max 已验。ARM64 模拟器与真机 Rust 目标检查通过，未进行真机签名／安装。I0 共用桌面 Rust 后端、bundled SQLite 与规划核心，使用 `app_local_data_dir()/library` 的 iOS 沙盒目录，身份保持 `local.thingary.preview`。桌面菜单、窗口尺寸与单实例插件仅在桌面启用。I0 暂用 index.html 验证；手机入口由独立界面任务提供。此阶段 iOS 身份验证能力为 false，通知及文件选择为占位，图片仅有 Rust JPEG/PNG/WebP 预览；不能据此声称面容锁、通知送达、HEIC、文件恢复或分享已通过。后续 I1 在同一分支替换这些边界，数据格式及 request_id、generation、回执协议保持共用。
+
 ## 自动检查
 
 在仓库根目录执行适用检查：

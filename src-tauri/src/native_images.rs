@@ -106,13 +106,13 @@ fn preview_error(code: i32, accepts_heic: bool) -> Error {
     }
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "ios"))]
 pub fn preview(bytes: &[u8]) -> Result<Vec<u8>> {
     preview_rust(bytes)
 }
 
 // Compile this implementation in macOS tests as well, without changing ImageIO there.
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "ios", test))]
 fn preview_rust(bytes: &[u8]) -> Result<Vec<u8>> {
     use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits};
     use std::io::Cursor;
@@ -183,7 +183,7 @@ fn preview_rust(bytes: &[u8]) -> Result<Vec<u8>> {
 }
 
 // Skip length-delimited metadata so an EOI-looking byte pair in Exif is not enough.
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "ios", test))]
 fn jpeg_is_complete(bytes: &[u8]) -> bool {
     let mut offset = 2; // SOI was already recognized by ImageReader.
     while let Some(rest) = bytes.get(offset..) {
@@ -433,4 +433,32 @@ mod tests {
         let bytes = vec![0; crate::files::MAX_IMAGE_BYTES + 1];
         assert_eq!(preview_rust(&bytes).unwrap_err().code, "IMAGE_SIZE");
     }
+}
+
+// I0: mobile file panels are added by the iOS platform bridge in I1.
+#[cfg(target_os = "ios")]
+pub(crate) fn pick(_: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    None
+}
+#[cfg(target_os = "ios")]
+pub(crate) fn pick_save(
+    _: &tauri::AppHandle,
+    _: &str,
+    _: &str,
+    _: &str,
+    _: &str,
+) -> Option<std::path::PathBuf> {
+    None
+}
+#[cfg(target_os = "ios")]
+pub(crate) fn pick_backup_open(_: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    None
+}
+#[cfg(target_os = "ios")]
+pub(crate) fn pick_spreadsheet_open(_: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    None
+}
+#[cfg(target_os = "ios")]
+pub(crate) fn pick_folder(_: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    None
 }

@@ -223,7 +223,9 @@ pub fn windows_exit_reminders_choice(app: tauri::AppHandle, exit: bool) {
 
 /// The native ⌘N/⌘F items, renamed to what the current page will do.
 pub struct PageMenu {
+    #[cfg(desktop)]
     pub new: tauri::menu::MenuItem<tauri::Wry>,
+    #[cfg(desktop)]
     pub find: tauri::menu::MenuItem<tauri::Wry>,
 }
 
@@ -234,6 +236,7 @@ pub fn set_page_menu(
     find_label: Option<String>,
     menu: tauri::State<'_, PageMenu>,
 ) -> Result<()> {
+    #[cfg(desktop)]
     for (item, label, neutral) in [
         (&menu.new, new_label, "新增"),
         (&menu.find, find_label, "搜索"),
@@ -243,6 +246,8 @@ pub fn set_page_menu(
         item.set_enabled(label.is_some())
             .map_err(|_| Error::new("MENU", "菜单更新失败"))?;
     }
+    #[cfg(mobile)]
+    let _ = (new_label, find_label, menu);
     Ok(())
 }
 
@@ -1148,10 +1153,13 @@ pub async fn auto_backup_open_folder(worker: tauri::State<'_, Worker>) -> Result
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let folder = w.auto_backup_folder()?;
+        #[cfg(mobile)]
+        let _ = folder;
         #[cfg(target_os = "macos")]
         let opener = "/usr/bin/open";
         #[cfg(windows)]
         let opener = "explorer";
+        #[cfg(desktop)]
         std::process::Command::new(opener)
             .arg(&folder)
             .spawn()
@@ -1439,6 +1447,10 @@ pub fn open_notification_settings() -> Result<()> {
                 "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
             ))
         }
+    }
+    #[cfg(mobile)]
+    {
+        Ok(())
     }
 }
 #[tauri::command]
