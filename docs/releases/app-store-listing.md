@@ -1,6 +1,6 @@
 # App Store 上架文案草稿（iOS）
 
-维护者提交 App Store Connect 时的素材草稿，不是版本说明，也不代表已提交审核。标注「占位」的项目由维护者决定。用语以[使用指南](../USER_GUIDE.md)和[业务规则](../PRODUCT_RULES.md)为准；没有账号、同步、联网行情或 AI，文案不得出现这些。使用指南已增加「iPhone 版」一节及备份、更新、隐私、通知各章的 iPhone 说明（标注 TestFlight 测试中、尚未上架）；上架后需维护者把「即将推出」改为 App Store 链接。
+维护者提交 App Store Connect 时的素材草稿，不是版本说明，也不代表已提交审核。2026-10-21 已定选项见下表；其余占位仍由维护者填写。用语以[使用指南](../USER_GUIDE.md)和[业务规则](../PRODUCT_RULES.md)为准；没有账号、同步、联网行情或 AI，文案不得出现这些。使用指南已增加「iPhone 版」一节及备份、更新、隐私、通知各章的 iPhone 说明（标注 TestFlight 测试中、尚未上架）；上架后需维护者把「即将推出」改为 App Store 链接。
 
 字数限制：宣传文本 170 字符、描述 4000 字符、关键词 100 bytes，出自 [App Store Connect 平台版本信息](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)；名称与副标题 30 字符是常见限制，该页未列出，需维护者在填写时核实。
 
@@ -8,13 +8,15 @@
 
 | 项目 | 草稿 | 状态 |
 |---|---|---|
-| 应用名称 | 物谱（建议；也可「物谱 Thingary」） | 占位，维护者决定；须在 App Store 中未被占用 |
-| Bundle ID | `local.thingary.main` 是桌面正式身份，iOS 上架用什么需维护者决定 | 占位。不要使用当前预览身份 `local.thingary.preview` |
+| 应用名称 | 物谱；被占用时用「物谱 Thingary」 | Jack 已定；登录后检查可用性 |
+| Bundle ID | `local.thingary.main` | Jack 已定；使用 `tauri.appstore.conf.json`，开发取证仍用 `local.thingary.preview` |
 | SKU | 自定，例如 `thingary-ios-1` | 占位 |
 | 主要语言 | 简体中文 | 建议 |
-| 价格 | 免费 / 付费 | 占位，维护者决定；文案不含价格 |
+| 价格 | 免费 | Jack 已定 |
+| 销售范围 | 海外区，排除中国大陆（尚未备案） | Jack 已定；登录后台后执行 |
+| 设备 | 仅 iPhone、竖屏 | 不包含 iPad |
 | 版权 | `© <年份> <持有人>` | 占位 |
-| 开发者账号类型 | 个人 / 组织 | 占位；决定卖家名称显示与中国大陆合规项 |
+| 开发者账号类型 | Jack 朋友的个人账号 | Jack 已定；需完成账号权限和签名配置 |
 
 ## 副标题（≤30 字）
 
@@ -81,7 +83,7 @@
 | 主要类别 | 财务（Finance） | 账户盘点与规划是主线。备选「效率」（Productivity） |
 | 次要类别 | 效率（Productivity）或 生活（Lifestyle） | 物品档案属辅助 |
 
-选「财务」类别可能触发 App 审核对金融类应用的额外说明要求，尤其面向中国大陆区时，需维护者确认（见 [RELEASING 的 iOS 小节](../RELEASING.md#ios)）。
+物谱是本地记录与估算工具，不提供投资、借贷、交易或支付服务。若实际后台或审核要求额外说明，由维护者根据真实功能填写。
 
 ## 年龄分级问卷（建议答案）
 
@@ -118,22 +120,28 @@
 - 相机用于给物品拍照，面容 ID 用于可选的应用锁，通知为本机提醒。
 - 开启 UIFileSharingEnabled 是为了让用户在「文件」App 中取得备份（见 Info.plist）。
 
-## 截图清单（只列清单，待在模拟器用虚构资料拍摄）
+## 截图清单
 
-使用虚构样例资料，不用真实账户。尺寸见 [截图规格](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)：6.9 寸 1320×2868、6.7 寸 1290×2796（Apple 页面列在同一「Dynamic Island 大尺寸」组，不是必填，缺失时从其他尺寸缩放）、6.1 寸 1179×2556 或 1206×2622（页面列为必填至少一张）。格式 PNG 或 JPEG，不含透明通道，每个尺寸最多 10 张。以下各 5 张，顺序相同；若 6.9 与 6.7 视觉一致，可只提交其一。
+前 4 张使用样例，第 5 张在空白开发预览资料库手工录入「虚构风景装饰画」，照片选自新建模拟器自带的瀑布照片。全程使用默认预览身份，在 iPhone 17 Pro Max 模拟器拍摄 5 张浅色竖屏图（1320×2868）。原图与录屏保存在仓库外的 `~/Thingary-store-shots/`，PR 只附缩略图，不提交到 Git。保持真实应用画面，不另加图上标题。
 
-| 序号 | 内容 | 界面 | 说明文案建议（图上标题） |
+| 序号 | 内容 | 实际入口 | 文件名 |
 |---|---|---|---|
-| 1 | 总览 | 总览标签 | 家底有数 |
-| 2 | 盘点 | 财富标签的账户或盘点记录 | 每月盘一次，不用记流水 |
-| 3 | 规划结果 | 规划标签的目标或测算详情 | 算算还要上几年班 |
-| 4 | 两人规划 | 规划「两个人」的设置或结果 | 两个人一起算 |
-| 5 | 物品 | 物品标签的列表或详情 | 物品档案，日均成本 |
+| 1 | 总览 | 「先看看样例」后，总览标签 | `01-overview.png` |
+| 2 | 完整盘点 | 财富 › 完整盘点 | `02-full-checkin.png` |
+| 3 | 一个人的规划结果，显示预计停工年龄／月份 | 规划 › 目标 | `03-plan-solo.png` |
+| 4 | 两个人的规划结果 | 规划中设置「两个人」后回到目标 | `04-plan-couple.png` |
+| 5 | 带照片的物品列表或详情 | 物品 › 虚构风景装饰画详情 | `05-item-photo.png` |
 
-| 尺寸 | 数量 | 拍摄机型 |
-|---|---|---|
-| 6.9 寸（1320×2868） | 5 | iPhone 17 Pro Max 模拟器等 |
-| 6.7 寸（1290×2796） | 5 | iPhone 15 Plus 等 |
-| 6.1 寸（1179×2556 或 1206×2622） | 5 | iPhone 17 / 17 Pro 等 |
+拍摄前清理状态栏：
 
-iPad 截图：是否保留 iPad 设备族由维护者决定（见 RELEASING 的 iOS 小节）；若保留，则 App Store Connect 要求 iPad 截图，本清单未包含。截图来源与复现应登记到[截图清单](../images/README.md)。
+```sh
+xcrun simctl ui "$SIM_UDID" appearance light
+xcrun simctl status_bar "$SIM_UDID" override --time '9:41' \
+  --dataNetwork wifi --wifiMode active --wifiBars 3 \
+  --batteryState charged --batteryLevel 100
+xcrun simctl io "$SIM_UDID" screenshot "$HOME/Thingary-store-shots/01-overview.png"
+```
+
+完成后 `xcrun simctl status_bar "$SIM_UDID" clear`。PNG／JPEG 不得含 alpha，逐张检查尺寸、照片、规划人数和结果，不能用设置页替代规划结果。当前规划目标页显示预计停工年龄／月份，剩余工作年数显示在总览；第 3 张按实际目标页取景，第 1 张保留「还要上几年班」。
+
+规格参考 [Apple 截图规范](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)（2026-10-22 核对）：1320×2868 属于 Dynamic Island 大屏组；官方页面另列 Dynamic Island 中屏为必需尺寸，因此这 5 张是本轮指定的 6.9 英寸素材，**不表示其他必需尺寸已齐全**。提交前以 App Store Connect 实际槽位核对是否需补拍 1179×2556 或 1206×2622。仅支持 iPhone，不需 iPad 截图。
