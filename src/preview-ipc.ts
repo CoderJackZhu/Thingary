@@ -366,7 +366,25 @@ function checkinStatus() {
   return { months: checkinMonths, last_check_in: last, next_date: checkinMonths ? next.toLocaleDateString('sv') : null };
 }
 let previewUpdateState: UpdateDiscoveryState | null = null;
+// Mobile full-inventory preview: a committed write can lose its response and first receipt read.
+const mobileSnapshotLost = new Set<string>();
+const mobileSnapshotLookup = new Set<string>();
 export async function handle(command: string, payload: unknown): Promise<unknown> {
+  const mobileInput = (payload as { input?: { request_id?: string }; request?: string } | null);
+  if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'save-error') {
+    throw { code: 'PREVIEW_ERROR', message: '虚构盘点保存失败，输入已保留。' };
+  }
+  if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'unknown' && mobileInput?.input?.request_id && !mobileSnapshotLost.has(mobileInput.input.request_id)) {
+    const result = wealthPreview(command, (payload ?? {}) as Record<string, unknown>);
+    if (result) {
+      mobileSnapshotLost.add(mobileInput.input.request_id);
+      mobileSnapshotLookup.add(mobileInput.input.request_id);
+      throw { message: '虚构盘点保存响应丢失。' };
+    }
+  }
+  if (command === 'wealth_request_result' && mobileInput?.request && mobileSnapshotLookup.delete(mobileInput.request)) {
+    throw { message: '虚构盘点回执暂不可用，请核对原请求。' };
+  }
   if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
   if (command === 'notification_status') return '';
   if (command === 'goal_progress_list') return previewProgress;
