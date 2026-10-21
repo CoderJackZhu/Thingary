@@ -11,6 +11,8 @@ on:
       - 'scripts/build-site.mjs'
       - 'scripts/guide-renderer.mjs'
       - 'tests/site-guide.test.mjs'
+      - 'tests/site-calc.test.mjs'
+      - 'src/planning-engine-wasm.ts'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -36,7 +38,7 @@ jobs:
         with:
           node-version: '22'
       - name: Check guide rendering and links
-        run: node --test tests/site-guide.test.mjs
+        run: node --test tests/site-guide.test.mjs tests/site-calc.test.mjs
       - name: Build static website and local help
         run: node scripts/build-site.mjs _site
       - uses: actions/upload-pages-artifact@v3

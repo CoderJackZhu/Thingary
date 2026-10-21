@@ -110,6 +110,9 @@ p, h1, h2, h3, a, figcaption { overflow-wrap: anywhere; }
 .text-link { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; font-size: 13px; }
 .release-note { margin-top: 17px; color: var(--muted); font-size: 11px; }
 .release-note a { color: var(--muted); }
+.calc-callout { margin-top: 22px; font-size: 14px; }
+.calc-callout a { display: inline-block; padding: 9px 16px; border-radius: 999px; background: var(--accent-wash); color: var(--accent); text-decoration: none; font-weight: 500; }
+.calc-callout a:hover { color: var(--accent); text-decoration: underline; }
 .showcase { margin: 56px auto 0; }
 .showcase-frame { padding: 8px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
 .showcase-frame img { border-radius: 12px; background: var(--wash); }
