@@ -51,11 +51,11 @@ export const routes = {
   'spending.virtual': { tab: 'wealth', title: '虚拟资产', design: '16' },
   'spending.review': { tab: 'wealth', title: '财务复盘' },
   // 规划
-  'plan.goal': { tab: 'plan', title: '目标', design: '17' },
-  'plan.detail': { tab: 'plan', title: '测算详情', design: '18' },
-  'plan.whatif': { tab: 'plan', title: '假设分析', design: '19' },
-  'plan.trials': { tab: 'plan', title: '试算', design: '20' },
-  'plan.setup': { tab: 'plan', kind: 'modal', title: '设置条件', design: '21' },
+  'plan.goal': { tab: 'plan', title: '目标', design: '17', load: () => import('./plan/Goal') },
+  'plan.detail': { tab: 'plan', title: '测算详情', design: '18', load: () => import('./plan/Detail') },
+  'plan.whatif': { tab: 'plan', title: '假设分析', design: '19', load: () => import('./plan/WhatIf') },
+  'plan.trials': { tab: 'plan', title: '试算', design: '20', load: () => import('./plan/Trials') },
+  'plan.setup': { tab: 'plan', kind: 'modal', title: '设置条件', design: '21', load: () => import('./plan/Setup') },
   // 我的
   'me.home': { tab: 'me', title: '我的', design: '22' },
   'me.timeline': { tab: 'me', title: '时间轴', design: '23' },
