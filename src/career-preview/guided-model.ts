@@ -8,8 +8,8 @@ import type { IncomeDraft } from './income-scope.ts';
 import { ageMonthsAt, maxGap } from '../plan-career-map.ts';
 import { careerMonth } from '../plan-career-contract.ts';
 import type { MaxGap, MinWindow, Reason } from '../plan-career-map.ts';
-import { t } from '../i18n.ts';
-export const yuan = (cents: string | number) => `¥${(Number(cents) / 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
+import { t, numberLocale } from '../i18n.ts';
+export const yuan = (cents: string | number) => `¥${(Number(cents) / 100).toLocaleString(numberLocale(), { maximumFractionDigits: 2 })}`;
 export type Tone = 'good' | 'warn' | 'bad' | 'wait';
 export type Say = { tone: Tone; headline: string; sub: string };
 

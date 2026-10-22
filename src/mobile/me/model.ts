@@ -8,7 +8,7 @@ import type { Mode, Style } from '../../appearance.ts';
 import { styles } from '../../appearance.ts';
 import type { AutoBackupStatus } from '../../auto-backup-format.ts';
 import type { TimelineEvent } from '../../Timeline.tsx';
-import { t } from '../../i18n.ts';
+import { t, numberLocale } from '../../i18n.ts';
 /** Settings sub-pages open as `me.settings` with `{ page }`; the title is also the back label of the next page. */
 export type SettingsPage = 'modules' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license';
 export const settingsTitles: Record<SettingsPage, string> = {
@@ -89,7 +89,7 @@ export function restoreLines(summary: BackupSummary): string[] {
     `周期付款 ${summary.payments} 条`, `虚拟资产 ${summary.virtual_assets} 件`, `导入映射 ${summary.import_mappings ?? 0} 条`, `导入回执 ${summary.import_receipts ?? 0} 份`, `原图 ${summary.files} 个`,
   ];
 }
-export const restoreTime = (summary: BackupSummary): string => new Date(summary.created_at).toLocaleString('zh-CN');
+export const restoreTime = (summary: BackupSummary): string => new Date(summary.created_at).toLocaleString(numberLocale());
 
 /** 自动备份列表：今天／昨天／日期 + 时间。 */
 export function autoBackupLabel(item: AutoBackupStatus['items'][number], today: string): { title: string; sub: string } {

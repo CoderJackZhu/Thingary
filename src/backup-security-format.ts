@@ -1,3 +1,4 @@
+import { numberLocale } from './i18n.ts';
 /** Backup-security display types and pure text helpers. All states come from
  * the backend's machine-local policy; nothing here is secret. */
 
@@ -35,7 +36,7 @@ export const STATE_LABELS: Record<SecurityStatus['state'], string> = {
 };
 
 function formatWhen(at: string): string {
-  return new Date(at).toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(at).toLocaleString(numberLocale(), { dateStyle: 'short', timeStyle: 'short' });
 }
 
 /** The one-line status next to the panel heading. */

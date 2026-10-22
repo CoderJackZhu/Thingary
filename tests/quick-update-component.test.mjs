@@ -16,7 +16,7 @@ const draft = { generation: 'fictional', date: '2026-10-17', existing: null, row
 function runtime({ failure = null, hidden = false, fixtureDraft = draft, fixtureAccount = account, receiptReadFailures = 0 } = {}) {
   const states = [], refs = [], deps = [], effects = [], calls = [], closes = [];
   let si = 0, ri = 0, ei = 0, nextDraft = structuredClone(fixtureDraft), pending = null, writes = 0, confirmed = null;
-  const context = { ...wealth, ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput: 'currency-input', module: { exports: {} }, exports: {}, require: () => jsx, CloseButton: 'close', DateInput: 'date', CentInput: 'cents', FormRow: 'row',
+  const context = { ...wealth, ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput: 'currency-input', CurrencyPicker: 'CurrencyPicker', module: { exports: {} }, exports: {}, require: () => jsx, CloseButton: 'close', DateInput: 'date', CentInput: 'cents', FormRow: 'row',
     errorMessage: e => e.message, money: value => `金额${value}`, localStorage: { getItem: () => hidden ? '1' : null }, crypto,
     invoke: async (command, input) => { calls.push({ command, input }); if (confirmed && receiptReadFailures-- > 0) throw new Error('虚构只读暂时失败'); return structuredClone({ ...nextDraft, date: input.date, ...(confirmed ? { existing: confirmed } : {}) }); },
     submit: async request => { calls.push(request); writes++; if (failure) { if (failure instanceof wealth.Unresolved) pending = request; throw failure; } return { id: 'saved', ...nextDraft }; },
@@ -71,7 +71,7 @@ test('虚构账户编辑入口：打开快速更新及刷新只读观测后，�
   const fn = page.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'AccountDialog');
   const code = ts.transpileModule(fn.getText() + '\nmodule.exports=AccountDialog;', { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const states = [], refs = [], opened = [], closed = []; let si = 0, ri = 0;
-  const context = { ...wealth, ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput: 'currency-input', module: { exports: {} }, exports: {}, require: () => jsx, CloseButton: 'close', DeleteButton: 'delete', FormRow: 'row', DateInput: 'date', CentInput: 'cents', Switch: 'switch',
+  const context = { ...wealth, ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput: 'currency-input', CurrencyPicker: 'CurrencyPicker', module: { exports: {} }, exports: {}, require: () => jsx, CloseButton: 'close', DeleteButton: 'delete', FormRow: 'row', DateInput: 'date', CentInput: 'cents', Switch: 'switch',
     document: { getElementById: () => ({ focus() {} }) },
     useState: init => { const i = si++; if (!(i in states)) states[i] = typeof init === 'function' ? init() : init; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
     useRef: init => refs[ri++] ??= { current: init }, useEffect: () => {},
@@ -83,14 +83,14 @@ test('虚构账户编辑入口：打开快速更新及刷新只读观测后，�
   element(tree, node => node.props['aria-label'] === '账户名称').props.onChange({ target: { value: '虚构未保存名称' } });
   element(tree, node => node.type === 'textarea').props.onChange({ target: { value: '虚构未保存备注' } });
   tree = render();
-  element(tree, node => node.props['aria-label'] === '账户币种').props.onChange({ target: { value: 'USD' } });
+  element(tree, node => node.props.label === '账户币种').props.onChange('USD');
   tree = render(); assert.equal(element(tree, node => node.type === 'button' && node.props.children === '更新此账户').props.disabled, true); assert.match(text(tree), /请先保存币种/);
-  element(tree, node => node.props['aria-label'] === '账户币种').props.onChange({ target: { value: 'CNY' } });
+  element(tree, node => node.props.label === '账户币种').props.onChange('CNY');
   tree = render(); element(tree, node => node.type === 'button' && node.props.children === '更新此账户').props.onClick();
   assert.deepEqual(opened, ['cash']); assert.deepEqual(closed, []);
   current = { ...current, latest: { date: '2026-10-17', amount_cents: '12345' }, last_entered_on: '2026-10-17', has_entries: true };
   tree = render();
-  assert.equal(element(tree, node => node.props['aria-label'] === '账户币种').props.disabled, true);
+  assert.equal(element(tree, node => node.props.label === '账户币种').props.disabled, true);
   assert.equal(element(tree, node => node.props['aria-label'] === '账户名称').props.value, '虚构未保存名称');
   assert.equal(element(tree, node => node.type === 'textarea').props.value, '虚构未保存备注');
 });

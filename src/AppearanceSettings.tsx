@@ -1,7 +1,10 @@
 import { shiftModKey } from './undo-shortcut';
 import type { CSSProperties } from 'react';
 import { styles, type Style } from './appearance';
-import { t } from './i18n.ts';
+import { CurrencyPicker } from './CurrencyPicker';
+import { readDefaultCurrency, writeDefaultCurrency } from './currency-picker.ts';
+import { useState } from 'react';
+import { t, langPreferences, readLangPreference, setLangPreference } from './i18n.ts';
 // 主题卡片里的小示意：侧栏、标题条、一张卡片和一个强调色块，颜色取自该主题浅色版。
 const swatch: Record<Style, { bg: string; side: string; ink: string; accent: string; card: CSSProperties }> = {
   native: { bg: '#fff', side: '#f4f4f6', ink: '#1d1d1f', accent: '#0a6cff', card: { border: '1px solid #e3e3e8' } },
@@ -9,6 +12,7 @@ const swatch: Record<Style, { bg: string; side: string; ink: string; accent: str
   bento: { bg: '#f2f2f7', side: '#f2f2f7', ink: '#1c1c1e', accent: '#5e5ce6', card: { background: '#fff', boxShadow: '0 2px 6px #0000001a' } },
 };
 export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: (s: Style) => void }) {
+  const [currency, setCurrency] = useState(readDefaultCurrency);
   return <section className="ui-card ui-content module-settings appearance-settings" aria-labelledby="appearance-heading">
     <div className="data-heading"><div><p className="eyebrow">{t('界面')}</p><h2 id="appearance-heading">{t('外观')}</h2></div></div>
     <div className="theme-cards" role="radiogroup" aria-label={t('主题')}>{styles.map((s, index) => { const c = swatch[s.value]; return <button key={s.value} type="button" role="radio" aria-checked={style === s.value} tabIndex={style === s.value ? 0 : -1} className="theme-card" onClick={() => onStyle(s.value)} onKeyDown={event => {
@@ -26,5 +30,7 @@ export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: 
       <span className="theme-name"><strong>{s.label}</strong><small>{s.note}</small></span>
     </button>; })}</div>
     <p className="data-intro">{t('浅色、深色或跟随系统请在侧栏底部切换，与上面的主题风格分开保存；{v1}D 在浅色与深色间切换。', { v1: shiftModKey() })}</p>
+    <label className="privacy-idle">{t('语言')} / Language<select defaultValue={readLangPreference()} onChange={event => setLangPreference(event.target.value as ReturnType<typeof readLangPreference>)}>{langPreferences.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select></label>
+    <div className="privacy-idle">{t('默认币种')}<CurrencyPicker label={t('默认币种')} value={currency} onChange={code => { if (writeDefaultCurrency(code)) setCurrency(code); }}/><span className="muted small">{t('新增金额时默认使用；已有记录不变。')}</span></div>
   </section>;
 }

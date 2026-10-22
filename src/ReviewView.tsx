@@ -21,7 +21,7 @@ import type { Read, Review, ReviewPage } from './review';
 import { Info } from './FormControls';
 import { DailyCostMetric } from './DailyCostMetric';
 import './review.css';
-import { t } from './i18n.ts';
+import { t, numberLocale } from './i18n.ts';
 const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴', wishlist: '心愿清单' };
 
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
@@ -132,7 +132,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   const metrics = [
     modules.expenses && e && { label: t('{v1}{v2}重要支出', { v1: year ?? '全部期间', v2: year === null ? '' : ' 年' }), value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? t('{unknown_amount_count} 笔金额未知', { unknown_amount_count: e.unknown_amount_count }) : '', page: 'expenses' as ReviewPage, big: true },
     modules.recurring && r && { label: t('固定负担'), value: <>{money(r.monthly_cents)}<small>{t('/月')}</small></>, note: t('当前计划'), page: 'recurring' as ReviewPage, big: true },
-    p && { label: t('平均持有'), value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString('zh-CN')}<small>{t('天')}</small></>, note: '', page: 'assets' as ReviewPage },
+    p && { label: t('平均持有'), value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString(numberLocale())}<small>{t('天')}</small></>, note: '', page: 'assets' as ReviewPage },
     modules.wishlist && p && { label: t('考虑中心愿'), value: <>{p.considering_wishes}<small>{t('条')}</small></>, note: p.legacy_wishes > 0 ? t('另有 {legacy_wishes} 条历史待核实', { legacy_wishes: p.legacy_wishes }) : '', page: 'wishlist' as ReviewPage },
   ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null; big?: boolean }[];
   return <section className="review-section u16" aria-label={t('综合回顾')} aria-busy={updating}>

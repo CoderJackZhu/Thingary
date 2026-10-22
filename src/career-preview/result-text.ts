@@ -1,6 +1,7 @@
+import { numberLocale } from '../i18n.ts';
 import type { CareerEvaluation, CareerRequirement } from '../plan-career-contract.ts';
 import type { CareerComparison } from '../plan-career-compare.ts';
-export const money = (cents: string | number) => `¥${(Number(cents)/100).toLocaleString('zh-CN',{maximumFractionDigits:2})}`;
+export const money = (cents: string | number) => `¥${(Number(cents)/100).toLocaleString(numberLocale(),{maximumFractionDigits:2})}`;
 const difference = (label: string, cents: string) => Number(cents) === 0 ? `${label}不变` : `${label}${Number(cents) > 0 ? '增加' : '减少'} ${money(Math.abs(Number(cents)))}`;
 export function comparisonText(result: CareerComparison) {
   if (result.change.kind === 'recovery') {

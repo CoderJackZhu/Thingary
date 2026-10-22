@@ -7,7 +7,8 @@ import { groupNameError, recallGroupViews, rememberGroupView } from './account-g
 import type { AccountGroup, AccountGroupList } from './account-groups';
 import { QuickUpdateDialog } from './QuickUpdateDialog';
 import { CurrencyInput } from './CurrencyInput';
-import { currencies, currencyCode, currencyDecimals, currencyAmount, rateLabel, rateSuggestions, convertCurrency, validCurrency } from './currency';
+import { CurrencyPicker } from './CurrencyPicker';
+import { currencyCode, currencyDecimals, currencyAmount, rateLabel, rateSuggestions, convertCurrency, validCurrency } from './currency';
 import { accountUpdateAge } from './wealth';
 import { SavingsGoals } from './SavingsGoals';
 import { CheckinReminder } from './CheckinReminder';
@@ -391,7 +392,7 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
     <section className="form-block">
       <FormRow label={tt('名称')}><input id="wealth-account-name" aria-label={tt('账户名称')} maxLength={80} value={fields.name} disabled={busy || stuck} onChange={e => set('name', e.target.value)} placeholder={tt('例如 招行储蓄卡')}/></FormRow>
       <FormRow label={tt('平台')} hint={tt('银行、券商等机构，可留空；不决定账户分组')}><input aria-label={tt('平台')} maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder={tt('可留空')}/></FormRow>
-      <FormRow label={tt('币种')} hint={account?.has_entries ? tt('已有记录的账户不能更改币种，请新建账户并停用旧账户。') : tt('汇率手填，不联网；未列出的币种按两位小数处理。')}><input aria-label={tt('账户币种')} list="wealth-currencies" maxLength={3} value={currencyCode(fields.currency)} disabled={busy || stuck || !!account?.has_entries} onChange={e => set('currency', e.target.value.toUpperCase())}/><datalist id="wealth-currencies">{currencies.map(([code,name])=><option key={code} value={code}>{name}</option>)}</datalist></FormRow>
+      <FormRow label={tt('币种')} hint={account?.has_entries ? tt('已有记录的账户不能更改币种，请新建账户并停用旧账户。') : tt('汇率手填，不联网。')}><CurrencyPicker label={tt('账户币种')} value={currencyCode(fields.currency)} disabled={busy || stuck || !!account?.has_entries} onChange={code => set('currency', code)}/></FormRow>
       <FormRow label={tt('类型')} hint={account ? tt('资产或负债建立后不能更改') : tt('选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额')}><select aria-label={tt('类型')} value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on || account?.fields.purchase_cents != null || account?.fields.purchased_on)) { setNotice('请先清空并保存购入价和购入日期，再更改类型'); return; } setNotice(''); setFields(f => ({...selectAccountKind(f, kind, countedChoice),...(!holdingSupported(kind)?{holding_mode:false,holding_unit:null}:{})})); }}>
         {(!account || fields.side === 'asset') && <optgroup label={tt('资产')}>{assetKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
         {(!account || fields.side === 'liability') && <optgroup label={tt('负债')}>{liabilityKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}

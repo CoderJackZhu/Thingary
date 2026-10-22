@@ -16,6 +16,7 @@ function paramMap(params) {
 export function unwrapT(text) {
   const fn = '(?:t|tr|tt)';
   return text
+    .replace(/numberLocale\(\)/g, "'zh-CN'")
     // a bare JSX child {t('a {x} b', { x: expr })} -> a {expr} b
     .replace(new RegExp(`(?<![=\\w])\\{${fn}\\('((?:[^'\\\\]|\\\\.)*)', \\{ ((?:[^{}]|\\{[^{}]*\\})*?) \\}\\)\\}`, 'g'), (whole, key, params) => {
       const map = paramMap(params);

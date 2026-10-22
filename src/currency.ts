@@ -1,6 +1,8 @@
-import { t } from './i18n.ts';
+import { t, numberLocale } from './i18n.ts';
 /** Offline input units. CNY cents remain the only input to downstream calculations. */
-export const currencies = [['CNY','人民币',2],['HKD','港币',2],['USD','美元',2],['EUR','欧元',2],['JPY','日元',0],['GBP','英镑',2],['SGD','新加坡元',2],['AUD','澳元',2],['CAD','加元',2],['CHF','瑞士法郎',2],['TWD','新台币',2],['MOP','澳门元',2]] as const;
+export const currencies = [['CNY','人民币',2],['USD','美元',2],['JPY','日元',0],['EUR','欧元',2],['GBP','英镑',2],['KRW','韩元',0],['HKD','港币',2],['TWD','新台币',2],['MOP','澳门元',2],['SGD','新加坡元',2],['AUD','澳元',2],['CAD','加元',2],['CHF','瑞士法郎',2],['NZD','新西兰元',2],['THB','泰铢',2],['MYR','马来西亚林吉特',2],['IDR','印尼盾',2],['PHP','菲律宾比索',2],['VND','越南盾',0],['INR','印度卢比',2],['AED','阿联酋迪拉姆',2],['SAR','沙特里亚尔',2],['TRY','土耳其里拉',2],['RUB','俄罗斯卢布',2],['BRL','巴西雷亚尔',2],['MXN','墨西哥比索',2],['ZAR','南非兰特',2],['SEK','瑞典克朗',2],['NOK','挪威克朗',2],['DKK','丹麦克朗',2],['PLN','波兰兹罗提',2],['CZK','捷克克朗',2],['HUF','匈牙利福林',2],['ILS','以色列新谢克尔',2]] as const;
+/** 国家／地区代码，用来生成国旗；EU 用欧盟旗。 */
+export const currencyRegion: Record<string,string> = {CNY:'CN',USD:'US',JPY:'JP',EUR:'EU',GBP:'GB',KRW:'KR',HKD:'HK',TWD:'TW',MOP:'MO',SGD:'SG',AUD:'AU',CAD:'CA',CHF:'CH',NZD:'NZ',THB:'TH',MYR:'MY',IDR:'ID',PHP:'PH',VND:'VN',INR:'IN',AED:'AE',SAR:'SA',TRY:'TR',RUB:'RU',BRL:'BR',MXN:'MX',ZAR:'ZA',SEK:'SE',NOK:'NO',DKK:'DK',PLN:'PL',CZK:'CZ',HUF:'HU',ILS:'IL'};
 export const currencyCode = (code?: string) => code ?? 'CNY';
 export const currencyDecimals = (code: string) => currencies.find(c=>c[0]===code)?.[2] ?? 2;
 export const validCurrency = (code: string) => /^[A-Z]{3}$/.test(code);
@@ -28,7 +30,7 @@ export function decimalUnits(value: string, places: number): string {
 export const rateLabel = (micro: string) => decimalUnits(micro,6).replace(/\.?0+$/,'');
 export function currencyAmount(code: string, minor: string): string {
   const raw=decimalUnits(minor,currencyDecimals(code)),[whole,frac]=raw.split('.');
-  return `${BigInt(whole).toLocaleString('zh-CN')}${frac===undefined?'':'.'+frac} ${code}`;
+  return `${BigInt(whole).toLocaleString(numberLocale())}${frac===undefined?'':'.'+frac} ${code}`;
 }
 export function validateCurrencyFact(code: string, fact: CurrencyFact): void {
   if(code==='CNY'||fact.amount_cents===null){if(fact.original_minor!=null||fact.fx_rate_micro!=null)throw new Error(t('人民币或未知金额不能填写原币和汇率。'));return;}

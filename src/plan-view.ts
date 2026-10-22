@@ -4,7 +4,7 @@ import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, ta
 import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
-import { t as tr } from './i18n.ts';
+import { t as tr, numberLocale } from './i18n.ts';
 export type ValueMode = 'today' | 'nominal';
 export type Tone = 'good' | 'watch' | 'bad';
 export type Seg = { t: string; strong?: boolean };
@@ -17,7 +17,7 @@ export function compactYuan(cents: number): string {
   const v = cents / 100, a = Math.abs(v), sign = v < 0 ? '−' : '';
   if (a >= 1e8) return `${sign}¥${trim(a / 1e8)}亿`;
   if (a >= 1e4) return `${sign}¥${trim(a / 1e4)}万`;
-  return `${sign}¥${Math.round(a).toLocaleString('zh-CN')}`;
+  return `${sign}¥${Math.round(a).toLocaleString(numberLocale())}`;
 }
 const trim = (x: number) => (x >= 100 ? Math.round(x).toString() : x.toFixed(1).replace(/\.0$/, ''));
 

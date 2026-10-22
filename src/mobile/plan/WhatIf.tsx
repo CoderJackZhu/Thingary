@@ -39,7 +39,7 @@ import {
 } from "./risk-view.ts";
 import { CoverageSummary } from "./CoverageSummary";
 import "./risk.css";
-import { t } from '../../i18n.ts';
+import { t, numberLocale } from '../../i18n.ts';
 export default function WhatIf() {
   const { capabilities, loading, error, reload, today } = usePlan();
   const nav = useNav();
@@ -148,9 +148,9 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
   }, [plan, count, run]);
   const fan = useMemo(() => (mc ? fanChart(mc) : null), [mc]);
   const marketText = mc
-    ? `${mc.n.toLocaleString("zh-CN")} 条路径中，${Math.round(mc.success_rate * 100)}% 按完整预算覆盖到 ${timeLabel(plan, plan.horizon_months - 1)}${plan.mode === "fire" ? "并实现财务独立" : ""}。`
+    ? `${mc.n.toLocaleString(numberLocale())} 条路径中，${Math.round(mc.success_rate * 100)}% 按完整预算覆盖到 ${timeLabel(plan, plan.horizon_months - 1)}${plan.mode === "fire" ? "并实现财务独立" : ""}。`
     : running
-      ? `正在计算 ${done.toLocaleString("zh-CN")} / ${Number(count).toLocaleString("zh-CN")} 条路径。`
+      ? `正在计算 ${done.toLocaleString(numberLocale())} / ${Number(count).toLocaleString(numberLocale())} 条路径。`
       : "暂无本次市场路径结果。";
   return (
     <>

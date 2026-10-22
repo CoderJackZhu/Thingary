@@ -4,7 +4,9 @@ import { applyAppearance, readMode, readStyle, styles } from '../../../appearanc
 import type { Mode, Style } from '../../../appearance';
 import { FormGroup, SegmentedControl } from '../../ui';
 import { SettingsShell } from './Shell';
-import { t } from '../../../i18n.ts';
+import { CurrencyPicker } from '../../../CurrencyPicker';
+import { readDefaultCurrency, writeDefaultCurrency } from '../../../currency-picker.ts';
+import { t, langPreferences, readLangPreference, setLangPreference } from '../../../i18n.ts';
 // Same swatches as the desktop theme cards: colors are taken from each theme's light version.
 const swatch: Record<Style, { bg: string; side: string; ink: string; accent: string; card: CSSProperties }> = {
   native: { bg: '#fff', side: '#f4f4f6', ink: '#1d1d1f', accent: '#0a6cff', card: { border: '1px solid #e3e3e8' } },
@@ -15,10 +17,12 @@ const modes: { id: Mode; label: string }[] = [{ id: 'light', label: t('浅色') 
 
 /** 外观: 主题风格 and 浅色／深色／跟随系统, applied and saved by the desktop `applyAppearance`. */
 export default function AppearancePage() {
-  const [style, setStyle] = useState<Style>(readStyle), [mode, setMode] = useState<Mode>(readMode);
+  const [currency, setCurrency] = useState(readDefaultCurrency), [style, setStyle] = useState<Style>(readStyle), [mode, setMode] = useState<Mode>(readMode);
   const change = (nextStyle: Style, nextMode: Mode) => { setStyle(nextStyle); setMode(nextMode); applyAppearance(nextStyle, nextMode); };
   return <SettingsShell title={t('外观')} lead={t('主题风格和浅色、深色分开保存，只影响这台手机。')}>
     <FormGroup title={t('浅色／深色')}><div className="me-pad"><SegmentedControl label={t('浅色或深色')} items={modes} value={mode} onChange={next => change(style, next)}/></div></FormGroup>
+    <FormGroup title={t('语言')} footer={t('切换语言会重新载入界面。')}><div className="me-pad"><SegmentedControl label="Language" items={langPreferences.map(l => ({ id: l.value, label: l.label }))} value={readLangPreference()} onChange={setLangPreference}/></div></FormGroup>
+    <FormGroup title={t('默认币种')} footer={t('新增金额时默认使用；已有记录不变。')}><div className="me-pad"><CurrencyPicker label={t('默认币种')} value={currency} onChange={code => { if (writeDefaultCurrency(code)) setCurrency(code); }}/></div></FormGroup>
     <section className="m-form-group" aria-label={t('主题风格')}>
       <h2 className="m-group-title">{t('主题风格')}</h2>
       <div className="me-themes" role="radiogroup" aria-label={t('主题风格')}>{styles.map(item => {

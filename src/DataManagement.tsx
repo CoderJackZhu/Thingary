@@ -9,7 +9,7 @@ import { SupportLink } from './SupportLink';
 import { pendingKey, storedPending, code } from './wealth';
 import { FinancialImportDialog } from './FinancialImportDialog';
 import { preserveImportReceipt } from './financial-import';
-import { t } from './i18n.ts';
+import { t, numberLocale } from './i18n.ts';
 type Summary = { savings_goals?: number; planning_conditions_reset?: boolean; hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; plans: number; payments: number; virtual_assets: number; import_mappings: number; import_receipts: number; files: number };
 type Inspected = { path: string; name: string; encrypted: boolean; token: string | null; summary: Summary | null };
 type Note = { line: number; name: string; reason: string };
@@ -290,7 +290,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     </div>}
     {candidate && !candidate.encrypted && candidate.summary && <div className="confirm" role="alert">
       <strong>{t('用「{name}」替换当前全部资料？', { name: candidate.name })}</strong>
-      <p>{t('备份时间 {v1} · 格式版本 {schema}', { v1: new Date(candidate.summary.created_at).toLocaleString('zh-CN'), schema: candidate.summary.schema })}</p>
+      <p>{t('备份时间 {v1} · 格式版本 {schema}', { v1: new Date(candidate.summary.created_at).toLocaleString(numberLocale()), schema: candidate.summary.schema })}</p>
       <p>{t('物品 {assets} 件（其中最近删除 {deleted_assets}）· 心愿 {wishes} 条 · 维护 {maintenances} 条 · 保障 {warranties} 份 · 账户 {accounts} 个 · 存钱目标', { assets: candidate.summary.assets, deleted_assets: candidate.summary.deleted_assets, wishes: candidate.summary.wishes, maintenances: candidate.summary.maintenances, warranties: candidate.summary.warranties, accounts: candidate.summary.accounts })} {candidate.summary.savings_goals ?? 0} {t('个 · 盘点 {snapshots} 次 · 支出 {expenses} 笔 · 周期计划 {plans} 项 · 周期付款 {payments} 条 · 虚拟资产 {virtual_assets} 件 · 导入对应关系', { snapshots: candidate.summary.snapshots, expenses: candidate.summary.expenses, plans: candidate.summary.plans, payments: candidate.summary.payments, virtual_assets: candidate.summary.virtual_assets })} {candidate.summary.import_mappings ?? 0} {t('条 · 导入成功记录')} {candidate.summary.import_receipts ?? 0} {t('份 · 原图 {files} 个', { files: candidate.summary.files })}</p>
       <p className="muted">{t('检查已通过。当前资料会先保存保护副本，失败时保持原样。')}{pending > 0 && t('本机还有 {pending} 份属于当前资料的草稿或待核对操作，恢复后旧输入失效；结果未知的导入操作仍保留原编号供核对。', { pending })}</p>
       <p className="muted">{RESTORE_DISCLOSURE}</p>

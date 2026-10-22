@@ -1,4 +1,5 @@
 // Pure text helpers for the automatic backup section; the browser preview
+import { numberLocale } from './i18n.ts';
 // and `npm run test:ui` exercise them without a native library.
 export type AutoBackupItem = { name: string; date: string; size: number };
 export type AutoBackupFailure = { at: string; message: string };
@@ -30,7 +31,7 @@ export function formatBytes(bytes: number): string {
 export function formatWhen(at: string | null): string {
   if (!at) return '';
   const time = new Date(at);
-  return Number.isNaN(time.getTime()) ? '' : time.toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' });
+  return Number.isNaN(time.getTime()) ? '' : time.toLocaleString(numberLocale(), { dateStyle: 'short', timeStyle: 'short' });
 }
 /** The one-line status under the switch: when, how many, how much. */
 export function autoBackupSummary(status: AutoBackupStatus): string {

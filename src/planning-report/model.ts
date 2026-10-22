@@ -3,7 +3,7 @@
 // 协议金额始终是十进制分字符串或 null，从不经过 Number 存回；显示格式化用 BigInt，Number 只用于绘图坐标。
 // 隐私报告先从同一快照生成脱敏载荷（redactReport），渲染/打印/复制/文件名只接触脱敏后的视图。
 import { planningModelVersion } from '../planning-engine.ts';
-import { t as tr } from '../i18n.ts';
+import { t as tr, currentLang } from '../i18n.ts';
 export const CONTRACT_VERSION = 1;
 
 export type Basis = 'known' | 'estimated' | 'unknown';
@@ -591,7 +591,7 @@ export function printableHtml(report: ReportInputV1, opts: { privacy: boolean })
   const trend = trendModel(view.series);
   const svg = trendSvg(trend);
   const out: string[] = [];
-  out.push('<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"/>');
+  out.push('<!doctype html><html lang="' + currentLang() + '"><head><meta charset="UTF-8"/>');
   out.push(`<meta name="viewport" content="width=device-width,initial-scale=1.0"/>`);
   out.push(`<title>${h(title)} ${h(dateLabel(view.generated_on))}</title>`);
   out.push(`<style>${PRINT_CSS}</style></head><body>`);

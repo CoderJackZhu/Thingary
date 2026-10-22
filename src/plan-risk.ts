@@ -1,6 +1,7 @@
 // Risk presentation and cancellable transport; numeric experiments live in Rust.
 import type { Plan, Outcome } from './plan-ledger.ts';
 import { enginePlan, engineRequest, engineRequestAsync } from './planning-engine.ts';
+import { numberLocale } from './i18n.ts';
 export type StressId = string;
 export type SorrId = 'base' | 'early' | 'late';
 
@@ -60,14 +61,14 @@ export async function monteCarlo(plan: Plan, n: number, opts: { seed?: number; s
 }
 export function stressTests(plan: Plan, year: number): StressResult[] {
   const parameters = sensitivityParameters(plan);
-  const money = (cents: number) => (cents / 100).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 2 });
+  const money = (cents: number) => (cents / 100).toLocaleString(numberLocale(), { style: 'currency', currency: 'CNY', maximumFractionDigits: 2 });
   const descriptions: Record<string, string> = {
     saving: `每月正投入参照减少 ${money(parameters.saving_reduction_cents)}；分阶段正投入按比例调整，负投入和约定付款保留。`,
     necessary: `必要生活预算每月增加 ${money(parameters.necessary_increase_cents)}，固定事件付款保留。`,
     return: `积累期和退休期的年实际收益率各降低 ${parameters.return_reduction_hundredths / 100} 个百分点。`,
     inflation: `一般通胀率提高 ${parameters.inflation_increase_hundredths / 100} 个百分点，重新换算固定名义收入与付款。`,
     timing: `目标推迟 ${parameters.target_delay_months} 个月，最多到规划终点。`,
-    market: `退休起始年度的年实际收益率设为 ${(parameters.adverse_return * 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}%；未退休时从起点检查。`,
+    market: `退休起始年度的年实际收益率设为 ${(parameters.adverse_return * 100).toLocaleString(numberLocale(), { maximumFractionDigits: 2 })}%；未退休时从起点检查。`,
   };
   return engineRequest<StressResult[]>({ op: 'sensitivity', plan: enginePlan(plan), year, parameters })
     .map(result => ({ ...result, description: descriptions[result.id] ?? result.description }));

@@ -1,3 +1,4 @@
+import { numberLocale } from '../../i18n.ts';
 import type { Matrix, StressResult, SorrPath, Bands, MonteCarlo } from "../../plan-risk.ts";
 
 /** A compact view of the engine matrix: keep the current setting and its nearest alternatives. */
@@ -25,7 +26,7 @@ export function compactMatrix(matrix: Matrix): Matrix {
 }
 
 export function riskMoney(cents: number): string {
-  return (cents / 100).toLocaleString("zh-CN", {
+  return (cents / 100).toLocaleString(numberLocale(), {
     style: "currency",
     currency: "CNY",
     maximumFractionDigits: 0,

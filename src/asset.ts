@@ -1,4 +1,4 @@
-import { t } from './i18n.ts';
+import { t, numberLocale } from './i18n.ts';
 export type Asset = { id: string; name: string; price_cents: string | null; purchase_date: string | null; revision: number };
 export type Details = { brand: string; model: string; serial_number: string; notes: string };
 export type Photo = { id: string; name: string };
@@ -12,7 +12,7 @@ export type Page = { generation: string; items: AssetRecord[]; total: number; to
 export type Fields = Details & { name: string; price: string; date: string };
 export const emptyFields: Fields = { name: '', price: '', date: '', brand: '', model: '', serial_number: '', notes: '' };
 // U16-D2：整数元不显示角分；单位成本（日均、每次）用 unitMoney，始终两位。只改显示。
-export function yuan(cents: string, always = false) { const n = Number(cents); return `${n < 0 ? '−\u2060' : ''}¥${(Math.abs(n) / 100).toLocaleString('zh-CN', { minimumFractionDigits: always || n % 100 !== 0 ? 2 : 0, maximumFractionDigits: 2 })}`; }
+export function yuan(cents: string, always = false) { const n = Number(cents); return `${n < 0 ? '−\u2060' : ''}¥${(Math.abs(n) / 100).toLocaleString(numberLocale(), { minimumFractionDigits: always || n % 100 !== 0 ? 2 : 0, maximumFractionDigits: 2 })}`; }
 export function money(cents: string | null) { return cents === null ? '待补充' : yuan(cents); }
 export function unitMoney(cents: string | null) { return cents === null ? '待补充' : yuan(cents, true); }
 export function inputMoney(value: string): string | null {
@@ -42,7 +42,8 @@ export function costs(asset: Asset, today: string) {
   const daily = days && days > 0 && asset.price_cents !== null ? ((BigInt(asset.price_cents) + BigInt(Math.floor(days / 2))) / BigInt(days)).toString() : null;
   return { days, daily };
 }
-export function errorMessage(e: unknown) { return typeof e === 'object' && e !== null && 'message' in e ? String(e.message) : '操作未完成，请重试。'; }
+/** Rust 的固定错误文字在英文表里有译文（见 scripts/i18n-keys.mjs）；带动态内容的错误仍显示中文。 */
+export function errorMessage(e: unknown) { return typeof e === 'object' && e !== null && 'message' in e ? t(String(e.message)) : t('操作未完成，请重试。'); }
 /** 攒钱保存失败的提示：样例里这笔会让心愿达到目标而自动实现，但样例不能新增物品，单独说明原因与出路。 */
 export function savingsErrorNotice(e: unknown) {
   const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code?: unknown }).code) : '';

@@ -1,3 +1,4 @@
+import { numberLocale } from './i18n.ts';
 import { inputMoney } from './asset.ts';
 import type { Photo } from './asset.ts';
 
@@ -37,7 +38,7 @@ export const wishDecisionLabel = (decision: string): string => decision === 'pur
 
 /** 页头合计：只统计真正考虑中的心愿；历史待核实单列，不冒充未来计划。 */
 export function wishHeaderSummary(page: Pick<WishlistPage, 'considering_known_cents' | 'considering_unknown_count' | 'legacy_achieved_count'>, consideringCount: number | null): { main: string; legacy: string } {
-  const yuan = (cents: string) => `¥${(Number(cents) / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const yuan = (cents: string) => `¥${(Number(cents) / 100).toLocaleString(numberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const unknown = page.considering_unknown_count;
   const amount = consideringCount === 0 ? yuan('0')
     : consideringCount !== null && unknown === consideringCount ? '未知'

@@ -15,7 +15,7 @@ import type { LifecycleAction } from './lifecycle';
 import { Cover, Gallery, PhotoPreview, PhotoView } from './Photos';
 import { Timeline } from './Timeline';
 import { goalProgress, retiredOn } from './preferences';
-import { t } from './i18n.ts';
+import { t, numberLocale } from './i18n.ts';
 function MaintenancePhotos({ photos, generation }: { photos: Photo[]; generation: string }) {
   const [preview, setPreview] = useState<Photo | null>(null);
   return <><div className="photo-strip">{photos.map(photo => <button className="photo-tile" key={photo.id} aria-label={'预览维护图片 ' + photo.name} onClick={() => setPreview(photo)}><PhotoView photo={photo} generation={generation}/><span className="photo-name">{photo.name}</span></button>)}</div>{preview && <PhotoPreview photo={preview} generation={generation} onClose={() => setPreview(null)}/>}</>;
@@ -62,17 +62,17 @@ export function AssetFacts({ record }: { record: AssetRecord }) {
   const c = record.costs;
   const perUse=record.preferences?.cost_mode==='per_use',unitCost=perUse?record.per_use_cents??null:c.daily_cents;
   const unitLabel=perUse?'单次使用成本':record.sale ? '售出后净日均' : '日均持有成本';
-  return <><div className="inspector-metrics"><div title={perUse?t('已记录 {v1} 次使用', { v1: record.preferences?.use_count??0 }):record.sale ? t('净生命周期成本 ÷ 持有天数') : t('购入与已记录维护费用 ÷ 持有天数')}><span>{unitLabel}</span><strong>{unitMoney(unitCost)}{unitCost !== null && <small>/{perUse?t('次'):t('天')}</small>}</strong></div><div><span>{perUse?t('已使用'):t('已持有')}</span><strong>{perUse?`${record.preferences?.use_count??0}`:c.held_days === null ? '—' : c.held_days.toLocaleString('zh-CN')}<small>{perUse?t('次'):t('天')}</small></strong></div></div>
+  return <><div className="inspector-metrics"><div title={perUse?t('已记录 {v1} 次使用', { v1: record.preferences?.use_count??0 }):record.sale ? t('净生命周期成本 ÷ 持有天数') : t('购入与已记录维护费用 ÷ 持有天数')}><span>{unitLabel}</span><strong>{unitMoney(unitCost)}{unitCost !== null && <small>/{perUse?t('次'):t('天')}</small>}</strong></div><div><span>{perUse?t('已使用'):t('已持有')}</span><strong>{perUse?`${record.preferences?.use_count??0}`:c.held_days === null ? '—' : c.held_days.toLocaleString(numberLocale())}<small>{perUse?t('次'):t('天')}</small></strong></div></div>
     <dl className="facts"><dt>{t('购入')}</dt><dd>{money(record.asset.price_cents)} · {record.asset.purchase_date || t('日期待补充')}</dd><dt>{t('维护')}</dt><dd>{money(c.known_maintenance_cents)}</dd>{(record.warranty_summary?.total ?? 0) > 0 && <><dt>{t('保障')}</dt><dd className={record.warranty_summary?.expiring_count ? 'warn' : undefined}>{warrantySummaryText(record.warranty_summary)}</dd></>}{record.sale && <><dt>{t('净成本')}</dt><dd>{money(c.net_cost_cents)}</dd></>}</dl>
     {c.unknown_maintenance_count > 0 && <p className="muted small">{t('有 {unknown_maintenance_count} 条维护费用待补录，精确总成本与日均成本暂不显示。', { unknown_maintenance_count: c.unknown_maintenance_count })}</p>}</>;
 }
 
-const heldText = (days: number | null) => days === null ? '待补充' : `${days.toLocaleString('zh-CN')} 天`;
+const heldText = (days: number | null) => days === null ? '待补充' : `${days.toLocaleString(numberLocale())} 天`;
 
 // Detail hero card: unit cost beside held days (use count for per-use), then the goal.
 function CostHeadline({ record }: { record: AssetRecord }) {
   const c = record.costs, perUse = record.preferences?.cost_mode === 'per_use', unitCost = perUse ? record.per_use_cents ?? null : c.daily_cents;
-  return <section className="hero-cost" aria-label={t('持有与成本')}><div className="holding-cost holding-split"><div><span>{perUse?t('单次使用成本'):record.sale ? t('售出后净日均成本') : t('日均持有成本')}</span><strong>{unitMoney(unitCost)}{unitCost !== null && <small> / {perUse?t('次'):t('天')}</small>}</strong></div><div><span>{perUse ? t('使用次数') : record.sale ? t('截至售出日持有') : t('持有天数')}</span><strong>{perUse ? (record.preferences?.use_count ?? 0).toLocaleString('zh-CN') : c.held_days === null ? t('待补充') : c.held_days.toLocaleString('zh-CN')}{(perUse || c.held_days !== null) && <small> {perUse ? t('次') : t('天')}</small>}</strong></div></div><GoalCard record={record}/></section>;
+  return <section className="hero-cost" aria-label={t('持有与成本')}><div className="holding-cost holding-split"><div><span>{perUse?t('单次使用成本'):record.sale ? t('售出后净日均成本') : t('日均持有成本')}</span><strong>{unitMoney(unitCost)}{unitCost !== null && <small> / {perUse?t('次'):t('天')}</small>}</strong></div><div><span>{perUse ? t('使用次数') : record.sale ? t('截至售出日持有') : t('持有天数')}</span><strong>{perUse ? (record.preferences?.use_count ?? 0).toLocaleString(numberLocale()) : c.held_days === null ? t('待补充') : c.held_days.toLocaleString(numberLocale())}{(perUse || c.held_days !== null) && <small> {perUse ? t('次') : t('天')}</small>}</strong></div></div><GoalCard record={record}/></section>;
 }
 
 function EmptySection({ title, action, onAdd }: { title: string; action: string; onAdd: () => void }) {
@@ -95,7 +95,7 @@ function GoalCard({ record }: { record: AssetRecord }) {
     {record.sale ? <p className="goal-line"><span>{done ? t('售出前已达成') : t('售出时未达成')}</span><span>{t('按售出日结算')}</span></p>
       : frozen ? <p className="goal-line"><span>{done ? t('退役前已达成') : t('已退役，目标停止')}</span><span>{t('停在 {frozen}', { frozen })}</span></p>
       : done ? <p className="goal-line"><span>{g.reached_date && g.reached_date <= localDay() ? (p.goal.mode === 'date' ? t('已到目标日') : t('已于 {reached_date} 达成', { reached_date: g.reached_date })) : t('已达成')}</span></p>
-      : <p className="goal-line"><span>{p.goal.mode === 'date' ? t('距目标日') : g.reached_date ? t('预计达成 {reached_date}', { reached_date: g.reached_date }) : t('还需使用 {v1} 次', { v1: g.remaining.toLocaleString('zh-CN') })}</span>{g.unit === '天' && <span>{t('还剩 {v1} 天', { v1: g.remaining.toLocaleString('zh-CN') })}</span>}</p>}</>}
+      : <p className="goal-line"><span>{p.goal.mode === 'date' ? t('距目标日') : g.reached_date ? t('预计达成 {reached_date}', { reached_date: g.reached_date }) : t('还需使用 {v1} 次', { v1: g.remaining.toLocaleString(numberLocale()) })}</span>{g.unit === '天' && <span>{t('还剩 {v1} 天', { v1: g.remaining.toLocaleString(numberLocale()) })}</span>}</p>}</>}
     <p className="muted small">{frozen ? t('退役后目标不再推进；重新启用后继续计算。') : g ? (p.goal.mode === 'cost' && !record.sale && !done ? t('按当前总投入推算，之后新增维护会推迟达成。') : t('目标只记录计划，不改变物品状态。')) : c.unknown_maintenance_count > 0 ? t('有维护费用待补录，进度暂不计算。') : t('补全购入金额与日期后计算进度。')}</p></div>;
 }
 
@@ -113,6 +113,6 @@ export function AssetDetail({ record, generation, today, taxonomy, onEdit, onLif
     <article className="ui-card detail-panel"><div className="ui-section-head"><h3>{t('这件物品的经历')}</h3><span>{t('最新记录在前')}</span></div><Timeline assetId={record.asset.id} version={record} onCorrect={e => onLifecycle({type:'correct_date',event_id:e.id.slice('lifecycle:'.length),date:e.date ?? today})}/></article>
     {record.photos.length ? <article className="ui-card detail-panel"><div className="ui-section-head"><h3>{t('图片附件')}</h3><span>{t('{length} 张', { length: record.photos.length })}</span></div><Gallery record={record} generation={generation} showHeading={false}/></article> : <EmptySection title={t('图片附件')} action={t('添加图片')} onAdd={onEdit}/>}
     </div></div>
-    <footer className="detail-footer"><details className="archive-meta"><summary>{t('档案信息')}</summary><dl className="facts"><dt>{t('建档时间')}</dt><dd>{record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : t('旧记录未提供')}</dd><dt>{t('修改时间')}</dt><dd>{record.updated_at ? new Date(record.updated_at).toLocaleString('zh-CN') : t('旧记录未提供')}</dd><dt>{t('档案编号')}</dt><dd><code>{record.asset.id}</code></dd><dt>{t('保存版本')}</dt><dd>{record.asset.revision}</dd></dl></details></footer>
+    <footer className="detail-footer"><details className="archive-meta"><summary>{t('档案信息')}</summary><dl className="facts"><dt>{t('建档时间')}</dt><dd>{record.created_at ? new Date(record.created_at).toLocaleString(numberLocale()) : t('旧记录未提供')}</dd><dt>{t('修改时间')}</dt><dd>{record.updated_at ? new Date(record.updated_at).toLocaleString(numberLocale()) : t('旧记录未提供')}</dd><dt>{t('档案编号')}</dt><dd><code>{record.asset.id}</code></dd><dt>{t('保存版本')}</dt><dd>{record.asset.revision}</dd></dl></details></footer>
   </>;
 }

@@ -11,7 +11,7 @@ import { FanChart, PathsChart } from './RetireCharts';
 import { yuan } from './RetireOverview';
 import { terminalText } from './planning-basic-view';
 import './retire.css';
-import { t } from './i18n.ts';
+import { t, numberLocale } from './i18n.ts';
 type Ready = { plan: Plan; assets: number };
 /** Basic mode: an unsaved trial is labelled, and the terminal wording follows the complete-budget horizon. */
 export type BasicRisk = { temporary: boolean; note?: string; terminal: keyof typeof terminalText };
@@ -56,7 +56,7 @@ export function RiskLab({ calc, today, basic, advancedOpen = false, onAdvancedOp
       <div><span>{t('预计余额')}</span><strong>{fmt(o.assets_at_goal)}</strong><small>{t('在 {goalMonth}时', { goalMonth })}</small></div>
       <div><span>{fire ? t('基准财务独立月份') : t('准备就绪月份')}</span><strong>{resultTime(P, o.fi_month)}</strong><small>{o.fi_month !== null && o.fi_month > P.target_months ? t('比期望晚 {v1}', { v1: durationText(o.fi_month - P.target_months) }) : t('不晚于目标')}</small></div>
       <div><span>{t('缺口/盈余')}</span><strong>{gap > 0 ? fmt(gap) + ' 缺口' : fmt(Math.max(0, o.assets_at_goal - o.required_at_goal)) + ' 盈余'}</strong><small>{t('目标月份时')}</small></div>
-      <div><span>{t('资金充足')}</span><strong className={`rl-pct ${pctTone}`}>{mc ? `${Math.round(mc.success_rate * 100)}%` : running !== null ? t('计算中…') : t('未完成')}</strong><small>{mc ? t('{v1} 条路径', { v1: mc.n.toLocaleString('zh-CN') }) : t('见下方市场路径')}</small></div>
+      <div><span>{t('资金充足')}</span><strong className={`rl-pct ${pctTone}`}>{mc ? `${Math.round(mc.success_rate * 100)}%` : running !== null ? t('计算中…') : t('未完成')}</strong><small>{mc ? t('{v1} 条路径', { v1: mc.n.toLocaleString(numberLocale()) }) : t('见下方市场路径')}</small></div>
     </article>
 
     <Stress P={P} results={stress} fmt={fmt}/>
@@ -70,10 +70,10 @@ export function RiskLab({ calc, today, basic, advancedOpen = false, onAdvancedOp
       <p className="muted small">{t('我们根据你的假设模拟不同市场路径。阴影显示各月份的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {v1} 随机，每年一次，固定种子，同一计划每次结果一致。', { v1: rateText(P.volatility_hundredths) })}</p>
       <p className="muted small">{t('「资金充足」表示')}{fire ? t('计划实现财务独立，') : t('计划')}{t('按完整预算覆盖到 {horizonMonth}，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。', { horizonMonth })}</p>
       <p className="muted small">{t('打开本页自动计算 1,000 条路径，先看资金在波动下是否够用；需要更多路径时可运行下方分析。修改条件后自动重新计算。')}</p>
-      <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>{t('重新计算 1,000 条')}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? t('正在运行… {done}', { done }) : t('运行 1 万条路径')}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(20000)}>{running === 20000 ? t('正在运行… {v1}', { v1: done.toLocaleString('zh-CN') }) : t('运行 2 万条路径')}</button>
-        {running !== null && <span className="muted small" role="status">{t('正在计算 {v1} / {v2} 条路径，可随时切回概览。', { v1: done.toLocaleString('zh-CN'), v2: running.toLocaleString('zh-CN') })}</span>}</div>
+      <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>{t('重新计算 1,000 条')}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? t('正在运行… {done}', { done }) : t('运行 1 万条路径')}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(20000)}>{running === 20000 ? t('正在运行… {v1}', { v1: done.toLocaleString(numberLocale()) }) : t('运行 2 万条路径')}</button>
+        {running !== null && <span className="muted small" role="status">{t('正在计算 {v1} / {v2} 条路径，可随时切回概览。', { v1: done.toLocaleString(numberLocale()), v2: running.toLocaleString(numberLocale()) })}</span>}</div>
       {mc ? <>
-        <p role="status"><strong>{t('当前结果：{v1} 条路径', { v1: mc.n.toLocaleString('zh-CN') })}</strong></p>
+        <p role="status"><strong>{t('当前结果：{v1} 条路径', { v1: mc.n.toLocaleString(numberLocale()) })}</strong></p>
         <div className="rl-mc-stats">
           <div><span>{t('资金充足')}</span><strong className={`rl-pct ${pctTone}`}>{Math.round(mc.success_rate * 100)}%</strong></div>
           <div><span>{t('提取开始')}</span><strong>{base.proj.retire_month === null ? '—' : resultTime(P, base.proj.retire_month)}</strong></div>

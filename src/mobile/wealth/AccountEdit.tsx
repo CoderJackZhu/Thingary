@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { accountKindHint, assetKinds, liabilityKinds, selectAccountKind } from '../../wealth';
 import type { Account, AccountFields } from '../../wealth';
-import { currencies, currencyCode, validCurrency } from '../../currency';
+import { currencyCode, validCurrency } from '../../currency';
+import { CurrencyPicker } from '../../CurrencyPicker';
 import { holdingSupported } from '../../holdings';
 import { groupNameError } from '../../account-groups';
 import type { AccountGroup } from '../../account-groups';
@@ -44,8 +45,7 @@ export function Editor({ account, groups, reloadGroups }: { account: Account | n
         <TextField label={t('平台')} value={fields.institution} maxLength={80} hint={t('银行、券商等机构，可留空。')} onChange={v=>set('institution',v)}/>
         <SelectField label={t('资产或负债')} value={fields.side} disabled={!!account} onChange={side=>chooseKind(side==='asset'?'cash':'credit_card')} options={[{id:'asset',label:t('资产')},{id:'liability',label:t('负债')}]} hint={account?t('建立后不能更改。'):t('负债盘点时填写欠款金额。')}/>
         <SelectField label={t('类型')} value={fields.kind} onChange={chooseKind} options={(fields.side==='asset'?assetKinds:liabilityKinds).map(([id,label])=>({id,label}))}/>
-        <TextField label={t('币种')} value={currencyCode(fields.currency)} maxLength={3} disabled={!!account?.has_entries} hint={account?.has_entries?t('已有记录，币种不能更改。'):t('三位大写代码；汇率手填，不联网。')} onChange={v=>set('currency',v.toUpperCase())}/>
-        <p className="mw-muted">{t('常用：')}{currencies.map(([code])=>code).join('、')}</p>
+        <FormRow label={t('币种')} hint={account?.has_entries?t('已有记录，币种不能更改。'):t('汇率手填，不联网。')}><CurrencyPicker label={t('币种')} value={currencyCode(fields.currency)} disabled={!!account?.has_entries} onChange={code=>set('currency',code)}/></FormRow>
         <SelectField label={t('分组')} value={fields.group_id ?? ''} onChange={v=>v==='__new__'?setNewGroup(true):v==='__manage__'?nav.push('wealth.groups'):set('group_id',v||null)} options={[{id:'',label:t('未分组')},...groups.filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).map(g=>({id:g.id,label:g.name})),{id:'__new__',label:t('新建分组…')},{id:'__manage__',label:t('管理分组…')}]}/>
         <DateField label={t('启用日期')} value={fields.opened_on} max={s.today} onChange={v=>set('opened_on',v)}/>
         {account && <DateField label={t('停用日期')} value={fields.closed_on??''} max={s.today} allowClear hint={t('停用后不再出现在之后的盘点里；有盘点记录的账户只能停用，不能删除。')} onChange={v=>set('closed_on',v||null)}/>}

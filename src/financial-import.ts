@@ -1,5 +1,5 @@
 import type { Account, Pending } from './wealth.ts';
-import { t as tr } from './i18n.ts';
+import { t as tr, numberLocale } from './i18n.ts';
 export type FileKind = 'accounts' | 'snapshots' | 'incomes';
 export type ImportFile = { kind:FileKind; name:string; csv_text:string; column_mapping:Record<string,string>; row_numbers?:number[] };
 export type ImportAction = { action:'keep'|'correct'|'exclude'; expected_revision:number|null };
@@ -40,7 +40,7 @@ export const previewPageCount=(total:number)=>Math.max(1,Math.ceil(total/50));
 export function importMoney(cents:string|null):string {
  if(cents===null)return '金额未知';
  const value=BigInt(cents),abs=value<0n?-value:value;
- return `${value<0n?'−':''}¥${(abs/100n).toLocaleString('zh-CN')}.${(abs%100n).toString().padStart(2,'0')}`;
+ return `${value<0n?'−':''}¥${(abs/100n).toLocaleString(numberLocale())}.${(abs%100n).toString().padStart(2,'0')}`;
 }
 export function receiptMetadata(input:Pick<ImportCommit,'request_id'|'batch'>):Pending {
  return {command:'financial_import_commit',input:{request_id:input.request_id,generation:input.batch.generation},label:tr('金融历史导入')};

@@ -19,7 +19,7 @@ import type { OverviewViewChoice } from './start-choice';
 import { usePageBar } from './topbar';
 import type { BarMenu } from './topbar';
 import type { ReviewPage } from './review';
-import { t } from './i18n.ts';
+import { t, numberLocale } from './i18n.ts';
 type CategoryShare = { id: string | null; name: string; slot: number | null; count: number; known_cents: string; unknown_price_count: number };
 export type OverviewData = { generation: string; today: string; held_count: number; active_count: number; retired_count: number; sold_count: number; held_known_cents: string; held_unknown_price_count: number; history_known_cents: string; history_unknown_price_count: number; average_holding_days: number | null; held_unknown_date_count: number; held_daily: DailyCostSummary; considering_wishes: number; legacy_wishes: number; scope: 'held' | 'history'; categories: CategoryShare[]; recent: TimelineEvent[] };
 
@@ -61,7 +61,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
       <div><span className="ui-label">{t('当前持有物购入金额')}</span><span className="ui-value">{money(data.held_known_cents)}<small>{t('· {held_count} 件', { held_count: data.held_count })}</small></span><span className="ui-note">{t('使用中 {active_count} · 已退役 {retired_count}', { active_count: data.active_count, retired_count: data.retired_count })}{data.held_unknown_price_count ? t(' · {held_unknown_price_count} 件金额未知，未计入', { held_unknown_price_count: data.held_unknown_price_count }) : ''}</span></div>
       <DailyCostMetric summary={data.held_daily}/>
       <div><span className="ui-label">{t('历史购入金额')}</span><span className="ui-value">{money(data.history_known_cents)}</span><span className="ui-note">{t('含已售出 {sold_count} 件', { sold_count: data.sold_count })}{data.history_unknown_price_count ? t(' · {history_unknown_price_count} 件金额未知，未计入', { history_unknown_price_count: data.history_unknown_price_count }) : ''}</span></div>
-      <div><span className="ui-label">{t('平均持有')}<Info text={t('按购入日至今天，含当天；购入日期未知的物品不计入。')}/></span><span className="ui-value">{data.average_holding_days === null ? '—' : <>{data.average_holding_days.toLocaleString('zh-CN')}<small>{t('天')}</small></>}</span>{data.held_unknown_date_count > 0 && <span className="ui-note">{t('{held_unknown_date_count} 件购入日期未知，未计入', { held_unknown_date_count: data.held_unknown_date_count })}</span>}</div>
+      <div><span className="ui-label">{t('平均持有')}<Info text={t('按购入日至今天，含当天；购入日期未知的物品不计入。')}/></span><span className="ui-value">{data.average_holding_days === null ? '—' : <>{data.average_holding_days.toLocaleString(numberLocale())}<small>{t('天')}</small></>}</span>{data.held_unknown_date_count > 0 && <span className="ui-note">{t('{held_unknown_date_count} 件购入日期未知，未计入', { held_unknown_date_count: data.held_unknown_date_count })}</span>}</div>
       {modules.wishlist && <div><span className="ui-label">{t('考虑中心愿')}<Info text={t('心愿的预计金额不计入持有物品；历史待核实单列。')}/></span><span className="ui-value">{data.considering_wishes}<small>{t('条')}</small></span>{data.legacy_wishes>0&&<span className="ui-note">{t('另有 {legacy_wishes} 条历史待核实', { legacy_wishes: data.legacy_wishes })}</span>}</div>}
     </div>
     <div className="overview-grid" style={!modules.timeline ? { gridTemplateColumns: 'minmax(0,1fr)' } : undefined}>

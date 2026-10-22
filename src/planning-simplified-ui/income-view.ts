@@ -1,4 +1,5 @@
 // 简化规划界面的纯展示与草稿辅助逻辑。类型的唯一来源是领域 D0 契约
+import { numberLocale } from '../i18n.ts';
 // （../plan-simplified-contract.ts）；这里不复制第二份模型，也不做业务校验，
 // 保存前的校验统一走领域 validateSimplifiedPlanningV1。
 import type { FieldIssueV1, FutureIncomeV1, ResetReasonV1, SimplifiedPlanningFieldsV1, TimeInputV1 } from '../plan-simplified-contract.ts';
@@ -9,7 +10,7 @@ export const OFFICIAL_TOOL = { name: '国家社会保险公共服务平台', url
 export const OFFICIAL_TOOL_NOTE = '进入官方平台查找相关测算服务；部分服务可能需要登录或填写资料，具体入口与说明以平台为准。';
 
 export const yuanText = (cents: string | null): string =>
-  cents === null ? '未填金额' : `${(Number(cents) / 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} 元`;
+  cents === null ? '未填金额' : `${(Number(cents) / 100).toLocaleString(numberLocale(), { maximumFractionDigits: 2 })} 元`;
 
 export const startText = (i: FutureIncomeV1): string => (i.start_month === null ? '开始时间未填' : `${i.start_month} 起`);
 export const endText = (i: FutureIncomeV1): string => (i.end_month === null ? '持续到规划终点' : `${i.end_month} 止`);

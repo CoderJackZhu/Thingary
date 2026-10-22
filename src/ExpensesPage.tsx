@@ -21,7 +21,7 @@ import type { BarAction } from './topbar';
 import type { AnnualTotal, Expense, ExpenseFields, ExpenseSave, ExpenseView, Line, Month } from './expenses';
 import './wealth.css';
 import { useRestored } from './undo';
-import { t as tt } from './i18n.ts';
+import { t as tt, numberLocale } from './i18n.ts';
 export type ScrollRestore = { top: number; done: () => void } | null;
 
 export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange, source, onSourceDone, initialYear, search, onSearch, autoNew, onAutoNewDone, restoreScroll, generation, onYearRemember, embedded = false, period: controlledPeriod, onPeriodChange, controlledView, controlledError, onRefresh, blocked = false }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void; onOpenSource: (target: SourceTarget) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void; restoreScroll?: ScrollRestore; generation?: string | null; onYearRemember?: (year: number | null) => void; embedded?: boolean; period?: FinancePeriod; onPeriodChange?: (period: FinancePeriod) => void; controlledView?: ExpenseView | null; controlledError?: string; onRefresh?: () => void; blocked?: boolean }) {
@@ -236,7 +236,7 @@ function YearBars({ totals, thisYear, focusYear, onOpen }: { totals: AnnualTotal
                 else if (e.key === 'End') { e.preventDefault(); refs.current.get(totals[totals.length - 1].year)?.focus(); }
                 else if (e.key === 'Escape') { e.preventDefault(); setHover(null); setFocused(null); }
               }}/>
-            {v > 0 && <text x={x + barW / 2} y={y(v) - 4} textAnchor="middle" pointerEvents="none">{Math.round(v / 100).toLocaleString('zh-CN')}</text>}
+            {v > 0 && <text x={x + barW / 2} y={y(v) - 4} textAnchor="middle" pointerEvents="none">{Math.round(v / 100).toLocaleString(numberLocale())}</text>}
             {v === 0 && spend.note && <text x={x + barW / 2} y={H - B - 8} textAnchor="middle" className="muted" pointerEvents="none">{spend.note}</text>}
             <text x={x + barW / 2} y={H - 6} textAnchor="middle">{t.year}</text>
           </g>;
@@ -268,7 +268,7 @@ function MonthBars({ months }: { months: Month[] }) {
       {months.map((m, i) => { const v = Number(m.spent_cents), x = L + w * i;
         return <g key={m.month} className="trend-hit"><rect x={x} y={T} width={w} height={H - T - B} className="hit" onMouseEnter={() => setHover(m.month)} onMouseLeave={() => setHover(h => h === m.month ? null : h)}/>
         <rect x={x + w * 0.2} y={v?y(v):H-B-3} width={w * 0.6} height={v?Math.max(H - B - y(v), 1):3} rx={3} className={v?"trend-bar":m.count ? "empty-bar" : "empty-bar faint"}/>
-        {v>0&&<text x={x+w/2} y={y(v)-4} textAnchor="middle">{Math.round(v/100).toLocaleString("zh-CN")}</text>}
+        {v>0&&<text x={x+w/2} y={y(v)-4} textAnchor="middle">{Math.round(v/100).toLocaleString(numberLocale())}</text>}
         {v===0&&m.count>0&&<text x={x+w/2} y={H-B-8} textAnchor="middle" className="muted" pointerEvents="none">{m.known_count ? '' : tt('金额待补')}</text>}
         {m.count===0&&<text x={x+w/2} y={H-B-8} textAnchor="middle" className="muted" pointerEvents="none">{tt('无记录')}</text>}
         <text x={x + w / 2} y={H - 6} textAnchor="middle">{tt('{v1}月', { v1: Number(m.month.slice(5)) })}</text>
