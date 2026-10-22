@@ -1,0 +1,14 @@
+.mi-thumbs{display:flex;flex-wrap:wrap;gap:10px}
+.mi-thumb{flex:none;width:64px;height:64px;padding:0;overflow:hidden;border:0;border-radius:12px;background:var(--m-fill,var(--soft));display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.mi-thumb .photo-image{width:100%;height:100%;object-fit:cover;border-radius:0}
+.mi-thumb .photo-placeholder{height:auto;font-size:11px;padding:4px;overflow-wrap:anywhere}
+.mi-thumb-add{border:1.5px dashed var(--line);background:transparent}
+.mi-thumb-add:disabled{opacity:.4}
+.mi-viewer{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:#000;color:#fff}
+.mi-viewer-bar{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:8px;padding:max(10px,env(safe-area-inset-top,0px)) 12px 10px}
+.mi-viewer-button{min-height:44px;min-width:44px;border:0;background:transparent;color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:16px}
+.mi-viewer-remove{color:#ff6b61}
+.mi-viewer-name{text-align:center;font-size:14px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mi-viewer-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 0 env(safe-area-inset-bottom,0px)}
+.mi-viewer-stage .photo-image{width:100%;height:100%;max-height:100%;object-fit:contain;background:transparent}
+.mi-viewer-stage .photo-placeholder{color:#fff}

@@ -155,8 +155,6 @@
 .asset-editor .editor-body{grid-template-columns:minmax(0,1fr);gap:12px;padding:18px 20px 22px}
 .asset-editor>form>.editor-notice{flex:none;margin:0;padding:10px 20px;border-bottom:1px solid var(--line);border-radius:0}
 .asset-editor .editor-body>*,.asset-editor-existing .editor-body>.form-notes,.asset-editor-existing .editor-body>.form-notes~.form-block{grid-column:1/-1;grid-row:auto}
-.asset-editor .editor-body>.form-notes{order:1}
-.asset-editor .editor-body>.more-fields{order:2}
 .asset-editor .editor-body>.notice,.asset-editor .editor-body>.confirm,.asset-editor .editor-body>[role=alert]{order:3}
 
 .asset-editor .editor-body>.more-fields .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -206,3 +204,19 @@
 .backup-security-key-input{display:grid;gap:6px;margin:8px 0}
 .backup-security-key-input textarea{font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;word-break:break-all}
 .backup-security-key-input label{display:flex;align-items:center;gap:6px;font-size:12px}
+
+/* 新增／编辑物品：备注与图片同在一个框内；品牌·型号·序列号是唯一收起的一行 */
+.asset-editor .editor-body>.form-notes{padding:14px 16px;gap:10px}
+.asset-editor .editor-body>.form-notes textarea{border:0;padding:0;min-height:96px;height:96px;box-shadow:none}
+.asset-editor .editor-body>.form-notes .photo-strip{gap:10px;padding:10px 0 0;margin:0;border-top:1px dashed var(--line);flex-wrap:wrap;overflow:visible}
+.asset-editor .editor-body>.form-notes .photo-strip .photo-tile{position:relative;flex:0 0 64px;width:64px;height:64px;padding:0;border-radius:10px;overflow:hidden}
+.asset-editor .editor-body>.form-notes .photo-open{display:block;width:100%;height:100%;padding:0;border:0;background:transparent}
+.asset-editor .editor-body>.form-notes .photo-tile .photo-image{width:100%;height:64px;object-fit:cover;border-radius:0}
+.asset-editor .editor-body>.form-notes .photo-tile .photo-placeholder{height:64px;font-size:11px;padding:4px}
+.asset-editor .editor-body>.form-notes .photo-remove{position:absolute;right:2px;top:2px;min-height:0;padding:1px 6px;font-size:11px;border-radius:8px;background:var(--card);border:1px solid var(--line);opacity:.92}
+.asset-editor .editor-body>.form-notes .add-image-tile{flex:0 0 64px;width:64px;height:64px;min-height:64px;padding:0;margin:0;border:1.5px dashed var(--line);background:transparent;border-radius:10px;color:var(--muted)}
+.asset-editor .editor-body>.form-notes .add-image-tile svg{width:28px;height:28px}
+.asset-editor .editor-body>.more-fields{background:var(--card);padding:0 16px}
+.asset-editor .editor-body>.more-fields>summary{min-height:46px;display:flex;align-items:center;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)}
+.asset-editor .editor-body>.more-fields[open]>summary{border-bottom:1px solid var(--line)}
+.asset-editor .editor-body>.more-fields .fields{padding-bottom:14px}

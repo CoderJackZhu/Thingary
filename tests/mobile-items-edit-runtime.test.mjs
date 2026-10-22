@@ -6,6 +6,7 @@ import * as preferences from '../src/preferences.ts';
 import * as media from '../src/asset-media.ts';
 import * as model from '../src/mobile/items/edit-model.ts';
 import * as format from '../src/mobile/format.ts';
+import * as layout from '../src/asset-editor-layout.ts';
 
 const generation = 'fictional-edit-generation';
 const catalog = () => ({ generation, categories: [], channels: [] });
@@ -18,7 +19,7 @@ function sessionState() {
   };
 }
 function leaves(session, nav, invoke, submit) {
-  return { './asset': asset, './mobile/format': format, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model,
+  return { './asset': asset, './mobile/format': format, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model, './asset-editor-layout': layout, './mobile/items/glyphs': { Glyph() {} }, './mobile/items/PhotoViewer': { PhotoThumbs: 'PhotoThumbs', PhotoViewer: 'PhotoViewer' },
     './NotificationNotice': { allowReminders: async () => {} }, './materials': { materialArt: () => '<svg/>' },
     './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => nav },
     './wealth': { submit }, '@tauri-apps/api/core': { invoke },
@@ -48,7 +49,7 @@ const deferred = () => { let resolve, reject; const promise = new Promise((yes, 
 test('mobile edit material callback preserves later form edits and is discarded with the editor', async () => {
   const { r, navigations, requests } = await editor();
   field(r, '名称').props.onChange('最初名称'); r.render();
-  r.button('更换图标与素材 ›').props.onClick();
+  r.nodes().find(n => n.type === 'button' && n.props['aria-label'] === '更换图标').props.onClick();
   const key = navigations[0][2].channel;
   const picker = model.getIconSession(key);
   assert.ok(picker);
@@ -121,7 +122,7 @@ test('mobile edit refuses mixed initial library reads and later generation chang
   assert.equal(current.requests.length, 0); current.r.unmount();
 });
 
-test('mobile edit photo multi-select keeps the first cover and discloses partial failure before saving', async () => {
+test('mobile edit photo multi-select keeps photos as attachments (not the cover) and discloses partial failure before saving', async () => {
   let uploads = 0;
   const { r, requests, session } = await editor({ invoke: async command => { if (command !== 'import_photo_bytes') return undefined; if (++uploads === 2) throw new Error('虚构图片读取失败'); return photo; } });
   field(r, '名称').props.onChange('虚构照片物品'); r.render();
@@ -135,7 +136,24 @@ test('mobile edit photo multi-select keeps the first cover and discloses partial
   action(r, '不使用未读取的图片').props.onClick(); r.render();
   action(r, '保存物品').props.onClick(); await r.settle();
   assert.deepEqual(Array.from(requests[0].input.photos.ids), [photo.id]);
-  assert.equal(requests[0].input.photos.cover_id, photo.id);
+  assert.equal(requests[0].input.photos.cover_id, null, 'an added photo is an attachment; the icon is chosen separately');
   assert.equal(requests[0].input.base.price_cents, null); assert.equal(requests[0].input.base.purchase_date, null);
+  r.unmount();
+});
+
+test('mobile edit shows the common fields in order, notes with photos, and folds only brand/model/serial', async () => {
+  const { r } = await editor();
+  const labels = r.nodes().filter(n => ['TextField', 'MoneyField', 'DateField', 'SelectField'].includes(n.type)).map(n => n.props.label);
+  assert.deepEqual(labels.slice(0, 6), ['名称', '购买价格', '购买日期', '分类', '标签', '购买渠道']);
+  assert.ok(labels.indexOf('成本计算模式') > labels.indexOf('购买渠道') && labels.includes('目标设定'));
+  assert.equal(r.nodes().filter(n => n.type === 'details').length, 1);
+  assert.equal(r.nodes().find(n => n.type === 'details').props.open, false);
+  assert.ok(r.nodes().find(n => n.type === 'textarea' && n.props['aria-label'] === '备注'));
+  const strip = r.nodes().find(n => n.type === 'PhotoThumbs'); assert.ok(strip.props.onAdd);
+  assert.equal(r.nodes().some(n => r.text(n) === '拍照建档' || r.text(n) === '从相册选（可多选）'), false);
+  r.find('Switch', p => p.label === '已售出').props.onChange(true); r.render();
+  assert.ok(r.find('MoneyField', p => p.label === '售出价格'));
+  strip.props.onAdd(); r.render();
+  assert.ok(r.find('Sheet', p => p.title === '添加图片'));
   r.unmount();
 });
