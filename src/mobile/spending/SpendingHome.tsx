@@ -30,7 +30,7 @@ export default function SpendingHome({ params }: PageProps) {
   const seg: Seg = picked && (picked === 'expenses' ? expensesOn : recurringOn) ? picked : wantRecurring && recurringOn ? 'recurring' : expensesOn ? 'expenses' : 'recurring';
   const [key, setKey] = useState<PeriodKey>('year'), [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
   const period = periodOf(key, today, custom);
-  const anyOn = expensesOn || recurringOn;
+  const anyOn = expensesOn || recurringOn, wealthHub = modules ? modules.wealth : true;
   const virtualOn = modules ? modules.virtual : true, reviewOn = modules ? modules.wealth || modules.incomes : true;
   const add = !anyOn ? undefined : seg === 'expenses' ? { label: '记一笔支出', onClick: () => nav.push('spending.expenseEdit') } : { label: '新增周期计划', onClick: () => nav.push('spending.recurringEdit') };
   return <div className="m-page">
@@ -40,7 +40,8 @@ export default function SpendingHome({ params }: PageProps) {
     {!anyOn && <EmptyState icon="info" title="重要支出和周期费用已关闭" message="可以在「我的 › 设置 › 功能模块」重新开启；已有记录不会丢失。"/>}
     {anyOn && seg === 'expenses' && <ExpensesPanel period={period} today={today} key={`e:${JSON.stringify(period)}`}/>}
     {anyOn && seg === 'recurring' && <RecurringPanel period={period} periodKey={key} today={today}/>}
-    {(virtualOn || reviewOn) && <ListGroup title="更多">
+    {/* 虚拟资产 / 财务复盘 live once in the 财富 overview; this list only stands in when that overview is switched off. */}
+    {!wealthHub && (virtualOn || reviewOn) && <ListGroup title="更多">
       {virtualOn && <ListRow icon="doc" title="虚拟资产" subtitle="软件、域名、订阅与储值" onClick={() => nav.push('spending.virtual')}/>}
       {reviewOn && <ListRow icon="chart" title="财务复盘" subtitle="收入记录、期间汇总与年度回顾" onClick={() => nav.push('spending.review')}/>}
     </ListGroup>}
