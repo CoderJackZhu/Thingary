@@ -46,6 +46,7 @@ export const routes = {
   'wealth.snapshots': { tab: 'wealth', title: '盘点记录', design: '13', load: () => import('./wealth/Snapshots') },
   'wealth.account': { tab: 'wealth', title: '账户详情', design: '11', load: () => import('./wealth/Account') },
   'wealth.accountEdit': { tab: 'wealth', kind: 'modal', title: '新增账户', design: '11', load: () => import('./wealth/AccountEdit') },
+  'wealth.groups': { tab: 'wealth', kind: 'modal', title: '管理分组', design: '10', load: () => import('./wealth/Groups') },
   'wealth.checkin': { tab: 'wealth', kind: 'modal', title: '完整盘点', design: '12', load: () => import('./wealth/CheckIn') },
   'wealth.compare': { tab: 'wealth', title: '盘点比较', design: '13', load: () => import('./wealth/Compare') },
   'spending.home': { tab: 'wealth', title: '支出与周期费用', design: '14', load: () => import('./spending/SpendingHome') },

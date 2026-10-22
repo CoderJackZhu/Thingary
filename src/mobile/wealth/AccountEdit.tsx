@@ -27,7 +27,7 @@ export function Editor({ account, groups, reloadGroups }: { account: Account | n
   async function save() {
     if (!fields.name.trim()) { writer.setError('请填写账户名称。'); return; }
     if (!validCurrency(currencyCode(fields.currency))) { writer.setError('币种须为三位大写字母。'); return; }
-    const normalized = {...fields,name:fields.name.trim(),institution:fields.institution.trim()};
+    const normalized = {...fields,...(fields.group_id&&!groups.some(g=>g.id===fields.group_id)?{group_id:null}:{}),name:fields.name.trim(),institution:fields.institution.trim()};
     if (normalized.currency === 'CNY') delete normalized.currency;
     if (!normalized.holding_mode) { delete normalized.holding_mode; delete normalized.holding_unit; }
     if (normalized.holding_unit == null) delete normalized.holding_unit;
@@ -45,7 +45,7 @@ export function Editor({ account, groups, reloadGroups }: { account: Account | n
         <SelectField label="类型" value={fields.kind} onChange={chooseKind} options={(fields.side==='asset'?assetKinds:liabilityKinds).map(([id,label])=>({id,label}))}/>
         <TextField label="币种" value={currencyCode(fields.currency)} maxLength={3} disabled={!!account?.has_entries} hint={account?.has_entries?'已有记录，币种不能更改。':'三位大写代码；汇率手填，不联网。'} onChange={v=>set('currency',v.toUpperCase())}/>
         <p className="mw-muted">常用：{currencies.map(([code])=>code).join('、')}</p>
-        <SelectField label="分组" value={fields.group_id ?? ''} onChange={v=>v==='__new__'?setNewGroup(true):set('group_id',v||null)} options={[{id:'',label:'未分组'},...groups.filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).map(g=>({id:g.id,label:g.name})),{id:'__new__',label:'新建分组…'}]}/>
+        <SelectField label="分组" value={fields.group_id ?? ''} onChange={v=>v==='__new__'?setNewGroup(true):v==='__manage__'?nav.push('wealth.groups'):set('group_id',v||null)} options={[{id:'',label:'未分组'},...groups.filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).map(g=>({id:g.id,label:g.name})),{id:'__new__',label:'新建分组…'},{id:'__manage__',label:'管理分组…'}]}/>
         <DateField label="启用日期" value={fields.opened_on} max={s.today} onChange={v=>set('opened_on',v)}/>
         {account && <DateField label="停用日期" value={fields.closed_on??''} max={s.today} allowClear hint="停用前最后一次盘点须为 0；清空可重新启用。" onChange={v=>set('closed_on',v||null)}/>}
         <FormRow label="计入金融净资产"><Switch label="计入金融净资产" checked={fields.counted} disabled={fields.kind==='property'} onChange={v=>{choice.current=v;set('counted',v);}}/></FormRow>

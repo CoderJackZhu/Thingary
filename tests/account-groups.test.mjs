@@ -207,3 +207,26 @@ test('new group headers and group ShareBars honor the shared privacy preference 
   assert.match(text(context.bars(bars)), /100\.0%.*¥10000000/);
   assert.ok(nodes(context.bars(bars)).some(n => n.props?.style?.width === '100%'));
 });
+import { groupAccountsText, groupDeleteText, movedGroupIds } from '../src/account-groups.ts';
+test('iPhone group reorder moves one step and refuses to leave the list', () => {
+  const groups = ['a', 'b', 'c'].map((id, i) => group(id, i));
+  assert.deepEqual(movedGroupIds(groups, 'b', -1), ['b', 'a', 'c']);
+  assert.deepEqual(movedGroupIds(groups, 'b', 1), ['a', 'c', 'b']);
+  assert.equal(movedGroupIds(groups, 'a', -1), null); assert.equal(movedGroupIds(groups, 'c', 1), null); assert.equal(movedGroupIds(groups, 'x', 1), null);
+});
+test('group delete wording is shared and says accounts stay, ungrouped', () => {
+  const g = { ...group('a'), accounts: 3 };
+  assert.equal(groupAccountsText(g), '3 个账户（含已停用和最近删除）');
+  assert.match(groupDeleteText(g), /3 个账户会变成未分组，账户本身不会删除。此操作无法撤销/);
+});
+test('iPhone group manager and trash use the same commands and sheets as desktop', () => {
+  const groups = readFileSync(new URL('../src/mobile/wealth/Groups.tsx', import.meta.url), 'utf8');
+  for (const command of ['account_group_save', 'account_group_delete', 'account_groups_reorder']) assert.ok(groups.includes(`'${command}'`), command);
+  assert.ok(groups.includes('expected_accounts: group.accounts') && groups.includes('<DeleteSheet') && groups.includes('recoverable={false}'));
+  assert.ok(readFileSync(new URL('../src/mobile/wealth/AccountEdit.tsx', import.meta.url), 'utf8').includes("'wealth.groups'"));
+  assert.ok(readFileSync(new URL('../src/mobile/wealth/Overview.tsx', import.meta.url), 'utf8').includes("'wealth.groups'"));
+  const trash = readFileSync(new URL('../src/mobile/me/settings/Trash.tsx', import.meta.url), 'utf8'), link = readFileSync(new URL('../src/mobile/me/settings/TrashLink.tsx', import.meta.url), 'utf8');
+  assert.ok(!trash.includes('桌面版'), 'no more desktop-only refusal');
+  for (const text of ["'link_restore'", "'link_purge_preview'", "kind: 'link_group'", "'link_reconcile'", 'preview: p.preview']) assert.ok(link.includes(text), text);
+  for (const text of ['GroupRestoreSheet', 'GroupPurgeSheet', 'RepairSheet']) assert.ok(trash.includes(text), text);
+});

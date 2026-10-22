@@ -587,8 +587,17 @@ export function searchPreview(command: string, args: Record<string, unknown>): {
 }
 let previewMerged = false;
 const previewGroups = new Map<string, { assetId: string; planId: string; assetName: string; planName: string }>();
+// ?trash=link 预先放入一组已删除的关联订阅，用于查看最近删除里的整组恢复与清除。
+if (params.get('trash') === 'link') {
+  const asset = virtuals.find(v => plans.some(p => p.id === v.fields.plan_id)), plan = plans.find(p => p.id === asset?.fields.plan_id);
+  if (asset && plan) {
+    virtuals = virtuals.filter(v => v.id !== asset.id); plans = plans.filter(p => p.id !== plan.id); payments = payments.filter(p => p.plan_id !== plan.id);
+    previewGroups.set(`${asset.id}|${plan.id}`, { assetId: asset.id, planId: plan.id, assetName: asset.fields.name, planName: plan.fields.name });
+  }
+}
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
+export function previewPurgeLinkGroup(id: string) { return previewGroups.delete(id); }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   // Fictional capability only; browser preview never calls device authentication.
   if (command === 'privacy_auth_available') return { value: ['success', 'cancel'].includes(params.get('privacy-auth') ?? '') };
@@ -643,8 +652,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     }
     const groupId = args.groupId as string;
     const [assetId, planId] = groupId.split('|');
-    const asset = virtuals.find(v => v.id === assetId), plan = plans.find(p => p.id === planId);
-    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: asset?.fields.name ?? '', plan_name: plan?.fields.name ?? '', payments_hidden: payments.filter(p => p.plan_id === planId).length, payments_stay_deleted: 0, blockers: [] } };
+    const held = previewGroups.get(groupId), asset = virtuals.find(v => v.id === assetId), plan = plans.find(p => p.id === planId);
+    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: held?.assetName ?? asset?.fields.name ?? '', plan_name: held?.planName ?? plan?.fields.name ?? '', payments_hidden: payments.filter(p => p.plan_id === planId).length, payments_stay_deleted: 0, blockers: [] } };
   }
   if (command === 'link_trash') {
     const input = args.input as { request_id: string; side: 'virtual' | 'plan'; id: string; asset_expected_revision: number; plan_expected_revision: number };
@@ -658,6 +667,12 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id ?? crypto.randomUUID(), groupId);
     previewGroups.set(groupId, { assetId: asset.id, planId: plan.id, assetName: asset.fields.name, planName: plan.fields.name });
     return { value: groupId };
+  }
+  if (command === 'link_purge_preview') {
+    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    const groupId = args.groupId as string, g = previewGroups.get(groupId);
+    if (!g) throw { message: '这组记录已恢复或已清除，请重新读取最近删除' };
+    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: g.assetName, plan_name: g.planName, payments_total: 3, payments_live: 2, payments_deleted: 1, rate_segments: 2, rule_segments: 1, period_ends: 0, reminders: 1, external_refs: [], blockers: [] } };
   }
   if (command === 'link_restore') {
     const input = args.input as { group_id: string };

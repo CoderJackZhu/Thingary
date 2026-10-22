@@ -8,6 +8,16 @@ export function groupNameError(value: string): string | null {
   const name = value.trim();
   return !name || [...name].length > 40 || /[\u0000-\u001f\u007f-\u009f]/.test(name) ? '分组名称须为 1–40 字，不能含控制字符' : null;
 }
+/** New id order after moving one group up (-1) or down (+1); null when it cannot move that way. */
+export function movedGroupIds(groups: AccountGroup[], id: string, step: -1 | 1): string[] | null {
+  const ids = groups.map(g => g.id), from = ids.indexOf(id), to = from + step;
+  if (from < 0 || to < 0 || to >= ids.length) return null;
+  ids.splice(from, 1); ids.splice(to, 0, id);
+  return ids;
+}
+export const groupAccountsText = (group: AccountGroup) => `${group.accounts} 个账户（含已停用和最近删除）`;
+/** What deleting a group does (same wording as the desktop manager): accounts stay, only the grouping goes. */
+export const groupDeleteText = (group: AccountGroup) => `删除后，${group.accounts} 个账户会变成未分组，账户本身不会删除。此操作无法撤销；重新建组后仍需重新分配账户。`;
 let viewMemory: { generation: string; mode: 'list' | 'group'; structure: 'kind' | 'group' } | null = null;
 const memory = (generation: string) => {
   if (viewMemory?.generation !== generation) viewMemory = { generation, mode: 'list', structure: 'kind' };
