@@ -106,7 +106,7 @@ test("setup flow keeps the desktop order and every step title is distinct", () =
   assert.deepEqual(steps, ["目标与时间", "退休生活预算", "可用资金", "未来收入", "每月净投入", "收益、通胀与波动假设", "核对费用包含关系"]);
   assert.equal(stepIndex("income"), 3);
   assert.equal(stepIndex("setup"), -1);
-  assert.equal(progressText(1), "第 2/7 步");
+  assert.equal(progressText(1), "第 2 / 7 步");
 });
 
 test("fan chart passes median and the 10%-90% band on the engine's own x positions", () => {

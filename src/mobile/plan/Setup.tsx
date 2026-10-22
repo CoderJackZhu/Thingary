@@ -3,10 +3,6 @@ import type { PageProps } from "../routes";
 import type { PlanningSources, ProfileState } from "../../plan";
 import type { Draft } from "../../planning-basic-forms";
 import { setupDraft } from "../../planning-first-run";
-import {
-  contributionSources,
-  retirementSources,
-} from "../../planning-basic-forms";
 import { ageToMonthV1, validMonthV1 } from "../../plan-simplified";
 import {
   ageAtMonth,
@@ -25,6 +21,7 @@ import { useSession } from "../session";
 import {
   ActionBar,
   Button,
+  Sheet,
   DateField,
   ErrorState,
   FormGroup,
@@ -41,20 +38,25 @@ import {
   TextAreaField,
   TextField,
 } from "../ui";
-import { FlowProgress, MonthField } from "./fields";
+import { FlowSteps, MonthField } from "./fields";
 import { usePlan, usePlanSaver } from "./data";
-import { editorInput, flowSteps, progressText, stepIndex } from "./setup-model";
-import { Assumptions } from "./assumptions";
+import {
+  costRows,
+  editorInput,
+  flowSteps,
+  setupIssues,
+  stepIndex,
+  stepStatuses,
+} from "./setup-model";
+import { costsInput } from "../../planning-basic-forms";
+import { Assumptions, AssumptionForm, useAssumptionDraft } from "./assumptions";
 import { StageCostGroup } from "./StageCostGroup";
 import { debtSummary } from "./debts-model";
 import "./plan.css";
 
 export default function Setup({ params }: PageProps) {
   const p = usePlan(),
-    section = String(params.section ?? "setup"),
-    flow = section === "setup",
-    // Lives here so an intermediate save (which re-reads the sources) keeps the place in the flow.
-    [flowStep, setFlowStep] = useState(0);
+    section = String(params.section ?? "setup");
   if (p.loading)
     return (
       <div className="m-page mp-page">
@@ -69,18 +71,8 @@ export default function Setup({ params }: PageProps) {
         <ErrorState message={p.error} onRetry={p.reload} />
       </div>
     );
-  if (
-    flow
-      ? flowSteps[flowStep].unit === "assumptions"
-      : section === "assumptions"
-  )
-    return (
-      <Assumptions
-        sources={p.sources}
-        reload={p.reload}
-        flow={flow ? { index: flowStep, go: setFlowStep } : undefined}
-      />
-    );
+  if (section === "assumptions")
+    return <Assumptions sources={p.sources} reload={p.reload} />;
   return (
     <Editor
       key={p.sources.generation}
@@ -89,8 +81,6 @@ export default function Setup({ params }: PageProps) {
       today={p.today}
       reload={p.reload}
       section={section}
-      step={flowStep}
-      onStep={setFlowStep}
     />
   );
 }
@@ -100,16 +90,12 @@ export function Editor({
   today,
   reload,
   section,
-  step: stepProp,
-  onStep,
 }: {
   sources: PlanningSources;
   saved: ProfileState["saved"];
   today: string;
   reload: () => void;
   section: string;
-  step?: number;
-  onStep?: (step: number) => void;
 }) {
   const nav = useNav(),
     session = useSession();
@@ -119,34 +105,43 @@ export function Editor({
     setupDraft(saved, snapshot, sources.modules.wealth),
   );
   const [shareTexts, setShareTexts] = useState<Record<string, string>>({});
-  // "setup" walks all steps; any other section edits just that step.
+  // "setup" walks all steps and writes them together on 保存; any other section edits just that step.
   const flow = section === "setup",
-    [ownStep, setOwnStep] = useState(0),
-    step = flow ? (stepProp ?? ownStep) : Math.max(0, stepIndex(section)),
-    setStep = onStep ?? setOwnStep,
+    [step, setStep] = useState(() => Math.max(0, stepIndex(section))),
     unit = flowSteps[step].unit,
     costs = flow ? unit === "costs" : section === "costs";
   const [notice, setNotice] = useState(""),
-    [done, setDone] = useState(false);
-  // What each save unit looked like on open, to tell edited steps from untouched ones.
+    [done, setDone] = useState(false),
+    [saving, setSaving] = useState(false),
+    [attempted, setAttempted] = useState(false),
+    [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([step])),
+    [confirmCancel, setConfirmCancel] = useState(false);
+  const asm = useAssumptionDraft(sources, flow);
+  // What each save unit looked like on open (or on its last save), to tell edited steps from untouched ones.
   const snapshotOf = (x: Draft, u: string) =>
     JSON.stringify(
       u === "costs"
         ? [x.conScopes, x.retScopes]
         : { ...x, conScopes: 0, retScopes: 0 },
     );
-  const [opened] = useState(() => ({
+  const [opened, setOpened] = useState(() => ({
     setup: snapshotOf(d, "setup"),
     costs: snapshotOf(d, "costs"),
   }));
   const dirty = (u: string) =>
     u === "assumptions"
-      ? false
+      ? asm.edited
       : snapshotOf(d, u) !== opened[u as "setup" | "costs"];
-  const [expectedRevision] = useState(saved?.revision ?? null),
+  // Single-step pages write the setup unit (or costs); the flow writes every unit that changed.
+  const anyDirty = flow
+    ? dirty("setup") || dirty("costs") || asm.edited
+    : dirty(section === "costs" ? "costs" : "setup");
+  const [expectedRevision, setExpectedRevision] = useState(
+      saved?.revision ?? null,
+    ),
     settledAtOpen = useRef(session.settled);
   const saver = usePlanSaver(sources, reload),
-    frozen = saver.busy || saver.stuck;
+    frozen = saver.busy || saver.stuck || saving;
   const patch = (v: Partial<Draft>) => setD((x) => ({ ...x, ...v }));
   const h = householdOf(d.simplified),
     couple = isCouple(h),
@@ -156,6 +151,27 @@ export function Editor({
   const time = d.simplified.time;
   const patchTime = (t: Partial<typeof time>) =>
     patch({ simplified: { ...d.simplified, time: { ...time, ...t } } });
+  // Wrong values by step. They only show once a save was refused, then follow the edits.
+  const found = [
+    ...setupIssues(d, saved, today, live),
+    ...(flow && asm.invalidKey() !== null
+      ? [{ step: flowSteps.findIndex((x) => x.id === "assumptions"), field: "assumptions", message: "请填写有效百分数，例如 2 或 2.5。" }]
+      : []),
+  ];
+  const shown = attempted ? found : [];
+  const fieldError = (field: string) => {
+    const issue = shown.find((x) => x.step === step && x.field === field);
+    return issue ? (
+      <p className="m-form-hint mp-field-error" role="alert">
+        {issue.message}
+      </p>
+    ) : null;
+  };
+  // Steps with an error but no field of their own (or one not drawn) still say it once at the top.
+  const stepNote = shown.find(
+    (x) => x.step === step && (x.field === "" || !flow),
+  )?.message;
+  const statuses = stepStatuses({ d, saved, issues: shown, visited, assumptionsEdited: asm.edited });
   useEffect(() => {
     if (done && !session.navBlocked) nav.pop();
   }, [done, session.navBlocked]);
@@ -171,38 +187,88 @@ export function Editor({
   useEffect(() => {
     document.querySelector(".m-modal")?.scrollTo(0, 0);
   }, [step]);
-  /** Writes the current save unit. With `then` the page stays open and continues there instead of closing. */
-  async function save(then?: () => void) {
-    if (frozen) return;
-    try {
-      setNotice("");
-      const input = editorInput(
-        d,
-        saved,
-        today,
-        live,
-        flow ? (costs ? "costs" : "setup") : section,
-      );
-      if (await saver.save(input, expectedRevision)) {
-        if (then) then();
-        else setDone(true);
-      }
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : String(e));
-    }
-  }
-  // Moving inside one unit never validates later steps: incomplete drafts must remain reachable.
-  // Leaving a unit with edits (or before anything is saved) saves it first, so no edit is lost.
-  function go(target: number) {
+  function jump(target: number) {
     if (frozen || target < 0 || target >= flowSteps.length) return;
     setNotice("");
-    const from = flowSteps[step].unit;
-    if (
-      from !== flowSteps[target].unit &&
-      (dirty(from) || (from === "setup" && !saved?.profile.retire.basic))
-    )
-      void save(() => setStep(target));
-    else setStep(target);
+    setVisited((v) => new Set(v).add(target));
+    setStep(target);
+  }
+  /**
+   * 保存: validates what is wrong (blank optional fields never block), jumps to the first step with a problem,
+   * otherwise writes the changed units in order: setup, fee relations, then assumptions (which last, so the
+   * rates the person typed are the ones that stay). Nothing is written before this.
+   */
+  async function save() {
+    if (frozen) return;
+    setNotice("");
+    setAttempted(true);
+    const problem = found[0];
+    if (problem) {
+      if (flow) jump(problem.step);
+      else setNotice(problem.message);
+      return;
+    }
+    if (!anyDirty && saved?.profile.retire.basic) {
+      nav.pop();
+      return;
+    }
+    setSaving(true);
+    try {
+      if (!flow) {
+        const input = editorInput(d, saved, today, live, section);
+        if (await saver.save(input, expectedRevision)) setDone(true);
+        return;
+      }
+      let current = saved,
+        revision = expectedRevision;
+      if (dirty("setup") || !saved?.profile.retire.basic) {
+        const result = await saver.save(
+          editorInput(d, current, today, live, "setup"),
+          revision,
+        );
+        if (!result) return;
+        current = result;
+        revision = result.revision;
+        setOpened((o) => ({ ...o, setup: snapshotOf(d, "setup") }));
+        setExpectedRevision(revision);
+      }
+      if (dirty("costs") && current?.profile.retire.basic) {
+        const input = costsInput(d, current);
+        const wanted = input.section === "basic" ? input.fields.basic : null;
+        const have = current.profile.retire.basic;
+        const same =
+          wanted &&
+          JSON.stringify([wanted.contribution_costs, wanted.retirement_costs]) ===
+            JSON.stringify([have?.contribution_costs, have?.retirement_costs]);
+        if (!same) {
+          const result = await saver.save(input, revision);
+          if (!result) return;
+          current = result;
+          revision = result.revision;
+          setExpectedRevision(revision);
+        }
+        setOpened((o) => ({ ...o, costs: snapshotOf(d, "costs") }));
+      }
+      if (asm.edited) {
+        const failure = await asm.commit(true);
+        if (failure !== null) {
+          setNotice(failure);
+          jump(flowSteps.findIndex((x) => x.id === "assumptions"));
+          return;
+        }
+      }
+      reload();
+      session.reload();
+      setDone(true);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+  function cancel() {
+    if (anyDirty) setConfirmCancel(true);
+    else nav.pop();
   }
   // The loan page saves on its own, so edits made here are written first and none are lost on the way back.
   const debts = debtSummary(
@@ -213,12 +279,25 @@ export function Editor({
   );
   function openDebts() {
     if (frozen) return;
-    if (dirty("setup")) void save(() => nav.push("plan.debts"));
+    if (dirty("setup")) void saveThen(() => nav.push("plan.debts"));
     else nav.push("plan.debts");
   }
-  function finish() {
-    if (flow && !dirty(unit) && saved?.profile.retire.basic) nav.pop();
-    else void save();
+  async function saveThen(then: () => void) {
+    setNotice("");
+    setSaving(true);
+    try {
+      const input = editorInput(d, saved, today, live, "setup");
+      const result = await saver.save(input, expectedRevision);
+      if (result) {
+        setOpened((o) => ({ ...o, setup: snapshotOf(d, "setup") }));
+        setExpectedRevision(result.revision);
+        then();
+      }
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
   }
   const title = flowSteps[step].title;
   const ageField = (label: string, field: "target_month" | "horizon_month") => (
@@ -249,35 +328,32 @@ export function Editor({
   return (
     <div className="m-page mp-page">
       <NavBar
-        title={flow ? progressText(step) : title}
+        title={flow ? "设置条件" : title}
+        onCancel={cancel}
         primary={{
-          label: flow ? "保存退出" : "保存",
+          label: "保存",
           onClick: () => void save(),
+          busy: saving,
           disabled: frozen,
         }}
       />
-      {flow && <FlowProgress index={step} />}
+      {flow && (
+        <FlowSteps index={step} statuses={statuses} onJump={jump} disabled={frozen} />
+      )}
       <fieldset disabled={frozen} className="mp-stack">
-        <h2>{title}</h2>
+        {!flow && <h2>{title}</h2>}
+        {stepNote && <Notice tone="danger">{stepNote}</Notice>}
         {costs ? (
           <>
             <Notice>
               确认哪些费用已经含在每月净投入或退休生活费里，避免重复计入。没有填写的关系保持未知。
             </Notice>
-            {(
-              [
-                [
-                  "conScopes",
-                  "已含在每月能存的钱里？",
-                  contributionSources(saved!.profile.retire),
-                ],
-                [
-                  "retScopes",
-                  "已含在退休生活费里？",
-                  retirementSources(saved!.profile.retire),
-                ],
-              ] as const
-            ).map(([key, label, rows]) => (
+            {costRows(d, saved).map(([key, rows]) => {
+              const label =
+                key === "conScopes"
+                  ? "已含在每月能存的钱里？"
+                  : "已含在退休生活费里？";
+              return (
               <FormGroup key={key} title={label}>
                 {rows.length === 0 && <p>没有需要核对的费用。</p>}
                 {rows.map((row) => (
@@ -319,10 +395,12 @@ export function Editor({
                         }
                       />
                     )}
+                    {fieldError(`scope:${key}:${row.id}`)}
                   </div>
                 ))}
               </FormGroup>
-            ))}
+              );
+            })}
           </>
         ) : (
           <>
@@ -368,6 +446,7 @@ export function Editor({
                     }
                     hint="修改出生年月保留已有的目标月份，请重新核对年龄"
                   />
+                  {fieldError("birth")}
                   {ageField("希望多少岁停工", "target_month")}
                   {ageField("规划到多少岁", "horizon_month")}
                   <MonthField
@@ -375,11 +454,13 @@ export function Editor({
                     value={time.target_month ?? ""}
                     onChange={(v) => patchTime({ target_month: v || null })}
                   />
+                  {fieldError("target_month")}
                   <MonthField
                     label="规划终点月份"
                     value={time.horizon_month ?? ""}
                     onChange={(v) => patchTime({ horizon_month: v || null })}
                   />
+                  {fieldError("horizon_month")}
                 </FormGroup>
                 {couple && (
                   <FormGroup title="伴侣">
@@ -391,6 +472,7 @@ export function Editor({
                         setH({ ...h, partner: { ...h.partner, birth_month } })
                       }
                     />
+                    {fieldError("partner_birth")}
                     <SelectField
                       label="伴侣打算何时停工"
                       value={
@@ -428,6 +510,7 @@ export function Editor({
                         }
                       />
                     )}
+                    {fieldError("partner_stop")}
                   </FormGroup>
                 )}
               </>
@@ -450,6 +533,7 @@ export function Editor({
                     inputMode="numeric"
                     onChange={(emergency) => patch({ emergency })}
                   />
+                  {fieldError("emergency")}
                 </FormGroup>
                 <StageCostGroup
                   d={d}
@@ -567,6 +651,7 @@ export function Editor({
                                   });
                                 }}
                               />
+                              {fieldError(`share:${e.account_id}`)}
                             </div>
                           );
                         })}
@@ -731,6 +816,7 @@ export function Editor({
                       })
                     }
                   />
+                  {fieldError("income_mode")}
                 </FormGroup>
                 {d.simplified.future_incomes.map((income, i) => {
                   const set = (v: Partial<typeof income>) =>
@@ -831,6 +917,7 @@ export function Editor({
                         value={income.notes}
                         onChange={(notes) => set({ notes })}
                       />
+                      {fieldError(`income:${income.id}`)}
                       <Button
                         onClick={() =>
                           patch({
@@ -891,10 +978,18 @@ export function Editor({
                     }
                   />
                 )}
+                {fieldError("partner_monthly")}
                 <Button onClick={() => patch({ contribution: "0" })}>
                   明确按每月存 0 元
                 </Button>
               </FormGroup>
+            )}
+            {flow && step === flowSteps.length - 2 && (
+              <>
+                <AssumptionForm draft={asm} disabled={frozen} />
+                {fieldError("assumptions")}
+                {asm.error && <Notice tone="danger">{asm.error}</Notice>}
+              </>
             )}
           </>
         )}
@@ -902,27 +997,37 @@ export function Editor({
       {(notice || saver.notice) && (
         <Notice tone="danger">{notice || saver.notice}</Notice>
       )}
-      <p className="mp-muted">没想好的条件可以先留空。取消不会保存草稿。</p>
-      <ActionBar>
-        {flow && step > 0 && (
-          <Button disabled={frozen} onClick={() => go(step - 1)}>
-            上一步
-          </Button>
-        )}
-        {flow && step < flowSteps.length - 1 ? (
-          <Button
-            variant="primary"
-            disabled={frozen}
-            onClick={() => go(step + 1)}
-          >
-            下一步
-          </Button>
-        ) : (
-          <Button variant="primary" disabled={frozen} onClick={finish}>
-            完成
-          </Button>
-        )}
-      </ActionBar>
+      <p className="mp-muted">
+        没想好的条件可以先留空。点「保存」才会写入；取消不保存。
+      </p>
+      {flow && (
+        <ActionBar>
+          {step > 0 && (
+            <Button disabled={frozen} onClick={() => jump(step - 1)}>
+              上一步
+            </Button>
+          )}
+          {step < flowSteps.length - 1 ? (
+            <Button variant="primary" disabled={frozen} onClick={() => jump(step + 1)}>
+              下一步
+            </Button>
+          ) : (
+            <Button variant="primary" disabled={frozen} onClick={() => void save()}>
+              保存
+            </Button>
+          )}
+        </ActionBar>
+      )}
+      {confirmCancel && (
+        <Sheet title="放弃这次修改？" doneLabel="继续编辑" onClose={() => setConfirmCancel(false)}>
+          <div className="m-confirm">
+            <p className="m-confirm-text">已填的内容还没有保存，放弃后会丢失。</p>
+            <Button variant="danger" block onClick={() => nav.pop()}>
+              放弃
+            </Button>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }

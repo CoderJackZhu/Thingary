@@ -9,7 +9,7 @@ import * as model from "../src/mobile/plan/setup-model.ts";
 import * as eventModel from "../src/mobile/plan/events-model.ts";
 import * as debtModel from "../src/mobile/plan/debts-model.ts";
 import * as format from "../src/mobile/format.ts";
-function mount(section = "setup", { spendItems = [], push = () => {}, loan = null } = {}) {
+function mount(section = "setup", { spendItems = [], push = () => {}, loan = null, saveResult = null } = {}) {
   const sources = basicFixtureSources(basicInputFixtures.prediction),
     saved = sources.profile.value.saved,
     calls = [],
@@ -28,7 +28,12 @@ function mount(section = "setup", { spendItems = [], push = () => {}, loan = nul
       monthly_cents: "200000",
     },
   };
-  const session = { navBlocked: false, settled: null };
+  const session = { navBlocked: false, settled: null, reload() {} };
+  const pops = [], assumptionSaves = [];
+  const port = {
+    readAssumptions: async () => ({ status: "ready", value: { generation: sources.generation, revision: 9, values: { real_return_before_hundredths: 0, real_return_after_hundredths: 0, inflation_hundredths: 200, volatility_hundredths: 500 }, confirmation: "unconfirmed", confirmed_values: null } }),
+    saveAssumptions: async (values, confirm, context) => { assumptionSaves.push({ values, confirm, context }); return { status: "saved", id: "profile", revision: 11 }; },
+  };
   const saver = {
     busy: false,
     stuck: false,
@@ -36,7 +41,7 @@ function mount(section = "setup", { spendItems = [], push = () => {}, loan = nul
     async save(input, revision) {
       calls.push(structuredClone(input));
       expected.push(revision);
-      return null;
+      return saveResult ? saveResult(input, revision) : null;
     },
   };
   const h = runtime(
@@ -46,7 +51,7 @@ function mount(section = "setup", { spendItems = [], push = () => {}, loan = nul
     undefined,
     {
       exportName: "Editor",
-      components: ["mobile/plan/StageCostGroup"],
+      components: ["mobile/plan/assumptions", "mobile/plan/StageCostGroup"],
       document: { querySelector: () => null },
       modules: {
         "./mobile/plan/setup-model": model,
@@ -54,12 +59,13 @@ function mount(section = "setup", { spendItems = [], push = () => {}, loan = nul
         "./mobile/plan/debts-model": debtModel,
         "./mobile/format": format,
         "./mobile/session": { useSession: () => session },
-        "./mobile/nav-context": { useNav: () => ({ pop() {}, push }) },
+        "./planning-followup-port": { nativePlanningFollowupPortV1: () => port },
+        "./mobile/nav-context": { useNav: () => ({ pop: () => pops.push("closed"), push }) },
         "./mobile/plan/data": { usePlanSaver: () => saver },
       },
     },
   );
-  return { h, calls, expected, saved, saver };
+  return { h, calls, expected, saved, saver, pops, assumptionSaves };
 }
 // 保存只在右上 NavBar（底部「保存，查看结果」已移除）；这里取它的 primary 当按钮用。
 const saveButton = (h) => ({ props: h.find("NavBar").props.primary });
@@ -84,6 +90,7 @@ test("partner share edit commits together with household total instead of discar
 test("setup editor keeps original expected_revision and unresolved state disables save", async () => {
   const { h, saved, expected, saver } = mount("contribution"),
     initial = saved.revision;
+  h.find("MoneyField", (p) => p.label === "你估计每月能存").props.onChange("123400");
   saved.revision += 3;
   h.render();
   saveButton(h).props.onClick();
@@ -152,28 +159,112 @@ test("switching partner to same stop date clears the now-hidden saving share", a
   );
 });
 
-test("flow: leaving the setup steps with edits saves them first; untouched, it just moves on", async () => {
+test("flow: stepping never writes; 保存 writes the edited steps once, in order, then closes", async () => {
   const next = (h) => h.find("Button", (p) => p.children === "下一步").props.onClick();
   const clean = mount("setup");
   for (let i = 0; i < 4; i++) { next(clean.h); clean.h.render(); }
-  next(clean.h);
+  next(clean.h); clean.h.render();
   await clean.h.settle();
-  assert.equal(clean.calls.length, 0);
-  const edited = mount("setup");
+  assert.equal(clean.calls.length, 0, "crossing into 假设 writes nothing");
+  saveButton(clean.h).props.onClick();
+  await clean.h.settle();
+  assert.equal(clean.calls.length, 0, "nothing edited: 保存 just closes");
+  assert.deepEqual(clean.pops, ["closed"]);
+  const edited = mount("setup", { saveResult: (input, revision) => ({ revision: revision + 1, profile: { ...structuredClone(edited.saved.profile), retire: { ...structuredClone(edited.saved.profile.retire) } } }) });
   for (let i = 0; i < 4; i++) { next(edited.h); edited.h.render(); }
   edited.h.find("MoneyField", (p) => p.label === "你估计每月能存").props.onChange("123400");
   edited.h.render();
-  next(edited.h);
+  next(edited.h); edited.h.render();
+  await edited.h.settle();
+  edited.h.find("TextField", (p) => p.label === "通胀（%）").props.onChange("3");
+  edited.h.render();
+  assert.equal(edited.calls.length, 0, "stepping with edits writes nothing");
+  saveButton(edited.h).props.onClick();
   await edited.h.settle();
   assert.equal(edited.calls.length, 1);
   assert.equal(edited.calls[0].section, "setup");
   assert.equal(edited.calls[0].fields.basic.basic.contribution.monthly_cents, "123400");
+  assert.equal(edited.assumptionSaves.length, 1, "the assumptions are written after the setup unit");
+  assert.equal(edited.assumptionSaves[0].values.inflation_hundredths, 300);
+  assert.equal(edited.assumptionSaves[0].context.expected_revision, 9);
+  assert.deepEqual(edited.pops, ["closed"]);
 });
 
-test("opened for one step: shows that step with 完成 and no 上一步/下一步", () => {
+test("step dots: tapping jumps straight to that step and keeps the draft", () => {
+  const { h } = mount("setup");
+  h.find("FlowSteps").props.onJump(4);
+  h.render();
+  h.find("MoneyField", (p) => p.label === "你估计每月能存").props.onChange("777");
+  h.render();
+  h.find("FlowSteps").props.onJump(1);
+  h.render();
+  assert.ok(h.find("MoneyField", (p) => p.label === "每月生活费总额"));
+  assert.equal(h.find("FlowSteps").props.index, 1);
+  h.find("FlowSteps").props.onJump(4);
+  h.render();
+  assert.equal(h.find("MoneyField", (p) => p.label === "你估计每月能存").props.value, "777");
+});
+
+test("保存 with a wrong value jumps to the first step with a problem and shows it at the field; blanks do not block", async () => {
+  const { h, calls } = mount("setup");
+  h.find("FlowSteps").props.onJump(1);
+  h.render();
+  h.find("TextField", (p) => p.label === "应急金月数").props.onChange("99");
+  h.find("TextField", (p) => p.label === "应急金月数").props.onChange("99");
+  h.render();
+  assert.equal(h.find("FlowSteps").props.statuses[1], "done", "no error is shown before a save is refused");
+  h.find("FlowSteps").props.onJump(4);
+  h.render();
+  saveButton(h).props.onClick();
+  await h.settle();
+  assert.equal(calls.length, 0);
+  assert.equal(h.find("FlowSteps").props.index, 1);
+  assert.equal(h.find("FlowSteps").props.statuses[1], "attention");
+  assert.match(h.text(h.nodes()[0]), /应急金月数须是 0 到 36 的整数/);
+  h.find("TextField", (p) => p.label === "应急金月数").props.onChange("");
+  h.render();
+  assert.match(h.text(h.nodes()[0]), /请填写应急金月数/);
+});
+
+test("the bottom bar holds only 上一步/下一步, and 保存 on the last step; the top bar has the one 取消/保存", () => {
+  const { h } = mount("setup");
+  assert.equal(h.find("NavBar").props.primary.label, "保存");
+  assert.equal(h.find("Button", (p) => p.children === "完成"), undefined);
+  assert.equal(h.find("Button", (p) => p.children === "保存"), undefined);
+  h.find("FlowSteps").props.onJump(6);
+  h.render();
+  assert.equal(h.find("Button", (p) => p.children === "下一步"), undefined);
+  assert.ok(h.find("Button", (p) => p.children === "上一步"));
+  assert.ok(h.find("Button", (p) => p.children === "保存"));
+});
+
+test("取消 closes at once when nothing changed, and asks 放弃这次修改？ when there are edits", () => {
+  const clean = mount("setup");
+  clean.h.find("NavBar").props.onCancel();
+  assert.deepEqual(clean.pops, ["closed"]);
+  const { h, pops, calls } = mount("setup");
+  h.find("FlowSteps").props.onJump(4);
+  h.render();
+  h.find("MoneyField", (p) => p.label === "你估计每月能存").props.onChange("555");
+  h.render();
+  h.find("NavBar").props.onCancel();
+  h.render();
+  assert.deepEqual(pops, []);
+  const sheet = h.find("Sheet");
+  assert.equal(sheet.props.title, "放弃这次修改？");
+  assert.equal(sheet.props.doneLabel, "继续编辑");
+  h.find("Button", (p) => p.children === "放弃").props.onClick();
+  assert.deepEqual(pops, ["closed"]);
+  assert.equal(calls.length, 0, "放弃 writes nothing");
+  assert.match(h.text(h.nodes()[0]), /取消不保存/);
+});
+
+test("opened for one step: shows that step with only the top 保存 and no bottom bar", () => {
   const { h } = mount("budget");
   assert.ok(h.find("MoneyField", (p) => p.label === "每月生活费总额"));
-  assert.ok(h.find("Button", (p) => p.children === "完成"));
+  assert.equal(h.find("Button", (p) => p.children === "完成"), undefined);
+  assert.equal(h.find("ActionBar"), undefined);
+  assert.equal(h.find("FlowSteps"), undefined);
   assert.equal(h.find("Button", (p) => p.children === "下一步"), undefined);
 });
 
@@ -197,7 +288,7 @@ test("budget step: stage costs sit under the budget fields, collapsed until used
   assert.ok(withItem.h.button("删除赡养父母"));
 });
 
-test("a stage cost added in the budget step is written by the step flow's own save, with the draft, and is not lost", async () => {
+test("a stage cost added in the budget step is written by the flow's one 保存, with the draft, and is not lost", async () => {
   const { h, calls } = mount("setup");
   next(h);
   h.nodes().find((n) => n.type === "button" && h.text(n).startsWith("退休后另有阶段性支出")).props.onClick();
@@ -211,9 +302,9 @@ test("a stage cost added in the budget step is written by the step flow's own sa
   assert.equal(calls.length, 0, "nothing is written until the step flow saves");
   assert.match(h.text(h.nodes()[0]), /子女教育/);
   // Move on through the other setup steps, then leave the setup unit: the one save carries the item.
-  for (let i = 0; i < 3; i++) next(h);
+  for (let i = 0; i < 4; i++) next(h);
   assert.equal(calls.length, 0);
-  next(h);
+  saveButton(h).props.onClick();
   await h.settle();
   assert.equal(calls.length, 1);
   assert.equal(calls[0].section, "setup");
