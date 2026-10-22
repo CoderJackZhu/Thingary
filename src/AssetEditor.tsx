@@ -2,7 +2,10 @@ import { CloseButton } from './CloseButton';
 import {persistSubmission} from './editor-session';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, inputMoney, localDay, money, validate } from './asset';
+import { errorMessage, localDay, money, priceCents, priceOrigin, validate } from './asset';
+import { CurrencyPicker } from './CurrencyPicker';
+import { currencyCode } from './currency';
+import { rememberCurrency } from './currency-picker.ts';
 import { PhotoView, PhotoPreview } from './Photos';
 import { DefaultAssetIcon, IconPicker, type IconChoice } from './IconPicker';
 import { replaceDraftCover } from './asset-media';
@@ -86,13 +89,25 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
     if (lock.current || draft.pending) { setNotice('请先核对这次保存结果，再关闭表单。'); onKeep(); return; }
     onClose(intent);
   }
-  function success(record: AssetRecord) { localStorage.removeItem(draftKey); onSaved(record); }
+  /** The CNY price is saved first; the original-currency record follows (and is cleared when the price became CNY or unknown). */
+  async function success(record: AssetRecord) {
+    let saved = record;
+    let origin = null;
+    try { origin = priceOrigin(draft.fields); } catch { /* validated before saving */ }
+    if (origin || record.price_origin) {
+      try {
+        await invoke('set_price_origin', { input: { generation: draft.generation, asset_id: record.asset.id, origin } });
+        saved = (await invoke<AssetRecord | null>('read_asset', { id: record.asset.id })) ?? record;
+      } catch { /* the CNY price is already saved; the original amount is only an annotation */ }
+    }
+    localStorage.removeItem(draftKey); onSaved(saved);
+  }
   async function resolvePending() {
     if (!draft.pending || lock.current) return;
     lock.current = true; setBusy(true);
     try {
       const result = await invoke<AssetRecord | null>('saved_request', { request: draft.pending.base.request_id, generation: draft.pending.base.generation });
-      if (result) success(result);
+      if (result) await success(result);
       else { remember({ ...draft, pending: null }); setNotice('确认尚未保存。输入已保留，可修改或再次保存。'); }
     } catch (e) { setNotice(errorMessage(e) + ' 输入与原请求已保留。'); }
     finally { lock.current = false; setBusy(false); }
@@ -108,15 +123,15 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       return;
     }
     lock.current = true; setBusy(true); setNotice('正在保存…'); setConflict(false);
-    const { name, price, date, ...details } = draft.fields;
-    const input: SaveAsset = { options, classification: draft.classification, base: { request_id: crypto.randomUUID(), generation: draft.generation, asset_id: draft.id, expected_revision: draft.revision, name, price_cents: inputMoney(price), purchase_date: date || null }, details, photos: { ids: photos.map(p => p.id), cover_id: draft.cover ?? null } };
+    const { name, date, price: _price, currency: _currency, fx: _fx, ...details } = draft.fields;
+    const input: SaveAsset = { options, classification: draft.classification, base: { request_id: crypto.randomUUID(), generation: draft.generation, asset_id: draft.id, expected_revision: draft.revision, name, price_cents: priceCents(draft.fields), purchase_date: date || null }, details, photos: { ids: photos.map(p => p.id), cover_id: draft.cover ?? null } };
     try { remember({ ...draft, pending: input }); }
     catch { lock.current = false; setBusy(false); setNotice('无法暂存本次请求，尚未提交。请检查可用空间后重试。'); return; }
-    try { success(conversion ? await invoke<AssetRecord>('convert_wishlist', { input: { wishlist_id: conversion.wishlist_id, expected_revision: conversion.expected_revision, asset: input } }) : await invoke<AssetRecord>('save_asset', { input })); }
+    try { await success(conversion ? await invoke<AssetRecord>('convert_wishlist', { input: { wishlist_id: conversion.wishlist_id, expected_revision: conversion.expected_revision, asset: input } }) : await invoke<AssetRecord>('save_asset', { input })); }
     catch (e) {
       try {
         const result = await invoke<AssetRecord | null>('saved_request', { request: input.base.request_id, generation: input.base.generation });
-        if (result) { success(result); return; }
+        if (result) { await success(result); return; }
         remember({ ...draft, pending: null });
         setConflict(!conversion && typeof e === 'object' && e !== null && 'code' in e && e.code === 'REVISION_CONFLICT');
         setNotice(errorMessage(e) + (conversion ? ' 心愿未被转换，输入已保留；如心愿已变化，请取消后回到心愿清单重新读取。' : ' 输入已保留。'));
@@ -155,7 +170,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <div className="editor-body">
       {conversion ? <p className="muted">{t('由心愿「{wish_name}」转入。', { wish_name: conversion.wish_name })}{conversion.estimated_price_cents === null ? t('心愿未填预计价格。') : t('预计 {v1} 仅作参考，不会当作实付金额。', { v1: money(conversion.estimated_price_cents) })}{t('请填写实际购入金额和日期；留空表示未知，相关成本指标将无法计算。保存后确认为已购入。')}</p> : <p className="muted">{t('只填写名称也可以。其余资料，想起时再补。')}</p>}
       <div className="asset-identity-editor"><button type="button" className="asset-avatar-button" aria-label={t('选择物品图标')} title={t('选择物品图标')} disabled={busy || !!draft.pending} onClick={openPicker}>{coverPhoto ? <PhotoView photo={coverPhoto} generation={draft.generation}/> : <DefaultAssetIcon/>}<span className="avatar-edit">{t('更换图标')}</span></button>{field('name', '物品名称')}</div>
-      <section className="form-block"><FormRow label={t('购买价格（元）')}>{field('price','购买价格','留空为未知；0 为免费。')}</FormRow><FormRow label={t('购买日期')}>{field('date','购买日期','留空为未知。')}</FormRow><FormRow label={t('分类')}><ChoiceField kind="category" label={t('分类')} generation={draft.generation} value={draft.classification?.category_id??null} onChange={id=>classify('category_id',id)} disabled={disabled}/></FormRow><FormRow label={t('标签')}><ChoiceField kind="label" label={t('标签')} domain="physical" generation={draft.generation} value={options.preferences.label_id} onChange={label_id=>remember({...draft,options:{...options,preferences:{...options.preferences,label_id}}})} disabled={disabled}/></FormRow><FormRow label={t('购买渠道')}><ChoiceField kind="channel" label={t('购买渠道')} generation={draft.generation} value={draft.classification?.channel_id??null} onChange={id=>classify('channel_id',id)} disabled={disabled}/></FormRow></section>
+      <section className="form-block"><FormRow label={t('购买价格')}><div className="field price-field"><div className="price-line"><input id="field-price" inputMode="decimal" placeholder={t('留空为未知；0 为免费。')} value={draft.fields.price} onChange={e => change('price', e.target.value)} disabled={disabled} aria-invalid={!!errors.price} aria-describedby="help-price"/><CurrencyPicker label={t('购买价格的币种')} value={currencyCode(draft.fields.currency)} disabled={disabled} onChange={code => { rememberCurrency(code); change('currency', code); }}/></div>{currencyCode(draft.fields.currency) !== 'CNY' && <label className="price-rate"><span>{t('汇率：1 {code} =', { code: currencyCode(draft.fields.currency) })}</span><input id="field-fx" inputMode="decimal" aria-label={t('汇率')} placeholder="7.12" value={draft.fields.fx ?? ''} onChange={e => change('fx', e.target.value)} disabled={disabled}/><span>{t('人民币')}</span></label>}<small id="help-price" className={errors.price ? 'error' : ''}>{errors.price || (() => { try { const cents = priceCents(draft.fields); return currencyCode(draft.fields.currency) !== 'CNY' && cents !== null ? t('折合 {v1}（汇率手填，不联网）', { v1: money(cents) }) : ''; } catch { return ''; } })()}</small></div></FormRow><FormRow label={t('购买日期')}>{field('date','购买日期','留空为未知。')}</FormRow><FormRow label={t('分类')}><ChoiceField kind="category" label={t('分类')} generation={draft.generation} value={draft.classification?.category_id??null} onChange={id=>classify('category_id',id)} disabled={disabled}/></FormRow><FormRow label={t('标签')}><ChoiceField kind="label" label={t('标签')} domain="physical" generation={draft.generation} value={options.preferences.label_id} onChange={label_id=>remember({...draft,options:{...options,preferences:{...options.preferences,label_id}}})} disabled={disabled}/></FormRow><FormRow label={t('购买渠道')}><ChoiceField kind="channel" label={t('购买渠道')} generation={draft.generation} value={draft.classification?.channel_id??null} onChange={id=>classify('channel_id',id)} disabled={disabled}/></FormRow></section>
       <section className="form-block form-notes">{field('notes','备注')}<div className="photo-strip">{attachments.map(photo=><div className="photo-tile" key={photo.id}><button type="button" className="photo-open" aria-label={'查看图片'+photo.name} onClick={()=>setPreview(photo)}><PhotoView photo={photo} generation={draft.generation} compact/></button><button type="button" className="photo-remove" disabled={disabled} aria-label={'移除图片'+photo.name} onClick={()=>media({...draft,photos:photos.filter(p=>p.id!==photo.id)})}>{t('移除')}</button></div>)}<AddImageButton tile disabled={disabled||photos.length>=20} onClick={()=>void pickPhoto()}/></div></section>
       <AssetOptionsFields options={options} generation={draft.generation} disabled={disabled} existing={!!draft.id} purchaseDate={draft.fields.date||null} onChange={options=>remember({...draft,options,warrantyEndEdited:!!options.warranty && (!!draft.warrantyEndEdited || !!draft.options?.warranty && options.warranty.end_date !== draft.options.warranty.end_date)})}>
         <details className="more-fields" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}><summary>{t('品牌 · 型号 · 序列号')}</summary><div className="fields">{field('brand', '品牌')}{field('model', '型号')}{field('serial_number', '序列号')}</div></details>

@@ -179,6 +179,16 @@ pub async fn save_asset(input: SaveAsset, worker: tauri::State<'_, Worker>) -> R
     .map_err(|_| Error::new("WORKER", "未收到保存结果，请检查该次提交"))?
 }
 #[tauri::command]
+pub async fn set_price_origin(
+    input: crate::catalog::PriceOriginSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.set_price_origin(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存失败，请重试"))?
+}
+#[tauri::command]
 pub async fn saved_request(
     request: String,
     generation: String,

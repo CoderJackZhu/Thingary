@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 44;
+pub const SCHEMA_VERSION: i64 = 45;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -1272,6 +1272,13 @@ PRAGMA user_version=41;",
     if v == 43 && target >= 44 {
         let tx = c.unchecked_transaction()?;
         tx.execute_batch(include_str!("subscription_resumptions.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 44;
+    }
+    if v == 44 && target >= 45 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("asset_price_origin.sql"))?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

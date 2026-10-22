@@ -24,7 +24,7 @@ function runtime(initial = blank()) {
   const context = { module: { exports: {} }, exports: {}, require,
     useState(value) { const i = si++; if (!(i in states)) states[i] = typeof value === 'function' ? value() : value; return [states[i], v => { states[i] = typeof v === 'function' ? v(states[i]) : v; }]; },
     useRef(value) { const i = ri++; return refs[i] ?? (refs[i] = { current: value }); }, useEffect() {}, useLayoutEffect() {},
-    identityFoldOpen, supplementalField, validate, inputMoney, defaultPreferences, localDay: () => '2026-10-13', money: String, errorMessage: String,
+    identityFoldOpen, supplementalField, validate, inputMoney, priceCents: f => f.price || null, priceOrigin: () => null, currencyCode: c => c ?? 'CNY', rememberCurrency() {}, CurrencyPicker: 'CurrencyPicker', defaultPreferences, localDay: () => '2026-10-13', money: String, errorMessage: String,
     requestAnimationFrame: fn => frames.push(fn), document: { getElementById: id => ({ focus: () => focused.push(id) }) },
     persistSubmission() {}, draftKey: 'fictional-draft', localStorage: { removeItem() {} }, crypto: { randomUUID: () => 'fictional-request' },
     invoke: async (command, args) => { commands.push([command, args]); return { asset: { id: 'saved-fictional' } }; },

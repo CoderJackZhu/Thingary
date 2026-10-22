@@ -449,6 +449,7 @@ pub fn run() {
             commands::tag_investment_view,
             commands::read_asset,
             commands::save_asset,
+            commands::set_price_origin,
             commands::change_trash,
             commands::list_trash,
             commands::change_record_trash,
