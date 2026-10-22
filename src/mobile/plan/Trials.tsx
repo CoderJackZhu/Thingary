@@ -23,7 +23,7 @@ import {
 } from "../../plan-wishes";
 import type { WishLike } from "../../plan-wishes";
 import type { ProfileState } from "../../plan";
-import { money } from "../../asset";
+import { moneyText } from "../format";
 import { contributionSources } from "../../planning-basic-forms";
 import { useNav } from "../nav-context";
 import { usePlan } from "./data";
@@ -187,7 +187,7 @@ export function MobileRunway({
           </>
         ) : funds?.status === "ready" ? (
           <p className="m-trial-note">
-            截至 {funds.value.date} 可用 {money(funds.value.available_cents)}（
+            截至 {funds.value.date} 可用 {moneyText(funds.value.available_cents)}（
             {funds.value.kind === "live" ? "实际盘点" : "手填模拟"}）。
           </p>
         ) : (
@@ -672,7 +672,7 @@ export function MobileCareer({
           </p>
         )}
         {result?.message && (
-          <UnknownState title="条件待补充" message={result.message} />
+          <UnknownState title="条件不完整" message={result.message} />
         )}
         {result?.answer && (
           <div aria-live="polite">
@@ -794,6 +794,7 @@ export function MobileWishImpact({
           <Loading label="正在读取心愿…" />
         ) : !spends.length ? (
           <EmptyState
+            icon="chart"
             title="还没有考虑中的心愿"
             message="添加预计价格与计划日期后，可以查看对目标的影响。"
           />
@@ -809,7 +810,7 @@ export function MobileWishImpact({
                       nav.push("plan.setup", { section: "contribution" })
                     }
                   >
-                    检查预计净投入
+                    补充条件
                   </Button>
                 }
               />
@@ -831,7 +832,7 @@ export function MobileWishImpact({
                   <span>
                     {s.status === "no_price"
                       ? "价格未知"
-                      : money(String(s.cents))}
+                      : moneyText(String(s.cents))}
                   </span>
                 </div>
                 <p className="m-trial-note">
@@ -844,7 +845,7 @@ export function MobileWishImpact({
                             s,
                             impactOf(calc, [s]),
                             calc.r.emergency_months,
-                            (v) => money(String(v)),
+                            (v) => moneyText(String(v)),
                           )
                         : s.status === "today"
                           ? "未设日期，仅作如果今天买下的单件假设，不计入合计。"
@@ -868,6 +869,7 @@ export function MobileWishImpact({
 export default function Trials() {
   const { sources, saved, capabilities, today, reload, loading, error } =
     usePlan();
+  const nav = useNav();
   const key = sources
     ? `${sources.generation}:${sources.write_version}:${saved?.revision ?? ""}:${today}`
     : "";
@@ -897,8 +899,12 @@ export default function Trials() {
             />
           ) : (
             <EmptyState
+              icon="chart"
               title="先设置一个规划目标"
               message="设置目标、预算和资金后，就能试算职业变化；资金续航可独立使用。"
+              action={
+                <Button onClick={() => nav.push("plan.setup")}>设置条件</Button>
+              }
             />
           )}
           {sources && (

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import './date.css';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, money } from '../../asset';
+import { errorMessage } from '../../asset';
+import { moneyText } from '../format';
 import { batchSummary, dateError, stateBlock, saleNet } from '../../batch-select';
 import type { BatchRow } from '../../batch-select';
 import { submit } from '../../wealth';
@@ -36,9 +37,9 @@ export default function ItemBatch({ids,generation,today,onClose,onDone}:{ids:str
   const options=[{id:'keep',label:'保持不变'},{id:'',label:kind==='label'?'无标签':'未分类'},...(choices?.[kind==='label'?'label':'category']??[]).map(c=>({id:c.id,label:c.name}))];
   return <Sheet title={`批量操作 · ${ids.length} 件`} onClose={()=>{if(!session.navBlocked)onClose();}}><div className="mi-filter"><SelectField label="操作" value={kind} disabled={session.navBlocked} options={[['delete','删除'],['retire','退役'],['activate','重新启用'],['sell','记录售出'],['classify','改分类'],['label','改标签']].map(([id,label])=>({id,label}))} onChange={v=>{setKind(v as Kind);setValues({});setNotice('');}}/>
     {error?<ErrorState message={error} onRetry={()=>setRetry(n=>n+1)}/>:!rows?<Loading/>:<>
-      <Notice>已选 {summary?.count} 件 · 已知金额 {money(summary?.total??null)}{summary?.unknown?` · ${summary.unknown} 件金额未知`:''}</Notice>
+      <Notice>已选 {summary?.count} 件 · 已知金额 {moneyText(summary?.total??null)}{summary?.unknown?` · ${summary.unknown} 件金额未知`:''}</Notice>
       {kind==='delete'?<Notice>删除后物品及关联记录从各处隐藏，可在“最近删除”中恢复。已经不用请选退役，卖掉了请选记录售出。</Notice>:kind==='sell'?<><DateField label="售出日期" value={date} onChange={setDate} max={today} disabled={session.navBlocked}/><TextField label="统一售出平台" value={platform} onChange={setPlatform} disabled={session.navBlocked}/></>:kind==='retire'||kind==='activate'?<DateField label="动作日期" value={date} onChange={setDate} max={today} disabled={session.navBlocked}/>:<SelectField label="全部设为" value="keep" options={options} disabled={session.navBlocked} onChange={v=>setValues(Object.fromEntries(rows.map(r=>[r.id,v])))}/>}
-      <FormGroup title="核对所选物品">{rows.map(r=><div className="mi-batch-row" key={r.id}><strong>{r.name}</strong>{kind==='classify'||kind==='label'?<SelectField label={r.name+' 新'+(kind==='label'?'标签':'分类')} value={values[r.id]??'keep'} options={options} disabled={session.navBlocked} onChange={v=>setValues({...values,[r.id]:v})}/>:kind==='sell'?r.state==='sold'?<p className="mi-caption">已售出 · 不参与保存</p>:<><MoneyField label={r.name+' 售价'} value={values[r.id]??''} onChange={v=>setValues({...values,[r.id]:v})} disabled={session.navBlocked} hint="逐件填写，可为 0"/><p className="mi-caption">{dateError(r,date,today)||`净成本 ${money(saleNet(r,values[r.id]||null))}`}</p></>:kind!=='delete'&&<p className="mi-caption">{stateBlock(r,kind)||dateError(r,date,today)||`将于 ${date} ${kind==='retire'?'退役':'重新启用'}`}</p>}</div>)}</FormGroup>
+      <FormGroup title="核对所选物品">{rows.map(r=><div className="mi-batch-row" key={r.id}><strong>{r.name}</strong>{kind==='classify'||kind==='label'?<SelectField label={r.name+' 新'+(kind==='label'?'标签':'分类')} value={values[r.id]??'keep'} options={options} disabled={session.navBlocked} onChange={v=>setValues({...values,[r.id]:v})}/>:kind==='sell'?r.state==='sold'?<p className="mi-caption">已售出 · 不参与保存</p>:<><MoneyField label={r.name+' 售价'} value={values[r.id]??''} onChange={v=>setValues({...values,[r.id]:v})} disabled={session.navBlocked} hint="逐件填写，可为 0"/><p className="mi-caption">{dateError(r,date,today)||`净成本 ${moneyText(saleNet(r,values[r.id]||null))}`}</p></>:kind!=='delete'&&<p className="mi-caption">{stateBlock(r,kind)||dateError(r,date,today)||`将于 ${date} ${kind==='retire'?'退役':'重新启用'}`}</p>}</div>)}</FormGroup>
       <Button variant={kind==='delete'?'danger':'primary'} block disabled={session.navBlocked||!!invalid||!choices} onClick={()=>void save()}>{kind==='delete'?'移入最近删除':'保存更改'}</Button>
     </>}{notice&&<Notice tone="danger">{notice}</Notice>}</div></Sheet>;
 }

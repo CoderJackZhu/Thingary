@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, localDay } from '../../../asset';
+import { dayLabel } from '../../format';
 import type { AssetRecord } from '../../../asset';
 import { linkView } from '../../../link';
 import type { PurgeAllPreview, Purged } from '../../../link';
@@ -121,12 +122,12 @@ export default function TrashPage() {
     {notice && <Notice tone={/已恢复|已永久|已核对|已整组/.test(notice) ? 'positive' : 'danger'}>{notice}</Notice>}
     {error && !page ? <ErrorState title="最近删除读取失败" message={error} onRetry={reload}/>
       : loading && !page ? <Loading label="正在读取最近删除…"/>
-      : !page?.items.length ? <EmptyState icon="trash" title="最近删除是空的" message={filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有已删除的记录。'}/>
+      : !page?.items.length ? <EmptyState icon="user" title="最近删除是空的" message={filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有已删除的记录。'}/>
       : <>
         <ListGroup title={`${total} 项 · 按删除时间从新到旧`}>
           {page.items.map(entry => {
             const display = entryDisplay(entry);
-            const facts = [display.typeLabel, entry.kind !== 'asset' && entry.asset_name ? `所属：${entry.asset_name}` : '', entry.asset_id ? `状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : '', entry.deleted_at ? `删除于 ${deletedDay(entry.deleted_at)}` : '时间待补充', ...display.facts, contentsText(entry.contents) ? contentsText(entry.contents) + '，恢复时一起回来' : '', display.parentBlocked ? '所属物品仍在最近删除中，请先恢复所属物品' : ''].filter(Boolean);
+            const facts = [display.typeLabel, entry.kind !== 'asset' && entry.asset_name ? `所属：${entry.asset_name}` : '', entry.asset_id ? `状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : '', entry.deleted_at ? `删除于 ${dayLabel(deletedDay(entry.deleted_at))}` : '删除时间未知', ...display.facts, contentsText(entry.contents) ? contentsText(entry.contents) + '，恢复时一起回来' : '', display.parentBlocked ? '所属物品仍在最近删除中，请先恢复所属物品' : ''].filter(Boolean);
             return <ListRow key={entry.kind + entry.id} icon="trash" tone="danger" title={display.title} subtitle={facts.join(' · ')} onClick={() => setArmed(entry)}/>;
           })}
         </ListGroup>

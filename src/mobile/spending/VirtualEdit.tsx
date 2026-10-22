@@ -57,7 +57,7 @@ function Form({ generation, item, labels }: { generation: string; item: VirtualA
       ? <Notice>{isLegacyLink(item) ? '这是旧版关联的订阅，没有服务开始日期；手机上只能改档案信息，请在电脑上补充开始日期。' : '这个订阅用了固定天数、试用、暂停或分段价格等高级设置，手机上只能改档案信息；付款设置请在电脑上修改。'}</Notice>
       : <PlanFields value={d.plan.rent} onChange={rent => setD(x => ({ ...x, plan: { ...x.plan, rent } }))} today={today} rent={false} disabled={off}/>)}
     {mode === 'single' && <FormGroup footer="永久有效时不要填有效至；不再使用了就填结束使用日期。">
-      <MoneyField label="购买价格" value={f.price_cents ?? ''} onChange={v => setF({ price_cents: v || null })} hint="不确定就留空，显示为价格待补充" disabled={off}/>
+      <MoneyField label="购买价格" value={f.price_cents ?? ''} onChange={v => setF({ price_cents: v || null })} hint="不确定就留空，显示为价格未知" disabled={off}/>
       <DateField label="购买日期" value={f.purchase_date ?? ''} onChange={v => setF({ purchase_date: v || null })} allowClear disabled={off}/>
       <FormRow label="永久有效"><Switch label="永久有效" checked={d.perpetual} onChange={perpetual => { setProblem(''); setD(x => ({ ...x, perpetual, fields: perpetual ? { ...x.fields, expires: null } : x.fields })); }} disabled={off}/></FormRow>
       {!d.perpetual && <DateField label="有效至" value={f.expires ?? ''} onChange={v => setF({ expires: v || null })} allowClear disabled={off}/>}

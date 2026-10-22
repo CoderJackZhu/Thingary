@@ -14,8 +14,6 @@
 .sp-note{margin:0;font-size:12px;line-height:1.55;color:var(--muted)}
 .sp-note-pad{padding:0 4px}
 
-.sp-search{display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:12px;background:var(--m-fill);color:var(--muted)}
-.sp-search .m-input{text-align:left;padding-left:0;min-width:0}
 
 .sp-stat3{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px}
 .sp-stat{display:flex;flex-direction:column;gap:4px;padding:12px 14px}
@@ -37,7 +35,6 @@
 .sp-title{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
 .sp-lines>span{display:block}
 .sp-amount-note{display:block;font-size:12px;font-weight:400;color:var(--muted)}
-.sp-add{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:48px;margin-top:10px;border:1.5px dashed var(--line);border-radius:12px;background:transparent;color:var(--accent);font-size:15px}
 .sp-more{display:flex;justify-content:center;padding:4px 0}
 
 .sp-banner{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--soft);color:var(--text);font-size:14px;font-weight:600}

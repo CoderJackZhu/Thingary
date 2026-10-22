@@ -22,18 +22,6 @@ export function DecisionSheet({ kind, item, busy, error, onSubmit, onClose }: { 
   </Sheet>;
 }
 
-/** 删除心愿：移入最近删除，已购入的物品仍在全部物品里。 */
-export function DeleteSheet({ item, busy, error, onConfirm, onClose }: { item: WishlistItem; busy: boolean; error: string; onConfirm: () => void; onClose: () => void }) {
-  return <Sheet title="删除心愿" onClose={() => { if (!busy) onClose(); }} doneLabel="取消">
-    <div className="w-sheet-stack">
-      <p><strong>删除「{item.fields.name}」？</strong></p>
-      <p>心愿会移入最近删除，之后可以恢复。{item.converted_asset ? '已购入的物品仍在全部物品中，不受影响。' : ''}</p>
-      {error && <Notice tone="danger">{error}</Notice>}
-      <Button variant="danger" block disabled={busy} onClick={onConfirm}>{busy ? '正在删除…' : '移入最近删除'}</Button>
-    </div>
-  </Sheet>;
-}
-
 /** 历史待核实：购入、尚未购入、不再考虑三种结果；确认购入时可补录原物品的价格与日期（与展示时的版本比较）。 */
 export function VerifySheet({ item, busy, error, onSubmit, onClose }: { item: WishlistItem; busy: boolean; error: string; onSubmit: (outcome: WishVerify['outcome'], note: string, patch: WishVerify['asset_patch']) => void; onClose: () => void }) {
   const original = item.legacy_generated_asset ?? null;

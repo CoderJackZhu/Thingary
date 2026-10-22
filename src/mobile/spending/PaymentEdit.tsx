@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { money } from '../../asset';
+import { moneyText } from '../format';
 import type { Overview, SubscriptionDetailData } from '../../recurring';
 import { periodLabel } from '../../recurring-model';
 import { submit } from '../../wealth';
@@ -36,7 +36,7 @@ function Form({ overview, detail, due }: { overview: Overview; detail: Subscript
     void saver.run(requestId => submit({ command: 'recurring_payment_save', input: paymentSave(d, { plan_id: plan.id, due_date: due }, record, detail.generation, requestId), label: `${plan.fields.name} ${due}` }), { close: true });
   }
   return <EditorFrame title={record ? '更正付款记录' : '确认付款'} onSave={save} busy={saver.busy} error={problem || saver.error}>
-    <p className="sp-note sp-note-pad">{plan.fields.name} · {due} 这一期。{record ? '按这笔记录的实际情况更正。' : `计划金额 ${money(item?.amount_cents ?? plan.fields.amount_cents)}。`}{coverage ? ` 对应服务：${periodLabel(coverage[0], coverage[1])}。` : ''}实付日期填真正扣款的那一天；确认付款不会改变账户余额。</p>
+    <p className="sp-note sp-note-pad">{plan.fields.name} · {due} 这一期。{record ? '按这笔记录的实际情况更正。' : `计划金额 ${moneyText(item?.amount_cents ?? plan.fields.amount_cents)}。`}{coverage ? ` 对应服务：${periodLabel(coverage[0], coverage[1])}。` : ''}实付日期填真正扣款的那一天；确认付款不会改变账户余额。</p>
     <div className="sp-pad-x"><SegmentedControl label="这一期" value={d.state} items={[{ id: 'paid', label: '已付' }, { id: 'skipped', label: '本期不付' }]} onChange={state => set({ state })}/></div>
     {d.state === 'paid' && <FormGroup>
       <DateField label="实付日期" value={d.paid} max={today} onChange={v => set({ paid: v })} disabled={saver.busy}/>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { dayLabel } from '../format';
 import { submit } from '../../wealth';
 import { shiftDays } from '../../recurring-model';
 import { saveReminderWithPermission } from '../../virtual';
@@ -24,7 +25,7 @@ export function ReminderGroup({ assetId, assetRevision, reminder, nextDue, hasSe
     }, { onDone: onSaved });
     if (!ok) { setOn(!!reminder); setRepeat(reminder ? !!reminder.repeat_every_period : hasServiceStart); setLead(reminder?.lead_days ?? 3); }
   }
-  const summary = reminder ? (reminder.repeat_every_period ? `每期扣款前 ${reminder.lead_days ?? 3} 天提醒；下次 ${reminder.date}。确认真实扣款后转到下一期。` : `已安排 ${reminder.date}${reminder.notes ? ' · ' + reminder.notes : ''}（仅本次）`) : '默认关闭；开启后按系统通知权限执行，关闭、停用或结束会撤销待通知。';
+  const summary = reminder ? (reminder.repeat_every_period ? `每期扣款前 ${reminder.lead_days ?? 3} 天提醒；下次 ${dayLabel(reminder.date, today)}。确认真实扣款后转到下一期。` : `已安排 ${dayLabel(reminder.date, today)}${reminder.notes ? ' · ' + reminder.notes : ''}（仅本次）`) : '默认关闭；开启后按系统通知权限执行，关闭、停用或结束会撤销待通知。';
   return <FormGroup title="到期提醒" footer={<>{summary}{!moduleEnabled && ' 虚拟资产模块已关闭，提醒暂停；可维护设置，重新开启模块后生效。'}</>}>
     <FormRow label="备款提醒"><Switch label="备款提醒" checked={on} disabled={saver.busy} onChange={next => { setOn(next); const day = date || single; setDate(day); void persist(next, day); }}/></FormRow>
     {on && hasServiceStart && <div className="m-form-row m-stacked"><SegmentedControl label="备款提醒方式" value={repeat ? 'period' : 'once'} items={[{ id: 'period', label: '每期提醒' }, { id: 'once', label: '仅本次' }]} onChange={v => { const r = v === 'period'; setRepeat(r); void persist(true, date || single, r); }}/></div>}

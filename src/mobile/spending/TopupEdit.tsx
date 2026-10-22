@@ -4,9 +4,10 @@ import type { TopupFields, VirtualAsset, VirtualOverview } from '../../virtual';
 import { submit } from '../../wealth';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { Button, DateField, FormGroup, MoneyField, TextAreaField, TextField } from '../ui';
+import { Button, DateField, DeleteSheet, FormGroup, MoneyField, TextAreaField, TextField } from '../ui';
 import { autoCredit, blankTopup, topupSave, validateTopup } from './forms';
-import { ConfirmSheet, EditorFrame, Loaded } from './parts';
+import { dayLabel } from '../format';
+import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
 
 /** spending.topup: record, correct or delete one top-up of a stored-value asset. */
@@ -45,6 +46,6 @@ function Form({ generation, item, record }: { generation: string; item: VirtualA
     </FormGroup>
     <FormGroup><TextAreaField label="备注" value={f.notes} onChange={notes => set({ notes })} disabled={saver.busy}/></FormGroup>
     {record && <Button variant="danger" block disabled={saver.busy} onClick={() => setAsking(true)}>删除这笔充值</Button>}
-    {asking && <ConfirmSheet title="删除这笔充值？" confirm="移入最近删除" danger busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove} message="这笔充值会移入最近删除，可以恢复；累计充值随之减少。"/>}
+    {asking && <DeleteSheet name={f.topup_date ? `${dayLabel(f.topup_date, today)}的充值` : '这笔充值'} busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove}><p className="m-confirm-text">累计充值随之减少。</p></DeleteSheet>}
   </EditorFrame>;
 }

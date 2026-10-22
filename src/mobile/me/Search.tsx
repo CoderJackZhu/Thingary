@@ -7,7 +7,7 @@ import type { SearchItem, SearchResults, SearchSession } from '../../search';
 import { readGate } from '../home/read';
 import { useModules } from '../modules-context';
 import { useNav } from '../nav-context';
-import { Button, ChipRow, EmptyState, ErrorState, Icon, ListGroup, ListRow, Loading, NavBar, LargeTitle, Notice } from '../ui';
+import { Button, ChipRow, EmptyState, ErrorState, ListGroup, ListRow, Loading, NavBar, LargeTitle, Notice, SearchField } from '../ui';
 import type { PageProps } from '../routes';
 import { keywordError } from './model';
 import { openRoute, targetRoute } from './shared';
@@ -90,19 +90,17 @@ export default function Search(_props: PageProps) {
   return <div className="m-page">
     <NavBar/>
     <LargeTitle title="搜索全部资料" subtitle="仅搜索当前资料库已开启的模块"/>
-    <div className="me-search-field"><Icon name="search" size={18}/>
-      <input ref={input} type="search" className="me-search-input" aria-label="搜索全部资料" placeholder="输入关键词，查找任何模块里的记录" enterKeyHint="search" autoComplete="off" autoCapitalize="off" spellCheck={false}
-        value={session.keyword} disabled={!generation}
-        onChange={event => setKeyword(event.target.value)}
-        onCompositionStart={() => { ticket.current++; setComposing(true); }}
-        onCompositionEnd={event => { setKeyword(event.currentTarget.value); setComposing(false); }}/></div>
+    <SearchField subject="全部资料" inputRef={input} value={session.keyword} disabled={!generation}
+      onChange={setKeyword}
+      onCompositionStart={() => { ticket.current++; setComposing(true); }}
+      onCompositionEnd={event => { setKeyword(event.currentTarget.value); setComposing(false); }}/>
     {keyword && <ChipRow label="类型筛选" items={filters.map(item => ({ id: item.value, label: item.count === null ? item.label : `${item.label} ${item.count}` }))} value={session.typeFilter} onChange={setFilter}/>}
     {genError ? <ErrorState title="资料库读取失败" message={genError} onRetry={() => window.location.reload()}/>
       : notice ? <Notice tone="danger">{notice}</Notice> : null}
-    {!keyword ? <><EmptyState icon="search" title="输入关键词开始搜索" message="英文字母不区分大小写，按字面子串匹配。"/><details className="me-details"><summary>查看搜索范围</summary><p>{searchScopeText}</p></details></>
+    {!keyword ? <><EmptyState icon="user" title="输入关键词开始搜索" message="英文字母不区分大小写，按字面子串匹配。"/><details className="me-details"><summary>查看搜索范围</summary><p>{searchScopeText}</p></details></>
       : loading ? <Loading label="正在搜索…"/>
       : error ? <ErrorState title="搜索失败" message={error} onRetry={() => setRefresh(n => n + 1)}/>
-      : !results || !results.total ? <EmptyState icon="search" title="没有找到匹配的记录" message="换个关键词，或在类型里选「全部」再试。"/>
+      : !results || !results.total ? <EmptyState icon="user" title="没有找到匹配的记录" message="换个关键词，或在类型里选「全部」再试。"/>
       : <>
         <p className="me-count" role="status">找到 {results.total} 条</p>
         <ListGroup title="搜索结果">{results.items.map(item => <ListRow key={item.id} icon={<span className="me-kind">{searchKindLabel(item.kind).slice(0, 2)}</span>} tone="accent" disabled={opening}

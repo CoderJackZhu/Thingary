@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { money } from "../../asset";
-import { forecastMoney } from "../../plan-format";
+import { moneyText } from "../format";
+import { forecastMoneyText } from "../format";
 import { nativePlanningFollowupPortV1 } from "../../planning-followup-port";
 import { refinementCards } from "../../planning-first-run";
 import {
@@ -124,11 +124,12 @@ export default function Goal() {
       <div className="m-page mp-page">
         <LargeTitle title="规划" />
         <EmptyState
+          icon="chart"
           title="想知道：要攒多少钱才够？"
           message="回答 5 个问题，估算从目标月份起使用资金，每月需要存多少钱。一个人、两个人都能算；没想好的可留空。"
           action={
             <Button variant="primary" onClick={() => edit("setup")}>
-              开始设置目标
+              设置条件
             </Button>
           }
         />
@@ -169,7 +170,7 @@ export default function Goal() {
       <LargeTitle
         title="规划"
         actions={
-          <Button variant="plain" onClick={() => edit("setup")}>
+          <Button variant="primary" onClick={() => edit("setup")}>
             调整条件
           </Button>
         }
@@ -204,7 +205,7 @@ export default function Goal() {
       <MetricGrid>
         <Metric
           label="为目标每月需存"
-          value={v.required === null ? "待计算" : forecastMoney(v.required)}
+          value={v.required === null ? "待计算" : forecastMoneyText(v.required)}
           unknown={v.required === null}
           sub="按固定目标月份反求"
         />
@@ -212,8 +213,8 @@ export default function Goal() {
           label="你估计每月能存"
           value={
             r.basic!.contribution.monthly_cents === null
-              ? "尚未填写"
-              : money(r.basic!.contribution.monthly_cents)
+              ? "未设置"
+              : moneyText(r.basic!.contribution.monthly_cents)
           }
           unknown={r.basic!.contribution.monthly_cents === null}
           onClick={() => edit("contribution")}
@@ -237,7 +238,7 @@ export default function Goal() {
         {cards.filter((c) => c.required || c.impacts || c.condition).length ===
         0 ? (
           <Card>
-            <p>当前没有待补充的核算事项。</p>
+            <p>暂无待核对的核算事项。</p>
           </Card>
         ) : (
           <ListGroup>
@@ -272,14 +273,14 @@ export default function Goal() {
         />
         <ListRow
           title="退休生活预算"
-          value={r.spend_cents === null ? "未知" : `${money(r.spend_cents)}/月`}
+          value={r.spend_cents === null ? "未知" : `${moneyText(r.spend_cents)}/月`}
           onClick={() => edit("budget")}
         />
         <ListRow
           title="可用资金"
           value={
             caps.funds.status === "ready"
-              ? money(caps.funds.value.available_cents)
+              ? moneyText(caps.funds.value.available_cents)
               : "待确认"
           }
           onClick={() => edit("funds")}
@@ -322,7 +323,7 @@ export default function Goal() {
                 {goalProgressChange(
                   progress.at(-2)!,
                   progress.at(-1)!,
-                  forecastMoney,
+                  forecastMoneyText,
                 )}
               </p>
             )}
@@ -336,18 +337,18 @@ export default function Goal() {
                 <div className="mp-subcard" key={e.snapshot_id}>
                   <strong>{e.date}</strong>
                   <p>
-                    {goalProgressVerdict(e.point, forecastMoney)}
+                    {goalProgressVerdict(e.point, forecastMoneyText)}
                     {e.point.has_open_items ? "（当时有待确认事项）" : ""}
                   </p>
                   <p className="mp-muted">
                     可用资金{" "}
                     {e.point.available_cents === null
                       ? "未知"
-                      : money(e.point.available_cents)}{" "}
+                      : moneyText(e.point.available_cents)}{" "}
                     · 每月需存{" "}
                     {e.point.required_monthly_cents === null
                       ? "未知"
-                      : forecastMoney(e.point.required_monthly_cents)}
+                      : forecastMoneyText(e.point.required_monthly_cents)}
                   </p>
                 </div>
               ))}

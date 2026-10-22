@@ -844,17 +844,9 @@ export function Editor({
             上一步
           </Button>
         )}
-        {section === "setup" && step < 4 ? (
+        {section === "setup" && step < 4 && (
           <Button variant="primary" disabled={frozen} onClick={next}>
             下一步
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            disabled={frozen}
-            onClick={() => void save()}
-          >
-            保存，查看结果
           </Button>
         )}
       </div>

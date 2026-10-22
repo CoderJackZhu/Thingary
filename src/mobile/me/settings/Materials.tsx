@@ -7,7 +7,7 @@ import type { PendingUpload } from '../../../material-upload';
 import { filterMaterials, materialCategories } from '../../../materials';
 import type { MaterialEntry, MaterialSource } from '../../../materials';
 import { readGate } from '../../home/read';
-import { Button, ChipRow, EmptyState, ErrorState, Loading, Notice, SegmentedControl, Sheet, TextField, FormGroup } from '../../ui';
+import { Button, ChipRow, DeleteSheet, EmptyState, ErrorState, Loading, Notice, SearchField, SegmentedControl } from '../../ui';
 import { SettingsShell } from './Shell';
 
 const sources: { id: MaterialSource; label: string }[] = [{ id: 'icon', label: '图标' }, { id: 'dimensional', label: '立体图标' }, { id: 'custom', label: '我的图片' }];
@@ -64,19 +64,19 @@ export default function MaterialsPage() {
   return <SettingsShell title="素材库" lead="新增或编辑物品时，点物品名称旁的图标即可选择。内置素材为示意图，非实物照片；也可以上传自己的图片。">
     <SegmentedControl label="素材类型" items={sources} value={source} onChange={next => { setSource(next); setCategory('全部'); }}/>
     {source !== 'custom' && <ChipRow label="素材分类" items={materialCategories.map(name => ({ id: name, label: name }))} value={category} onChange={setCategory}/>}
-    <FormGroup><TextField label="搜索素材" value={search} onChange={setSearch} placeholder="名称"/></FormGroup>
+    <SearchField subject="素材" value={search} onChange={setSearch}/>
     <Button variant="primary" block disabled={locked} onClick={() => void upload()}>{busy ? '请稍候…' : '添加图片'}</Button>
     <p className="m-group-footer">JPEG、PNG、HEIC、WebP · 每张 20 MiB。上传后随档案保存在本机。</p>
     {recoveryError && <Notice tone="danger">{recoveryError} <Button variant="plain" onClick={readRecovery}>重新读取核对记录</Button></Notice>}
     {pending && <Notice>有一笔素材上传结果待核对。 <Button variant="plain" disabled={busy || !generation} onClick={() => void resolveUpload()}>{pending.generation === generation ? '核对上传结果' : '关闭旧资料上传提示'}</Button></Notice>}
     {notice && <Notice tone="positive">{notice}</Notice>}
     {error ? <ErrorState title="素材读取失败" message={error} onRetry={reload}/> : !entries || !shown ? <Loading label="正在读取素材…"/>
-      : !shown.length ? <EmptyState icon="image" title="当前条件下没有素材" message={source === 'custom' ? '点「添加图片」上传自己的图片。' : '换一个分类或清除搜索。'} action={search ? <Button onClick={() => setSearch('')}>清除搜索</Button> : undefined}/>
+      : !shown.length ? <EmptyState icon="user" title="当前条件下没有素材" message={source === 'custom' ? '点「添加图片」上传自己的图片。' : '换一个分类或清除搜索。'} action={search ? <Button onClick={() => setSearch('')}>清除搜索</Button> : undefined}/>
       : <div className="me-material-grid" aria-label={`${shown.length} 个素材`}>{shown.map(entry => <div className="m-card me-material" key={entry.id}>
         <MaterialThumb id={entry.id} generation={generation} alt={entry.builtin ? `${entry.name}示意图（非实物照片）` : entry.name}/>
         <span className="me-material-name">{entry.name}</span><span className="me-material-kind">{entry.builtin ? '内置示意图' : '自定义'}</span>
         {!entry.builtin && <Button variant="plain" disabled={locked} onClick={() => setConfirming(entry)}>删除</Button>}
       </div>)}</div>}
-    {confirming && <Sheet title={`删除「${confirming.name}」`} doneLabel="取消" onClose={() => setConfirming(null)}><div className="m-page"><Notice>删除后不可恢复，已保存物品的图片不受影响。</Notice><Button variant="danger" block disabled={busy} onClick={() => void remove(confirming)}>确认删除</Button></div></Sheet>}
+    {confirming && <DeleteSheet name={confirming.name} recoverable={false} busy={busy} onClose={() => setConfirming(null)} onConfirm={() => void remove(confirming)}><p className="m-confirm-text">删除后不能恢复，已保存物品的图片不受影响。</p></DeleteSheet>}
   </SettingsShell>;
 }

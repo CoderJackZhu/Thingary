@@ -6,12 +6,12 @@ import { recurringCategories } from '../../recurring';
 import { submit } from '../../wealth';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { Button, FormGroup, FormRow, Notice, SelectField, Switch, TextAreaField, TextField } from '../ui';
+import { Button, DeleteSheet, FormGroup, FormRow, Notice, SelectField, Switch, TextAreaField, TextField } from '../ui';
 import { backfillDefault, backfillRange, blankPlanDraft, pastDues, planDraftFrom, planFieldsFromDraft, planSave, validatePlanDraft } from './forms';
 import type { PlanDraft } from './forms';
 import { GroupDeleteSheet, readLink } from './PlanActions';
 import { PlanFields } from './PlanFields';
-import { ConfirmSheet, EditorFrame, Loaded } from './parts';
+import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
 import type { LinkView } from '../../link';
 
@@ -56,7 +56,7 @@ function Form({ generation, plan, link }: { generation: string; plan: Plan | nul
   function remove() { if (plan) void saver.run(requestId => trash('plan', plan.id, plan.revision, generation, `计划 ${plan.fields.name}`, requestId), { close: true }); }
   const frozen = saver.busy || late;
   return <EditorFrame title={plan ? '编辑计划' : '新增计划'} onSave={save} busy={saver.busy} canSave={!late} error={problem || (asking ? '' : saver.error)}>
-    <p className="sp-note sp-note-pad">改动只影响尚未记录的期；已确认的付款保持原样。删除计划会连同付款记录一起移入最近删除。</p>
+    <p className="sp-note sp-note-pad">改动只影响尚未记录的期；已确认的付款保持原样。删除计划会连同付款记录一起移入最近删除，可以恢复。</p>
     <FormGroup>
       <TextField label="名称" value={draft.name} onChange={name => set({ name })} placeholder="例如：中山路房租" maxLength={80} disabled={frozen}/>
       <SelectField label="分类" value={draft.category} onChange={category => set({ category })} options={recurringCategories.map(([id, label]) => ({ id, label }))} disabled={frozen || linked} hint={linked ? '关联订阅的分类保持原类，不能在这里更改' : undefined}/>
@@ -69,8 +69,9 @@ function Form({ generation, plan, link }: { generation: string; plan: Plan | nul
     <FormGroup><TextAreaField label="备注" value={draft.notes} onChange={notes => set({ notes })} disabled={frozen}/></FormGroup>
     {plan && <Button variant="danger" block disabled={frozen} onClick={() => setAsking(true)}>{linked ? '整组删除…' : '删除这个计划'}</Button>}
     {asking && plan && (linked
-      ? <GroupDeleteSheet side="plan" id={plan.id} generation={link!.generation} onClose={() => setAsking(false)}/>
-      : <ConfirmSheet title="移入最近删除？" confirm="移入最近删除" danger busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove}
-        message={`「${plan.fields.name}」会连同付款记录一起移入最近删除，可以恢复；其中已确认的付款暂不参与重要支出。`}/>)}
+      ? <GroupDeleteSheet side="plan" id={plan.id} name={plan.fields.name} generation={link!.generation} onClose={() => setAsking(false)}/>
+      : <DeleteSheet name={plan.fields.name} busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove}>
+        <p className="m-confirm-text">付款记录会一起移入；其中已确认的付款暂不参与重要支出。</p>
+      </DeleteSheet>)}
   </EditorFrame>;
 }

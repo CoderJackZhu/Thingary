@@ -6,7 +6,7 @@ import type { Photo } from '../../asset';
 import { filterMaterials, materialArt, materialCategories, readRecentMaterials, rememberMaterial } from '../../materials';
 import type { MaterialEntry, MaterialSource } from '../../materials';
 import { PhotoView } from '../../Photos';
-import { Button, ChipRow, Icon, Loading, Notice, Sheet } from '../ui';
+import { Button, ChipRow, Loading, Notice, SearchField, Sheet } from '../ui';
 import { useSession } from '../session';
 import { loadTaxonomy, opWish, resolveOp, searchAssets, storedOps } from './service';
 import type { Candidate, Op, Settled, Taxonomy } from './service';
@@ -91,7 +91,7 @@ export function CandidateSheet({ title, intro, legacyId = null, confirmLabel, bu
   return <Sheet title={title} onClose={onClose} doneLabel="取消">
     <div className="w-sheet-stack">
       <p>{intro}</p>
-      <label className="w-search"><Icon name="search" size={18}/><input aria-label="搜索物品" placeholder="输入名称搜索" value={query} maxLength={200} disabled={busy} onChange={event => setQuery(event.target.value)}/></label>
+      <SearchField subject="物品" value={query} maxLength={200} disabled={busy} onChange={setQuery}/>
       {(failure || error) && <Notice tone="danger">{failure || error}</Notice>}
       {items === null ? <Loading label="正在读取物品…"/> : <ul className="w-cand">{items.map(c => <li key={c.id}><button type="button" disabled={busy} aria-pressed={selected?.id === c.id} onClick={() => choose(c)}>
         <strong>{c.name}</strong>{c.own && <small>本心愿旧版生成的档案</small>}<small>{c.purchase_date ?? '购入日期未知'} · {assetStateText(c.state)} · {c.id.length > 8 ? c.id.slice(0, 8) + '…' : c.id}</small></button></li>)}</ul>}
@@ -140,7 +140,7 @@ export function IconSheet({ generation, photos, cover, onUse, onClose }: { gener
     <div className="w-sheet-stack">
       <p>给它一个一眼就能认出的样子；素材是示意图，不是实物照片。</p>
       <ChipRow label="图片来源" items={sources} value={source} onChange={id => { setSource(id as MaterialSource); setCategory('全部'); setSearch(''); }}/>
-      <label className="w-search"><Icon name="search" size={18}/><input aria-label="搜索图标" placeholder={source === 'custom' ? '搜索我的图片' : '搜索图标，如手机、耳机'} value={search} disabled={busy} onChange={event => setSearch(event.target.value)}/></label>
+      <SearchField subject={source === 'custom' ? '我的图片' : '图标'} value={search} disabled={busy} onChange={setSearch}/>
       {(source === 'icon' || source === 'dimensional') && <ChipRow label="素材分类" items={materialCategories.map(name => ({ id: name, label: name }))} value={category} onChange={setCategory}/>}
       {error && <Notice tone="danger">{error}</Notice>}
       {loadError && <Notice tone="danger">{loadError}</Notice>}

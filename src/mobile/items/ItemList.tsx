@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { AssetRecord, Page, SaveAsset } from '../../asset';
-import { errorMessage, money, unitMoney } from '../../asset';
+import { errorMessage } from '../../asset';
+import { dayLabel, moneyText, unitMoneyText } from '../format';
 import { defaultPreferences } from '../../preferences';
 import { stateLabel } from '../../lifecycle';
 import { collectionNavigation, collectionStatusOptions } from '../../collection-navigation';
@@ -12,7 +13,7 @@ import { Cover } from '../../Photos';
 import { submit } from '../../wealth';
 import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
-import { Button, Card, ChipRow, EmptyState, ErrorState, Icon, IconButton, LargeTitle, ListRow, Loading, Notice, Section, SegmentedControl, SwipeRow } from '../ui';
+import { Button, Card, ChipRow, EmptyState, ErrorState, Icon, IconButton, LargeTitle, ListRow, SearchField, Loading, Notice, Section, SegmentedControl, SwipeRow } from '../ui';
 import { appendPage, sortOptions } from './list-model';
 import { useItemQuery, setItemQuery } from './list-store';
 import ItemBatch from './ItemBatch';
@@ -70,14 +71,14 @@ export default function ItemList() {
   function select(id:string){selectionTicket.current++;setSelected(prev=>nextSelection(prev,null,id,page?.items.map(r=>r.asset.id)??[],{meta:false,shift:false,toggle:true},null).ids);}
   const category=query.category?.mode==='category'?query.category.id:query.category?.mode==='uncategorized'?'none':'all';
   const d=overview?.held_daily;
-  const row=(record:AssetRecord)=> <ListRow title={<>{selecting&&<span className="mi-check" aria-hidden="true">{selected.includes(record.asset.id)?'✓':'○'}</span>}{record.asset.name}{record.preferences?.pinned&&<span className="mi-pin"> · 置顶</span>}</>} icon={<Cover record={record} generation={page!.generation}/>} subtitle={[taxonomy?.categories.find(c=>c.id===record.classification?.category_id)?.name??'未分类',record.label_name,record.asset.purchase_date??'日期待补充'].filter(Boolean).join(' · ')} value={record.sale?`售 ${money(record.sale.fields.price_cents)}`:unitMoney(record.preferences?.cost_mode==='per_use'?record.per_use_cents??null:record.costs.daily_cents)+(record.preferences?.cost_mode==='per_use'?'/次':'/天')} valueSub={`${stateLabel(record)} · ${money(record.asset.price_cents)}`} disabled={session.navBlocked} onClick={()=>selecting?select(record.asset.id):nav.push('items.detail',{id:record.asset.id})}/>;
+  const row=(record:AssetRecord)=> <ListRow title={<>{selecting&&<span className="mi-check" aria-hidden="true">{selected.includes(record.asset.id)?'✓':'○'}</span>}{record.asset.name}{record.preferences?.pinned&&<span className="mi-pin"> · 置顶</span>}</>} icon={<Cover record={record} generation={page!.generation}/>} subtitle={[taxonomy?.categories.find(c=>c.id===record.classification?.category_id)?.name??'未分类',record.label_name,dayLabel(record.asset.purchase_date)].filter(Boolean).join(' · ')} value={record.sale?`售 ${moneyText(record.sale.fields.price_cents)}`:unitMoneyText(record.preferences?.cost_mode==='per_use'?record.per_use_cents??null:record.costs.daily_cents)+(record.preferences?.cost_mode==='per_use'?'/次':'/天')} valueSub={`${stateLabel(record)} · ${moneyText(record.asset.price_cents)}`} disabled={session.navBlocked} onClick={()=>selecting?select(record.asset.id):nav.push('items.detail',{id:record.asset.id})}/>;
   return <div className="m-page mi-page">
     <LargeTitle title="物品" actions={<><Button disabled={session.navBlocked} onClick={()=>{setSelecting(!selecting);setSelected([]);}}>{selecting?'完成':'选择'}</Button><IconButton label="新增物品" onClick={()=>nav.push('items.edit')}><Icon name="plus"/></IconButton></>}/>
-    <input className="mi-search" type="search" aria-label="搜索物品" placeholder="搜索名称、品牌、型号、备注" maxLength={200} value={query.search} onChange={e=>setItemQuery({search:e.target.value})}/>
+    <SearchField subject="物品" maxLength={200} value={query.search} onChange={search=>setItemQuery({search})}/>
     <SegmentedControl label="物品状态" value={collectionNavigation(query).selected??''} items={collectionStatusOptions.map(([id,label])=>({id,label:`${label}${counts?' '+counts[id]:''}`}))} onChange={filter=>setItemQuery({filter})}/>
     <ChipRow label="分类" value={category} items={[{id:'all',label:'全部'},...(taxonomy?.categories??[]).map(c=>({id:c.id,label:c.name})),{id:'none',label:'未分类'}]} onChange={id=>setItemQuery({category:id==='all'?{mode:'all'}:id==='none'?{mode:'uncategorized'}:{mode:'category',id}})}/>
     <div className="mi-toolbar"><Button onClick={()=>nav.push('items.filter')}>筛选与排序{query.warranty!=='all'||query.label||query.filter.startsWith('missing')?' · 已应用':''}</Button><span className="mi-caption">{sortOptions.find(([id])=>id===query.sort)?.[1]} {query.descending?'↓':'↑'}</span><IconButton label={view==='list'?'切换网格':'切换列表'} onClick={()=>setView(view==='list'?'grid':'list')}><Icon name={view==='list'?'grid':'list'}/></IconButton></div>
-    {metaError?<ErrorState title="摘要或选项读取失败" message={metaError} onRetry={()=>setRetry(n=>n+1)}/>:d&&<Card><div className="mi-daily"><div><strong>物品日均成本</strong><small>{d.included_count} 件持有物品计入 · 含退役及维护费</small></div><strong>{unitMoney(d.known_cents)}</strong></div><p className="mi-caption">{d.unknown_count>0?`${d.unknown_count} 件资料不全，以上仅已知部分。`:''}{d.per_use_count>0?`${d.per_use_count} 件按次。`:''}{d.excluded_count>0?`${d.excluded_count} 件不计入日均。`:''}</p></Card>}
+    {metaError?<ErrorState title="摘要或选项读取失败" message={metaError} onRetry={()=>setRetry(n=>n+1)}/>:d&&<Card><div className="mi-daily"><div><strong>物品日均成本</strong><small>{d.included_count} 件持有物品计入 · 含退役及维护费</small></div><strong>{unitMoneyText(d.known_cents)}</strong></div><p className="mi-caption">{d.unknown_count>0?`${d.unknown_count} 件资料不全，以上仅已知部分。`:''}{d.per_use_count>0?`${d.per_use_count} 件按次。`:''}{d.excluded_count>0?`${d.excluded_count} 件不计入日均。`:''}</p></Card>}
     {expiring&&expiring.total>0&&<Card tone="warn" className="mi-expiring"><ListRow icon="bell" title={`${expiring.items[0]?.asset.name ?? '物品'}${expiring.total>1?` 等 ${expiring.total} 件`:''}`} subtitle="保障将在 30 天内到期，点此查看" onClick={()=>setItemQuery({warranty:'expiring'})}/></Card>}
     {notice&&<Notice tone="danger">{notice}</Notice>}
     {selecting&&<Card><div className="mi-actions"><span>已选 {selected.length} 件</span><Button onClick={()=>void selectAll()}>全选结果</Button><Button variant="primary" disabled={!selected.length||session.navBlocked} onClick={()=>setBatch(true)}>批量操作</Button></div></Card>}

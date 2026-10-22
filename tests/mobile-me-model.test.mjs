@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appearanceSummary, autoBackupLabel, backupReminder, countLocalWork, daysAgoText, enabledModuleCount, groupByMonth, isSettingsPage, keywordError, lastBackupKey, monthSpendingText, readLastBackup, restoreClearKeys, restoreLines, settingsTitles, writeLastBackup } from '../src/mobile/me/model.ts';
+import { appearanceSummary, autoBackupLabel, backupReminder, countLocalWork, daysAgoText, enabledModuleCount, groupByMonth, isSettingsPage, keywordError, lastBackupKey, monthSpendingText, monthTitle, timelineDetail, readLastBackup, restoreClearKeys, restoreLines, settingsTitles, writeLastBackup } from '../src/mobile/me/model.ts';
 import { daysBetween, dayText, eventTarget, hideAmountsKey, mask, openRoute, readHideAmounts, targetRoute, writeHideAmounts } from '../src/mobile/me/shared.ts';
 import { routes } from '../src/mobile/routes.ts';
 import { allModules } from '../src/modules.ts';
@@ -65,10 +65,10 @@ test('恢复后清理：保留外观、隐私、备份提醒与导入请求，�
 });
 test('自动备份列表：今天、昨天、日期，加密标记，时间取自文件名', () => {
   const item = (name, date) => ({ name, date, size: 1 });
-  assert.deepEqual(autoBackupLabel(item('thingary-20261021-0930-abc123.thingary', '2026-10-21'), '2026-10-21'), { title: '今天 09:30', sub: '2026-10-21' });
+  assert.deepEqual(autoBackupLabel(item('thingary-20261021-0930-abc123.thingary', '2026-10-21'), '2026-10-21'), { title: '今天 09:30', sub: '' });
   assert.equal(autoBackupLabel(item('x-1800-abcdef.thingary.age', '2026-10-20'), '2026-10-21').title, '昨天 18:00');
-  assert.equal(autoBackupLabel(item('x-1800-abcdef.thingary.age', '2026-10-20'), '2026-10-21').sub, '2026-10-20 · 已加密');
-  assert.equal(autoBackupLabel(item('weird.thingary', '2026-09-03'), '2026-10-21').title, '9 月 3 日');
+  assert.equal(autoBackupLabel(item('x-1800-abcdef.thingary.age', '2026-10-20'), '2026-10-21').sub, '已加密');
+  assert.equal(autoBackupLabel(item('weird.thingary', '2026-09-03'), '2026-10-21').title, '9月3日');
 });
 test('记录跳转：每种来源对应的路由都已登记，参数只含 ID', () => {
   const targets = [{ kind: 'asset', id: 'a' }, { kind: 'wish', id: 'w' }, { kind: 'snapshot', id: 's' }, { kind: 'account', id: 'c' }, { kind: 'plan', id: 'p' }, { kind: 'payment', id: 'y', plan_id: 'p' }, { kind: 'virtual', id: 'v' }, { kind: 'topup', id: 't', asset_id: 'v' }, { kind: 'expense', id: 'e' }, { kind: 'income', id: 'i' }, { kind: 'movement', id: 'm' }];
@@ -93,6 +93,16 @@ test('隐藏金额：读写、遮挡文字、存储不可用', () => {
   assert.equal(readHideAmounts({ getItem() { throw new Error('x'); } }), false);
 });
 test('日期工具', () => {
-  assert.equal(dayText('2026-10-05'), '10 月 5 日'); assert.equal(dayText('未知'), '未知');
+  assert.equal(dayText('2026-10-05', '2026-10-21'), '10月5日'); assert.equal(dayText('2025-10-05', '2026-10-21'), '2025年10月5日'); assert.equal(dayText('未知'), '未知');
   assert.equal(daysBetween('2026-10-21', '2026-10-25'), 4); assert.equal(daysBetween('2026-10-21', '2026-10-20'), -1);
+});
+
+test('时间轴：月份标题不带「年」（今年），行说明不重复金额', () => {
+  assert.equal(monthTitle('2026-10', '2026-10-21'), '10月'); assert.equal(monthTitle('2025-03', '2026-10-21'), '2025年3月');
+  assert.equal(groupByMonth([{ id: 'a', kind: 'purchase', date: '2025-03-05', amount_cents: '100', title: 'x', note: '', asset_id: null, wishlist_id: null }], '2026-10-21')[0].title, '2025年3月');
+  const event = (kind, amount_cents) => ({ kind, amount_cents });
+  assert.equal(timelineDetail('实付 ¥6,490', event('purchase', '649000')), '实付');
+  assert.equal(timelineDetail('来自心愿「耳机」 · 实付 ¥1,280.50', event('purchase', '128050')), '来自心愿「耳机」 · 实付');
+  assert.equal(timelineDetail('金额待补充', event('purchase', null)), '金额未知');
+  assert.equal(timelineDetail('金融净资产 ¥88,000', event('snapshot', '8800000')), '金融净资产 ¥88,000');
 });

@@ -137,6 +137,19 @@ button.m-hero,button.m-metric{display:flex}
 @keyframes m-up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
 @keyframes m-fade{from{opacity:0}to{opacity:1}}
 
+/* Confirm sheet (ConfirmSheet / DeleteSheet) */
+.m-confirm{display:flex;flex-direction:column;gap:14px;padding-bottom:12px}
+.m-confirm-text{margin:0;font-size:15px;line-height:1.55}
+.m-confirm-recover{color:var(--muted);font-size:14px}
+
+/* Search field */
+.m-search{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px 0 12px;border-radius:var(--m-radius-control);background:var(--m-fill);color:var(--muted)}
+.m-search:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.m-search input{flex:1;min-width:0;min-height:44px;border:0;background:transparent;font-size:16px;padding:0;color:var(--text);outline:0;-webkit-appearance:none;appearance:none}
+.m-search input::placeholder{color:var(--muted)}
+.m-search input::-webkit-search-cancel-button{display:none}
+.m-search-clear{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:0;border:0;background:transparent;color:var(--muted)}
+
 /* States */
 .m-state{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:32px 20px}
 .m-state h2{margin:0;font-size:18px}

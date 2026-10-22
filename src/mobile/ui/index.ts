@@ -7,5 +7,7 @@ export { Card, Section, HeroCard, Metric, MetricGrid, ListGroup, ListRow, SwipeR
 export type { SwipeAction, Tone } from './Cards';
 export { Button, Switch, ChipRow, FormGroup, FormRow, TextField, TextAreaField, SelectField, MoneyField, DateField } from './Forms';
 export { Sheet } from './Sheet';
+export { ConfirmSheet, DeleteSheet } from './ConfirmSheet';
+export { SearchField } from './SearchField';
 export { EmptyState, UnknownState, ErrorState, Loading, Notice } from './States';
 export { LineAreaChart, BarChart, HBarChart, DonutChart } from './Charts';

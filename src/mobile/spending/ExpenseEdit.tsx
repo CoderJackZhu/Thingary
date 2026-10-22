@@ -5,9 +5,9 @@ import type { Expense, ExpenseFields, ExpenseView } from '../../expenses';
 import { expenseCategories } from '../../expenses';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { Button, DateField, FormGroup, FormRow, MoneyField, Switch, SelectField, TextAreaField, TextField } from '../ui';
+import { Button, DateField, DeleteSheet, FormGroup, FormRow, MoneyField, SelectField, Switch, TextAreaField, TextField } from '../ui';
 import { blankExpense, expenseSave, toggleRefund, validateExpense } from './forms';
-import { ConfirmSheet, EditorFrame, Loaded } from './parts';
+import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
 
 /** spending.expenseEdit: record, edit or delete a standalone important expense, with an optional refund. */
@@ -53,7 +53,6 @@ function Form({ generation, expense }: { generation: string; expense: Expense | 
     </FormGroup>
     <FormGroup><TextAreaField label="备注" value={f.notes} onChange={v => set('notes', v)} disabled={saver.busy}/></FormGroup>
     {expense && <Button variant="danger" block disabled={saver.busy} onClick={() => setAsking(true)}>删除这笔支出</Button>}
-    {asking && <ConfirmSheet title="移入最近删除？" confirm="移入最近删除" danger busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove}
-      message={`「${f.title}」会移入最近删除，可以恢复。`}/>}
+    {asking && <DeleteSheet name={f.title} busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove}/>}
   </EditorFrame>;
 }

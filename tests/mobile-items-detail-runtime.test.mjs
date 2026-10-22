@@ -8,6 +8,7 @@ import * as sales from '../src/sales.ts';
 import * as lifecycle from '../src/lifecycle.ts';
 import * as detail from '../src/mobile/items/detail-model.ts';
 import { defaultPreferences } from '../src/preferences.ts';
+import * as format from '../src/mobile/format.ts';
 function fixture() {
   return { asset: { id: 'fictional-camera', name: '虚构相机', price_cents: '10000', purchase_date: '2026-01-01', revision: 7 }, details: { brand: '', model: '', serial_number: '', notes: '' }, photos: [], cover_id: null, maintenances: [], warranties: [], warranty_summary: { status: 'none', total: 0 }, deleted: false, lifecycle: { state: 'active', events: [] }, preferences: defaultPreferences(), costs: { total_investment_cents: '10000', net_cost_cents: null, held_days: 80, daily_cents: '125', known_maintenance_cents: '0', unknown_maintenance_count: 0 } };
 }
@@ -15,7 +16,7 @@ async function mounted({ save, readError, importPhoto } = {}) {
   const record = fixture(), requests = [], calls = [];
   const session = { today: '2026-10-21', data: { summary: { generation: 'fixture-generation' } }, navBlocked: false, settled: null, reload() {}, setBusy(value) { this.navBlocked = value; }, refreshPending() { calls.push('refreshPending'); } };
   const r = runtime('mobile/items/ItemDetail', { params: { id: record.asset.id } }, undefined, undefined, { exportName: 'default', components: [], modules: {
-    './asset': asset, './maintenance': maintenance, './warranty': warranty, './sales': sales, './lifecycle': lifecycle, './materials': { materialArt: () => '<svg/>' }, './NotificationNotice': { allowReminders: async () => {} }, './mobile/items/detail-model': detail,
+    './asset': asset, './mobile/format': format, './maintenance': maintenance, './warranty': warranty, './sales': sales, './lifecycle': lifecycle, './materials': { materialArt: () => '<svg/>' }, './NotificationNotice': { allowReminders: async () => {} }, './mobile/items/detail-model': detail,
     './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => ({ push() {}, pop() {} }), useReveal: () => 0 },
     './wealth': { submit: async input => { requests.push(input); return save ? await save(input, record) : record; } },
     '@tauri-apps/api/core': { invoke: async (command, args) => { if (readError) throw new Error('虚构读取失败'); if (command === 'taxonomy_snapshot') return { generation: 'fixture-generation', categories: [], channels: [] }; if (command === 'read_asset') return record; if (command === 'import_photo_bytes' && importPhoto) return importPhoto(args); throw new Error('unexpected ' + command); } },

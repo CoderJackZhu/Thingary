@@ -62,6 +62,8 @@ const reveal = useReveal();           // 上层页面关闭后变化；放进 ef
 | `FormGroup`、`FormRow`、`TextField`、`TextAreaField`、`SelectField` | 表单 |
 | `MoneyField`、`DateField` | 包装 `CurrencyInput`（整数分字符串，空为未知）与 `DateInput` |
 | `Sheet` | 页内小弹窗；路由 sheet 由外壳套用 |
+| `ConfirmSheet`、`DeleteSheet` | 底部确认弹窗；删除一律用 `DeleteSheet`（标题「删除「X」？」，进最近删除的加 `recoverable` 一行恢复说明，红色「删除」，忙碌「正在删除…」） |
+| `SearchField` | 唯一的搜索框：灰色圆角、左放大镜、非空出现清除按钮，占位「搜索X」 |
 | `ActionBar` | 固定在底部的操作条 |
 | `EmptyState`、`UnknownState`、`ErrorState`、`Loading`、`Notice` | 状态块 |
 | `LineAreaChart`、`BarChart`、`HBarChart`、`DonutChart` | 迷你图，必须传 `summary`（文字结论，作为 `role="img"` 的名称）；`null` 值表示未知，画成缺口而不是 0 |
@@ -96,3 +98,11 @@ npm run dev -- --port 1431   # 然后打开 http://127.0.0.1:1431/mobile-preview
 ## 测试
 
 纯逻辑（路由、栈、历史、数据投影）用 `tests/mobile-<模块>-*.test.mjs`，Node 直接加载 `.ts`（不要用构造函数参数属性、枚举等需要转译的语法，导入写 `.ts` 扩展名）。组件交互参考 `tests/planning-component-runtime.mjs`。注册表的约束见 `tests/mobile-routes.test.mjs`。提交前运行 `npm run build`、`npm run test:ui`。
+
+## 跨页统一约定
+
+- 新增入口：大标题页在 `LargeTitle` 的 `actions` 放圆形「＋」`IconButton`；带 `NavBar` 的二级页用右上文字按钮「新增」。盘点、调整条件这类非新增主操作用页内填充 `Button`，每页最多一个。
+- 保存：所有模态编辑页右上 `NavBar` 主按钮「保存」。只有「完整盘点」（长表格）另留底部 `ActionBar`「保存本次盘点」。
+- 日期、金额、未知用 `src/mobile/format.ts`：字段 `dateText`（`YYYY-MM-DD`），列表与标题 `dayLabel`（「10月21日」，非今年带年份），金额 `moneyText`（到元，有分才两位，不写「万」，图表坐标轴除外）。未知事实「未知」，没设置的可选项「未设置」，空列表「暂无」。
+- `EmptyState` 的图标用所在模块的标签栏图标：物品 `box`、财富 `wallet`、规划 `chart`、我的 `user`。
+- 有 `LargeTitle` 的页面 `NavBar` 不放标题。

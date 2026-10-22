@@ -9,9 +9,13 @@ const wish = (id, over = {}, fields = {}) => ({ id, fields: { name: id, category
 test('页头合计拆分后与电脑端文字一致，价格未知不当成零', () => {
   for (const [page, n] of [[{ considering_known_cents: '1860000', considering_unknown_count: 1, legacy_achieved_count: 1 }, 5], [{ considering_known_cents: '0', considering_unknown_count: 2, legacy_achieved_count: 0 }, 2], [{ considering_known_cents: '0', considering_unknown_count: 0, legacy_achieved_count: 0 }, 0]]) {
     const parts = summaryParts(page, n), desktop = wishHeaderSummary(page, n);
-    assert.equal(`${parts.count} · 预计价格合计 ${parts.amount}${parts.unknown}`, desktop.main);
+    // 手机端整数元不带 .00（电脑端 wishHeaderSummary 固定两位小数），其余文字一致。
+    assert.equal(`${parts.count} · 预计价格合计 ${parts.amount}${parts.unknown}`, desktop.main.replace(/(\d)\.00(?!\d)/g, '$1'));
+    assert.equal(parts.main, `${parts.count} · 预计价格合计 ${parts.amount}${parts.unknown}`);
     assert.equal(parts.legacy, desktop.legacy);
   }
+  assert.equal(summaryParts({ considering_known_cents: '1860000', considering_unknown_count: 0, legacy_achieved_count: 0 }, 5).amount, '¥18,600');
+  assert.equal(summaryParts({ considering_known_cents: '1860050', considering_unknown_count: 0, legacy_achieved_count: 0 }, 5).amount, '¥18,600.50');
   assert.equal(summaryParts({ considering_known_cents: '0', considering_unknown_count: 2, legacy_achieved_count: 0 }, 2).amount, '未知');
   assert.equal(summaryParts({ considering_known_cents: '0', considering_unknown_count: 2, legacy_achieved_count: 0 }, 2).allUnknown, true);
 });

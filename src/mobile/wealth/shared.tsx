@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, money } from '../../asset';
+import { errorMessage } from '../../asset';
+import { moneyText } from '../format';
 import { currencyAmount, currencyCode, rateLabel } from '../../currency';
 import type { CurrencyFact } from '../../currency';
 import { holdingText } from '../../holdings';
@@ -38,8 +39,20 @@ export function WealthGate({ children }: { children: ReactNode }) {
 export function factText(fact: CurrencyFact | null | undefined, account?: Account): string {
   if (fact?.amount_cents == null) return '未知';
   const currency = currencyCode(account?.fields.currency), holding = holdingText(fact, account?.fields.holding_mode ? account.fields.holding_unit ?? '份' : null, currency);
-  const amount = currency === 'CNY' ? money(fact.amount_cents) : `${fact.original_minor == null ? '原币未知' : currencyAmount(currency, fact.original_minor)} ≈ ${money(fact.amount_cents)} · 汇率 ${fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知'}`;
+  const amount = currency === 'CNY' ? moneyText(fact.amount_cents) : `${fact.original_minor == null ? '原币未知' : currencyAmount(currency, fact.original_minor)} ≈ ${moneyText(fact.amount_cents)} · 汇率 ${fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知'}`;
   return holding ? `${holding} = ${amount}` : amount;
+}
+/** Extra facts behind a CNY amount that is already shown elsewhere (hero title): holding, original currency and rate. */
+export function factDetail(fact: CurrencyFact | null | undefined, account?: Account): string | undefined {
+  if (fact?.amount_cents == null) return undefined;
+  const currency = currencyCode(account?.fields.currency), holding = holdingText(fact, account?.fields.holding_mode ? account.fields.holding_unit ?? '份' : null, currency);
+  const parts: string[] = [];
+  if (holding) parts.push(holding);
+  if (currency !== 'CNY') {
+    if (!holding) parts.push(fact.original_minor == null ? '原币未知' : currencyAmount(currency, fact.original_minor));
+    parts.push(`汇率 ${fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知'}`);
+  }
+  return parts.join(' · ') || undefined;
 }
 /** A single write, a single request identity, shared receipt recovery. Navigation waits for busy to clear. */
 export function useWrite(onSaved: () => void, onFailure?: (error: unknown) => void) {

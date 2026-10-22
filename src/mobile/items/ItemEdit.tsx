@@ -118,7 +118,6 @@ export default function ItemEdit({ params }: PageProps) {
         <FormGroup title="资料"><TextField label="品牌" value={draft.fields.brand} onChange={value => change('brand', value)} disabled={disabled}/><TextField label="型号" value={draft.fields.model} onChange={value => change('model', value)} disabled={disabled}/><TextField label="序列号" value={draft.fields.serial_number} onChange={value => change('serial_number', value)} disabled={disabled}/></FormGroup>
         <FormGroup title="展示与统计"><FormRow label="置顶"><Switch label="置顶" checked={p.pinned} onChange={pinned => preferences({ pinned })} disabled={disabled}/></FormRow><FormRow label="不计入统计"><Switch label="不计入统计" checked={Object.values(p.exclude).some(Boolean)} onChange={checked => preferences({ exclude: { total: checked, daily: checked, statistics: checked, timeline: checked } })} disabled={disabled}/></FormRow>{Object.values(p.exclude).some(Boolean) && (['total', 'daily', 'statistics', 'timeline'] as const).map((key, index) => <FormRow key={key} label={['不计入总金额', '不计入日均成本', '不计入统计页面', '不在时间轴显示'][index]}><Switch label={['不计入总金额', '不计入日均成本', '不计入统计页面', '不在时间轴显示'][index]} checked={p.exclude[key]} onChange={checked => preferences({ exclude: { ...p.exclude, [key]: checked } })} disabled={disabled}/></FormRow>)}</FormGroup>
       </details>
-      <Button variant="primary" block onClick={() => void save()} disabled={disabled || !!photoError}>保存物品</Button>
     </>}
   </div>;
 }

@@ -7,13 +7,14 @@ import * as wealth from '../src/wealth.ts';
 import * as asset from '../src/asset.ts';
 import * as currency from '../src/currency.ts';
 import * as holdings from '../src/holdings.ts';
+import * as format from '../src/mobile/format.ts';
 function harness() {
  let cursor=0,slots=[],effects=[],reloads=0;
  const cleanups=new Map();
  const session={loading:false,busy:false,pending:null,settled:null,get navBlocked(){return this.busy||!!this.pending;},setBusy(value){this.busy=value;},refreshPending(){this.pending=wealth.storedPending();},reload(){reloads++;}};
  const react={useRef(value){const i=cursor++;return slots[i]??(slots[i]={current:value});},useState(value){const i=cursor++;if(!(i in slots))slots[i]=typeof value==='function'?value():value;return[slots[i],value=>slots[i]=typeof value==='function'?value(slots[i]):value];},useEffect(fn,deps){const i=cursor++,old=slots[i];if(!old||deps.some((v,j)=>!Object.is(v,old[j]))){slots[i]=deps;effects.push(()=>{cleanups.get(i)?.();cleanups.set(i,fn());});}}};
  const exports={},jsx=(type,props)=>({type,props});
- const modules={react,'react/jsx-runtime':{jsx,jsxs:jsx},'@tauri-apps/api/core':{invoke:(...args)=>window.__TAURI_INTERNALS__.invoke(...args)},'../../asset':asset,'../../currency':currency,'../../holdings':holdings,'../../wealth':wealth,'../session':{useSession:()=>session},'../nav-context':{useReveal:()=>0},'../ui':{},'./wealth.css':{}};
+ const modules={react,'react/jsx-runtime':{jsx,jsxs:jsx},'@tauri-apps/api/core':{invoke:(...args)=>window.__TAURI_INTERNALS__.invoke(...args)},'../../asset':asset,'../format':format,'../../currency':currency,'../../holdings':holdings,'../../wealth':wealth,'../session':{useSession:()=>session},'../nav-context':{useReveal:()=>0},'../ui':{},'./wealth.css':{}};
  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/mobile/wealth/shared.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports,require:id=>{if(!(id in modules))throw Error(id);return modules[id];}});
  return {session,get reloads(){return reloads;},render(name,...args){cursor=0;const value=exports[name](...args);effects.splice(0).forEach(fn=>fn());return value;}};
 }
