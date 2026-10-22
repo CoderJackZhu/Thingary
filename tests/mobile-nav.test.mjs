@@ -17,16 +17,17 @@ test('push、pop 与返回标题所需的栈', () => {
   assert.equal(depth(navReducer(s, { type: 'pop', count: 9 })), 1);
   assert.equal(navReducer(start(), { type: 'pop' }).stacks.items.length, 1);
 });
-test('每个标签有独立的栈，切换后保留，首次进入从根页开始', () => {
+test('切换标签总是从目标标签的根页开始，旧栈丢弃', () => {
   let s = navReducer(start(), { type: 'push', route: 'items.detail' });
   s = navReducer(s, { type: 'switch', tab: 'wealth', root: 'wealth.overview' });
-  assert.deepEqual(names(s), ['wealth.overview']);
+  assert.deepEqual(names(s), ['wealth.overview']); assert.equal(s.stacks.items, undefined);
   s = navReducer(s, { type: 'push', route: 'wealth.checkin' });
   s = navReducer(s, { type: 'switch', tab: 'items', root: 'items.list' });
-  assert.deepEqual(names(s), ['items.list', 'items.detail']);
-  s = navReducer(s, { type: 'switch', tab: 'wealth', root: 'unused' });
-  assert.deepEqual(names(s), ['wealth.overview', 'wealth.checkin']);
+  assert.deepEqual(names(s), ['items.list']);
+  s = navReducer(s, { type: 'switch', tab: 'wealth', root: 'wealth.overview' });
+  assert.deepEqual(names(s), ['wealth.overview']);
   assert.equal(navReducer(s, { type: 'switch', tab: 'wealth', root: 'x' }), s);
+  assert.equal(new Set(Object.values(s.stacks).flat().map(e => e.id)).size, 1);
 });
 test('replace、分段切换和回到根页', () => {
   let s = navReducer(start(), { type: 'push', route: 'items.edit' });
@@ -72,6 +73,33 @@ test('历史记录：保存结果未确定时拒绝后退并回到原位置', ()
   assert.deepEqual(h.log.at(-1), ['go', 1]); assert.equal(sync.seq, 1);
   sync.handlePop({ thingaryMobile: true, seq: 1 }); assert.equal(sync.seq, 1);
   blocked = false; sync.handlePop({ thingaryMobile: true, seq: 0 }); assert.equal(sync.seq, 0);
+});
+test('历史记录：标签操作一次弹出多页，条目一次消耗，seq 不漂移', () => {
+  const h = fakeHistory(), popped = [];
+  const sync = new HistorySync(h, steps => { popped.push(steps); return true; });
+  sync.push(); sync.push(); sync.push();
+  sync.back(3); assert.deepEqual(h.log.at(-1), ['go', -3]);
+  sync.handlePop({ thingaryMobile: true, seq: 0 });
+  assert.deepEqual(popped, []); assert.equal(sync.seq, 0);
+  sync.back(2); assert.equal(h.log.filter(e => e[0] === 'go').length, 1);
+});
+test('历史记录：切换标签后立即推入新页，等回退完成再写入条目', () => {
+  const h = fakeHistory(), popped = [];
+  const sync = new HistorySync(h, steps => { popped.push(steps); return true; });
+  sync.push(); sync.push();
+  sync.back(2); sync.push();
+  assert.deepEqual(h.log.filter(e => e[0] === 'push').map(e => e[1]), [1, 2]);
+  sync.handlePop({ thingaryMobile: true, seq: 0 });
+  assert.deepEqual(h.log.slice(-1), [['push', 1]]); assert.equal(sync.seq, 1); assert.deepEqual(popped, []);
+  sync.handlePop({ thingaryMobile: true, seq: 0 }); assert.deepEqual(popped, [1]); assert.equal(sync.seq, 0);
+});
+test('历史记录：前进到已关闭的页面时退回原位，不改页面栈', () => {
+  const h = fakeHistory(), popped = [];
+  const sync = new HistorySync(h, steps => { popped.push(steps); return true; });
+  sync.push(); sync.handlePop({ thingaryMobile: true, seq: 0 });
+  sync.handlePop({ thingaryMobile: true, seq: 1 });
+  assert.deepEqual(h.log.at(-1), ['go', -1]); assert.equal(sync.seq, 0);
+  sync.handlePop({ thingaryMobile: true, seq: 0 }); assert.equal(sync.seq, 0); assert.deepEqual(popped, [1]);
 });
 test('左滑吸附：过半或快速滑动展开，轻触回弹', () => {
   assert.equal(clampSwipe(-300, 176), -176); assert.equal(clampSwipe(20, 176), 0);
