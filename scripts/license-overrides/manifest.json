@@ -6,6 +6,13 @@
       "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
     }
   ],
+  "alloc-stdlib@0.3.0": [
+    {
+      "file": "dropbox--rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+      "source": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+      "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+    }
+  ],
   "block2@0.6.2": [
     {
       "file": "madsmtm--objc2/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
@@ -138,6 +145,18 @@
       "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
     }
   ],
+  "objc2-quartz-core@0.3.2": [
+    {
+      "file": "madsmtm--objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+    },
+    {
+      "file": "standard/MIT.txt",
+      "source": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/MIT.txt",
+      "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+    }
+  ],
   "objc2-web-kit@0.3.2": [
     {
       "file": "madsmtm--objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
@@ -242,6 +261,13 @@
       "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
     }
   ],
+  "selectors@0.38.0": [
+    {
+      "file": "mozilla/MPL-2.0.txt",
+      "source": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
+    }
+  ],
   "webview2-com@0.38.2": [
     {
       "file": "wravery--webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
@@ -249,10 +275,24 @@
       "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
     }
   ],
+  "webview2-com@0.39.1": [
+    {
+      "file": "wravery--webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "source": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
+    }
+  ],
   "webview2-com-sys@0.38.2": [
     {
       "file": "wravery--webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
       "source": "https://raw.githubusercontent.com/wravery/webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
+    }
+  ],
+  "webview2-com-sys@0.39.1": [
+    {
+      "file": "wravery--webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "source": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
       "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
     }
   ],
@@ -275,6 +315,20 @@
       "source": "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.3650.58/microsoft.web.webview2.1.0.3650.58.nupkg#NOTICE.txt",
       "sha256": "106423785c5b7eba0a8e61d1837f2132e9c828e20ad530f565d981c1df60dd90",
       "archive_sha256": "911a472128c82ac8baa0c486c23342cc9dd6e7dc50d754e676726642ca065c60"
+    }
+  ],
+  "Microsoft.Web.WebView2@1.0.3800.47": [
+    {
+      "file": "microsoft--webview2/1.0.3800.47/LICENSE.txt",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.3800.47/microsoft.web.webview2.1.0.3800.47.nupkg#LICENSE.txt",
+      "sha256": "0af8f1b807512aae39c2ac1aa4d0cae65cabecb6fd554b8439a5162a0d6eca55",
+      "archive_sha256": "56c9f26bdd07916a2d1949fb58a5c7e434dfa1173577dca879206050c4e718db"
+    },
+    {
+      "file": "microsoft--webview2/1.0.3800.47/NOTICE.txt",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.3800.47/microsoft.web.webview2.1.0.3800.47.nupkg#NOTICE.txt",
+      "sha256": "106423785c5b7eba0a8e61d1837f2132e9c828e20ad530f565d981c1df60dd90",
+      "archive_sha256": "56c9f26bdd07916a2d1949fb58a5c7e434dfa1173577dca879206050c4e718db"
     }
   ],
   "age@0.12.1": [

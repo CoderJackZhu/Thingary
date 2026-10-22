@@ -28,9 +28,11 @@
 
 ## Windows WebView2 loader
 
-Windows x64 MSVC 构建通过锁定的 `webview2-com-sys 0.38.2` 链接 `WebView2LoaderStatic.lib`。Rust 包的 MIT 声明只覆盖上游 Rust 绑定；微软 SDK loader 保留其独立许可与第三方告知，不由物谱的 AGPL 或 Rust 绑定的 MIT 改写。
+Windows x64 MSVC 构建通过锁定的 `webview2-com-sys 0.38.2` 与 `0.39.1` 链接 `WebView2LoaderStatic.lib`。Rust 包的 MIT 声明只覆盖上游 Rust 绑定；微软 SDK loader 保留其独立许可与第三方告知，不由物谱的 AGPL 或 Rust 绑定的 MIT 改写。
 
 来源：该 crate 发布归档的 `.cargo_vcs_info.json` 指向 [上游提交 b74dc5e](https://github.com/wravery/webview2-rs/tree/b74dc5e2b394044bea5191052868ce7a106c202c)，该提交的 [SDK 获取脚本](https://github.com/wravery/webview2-rs/blob/b74dc5e2b394044bea5191052868ce7a106c202c/crates/update-bindings/src/main.rs) 固定 `Microsoft.Web.WebView2 1.0.3650.58`。已比对官方 NuGet 归档与 crate 的 x64 loader 文件，三份文件逐字节相同；静态库 SHA-256 为 `0659b741bde6348d4c4a6ec4ceb9af50e3d0048ed9cd3c8659bccbb61fde55ee`。
+
+`webview2-com-sys 0.39.1` 的 `.cargo_vcs_info.json` 指向 [上游提交 edc2caf](https://github.com/wravery/webview2-rs/tree/edc2caf886175ccaebe86078c9cfe1ae2a187328)，该提交的 [SDK 获取脚本](https://github.com/wravery/webview2-rs/blob/edc2caf886175ccaebe86078c9cfe1ae2a187328/crates/update-bindings/src/main.rs) 固定 `Microsoft.Web.WebView2 1.0.3800.47`（[NuGet 页面](https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3800.47)，归档 SHA-256 为 `56c9f26bdd07916a2d1949fb58a5c7e434dfa1173577dca879206050c4e718db`）。已比对官方 NuGet 归档与 crate 的 x64 文件，`WebView2Loader.dll`、`WebView2Loader.dll.lib` 与 `WebView2LoaderStatic.lib` 逐字节相同；静态库 SHA-256 为 `89c6b872783b8f6c3cedbff618adb42082d455c615453ae10cfc753f1e8f25d8`。该版本的 `LICENSE.txt` 与 `NOTICE.txt` 同样独立保存于 `scripts/license-overrides/microsoft--webview2/1.0.3800.47/`，文本与 1.0.3650.58 的相同。
 
 官方归档：[Microsoft.Web.WebView2 1.0.3650.58](https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3650.58)。其中 `LICENSE.txt` 保留微软版权、BSD 三条款条件与免责声明，`NOTICE.txt` 保留 SDK 随附第三方告知。两份原文保存在 `scripts/license-overrides/microsoft--webview2/1.0.3650.58/`，原始来源、归档与文本 SHA-256 登记在 `manifest.json`；Windows 分发通知独立收集为 SDK 条目。SDK 清单保守附上整个 SDK 的告知，不把 SDK 的其他组件称为本应用实际链接组件。
 
