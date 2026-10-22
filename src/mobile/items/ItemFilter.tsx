@@ -16,7 +16,7 @@ export default function ItemFilter() {
   return <div className="mi-filter">
     <FormGroup title="筛选">
       <SelectField label="保障" value={draft.warranty??'all'} onChange={warranty=>setDraft({...draft,warranty})} options={[['all','全部'],['covered','有有效保障'],['expiring','即将到期'],['lapsed','有记录，当前无有效保障'],['none','无保障记录']].map(([id,label])=>({id,label}))}/>
-      <SelectField label="资料待补充" value={['missing_price','missing_date'].includes(draft.filter)?draft.filter:'all'} onChange={filter=>setDraft({...draft,filter:filter==='all' ? (['missing_price','missing_date'].includes(query.filter)?'all':query.filter) : filter})} options={[{id:'all',label:'不限'},{id:'missing_price',label:'金额待补充'},{id:'missing_date',label:'日期待补充'}]}/>
+      <SelectField label="缺失资料" value={['missing_price','missing_date'].includes(draft.filter)?draft.filter:'all'} onChange={filter=>setDraft({...draft,filter:filter==='all' ? (['missing_price','missing_date'].includes(query.filter)?'all':query.filter) : filter})} options={[{id:'all',label:'不限'},{id:'missing_price',label:'金额未知'},{id:'missing_date',label:'日期未知'}]}/>
       <SelectField label="标签" value={draft.label??''} onChange={label=>setDraft({...draft,label:label||null})} options={[{id:'',label:'全部'},{id:'none',label:'无标签'},...labelFilterOptions(tags).map(t=>({id:t.id,label:t.text}))]}/>
     </FormGroup>
     {error&&<ErrorState message={error} onRetry={()=>{setError('');setRetry(n=>n+1);}}/>}

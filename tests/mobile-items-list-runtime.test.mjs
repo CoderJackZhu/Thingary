@@ -7,6 +7,7 @@ import * as lifecycle from '../src/lifecycle.ts';
 import * as navigation from '../src/collection-navigation.ts';
 import * as batch from '../src/batch-select.ts';
 import * as list from '../src/mobile/items/list-model.ts';
+import * as format from '../src/mobile/format.ts';
 
 const day = '2026-10-21', generation = 'fictional-library';
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -20,7 +21,7 @@ async function listRuntime({ idsResponse, countsGeneration = () => generation } 
   let query = list.initialQuery();
   const assets = [record('a'), record('b', 'retired')], calls = [], s = session();
   const r = runtime('mobile/items/ItemList', {}, undefined, undefined, { exportName: 'default', components: [], globals: { IntersectionObserver: class { observe() {} disconnect() {} } }, modules: {
-    './asset': asset, './preferences': preferences, './lifecycle': lifecycle, './collection-navigation': navigation, './batch-select': batch, './mobile/items/list-model': list,
+    './asset': asset, './mobile/format': format, './preferences': preferences, './lifecycle': lifecycle, './collection-navigation': navigation, './batch-select': batch, './mobile/items/list-model': list,
     './mobile/items/list-store': { useItemQuery: () => query, setItemQuery: change => { query = list.changeQuery(query, change); } },
     './mobile/items/ItemBatch': { __esModule: true, default: 'ItemBatch' },
     './mobile/session': { useSession: () => s }, './mobile/nav-context': { useNav: () => ({ push() {} }), useReveal: () => 0 },
@@ -107,7 +108,7 @@ const row = (id, state = 'active') => ({ id, name: `虚构物品${id}`, revision
 async function batchRuntime({ rows = [row('a'), row('b', 'retired'), row('c', 'sold')], save } = {}) {
   const s = session(), requests = [], reads = [], done = [];
   const r = runtime('mobile/items/ItemBatch', { ids: rows.map(r => r.id), generation, today: day, onClose() {}, onDone() { done.push(true); } }, undefined, undefined, { exportName: 'default', components: [], modules: {
-    './asset': asset, './batch-select': batch, './mobile/session': { useSession: () => s },
+    './asset': asset, './mobile/format': format, './batch-select': batch, './mobile/session': { useSession: () => s },
     './wealth': { submit: async input => { requests.push(input); if (save) return await save(input, s); return { changed: input.input.items.length }; } },
     '@tauri-apps/api/core': { invoke: async (command, args) => {
       if (command === 'batch_rows') { reads.push(args.ids); return args.ids.map(id => rows.find(r => r.id === id)).filter(Boolean); }

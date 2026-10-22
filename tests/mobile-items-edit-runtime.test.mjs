@@ -5,6 +5,7 @@ import * as asset from '../src/asset.ts';
 import * as preferences from '../src/preferences.ts';
 import * as media from '../src/asset-media.ts';
 import * as model from '../src/mobile/items/edit-model.ts';
+import * as format from '../src/mobile/format.ts';
 
 const generation = 'fictional-edit-generation';
 const catalog = () => ({ generation, categories: [], channels: [] });
@@ -17,7 +18,7 @@ function sessionState() {
   };
 }
 function leaves(session, nav, invoke, submit) {
-  return { './asset': asset, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model,
+  return { './asset': asset, './mobile/format': format, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model,
     './NotificationNotice': { allowReminders: async () => {} }, './materials': { materialArt: () => '<svg/>' },
     './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => nav },
     './wealth': { submit }, '@tauri-apps/api/core': { invoke },
@@ -40,7 +41,8 @@ async function editor(options = {}) {
   return { r, session, calls, navigations, requests };
 }
 const field = (r, label) => r.find('TextField', p => p.label === label);
-const action = (r, text) => r.nodes().find(n => n.type === 'Button' && r.text(n) === text);
+// 保存只在右上 NavBar（底部重复按钮已移除）；测试里仍用「保存物品」指这个动作。
+const action = (r, text) => text === '保存物品' ? { props: r.nodes().find(n => n.type === 'NavBar').props.primary } : r.nodes().find(n => n.type === 'Button' && r.text(n) === text);
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 
 test('mobile edit material callback preserves later form edits and is discarded with the editor', async () => {
