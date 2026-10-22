@@ -11,14 +11,14 @@ import './financial-import.css';
 import { t } from './i18n.ts';
 function receiptAvailability(receipt: Pick<ImportReceipt, 'created_at' | 'unavailable_objects'>): string {
  const count = receipt.unavailable_objects ?? 0;
- return count > 0 ? `这个文件已于 ${receipt.created_at.slice(0,10)} 导入，其中 ${count} 条记录已被删除或永久清除。可从最近删除找回尚未永久清除的记录；也可修改文件内容，重新核对表格编号或换用另一套账户对应方案后导入。已永久清除的记录在原方案中用过的表格编号不能再关联新记录。系统识别为同一批内容时不会重复写入。` : '';
+ return count > 0 ? t('这个文件已于 {v1} 导入，其中 {count} 条记录已被删除或永久清除。可从最近删除找回尚未永久清除的记录；也可修改文件内容，重新核对表格编号或换用另一套账户对应方案后导入。已永久清除的记录在原方案中用过的表格编号不能再关联新记录。系统识别为同一批内容时不会重复写入。', { v1: receipt.created_at.slice(0,10), count }) : '';
 }
 
 export function FinancialImportDialog({ generation, onClose, mode = 'accounts', recoveryOnly = false, currentGeneration = generation, onViewFinance }: { mode?:'accounts'|'incomes'; generation:string; currentGeneration?:string|null; recoveryOnly?:boolean; onViewFinance?:(target:'income'|'accounts'|'snapshots')=>void; onClose:(saved:boolean)=>void }) {
  const dialog=useRef<HTMLDialogElement>(null),alive=useRef(true),job=useRef<string|null>(null),sequence=useRef(0),lastCommit=useRef<ImportCommit|null>(null);
  const initial=storedPending();
  const [issuePage,setIssuePage]=useState(0),[mappingPage,setMappingPage]=useState(0),[mappingSearch,setMappingSearch]=useState(''),[receiptPageIndex,setReceiptPageIndex]=useState(0);
- const [batch,setBatch]=useState<ImportBatch>({generation,source_name:'历史表格',mapping_set_id:mode==='incomes'?'收入映射':'账户映射',files:[],mappings:{},actions:{},page:0});
+ const [batch,setBatch]=useState<ImportBatch>({generation,source_name:t('历史表格'),mapping_set_id:mode==='incomes'?t('收入映射'):t('账户映射'),files:[],mappings:{},actions:{},page:0});
  const [step,setStep]=useState(recoveryOnly||initial?.command==='financial_import_commit'?4:1),[preview,setPreview]=useState<ImportPreview|null>(null),[dirty,setDirty]=useState(true);
  const [busy,setBusy]=useState(''),[progress,setProgress]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[receipt,setReceipt]=useState<ImportReceipt|null>(null);
  const [unresolved,setUnresolved]=useState(initial?.command==='financial_import_commit'?initial:null);
@@ -29,40 +29,40 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts', 
  async function readPreview(next:ImportBatch,target:number){
   if(recoveryOnly||storedPending())return;
   const old=job.current;if(old)void invoke('financial_import_cancel',{jobId:old}).catch(()=>{});
-  const id=crypto.randomUUID(),ticket=++sequence.current;job.current=id;setBusy('正在解析并核对整批资料');setProgress('');setError('');
-  try{const result=await invoke<ImportPreview>('financial_import_preview',{input:next,jobId:id});if(!alive.current||ticket!==sequence.current)return;setPreview(result);setIssuePage(0);setDirty(false);setStep(target);setBatch({...next,page:result.page});if(result.prior_receipt)setNotice(receiptAvailability(result.prior_receipt)||'这批内容已经导入，可以查看上次的导入结果。');else setNotice('');}
-  catch(e){if(alive.current&&ticket===sequence.current){setDirty(true);setError(code(e)==='CANCELLED'?'解析已取消，未提交任何资料。':errorMessage(e));}}
+  const id=crypto.randomUUID(),ticket=++sequence.current;job.current=id;setBusy(t('正在解析并核对整批资料'));setProgress('');setError('');
+  try{const result=await invoke<ImportPreview>('financial_import_preview',{input:next,jobId:id});if(!alive.current||ticket!==sequence.current)return;setPreview(result);setIssuePage(0);setDirty(false);setStep(target);setBatch({...next,page:result.page});if(result.prior_receipt)setNotice(receiptAvailability(result.prior_receipt)||t('这批内容已经导入，可以查看上次的导入结果。'));else setNotice('');}
+  catch(e){if(alive.current&&ticket===sequence.current){setDirty(true);setError(code(e)==='CANCELLED'?t('解析已取消，未提交任何资料。'):errorMessage(e));}}
   finally{if(alive.current&&ticket===sequence.current){job.current=null;setBusy('');}}
  }
  async function choose(){
   if(recoveryOnly||storedPending())return;
-  const ticket=++sequence.current;setBusy('正在读取 Excel 工作簿');setError('');
+  const ticket=++sequence.current;setBusy(t('正在读取 Excel 工作簿'));setError('');
   try{const file=await invoke<{name:string;files:ImportFile[]}|null>('financial_import_read_workbook');if(!alive.current||ticket!==sequence.current)return;if(!file){setBusy('');return;}
    const next={...batch,files:file.files.map(f=>({...f,name:`${file.name} · ${f.name}`})),actions:{},mappings:{},page:0};setBatch(next);setDirty(true);setBackup(null);setWithoutBackup(false);lastCommit.current=null;await readPreview(next,1);
   }catch(e){if(alive.current&&ticket===sequence.current){setError(errorMessage(e));setBusy('');}}
  }
- async function template(sample:boolean){if(recoveryOnly||storedPending())return;setBusy('正在保存模板');try{const path=await invoke<string|null>('financial_import_template',{sample});if(alive.current)setNotice(path?'Excel 已保存。':'已取消保存。');}catch(e){if(alive.current)setError(errorMessage(e));}finally{if(alive.current)setBusy('');}}
- async function protect(){if(recoveryOnly||storedPending())return;setBusy('正在建立完整备份');setError('');setBackup(null);setWithoutBackup(false);try{const done=await invoke<{name:string;folder:string}|null>('create_backup');if(alive.current){if(done)setBackup(`${done.folder}/${done.name}`);else setError('备份已取消，本次尚未建立保护备份。');}}catch(e){if(alive.current)setError('备份失败，本次尚未建立保护备份。'+errorMessage(e));}finally{if(alive.current)setBusy('');}}
+ async function template(sample:boolean){if(recoveryOnly||storedPending())return;setBusy(t('正在保存模板'));try{const path=await invoke<string|null>('financial_import_template',{sample});if(alive.current)setNotice(path?t('Excel 已保存。'):t('已取消保存。'));}catch(e){if(alive.current)setError(errorMessage(e));}finally{if(alive.current)setBusy('');}}
+ async function protect(){if(recoveryOnly||storedPending())return;setBusy(t('正在建立完整备份'));setError('');setBackup(null);setWithoutBackup(false);try{const done=await invoke<{name:string;folder:string}|null>('create_backup');if(alive.current){if(done)setBackup(`${done.folder}/${done.name}`);else setError(t('备份已取消，本次尚未建立保护备份。'));}}catch(e){if(alive.current)setError(t('备份失败，本次尚未建立保护备份。')+errorMessage(e));}finally{if(alive.current)setBusy('');}}
  // currentGeneration is only a read-only lookup target; the stored request is never rewritten.
  async function verify(currentDataset=false){
-  if(!unresolved||(currentDataset&&!currentGeneration))return;setBusy('正在核对上次导入结果');setError('');
+  if(!unresolved||(currentDataset&&!currentGeneration))return;setBusy(t('正在核对上次导入结果'));setError('');
   try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:unresolved.input.request_id,generation:currentDataset?currentGeneration:unresolved.input.generation});
-   if(!saved&&currentDataset&&unresolved.input.generation!==currentGeneration){if(alive.current)setNotice('当前资料中没有这次导入的成功记录，不能据此判断原来的资料是否已导入。上次操作编号仍保留，请回到原来的资料中核对。');return;}
-   localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setNotice(receiptAvailability(saved)||'已确认整批提交成功。');}}else if(alive.current){setNotice('已确认这次没有导入。关闭后可从设置重新导入。');}
+   if(!saved&&currentDataset&&unresolved.input.generation!==currentGeneration){if(alive.current)setNotice(t('当前资料中没有这次导入的成功记录，不能据此判断原来的资料是否已导入。上次操作编号仍保留，请回到原来的资料中核对。'));return;}
+   localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setNotice(receiptAvailability(saved)||t('已确认整批提交成功。'));}}else if(alive.current){setNotice(t('已确认这次没有导入。关闭后可从设置重新导入。'));}
    if(alive.current)setUnresolved(null);
-  }catch(e){if(alive.current){if(code(e)==='STALE_DATASET'){setNotice('已经切换资料，上次操作编号仍保留。请回到原来的资料核对，也可检查当前资料是否保留了同一次导入的成功记录；核对不会写入资料，不要在这里重复导入。');}else setError('暂时无法核对，上次操作编号已保留。'+errorMessage(e));}}
+  }catch(e){if(alive.current){if(code(e)==='STALE_DATASET'){setNotice(t('已经切换资料，上次操作编号仍保留。请回到原来的资料核对，也可检查当前资料是否保留了同一次导入的成功记录；核对不会写入资料，不要在这里重复导入。'));}else setError(t('暂时无法核对，上次操作编号已保留。')+errorMessage(e));}}
   finally{if(alive.current)setBusy('');}
  }
  async function commit(){
   if(recoveryOnly||!preview||dirty||!preview.can_commit||(!backup&&!withoutBackup)||storedPending())return;
   const input=lastCommit.current??{request_id:crypto.randomUUID(),batch:{...batch,page:0},context_digest:preview.context_digest,normalized_digest:preview.normalized_digest,file_fingerprints:preview.file_fingerprints};lastCommit.current=input;
   const metadata=receiptMetadata(input);
-  try{localStorage.setItem(pendingKey,JSON.stringify(metadata));}catch{setError('无法保存这次操作的编号，尚未开始导入，请检查可用空间后重试。');return;}
-  setUnresolved(metadata);setStep(4);setBusy('正在保存整批资料，关闭后仍需核对导入结果');setError('');
-  try{const saved=await invoke<ImportReceipt>('financial_import_commit',{input});localStorage.removeItem(pendingKey);window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice(receiptAvailability(saved)||'整批导入已完成。');}}
+  try{localStorage.setItem(pendingKey,JSON.stringify(metadata));}catch{setError(t('无法保存这次操作的编号，尚未开始导入，请检查可用空间后重试。'));return;}
+  setUnresolved(metadata);setStep(4);setBusy(t('正在保存整批资料，关闭后仍需核对导入结果'));setError('');
+  try{const saved=await invoke<ImportReceipt>('financial_import_commit',{input});localStorage.removeItem(pendingKey);window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice(receiptAvailability(saved)||t('整批导入已完成。'));}}
   catch(e){
-   try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:input.request_id,generation:input.batch.generation});localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice(receiptAvailability(saved)||'已确认上次导入成功。');}}else if(alive.current){setUnresolved(null);setStep(3);setError('已确认这次没有导入，整批资料都没有写入。'+errorMessage(e));}}
-   catch(check){if(alive.current){setError('还不能确认是否导入成功；上次操作编号已保留，请核对导入结果，不要重复导入。'+errorMessage(check));setUnresolved(metadata);}}
+   try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:input.request_id,generation:input.batch.generation});localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice(receiptAvailability(saved)||t('已确认上次导入成功。'));}}else if(alive.current){setUnresolved(null);setStep(3);setError(t('已确认这次没有导入，整批资料都没有写入。')+errorMessage(e));}}
+   catch(check){if(alive.current){setError(t('还不能确认是否导入成功；上次操作编号已保留，请核对导入结果，不要重复导入。')+errorMessage(check));setUnresolved(metadata);}}
   }finally{if(alive.current)setBusy('');}
  }
  function close(){sequence.current++;if(job.current)void invoke('financial_import_cancel',{jobId:job.current}).catch(()=>{});onClose(!!receipt);}
@@ -71,9 +71,9 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts', 
  return <dialog ref={dialog} className="editor financial-import-editor" aria-labelledby="financial-import-title" onCancel={e=>{e.preventDefault();close();}}>
   <form onSubmit={e=>e.preventDefault()}>
    <header><div><p className="eyebrow">{mode==='incomes'?t('月度收入'):t('账户与盘点')} {t('· 金融历史')}</p><h2 id="financial-import-title">{t('导入历史')}</h2><p className="muted">{t('账户、完整盘点与月度收入可以一起保存，全部成功才写入。金额单位元；欠款填正数；不会修改收益等假设或已保存的规划基准。')}</p></div><CloseButton type="button" aria-label={t('关闭历史导入')} onClick={close}/></header>
-   <ol className="import-steps" aria-label={t('导入步骤')}>{['选择文件','对应账户与列','预览核对','确认与结果'].map((label,i)=><li key={label} aria-current={step===i+1?'step':undefined}>{i+1}. {label}</li>)}</ol>
+   <ol className="import-steps" aria-label={t('导入步骤')}>{[t('选择文件'),t('对应账户与列'),t('预览核对'),t('确认与结果')].map((label,i)=><li key={label} aria-current={step===i+1?'step':undefined}>{i+1}. {label}</li>)}</ol>
    {error&&<p className="notice" role="alert">{error}</p>}{notice&&!(step===4&&receipt&&receiptAvailability(receipt))&&<p className="notice" role="status">{notice}</p>}
-   {busy&&<div className="notice" role="status">{busy}…{job.current&&<><span>{progress&&` ${progress}。`}</span><progress aria-label={t('解析与核对进度')}/><button type="button" onClick={()=>{const id=job.current;if(id){sequence.current++;job.current=null;void invoke('financial_import_cancel',{jobId:id}).catch(()=>{});setBusy('');setDirty(true);setError('解析已取消，未提交任何资料。');}}}>{t('取消解析')}</button></>}</div>}
+   {busy&&<div className="notice" role="status">{busy}…{job.current&&<><span>{progress&&` ${progress}。`}</span><progress aria-label={t('解析与核对进度')}/><button type="button" onClick={()=>{const id=job.current;if(id){sequence.current++;job.current=null;void invoke('financial_import_cancel',{jobId:id}).catch(()=>{});setBusy('');setDirty(true);setError(t('解析已取消，未提交任何资料。'));}}}>{t('取消解析')}</button></>}</div>}
    {step===1&&<section className="form-block">
     <h3>{t('选择 Excel 工作簿')}</h3><p>{t('一个 .xlsx 文件，读取「账户」「完整盘点」「月度收入」工作表；空表不参加导入。每批内容最多 20 MiB、50000 数据行，解压后最多 64 MiB；每表最多 32 列。日期 YYYY-MM-DD，金额单位元、最多两位小数。空余额须补齐；收入缴存留空表示未知，0 表示明确没有。公式请先粘贴为值。')}</p>
     <div className="import-file-row"><div><strong>{t('账户、完整盘点与月度收入')}</strong><p className="muted">{batch.files.length?batch.files.map(f=>f.name).join('、'):t('尚未选择工作簿')}</p></div><button type="button" disabled={disabled} onClick={()=>void choose()}>{t('选择工作簿…')}</button><button type="button" disabled={disabled} onClick={()=>void template(false)}>{t('下载模板')}</button><button type="button" disabled={disabled} onClick={()=>void template(true)}>{t('虚构样例')}</button></div>
@@ -95,7 +95,7 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts', 
     <p className="muted">{t('盘点按完整日期组处理；更正覆盖整组，不能逐行合并。相同表格编号且内容相同的记录会跳过；收入同日同额的不同编号不会合并。任何未处理冲突或所选集合错误都会阻止提交。')}</p>
     {!!preview.new_groups?.length&&<p className="notice" role="status">{t('将新建的分组：{v1}。仅在确认导入整批后保存。', { v1: preview.new_groups.join("、") })}</p>}
     {!preview.total&&<p className="empty">{t('没有可导入的账户、盘点或收入，请检查文件。')}</p>}
-    {preview.objects.map(o=><article key={o.key} className="ui-card import-object"><div className="import-object-heading"><strong>{o.kind==='account'?t('账户'):o.kind==='income'?t('收入'):t('盘点')} · {o.external_key}</strong><span>{({new:'新增',same:'相同',conflict:'冲突',error:'错误'})[o.status]} · {o.action==='exclude'?t('已排除'):o.action==='correct'?t('整组更正'):o.action==='keep'?t('保留现有'):o.action==='unresolved'?t('待选择'):t('创建')}</span></div><p className="muted">{t('工作表行')} {sourceRowsLabel(o.source_rows.map(r=>batch.files.find(f=>f.kind===(o.kind==='account'?'accounts':o.kind==='income'?'incomes':'snapshots'))?.row_numbers?.[r]??r))} · {o.kind==='account'?String(o.after.name):String(o.after.date)}</p><ObjectDetails object={o} accounts={preview.accounts} names={preview.account_names}/>
+    {preview.objects.map(o=><article key={o.key} className="ui-card import-object"><div className="import-object-heading"><strong>{o.kind==='account'?t('账户'):o.kind==='income'?t('收入'):t('盘点')} · {o.external_key}</strong><span>{({new:t('新增'),same:t('相同'),conflict:t('冲突'),error:t('错误')})[o.status]} · {o.action==='exclude'?t('已排除'):o.action==='correct'?t('整组更正'):o.action==='keep'?t('保留现有'):o.action==='unresolved'?t('待选择'):t('创建')}</span></div><p className="muted">{t('工作表行')} {sourceRowsLabel(o.source_rows.map(r=>batch.files.find(f=>f.kind===(o.kind==='account'?'accounts':o.kind==='income'?'incomes':'snapshots'))?.row_numbers?.[r]??r))} · {o.kind==='account'?String(o.after.name):String(o.after.date)}</p><ObjectDetails object={o} accounts={preview.accounts} names={preview.account_names}/>
      {(o.status==='conflict'||o.status==='error'||o.action==='exclude')&&<FormRow label={t('本项动作')}><select aria-label={t('{external_key} 冲突动作', { external_key: o.external_key })} value={batch.actions[o.key]?.action??''} disabled={disabled} onChange={e=>{if(e.target.value)action(o,e.target.value as ImportAction['action']);}}><option value="">{t('请选择整项处理')}</option>{o.status!=='error'&&<><option value="keep">{t('保留现有')}</option><option value="correct">{t('更正整项')}</option></>}<option value="exclude">{t('排除整项，不导入')}</option></select></FormRow>}
     </article>)}
     <nav className="import-pagination" aria-label={t('预览分页')}><button type="button" disabled={disabled||preview.page===0} onClick={()=>void readPreview({...batch,page:preview.page-1},3)}>{t('上一页')}</button><span>{t('第')} {preview.page+1} {t('/ {v1} 页 · 每页最多 50 项', { v1: previewPageCount(preview.total) })}</span><button type="button" disabled={disabled||preview.page+1>=previewPageCount(preview.total)} onClick={()=>void readPreview({...batch,page:preview.page+1},3)}>{t('下一页')}</button></nav>
@@ -119,25 +119,25 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts', 
 }
 function ObjectDetails({object:o,accounts,names}:{object:ImportObject;names:Record<string,string>;accounts:ImportPreview['accounts']}){
  const [rowPage,setRowPage]=useState(0);
- if(o.kind==='account')return <details><summary>{t('查看账户字段')}{o.before?t('差异'):''}</summary><dl className="import-fields">{Object.entries(o.after).filter(([key])=>key!=='group_id').map(([key,value])=><div key={key}><dt>{({name:'名称',institution:'平台',side:'方向',kind:'类型',counted:'计入净资产',opened_on:'启用日期',closed_on:'停用日期',notes:'备注',group_name:'分组'} as Record<string,string>)[key]??key}</dt><dd>{o.before&&<span>{t('现有：{v1} →', { v1: accountField(key,o.before[key]) })} </span>}{t('导入：{v1}', { v1: accountField(key,value) })}</dd></div>)}</dl></details>;
- if(o.kind==='income')return <details><summary>{t('查看收入字段')}{o.before?t('差异'):''}</summary><dl className="import-fields">{Object.entries(o.after).map(([key,value])=><div key={key}><dt>{({date:'到账日期',net_cents:'税后到账',hpf_cents:'公积金缴存',notes:'备注',category:'来源分类',source_account_id:'来源账户',destination:'收入去向',receiving_account_id:'接收账户',legacy_estimate_unavailable:'停用旧口径估计',classification_changed:'分类已更正'} as Record<string,string>)[key]??key}</dt><dd>{o.before&&<span>{t('现有：{v1} →', { v1: incomeField(key,o.before[key],names,accounts) })} </span>}{t('导入：{v1}', { v1: incomeField(key,value,names,accounts) })}</dd></div>)}</dl></details>;
+ if(o.kind==='account')return <details><summary>{t('查看账户字段')}{o.before?t('差异'):''}</summary><dl className="import-fields">{Object.entries(o.after).filter(([key])=>key!=='group_id').map(([key,value])=><div key={key}><dt>{({name:t('名称'),institution:t('平台'),side:t('方向'),kind:t('类型'),counted:t('计入净资产'),opened_on:t('启用日期'),closed_on:t('停用日期'),notes:t('备注'),group_name:t('分组')} as Record<string,string>)[key]??key}</dt><dd>{o.before&&<span>{t('现有：{v1} →', { v1: accountField(key,o.before[key]) })} </span>}{t('导入：{v1}', { v1: accountField(key,value) })}</dd></div>)}</dl></details>;
+ if(o.kind==='income')return <details><summary>{t('查看收入字段')}{o.before?t('差异'):''}</summary><dl className="import-fields">{Object.entries(o.after).map(([key,value])=><div key={key}><dt>{({date:t('到账日期'),net_cents:t('税后到账'),hpf_cents:t('公积金缴存'),notes:t('备注'),category:t('来源分类'),source_account_id:t('来源账户'),destination:t('收入去向'),receiving_account_id:t('接收账户'),legacy_estimate_unavailable:t('停用旧口径估计'),classification_changed:t('分类已更正')} as Record<string,string>)[key]??key}</dt><dd>{o.before&&<span>{t('现有：{v1} →', { v1: incomeField(key,o.before[key],names,accounts) })} </span>}{t('导入：{v1}', { v1: incomeField(key,value,names,accounts) })}</dd></div>)}</dl></details>;
  const rows=o.after.entries as {account_id:string;amount_cents:string|null;kind:string;counted:boolean;side:string}[];
  const before=(o.before?.entries??[]) as typeof rows;
- return <details><summary>{t('完整组余额与历史含义（{length} 个账户）', { length: rows.length })}</summary><div className="import-table-wrap"><table className="ui-table"><thead><tr><th>{t('账户')}</th>{o.before&&<th>{t('现有')}</th>}<th>{t('导入余额')}</th><th>{t('历史类型 / 范围')}</th></tr></thead><tbody>{rows.slice(rowPage*50,rowPage*50+50).map(r=>{const old=before.find(e=>e.account_id===r.account_id);return <tr key={r.account_id}><td>{names[r.account_id]??accounts.find(a=>a.id===r.account_id)?.fields.name??t('历史账户')}</td>{o.before&&<td>{old?`${importMoney(old.amount_cents)} · ${kindLabel(old.kind)} · ${old.counted?'计入':'不计入'}`:t('现有无此行')}</td>}<td>{r.side==='liability'?t('欠 '):''}{importMoney(r.amount_cents)}</td><td>{kindLabel(r.kind)} · {r.counted?t('计入'):t('不计入')}</td></tr>;})}</tbody></table></div>{rows.length>50&&<nav className="import-pagination" aria-label={t('组内账户分页')}><button type="button" disabled={rowPage===0} onClick={()=>setRowPage(p=>p-1)}>{t('上一批组内账户')}</button><span>{t('第')} {rowPage+1} {t('/ {v1} 页', { v1: previewPageCount(rows.length) })}</span><button type="button" disabled={rowPage+1>=previewPageCount(rows.length)} onClick={()=>setRowPage(p=>p+1)}>{t('下一批组内账户')}</button></nav>}<p>{t('导入备注：{v1}', { v1: String(o.after.notes||'未填') })}{o.before&&<> {t('· 现有备注：{v1}', { v1: String(o.before.notes||'未填') })}</>}</p></details>;
+ return <details><summary>{t('完整组余额与历史含义（{length} 个账户）', { length: rows.length })}</summary><div className="import-table-wrap"><table className="ui-table"><thead><tr><th>{t('账户')}</th>{o.before&&<th>{t('现有')}</th>}<th>{t('导入余额')}</th><th>{t('历史类型 / 范围')}</th></tr></thead><tbody>{rows.slice(rowPage*50,rowPage*50+50).map(r=>{const old=before.find(e=>e.account_id===r.account_id);return <tr key={r.account_id}><td>{names[r.account_id]??accounts.find(a=>a.id===r.account_id)?.fields.name??t('历史账户')}</td>{o.before&&<td>{old?`${importMoney(old.amount_cents)} · ${kindLabel(old.kind)} · ${old.counted?t('计入'):t('不计入')}`:t('现有无此行')}</td>}<td>{r.side==='liability'?t('欠 '):''}{importMoney(r.amount_cents)}</td><td>{kindLabel(r.kind)} · {r.counted?t('计入'):t('不计入')}</td></tr>;})}</tbody></table></div>{rows.length>50&&<nav className="import-pagination" aria-label={t('组内账户分页')}><button type="button" disabled={rowPage===0} onClick={()=>setRowPage(p=>p-1)}>{t('上一批组内账户')}</button><span>{t('第')} {rowPage+1} {t('/ {v1} 页', { v1: previewPageCount(rows.length) })}</span><button type="button" disabled={rowPage+1>=previewPageCount(rows.length)} onClick={()=>setRowPage(p=>p+1)}>{t('下一批组内账户')}</button></nav>}<p>{t('导入备注：{v1}', { v1: String(o.after.notes||t('未填')) })}{o.before&&<> {t('· 现有备注：{v1}', { v1: String(o.before.notes||t('未填')) })}</>}</p></details>;
 }
 
 function accountField(key:string,value:unknown):string {
- if(value===null||value===undefined||value==='')return '未填';
- if(key==='counted')return value?'计入':'不计入';
- if(key==='side')return value==='liability'?'负债':'资产';
+ if(value===null||value===undefined||value==='')return t('未填');
+ if(key==='counted')return value?t('计入'):t('不计入');
+ if(key==='side')return value==='liability'?t('负债'):t('资产');
  if(key==='kind')return kindLabel(String(value));
  return String(value);
 }
 
 function incomeField(key:string,value:unknown,names:Record<string,string>,accounts:ImportPreview['accounts']):string {
- if(key==='source_account_id'||key==='receiving_account_id')return value ? names[String(value)]??accounts.find(a=>a.id===value)?.fields.name??'历史账户（当前不可用）' : '未指定';
- if(key==='legacy_estimate_unavailable'||key==='classification_changed')return value===true?'是':'否';
- if(key==='category')return incomeCategories[String(value) as keyof typeof incomeCategories]??'未分类';
- if(key==='destination')return ({retained:'留在来源账户',transferred:'转到其他账户',unknown:'去向未确认'} as Record<string,string>)[String(value)]??'未指定';
- return key==='net_cents'||key==='hpf_cents'?importMoney(value===null?null:String(value)):String(value||'未填');
+ if(key==='source_account_id'||key==='receiving_account_id')return value ? names[String(value)]??accounts.find(a=>a.id===value)?.fields.name??t('历史账户（当前不可用）') : t('未指定');
+ if(key==='legacy_estimate_unavailable'||key==='classification_changed')return value===true?t('是'):t('否');
+ if(key==='category')return incomeCategories[String(value) as keyof typeof incomeCategories]??t('未分类');
+ if(key==='destination')return ({retained:t('留在来源账户'),transferred:t('转到其他账户'),unknown:t('去向未确认')} as Record<string,string>)[String(value)]??t('未指定');
+ return key==='net_cents'||key==='hpf_cents'?importMoney(value===null?null:String(value)):String(value||t('未填'));
 }

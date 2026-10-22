@@ -9,7 +9,7 @@ import { t } from '../../../i18n.ts';
 /** 通知: the state of the system notification permission (`notification_status`) and the ways to fix it. */
 export default function NotificationsPage() {
   const [message, setMessage] = useState<string | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [note, setNote] = useState('');
-  const refresh = () => invoke<string>('notification_status').then(next => { setMessage(next); setError(''); }).catch(() => setError('提醒状态暂不可用，请重试。'));
+  const refresh = () => invoke<string>('notification_status').then(next => { setMessage(next); setError(''); }).catch(() => setError(t('提醒状态暂不可用，请重试。')));
   useEffect(() => {
     void refresh();
     window.addEventListener('thingary-reminders-changed', refresh);

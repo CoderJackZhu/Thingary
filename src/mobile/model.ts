@@ -1,12 +1,12 @@
 import { comparisonText, holdingQuickChange, quickAvailable, quickChanges } from '../wealth.ts';
 import type { Account, Draft, Point, QuickChange, QuickUpdate, Summary } from '../wealth.ts';
-
+import { t } from '../i18n.ts';
 /** Projection only: all saved totals and comparisons come from wealth_summary. */
 export function homeView(summary: Summary) {
   const latest = summary.points.at(-1);
   const complete = [...summary.points].reverse().find(point => point.complete);
   const shown = complete ?? latest;
-  return { latest, shown, change: complete?.scope_changed ? '不可比' : comparisonText(complete?.change_cents, complete?.compared_to), comparedTo: complete?.compared_to ?? null };
+  return { latest, shown, change: complete?.scope_changed ? t('不可比') : comparisonText(complete?.change_cents, complete?.compared_to), comparedTo: complete?.compared_to ?? null };
 }
 
 export type BalanceInput = { amount: string; quantity: string; price: string; rate: string };

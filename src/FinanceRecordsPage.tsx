@@ -33,7 +33,7 @@ export type FinanceRecordsPageProps = SourceProps & {
   onNewAccount: () => void; blocked?: boolean; autoNew?: boolean; onAutoNewDone?: () => void;
   restoreScroll?: { top: number; done: () => void } | null; followupPort?: PlanningFollowupPortV1;
 };
-const labels: Record<FinanceRecordTab, string> = { income: '收入', expenses: '重要支出', movements: '资金流动' };
+const labels: Record<FinanceRecordTab, string> = { income: t('收入'), expenses: t('重要支出'), movements: t('资金流动') };
 function RecordsContent({ generation, today, modules, route, onRouteChange, search, onSearch, onEditingChange, onOpenAsset, onOpenSource, onNewAccount, blocked = false, autoNew, onAutoNewDone, restoreScroll, followupPort, source, onSourceDone }: FinanceRecordsPageProps) {
   const capabilities = financeCapabilities(modules);
   const tabs = availableFinanceRecordTabs(capabilities);
@@ -83,13 +83,13 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
     try {
       const defaults = await invoke<{ generation: string; hpf_cents: string | null }>('plan_income_defaults');
       if (ticket !== openTicket.current || frozenRef.current) return;
-      if (defaults.generation !== generation) { setOpenError('资料库已变化，请重新读取。'); return; }
+      if (defaults.generation !== generation) { setOpenError(t('资料库已变化，请重新读取。')); return; }
       setDefaultHpf(defaults.hpf_cents ?? ''); setEditing('new');
     } catch (error) {
       if (ticket === openTicket.current && !frozenRef.current) {
         if (code(error) === 'MODULE_DISABLED' || code(error) === 'STALE_DATASET') { setOpenError(errorMessage(error)); return; }
         setDefaultHpf(''); setEditing('new');
-        setDefaultNotice('公积金默认金额未读取，已留空；请按实际金额填写，留空表示未知。');
+        setDefaultNotice(t('公积金默认金额未读取，已留空；请按实际金额填写，留空表示未知。'));
       }
     }
     finally { if (ticket === openTicket.current) { openingRef.current = false; setOpening(false); } }
@@ -121,7 +121,7 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
     requestAnimationFrame(() => restoreScroll.done());
   }, [restoreScroll, sources, tab]);
   const failedSource = useRef<number | null>(null);
-  useEffect(() => { if (tab === null && activeSource && failedSource.current !== activeSource.token) { failedSource.current = activeSource.token; onSourceDone?.('来源所属的记录模块已关闭，无法打开这条来源。'); } }, [tab, activeSource?.token, onSourceDone]);
+  useEffect(() => { if (tab === null && activeSource && failedSource.current !== activeSource.token) { failedSource.current = activeSource.token; onSourceDone?.(t('来源所属的记录模块已关闭，无法打开这条来源。')); } }, [tab, activeSource?.token, onSourceDone]);
   const setPeriod = (next: FinancePeriod) => onRouteChange({ ...route, period: next });
   async function verifyOriginal() { await verify(); if (!storedPending()) setReceiptResolutionVersion(n => n + 1); }
   return <section className="stats-section wealth-section planning-section" aria-label={t('收支记录')}>

@@ -6,7 +6,7 @@ import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import { occurrenceHasFacts } from './plan-occurrence-actions.ts';
 import type { Account } from './wealth.ts';
 import { debtReview } from './plan-debt.ts';
-
+import { t } from './i18n.ts';
 export type EventCoverage = { paused: boolean; payment_ids: string[]; loan: boolean; holding: boolean; cycle: boolean };
 export function eventCoverage(events: readonly StoredLifeEvent[], core: PlanningCore | null | undefined, snapshot: Snapshot | null, today: string, referenceIssues: readonly string[] = [], debtContext: { targetMonth?: string; horizonMonth?: string; accounts?: readonly Account[] } = {}) {
   const coverage: Record<string, EventCoverage> = {}, annotations: PlanningAnnotation[] = [];
@@ -16,7 +16,7 @@ export function eventCoverage(events: readonly StoredLifeEvent[], core: Planning
     if (!o) {
       const paused = e.date < today.slice(0, 7) || (!!snapshot && e.date < snapshot.date.slice(0, 7));
       coverage[e.id] = { paused, payment_ids: [], loan: !paused, holding: !paused, cycle: !paused };
-      if (paused) add('EVENT_OVERDUE', '日期已过，请确认是否发生；未来付款和持有费尚未计入。', ['是否已经发生'], Number(e.rent_saved_cents) > 0 ? 'uncertain' : 'requirement_lower');
+      if (paused) add('EVENT_OVERDUE', t('日期已过，请确认是否发生；未来付款和持有费尚未计入。'), [t('是否已经发生')], Number(e.rent_saved_cents) > 0 ? 'uncertain' : 'requirement_lower');
       continue;
     }
     if (o.status === 'cancelled') { coverage[e.id] = { paused: true, payment_ids: [], loan: false, holding: false, cycle: false }; continue; }
@@ -36,16 +36,16 @@ export function eventCoverage(events: readonly StoredLifeEvent[], core: Planning
       if (p.amount_cents !== null && source && (absorbed || after) && !staleReference) payment_ids.push(p.id);
     }
     if (!o.payments.length || !o.payments_complete) fields.add('剩余付款安排');
-    if (fields.size) add('PAYMENT_PENDING', '部分付款未计入；还差：' + [...fields].join('、') + '。', [...fields]);
+    if (fields.size) add('PAYMENT_PENDING', t('部分付款未计入；还差：') + [...fields].join('、') + '。', [...fields]);
     const l = o.loan, entry = snapshot?.entries.find(x => x.account_id === l?.account_id && x.side === 'liability' && x.counted);
     const needsLoan = Number(e.price_cents) > Number(e.down_cents) || l !== null;
     const loan = !!l && !!snapshot && l.as_of === snapshot.date && entry?.amount_cents === l.principal_cents && (l.principal_cents === '0' || l.remaining_months > 0);
-    if (needsLoan && !loan) add('LOAN_PENDING', '贷款后续还款还没算进来；还差：贷款余额、剩余期数或截止日期。', ['贷款余额/剩余期数/截止日期']);
+    if (needsLoan && !loan) add('LOAN_PENDING', t('贷款后续还款还没算进来；还差：贷款余额、剩余期数或截止日期。'), [t('贷款余额/剩余期数/截止日期')]);
     // A blank accidental occurred row cannot start maintenance or recurring replacement.
     const hasFacts = occurrenceHasFacts(o);
     coverage[e.id] = { paused: false, payment_ids, loan, holding: hasFacts, cycle: hasFacts && fields.size === 0 && (!needsLoan || loan) };
   }
   annotations.push(...debtReview(snapshot, core, events, debtContext.targetMonth, debtContext.horizonMonth, debtContext.accounts).annotations);
-  if (referenceIssues.length) annotations.push({ id: 'references', reason_code: 'REFERENCE_PENDING', message: '实际来源需重新确认：' + referenceIssues.join('；'), effect: 'uncertain', treatment: 'omitted', source_ids: ['references'], missing_fields: ['实际来源引用'], refinement: { owner: 'events', field: 'reference_issues' } });
+  if (referenceIssues.length) annotations.push({ id: 'references', reason_code: 'REFERENCE_PENDING', message: t('实际来源需重新确认：') + referenceIssues.join('；'), effect: 'uncertain', treatment: 'omitted', source_ids: ['references'], missing_fields: [t('实际来源引用')], refinement: { owner: 'events', field: 'reference_issues' } });
   return { coverage, annotations };
 }

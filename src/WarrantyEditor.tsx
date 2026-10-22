@@ -29,11 +29,11 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose,
   }
   function edit<K extends keyof WarrantyDraft>(name: K, value: WarrantyDraft[K]) {
     const next = { ...state, fields: { ...state.fields, [name]: value } };
-    try { remember(next); } catch { setNotice('暂时无法记录保存请求，请重试。'); }
+    try { remember(next); } catch { setNotice(t('暂时无法记录保存请求，请重试。')); }
   }
   function askClose(intent: CloseIntent) {
     if (blocked && !lock.current) { onClose(intent, true); return; }
-    if (lock.current || state.pending) { setNotice('请先核对保障保存结果，再关闭表单。'); onKeep(); return; }
+    if (lock.current || state.pending) { setNotice(t('请先核对保障保存结果，再关闭表单。')); onKeep(); return; }
     onClose(intent);
   }
   function success(record: AssetRecord) { localStorage.removeItem(warrantyKey); onSaved(record); }
@@ -49,7 +49,7 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose,
   function applyRecovery(result: WarrantyRecoveryResult) {
     if (result.kind === 'saved') { success(result.record); return; }
     remember(result.state); setIssue(result.issue);
-    setNotice(result.issue?.message ?? '已核对当前资料和原请求。输入已保留，可以继续编辑。');
+    setNotice(result.issue?.message ?? t('已核对当前资料和原请求。输入已保留，可以继续编辑。'));
   }
   async function recover(saved = state) {
     const current = await invoke<{ generation: string }>('taxonomy_snapshot');
@@ -59,7 +59,7 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose,
     if (lock.current) return;
     lock.current = true; setBusy(true);
     try { applyRecovery(await recover()); }
-    catch (e) { setNotice(errorMessage(e) + ' 原请求与输入已保留，请稍后核对。'); }
+    catch (e) { setNotice(errorMessage(e) + t(' 原请求与输入已保留，请稍后核对。')); }
     finally { lock.current = false; setBusy(false); }
   }
   async function save() {
@@ -69,21 +69,21 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose,
     const input = warrantyChange(state.record, state.generation, state.fields, state.warranty_id);
     lock.current = true; setBusy(true); setNotice('');
     try { remember({ ...state, pending: input }); }
-    catch { lock.current = false; setBusy(false); setNotice('无法持久保存本次请求，尚未提交，请检查可用空间后重试。'); return; }
+    catch { lock.current = false; setBusy(false); setNotice(t('无法持久保存本次请求，尚未提交，请检查可用空间后重试。')); return; }
     try { success(await invoke<AssetRecord>('change_warranty', { input })); }
     catch (e) {
       try {
         const result = await recover({ ...state, pending: input });
         applyRecovery(result);
-        if (result.kind === 'edit' && !result.issue) setNotice(errorMessage(e) + ' 已确认未提交，输入已保留。');
-      } catch { setNotice('暂时无法确认结果。原请求和输入已保留，请核对保障保存结果。'); }
+        if (result.kind === 'edit' && !result.issue) setNotice(errorMessage(e) + t(' 已确认未提交，输入已保留。'));
+      } catch { setNotice(t('暂时无法确认结果。原请求和输入已保留，请核对保障保存结果。')); }
     } finally { lock.current = false; setBusy(false); }
   }
   function acceptLatest() {
     if (lock.current || state.pending || issue?.kind !== 'conflict' || !issue.latest) return;
     try {
       remember({ ...state, record: issue.latest }); setIssue(null);
-      setNotice('已确认在最新版本上保留你的输入，请核对后保存。');
+      setNotice(t('已确认在最新版本上保留你的输入，请核对后保存。'));
     } catch (e) { setNotice(errorMessage(e)); }
   }
   function removePhoto(id: string) {
@@ -106,7 +106,7 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose,
     {notice && <p className="notice" role="status">{notice}</p>}
     {conflict && issue?.latest && <div className="confirm">
       <strong>{t('当前已保存版本 {revision} · {name}', { revision: issue.latest.asset.revision, name: issue.latest.asset.name })}</strong>
-      <p>{t('当前保障：')}{state.warranty_id ? (() => { const item = issue.latest!.warranties?.find(item => item.id === state.warranty_id); return item ? `${item.fields.provider || '未记录提供方'} · ${item.fields.start_date ?? '起未知'} – ${item.fields.end_date ?? '止未知'} · ${statusLabel[item.status]}` : '原记录已不可用'; })() : t('{v1} 份', { v1: issue.latest.warranties?.length ?? 0 })}</p>
+      <p>{t('当前保障：')}{state.warranty_id ? (() => { const item = issue.latest!.warranties?.find(item => item.id === state.warranty_id); return item ? `${item.fields.provider || t('未记录提供方')} · ${item.fields.start_date ?? t('起未知')} – ${item.fields.end_date ?? t('止未知')} · ${statusLabel[item.status]}` : t('原记录已不可用'); })() : t('{v1} 份', { v1: issue.latest.warranties?.length ?? 0 })}</p>
       <p>{t('上方保留你的原输入，尚未覆盖当前记录。')}</p>
       <button type="button" disabled={busy} onClick={acceptLatest}>{t('确认保留我的输入并使用最新版本')}</button>
     </div>}

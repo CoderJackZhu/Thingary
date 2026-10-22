@@ -1,7 +1,7 @@
 import { numberLocale } from './i18n.ts';
 import { inputMoney } from './asset.ts';
 import type { Photo } from './asset.ts';
-
+import { t } from './i18n.ts';
 export type WishlistPriority = 'high' | 'medium' | 'low' | null;
 /** 决策状态是唯一权威；旧 status 只是兼容投影。 */
 export type WishlistDecision = 'considering' | 'purchased' | 'dropped' | 'legacy_achieved';
@@ -34,17 +34,17 @@ export const wishlistAbandonKey = 'thingary.wishlist-abandon.v1';
 export const wishlistDecisionKey = 'thingary.wishlist-decision.v1';
 export const emptyWishlistFields: WishlistFields = { name: '', category_id: null, estimated_price: '', priority: null, target_date: '', external_link: '', notes: '' };
 
-export const wishDecisionLabel = (decision: string): string => decision === 'purchased' ? '已购入' : decision === 'dropped' ? '不再考虑' : decision === 'legacy_achieved' ? '历史待核实' : '考虑中';
+export const wishDecisionLabel = (decision: string): string => decision === 'purchased' ? t('已购入') : decision === 'dropped' ? t('不再考虑') : decision === 'legacy_achieved' ? t('历史待核实') : t('考虑中');
 
 /** 页头合计：只统计真正考虑中的心愿；历史待核实单列，不冒充未来计划。 */
 export function wishHeaderSummary(page: Pick<WishlistPage, 'considering_known_cents' | 'considering_unknown_count' | 'legacy_achieved_count'>, consideringCount: number | null): { main: string; legacy: string } {
   const yuan = (cents: string) => `¥${(Number(cents) / 100).toLocaleString(numberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const unknown = page.considering_unknown_count;
   const amount = consideringCount === 0 ? yuan('0')
-    : consideringCount !== null && unknown === consideringCount ? '未知'
+    : consideringCount !== null && unknown === consideringCount ? t('未知')
     : yuan(page.considering_known_cents);
-  const main = `考虑中 ${consideringCount ?? '—'} 条 · 预计价格合计 ${amount}${unknown > 0 ? `（${unknown} 条价格未知）` : ''}`;
-  const legacy = page.legacy_achieved_count > 0 ? `${page.legacy_achieved_count} 条历史待核实` : '';
+  const main = t('考虑中 {v1} 条 · 预计价格合计 {amount}{v3}', { v1: consideringCount ?? '—', amount, v3: unknown > 0 ? `（${unknown} 条价格未知）` : '' });
+  const legacy = page.legacy_achieved_count > 0 ? t('{legacy_achieved_count} 条历史待核实', { legacy_achieved_count: page.legacy_achieved_count }) : '';
   return { main, legacy };
 }
 
@@ -74,16 +74,16 @@ export function storedWishlistChange(storage: Pick<Storage, 'getItem'>, key: str
 
 export function validateWishlist(fields: WishlistFields): Partial<Record<keyof WishlistFields, string>> {
   const errors: Partial<Record<keyof WishlistFields, string>> = {};
-  if (!fields.name.trim() || [...fields.name.trim()].length > 200) errors.name = '请填写名称，最多 200 字。';
+  if (!fields.name.trim() || [...fields.name.trim()].length > 200) errors.name = t('请填写名称，最多 200 字。');
   try { inputMoney(fields.estimated_price); } catch (e) { errors.estimated_price = (e as Error).message; }
   if (fields.target_date) {
     const parsed = new Date(fields.target_date + 'T00:00:00Z');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fields.target_date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== fields.target_date || fields.target_date < '1900-01-01') errors.target_date = '请输入有效日期，格式为 YYYY-MM-DD。';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fields.target_date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== fields.target_date || fields.target_date < '1900-01-01') errors.target_date = t('请输入有效日期，格式为 YYYY-MM-DD。');
   }
-  if (![null, 'high', 'medium', 'low'].includes(fields.priority)) errors.priority = '请选择有效优先级。';
-  if ([...fields.external_link].length > 2048 || fields.external_link.includes('\0')) errors.external_link = '链接最多 2048 字，且不能含空字符。';
-  else if (fields.external_link.trim() && !/^https?:\/\//.test(fields.external_link.trim())) errors.external_link = '链接须以 http:// 或 https:// 开头。';
-  if ([...fields.notes].length > 10000 || fields.notes.includes('\0')) errors.notes = '备注最多 10000 字，且不能含空字符。';
+  if (![null, 'high', 'medium', 'low'].includes(fields.priority)) errors.priority = t('请选择有效优先级。');
+  if ([...fields.external_link].length > 2048 || fields.external_link.includes('\0')) errors.external_link = t('链接最多 2048 字，且不能含空字符。');
+  else if (fields.external_link.trim() && !/^https?:\/\//.test(fields.external_link.trim())) errors.external_link = t('链接须以 http:// 或 https:// 开头。');
+  if ([...fields.notes].length > 10000 || fields.notes.includes('\0')) errors.notes = t('备注最多 10000 字，且不能含空字符。');
   return errors;
 }
 

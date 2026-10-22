@@ -351,8 +351,8 @@ export function Editor({
             {costRows(d, saved).map(([key, rows]) => {
               const label =
                 key === "conScopes"
-                  ? "已含在每月能存的钱里？"
-                  : "已含在退休生活费里？";
+                  ? tr('已含在每月能存的钱里？')
+                  : tr('已含在退休生活费里？');
               return (
               <FormGroup key={key} title={label}>
                 {rows.length === 0 && <p>{tr('没有需要核对的费用。')}</p>}
@@ -447,8 +447,8 @@ export function Editor({
                     hint={tr('修改出生年月保留已有的目标月份，请重新核对年龄')}
                   />
                   {fieldError("birth")}
-                  {ageField("希望多少岁停工", "target_month")}
-                  {ageField("规划到多少岁", "horizon_month")}
+                  {ageField(tr('希望多少岁停工'), "target_month")}
+                  {ageField(tr('规划到多少岁'), "horizon_month")}
                   <MonthField
                     label={tr('退休开始月份')}
                     value={time.target_month ?? ""}
@@ -596,8 +596,8 @@ export function Editor({
                             sources.accounts.status === "ready"
                               ? (sources.accounts.value.find(
                                   (a) => a.id === e.account_id,
-                                )?.fields.name ?? "历史账户")
-                              : "账户";
+                                )?.fields.name ?? tr('历史账户'))
+                              : tr('账户');
                           return (
                             <div key={e.account_id}>
                               <SelectField
@@ -837,7 +837,7 @@ export function Editor({
                       />
                       <FormRow label={tr('计入本次测算')}>
                         <Switch
-                          label={tr('计入{v1}', { v1: income.name || "收入" })}
+                          label={tr('计入{v1}', { v1: income.name || tr('收入') })}
                           checked={income.included}
                           onChange={(included) => set({ included })}
                         />

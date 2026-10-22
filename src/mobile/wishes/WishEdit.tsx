@@ -39,7 +39,7 @@ export default function WishEdit({ params }: PageProps) {
     if (!id) { setDraft(newWishDraft(generation, session.today)); return; }
     readWish(id).then(item => {
       if (!live) return;
-      if (!item) { setLoadError('找不到这条心愿，可能已被删除。'); return; }
+      if (!item) { setLoadError(t('找不到这条心愿，可能已被删除。')); return; }
       const next = editWishDraft(item, generation);
       setLegacy({ category: !!next.fields.category_id, channel: !!next.preferences?.channel_id, pinned: !!next.preferences?.pinned });
       setDraft(next); setMore(!!(next.fields.target_date || item.replacement_asset || next.photos?.some(p => p.id !== next.cover?.id)));
@@ -58,7 +58,7 @@ export default function WishEdit({ params }: PageProps) {
     setReplacement(null); setReplacementError('');
     if (!replacementId) return;
     let live = true;
-    invoke<AssetRecord | null>('read_asset', { id: replacementId }).then(record => { if (!live) return; setReplacement(record); if (!record) setReplacementError('原物品已删除或不存在，请重新读取心愿。'); }).catch(cause => { if (live) setReplacementError(errorMessage(cause)); });
+    invoke<AssetRecord | null>('read_asset', { id: replacementId }).then(record => { if (!live) return; setReplacement(record); if (!record) setReplacementError(t('原物品已删除或不存在，请重新读取心愿。')); }).catch(cause => { if (live) setReplacementError(errorMessage(cause)); });
     return () => { live = false; };
   }, [replacementId, replacementTick]);
 
@@ -69,7 +69,7 @@ export default function WishEdit({ params }: PageProps) {
   const set = (part: Partial<WishlistDraft>) => setDraft(old => old && { ...old, ...part });
   const field = <K extends keyof WishlistDraft['fields']>(key: K, value: WishlistDraft['fields'][K]) => setDraft(old => old && { ...old, fields: { ...old.fields, [key]: value } });
   const prefs = (part: Partial<typeof p>) => setDraft(old => old && { ...old, preferences: { ...draftPreferences(old), ...part } });
-  const cancel = () => { if (disabled) { setNotice('请先完成当前操作或核对保存结果。'); return; } nav.close(); };
+  const cancel = () => { if (disabled) { setNotice(t('请先完成当前操作或核对保存结果。')); return; } nav.close(); };
 
   async function save() {
     if (lock.current || disabled || !draft) return;
@@ -103,7 +103,7 @@ export default function WishEdit({ params }: PageProps) {
   }
   const categoryOptions = [{ id: '', label: t('未分类') }, ...(taxonomy.data?.categories ?? []).map(c => ({ id: c.id, label: c.name }))];
   const channelOptions = [{ id: '', label: t('未设置') }, ...(taxonomy.data?.channels ?? []).map(c => ({ id: c.id, label: c.name }))];
-  const replacementName = replacement?.asset.id === replacementId ? `${replacement.asset.name} · ${replacement.asset.purchase_date ?? '购入日期未知'} · ${assetStateText(replacement.lifecycle?.state ?? 'active')}` : item?.replacement_asset?.id === replacementId ? item?.replacement_asset?.name ?? '…' : '…';
+  const replacementName = replacement?.asset.id === replacementId ? `${replacement.asset.name} · ${replacement.asset.purchase_date ?? t('购入日期未知')} · ${assetStateText(replacement.lifecycle?.state ?? 'active')}` : item?.replacement_asset?.id === replacementId ? item?.replacement_asset?.name ?? '…' : '…';
 
   return <div className="m-page">
     <NavBar title={item ? t('编辑心愿') : t('新增心愿')} onCancel={cancel} primary={{ label: t('保存'), onClick: () => void save(), busy, disabled: pending || receipts.busy }}/>
@@ -138,7 +138,7 @@ export default function WishEdit({ params }: PageProps) {
         {item?.preferences?.mode === 'savings' && item.preferences.saved_cents !== '0' && <Notice>{t('旧版攒钱记录保留为只读历史，不能在这里修改。')}</Notice>}
         <FormGroup title={t('图片')}>
           <div className="w-photos" style={{ padding: '12px 0' }}>
-            {photos.filter(photo => photo.id !== draft.cover?.id).map(photo => <span className="w-photo" key={photo.id}><PhotoView photo={photo} generation={draft.generation} compact/><button type="button" aria-label={'移除图片 ' + photo.name} disabled={disabled} onClick={() => set({ photos: photos.filter(x => x.id !== photo.id) })}><span><Icon name="close" size={14}/></span></button></span>)}
+            {photos.filter(photo => photo.id !== draft.cover?.id).map(photo => <span className="w-photo" key={photo.id}><PhotoView photo={photo} generation={draft.generation} compact/><button type="button" aria-label={t('移除图片 ') + photo.name} disabled={disabled} onClick={() => set({ photos: photos.filter(x => x.id !== photo.id) })}><span><Icon name="close" size={14}/></span></button></span>)}
             <button type="button" className="w-photo" aria-label={t('添加图片')} disabled={disabled || photos.length >= 20} onClick={() => void addPhoto()}><Icon name="plus" size={24}/></button>
           </div>
         </FormGroup>

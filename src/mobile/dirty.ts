@@ -1,3 +1,4 @@
+import { t } from '../i18n.ts';
 // Unsaved-change tracking for modal forms. Pure, no React: the nav provider owns one registry and asks it
 // whether the page on top of the stack has changes before a cancel or a swipe back throws them away.
 
@@ -10,8 +11,8 @@ export class DirtyRegistry {
 }
 
 /** Text of the discard question, shared by every form. */
-export const discardTitle = '放弃这次修改？';
-export const discardMessage = '已填写的内容不会保存。';
+export const discardTitle = t('放弃这次修改？');
+export const discardMessage = t('已填写的内容不会保存。');
 
 /** Stable text snapshot of a form value; null when it cannot be serialised (then the form is treated as unchanged). */
 export function snapshot(value: unknown): string | null {

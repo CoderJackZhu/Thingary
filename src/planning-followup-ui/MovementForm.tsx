@@ -28,7 +28,7 @@ function EndpointField({ side, label, draft, disabled, accounts, patch }: {
   const setKind = (v: 'account' | 'external') => patch(side === 'from' ? { fromKind: v, fromAccount: v === 'account' ? '' : draft.fromAccount } : { toKind: v, toAccount: v === 'account' ? '' : draft.toAccount });
   // 端点选项以端口账户表为准；编辑中被引用但已不可选的历史账户仍显示，不能换成同名新账户。
   const options = [...accounts];
-  if (kind === 'account' && account && !options.some(a => a.id === account)) options.push({ id: account, name: `历史账户 ${account}`, kind: '', selectable: false });
+  if (kind === 'account' && account && !options.some(a => a.id === account)) options.push({ id: account, name: t('历史账户 {account}', { account }), kind: '', selectable: false });
   return <fieldset className="pfu-endpoint"><legend>{label}</legend>
     <div className="pfu-segments" role="group" aria-label={t('{label}类型', { label })}>
       <button type="button" aria-pressed={kind === 'account'} disabled={disabled} onClick={() => setKind('account')}>{t('本应用账户')}</button>
@@ -60,7 +60,7 @@ function SourcePicker({ port, generation, movementId, source, onPick, disabled }
     if (nextCursor === null) { setOptions(null); setCursor(null); } setError(''); setLoading(true);
     port.listSources(query, generation).then(v => {
       if (request !== requestId.current) return;
-      if (v.status === 'ready') { if (v.value.generation !== generation) { setError('资料库已变化，请重新搜索。'); return; } setOptions(prev => nextCursor === null ? v.value.options : [...(prev ?? []), ...v.value.options]); setCursor(v.value.next_cursor); }
+      if (v.status === 'ready') { if (v.value.generation !== generation) { setError(t('资料库已变化，请重新搜索。')); return; } setOptions(prev => nextCursor === null ? v.value.options : [...(prev ?? []), ...v.value.options]); setCursor(v.value.next_cursor); }
       else if (v.status === 'error') setError(v.message);
       else setError(v.message);
     }).catch(e => { if (request === requestId.current) setError(e instanceof Error ? e.message : String(e)); }).finally(() => { if (request === requestId.current) setLoading(false); });
@@ -84,7 +84,7 @@ function SourcePicker({ port, generation, movementId, source, onPick, disabled }
       : options.length === 0 ? <p className="pfu-muted small">{t('没有可关联的记录。可先不关联，稍后再补充。')}</p>
       : <ul className="pfu-source-list">{options.map(o => <li key={o.ref.kind + o.ref.key}>
         <button type="button" disabled={disabled || !o.available} aria-pressed={source?.kind === o.ref.kind && source?.key === o.ref.key} onClick={() => onPick(o.ref)}>
-          <span>{o.label}</span><small>{o.date} · {formatCents(o.amount_cents)}{o.available ? '' : ` · ${o.unavailable_reason ?? '不可关联'}`}</small>
+          <span>{o.label}</span><small>{o.date} · {formatCents(o.amount_cents)}{o.available ? '' : ` · ${o.unavailable_reason ?? t('不可关联')}`}</small>
         </button>
       </li>)}</ul>}
   </div>;

@@ -24,13 +24,13 @@ export function useTrendSelection(generation: string, points: Point[], today: st
   const select = (range: TrendRange) => {
     setEditing(range === 'custom'); setError('');
     if (range === 'custom') {
-      const problem = customRangeError(draft, today) ?? (!rangeUsable(points, 'custom', today, draft) ? '这段时间完整盘点不足两次' : '');
+      const problem = customRangeError(draft, today) ?? (!rangeUsable(points, 'custom', today, draft) ? t('这段时间完整盘点不足两次') : '');
       setError(problem); if (!problem) apply({ range, custom: draft });
     } else if (rangeUsable(points, range, today)) apply({ range, custom: selection.custom });
   };
   const edit = (next: CustomTrendRange) => {
     setDraft(next);
-    const problem = customRangeError(next, today) ?? (!rangeUsable(points, 'custom', today, next) ? '这段时间完整盘点不足两次' : '');
+    const problem = customRangeError(next, today) ?? (!rangeUsable(points, 'custom', today, next) ? t('这段时间完整盘点不足两次') : '');
     setError(problem); if (!problem) apply({ range: 'custom', custom: next });
   };
   return { points: rangePoints(points, applied.range, today, applied.custom), applied, editing, draft, error, select, edit };

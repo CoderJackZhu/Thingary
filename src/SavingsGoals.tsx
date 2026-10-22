@@ -30,7 +30,7 @@ export function SavingsGoals({ generation, today, version, compact = false, hide
   useEffect(() => {
     let live = true;
     invoke<SavingsRead>('savings_goals_read', { generation, year: compact ? null : year }).then(data => {
-      if (live) setState({ scope, data: data.generation === generation ? data : null, error: data.generation === generation ? '' : '资料已切换，请重新读取。' });
+      if (live) setState({ scope, data: data.generation === generation ? data : null, error: data.generation === generation ? '' : t('资料已切换，请重新读取。') });
     }).catch(e => { if (live) setState({ scope, data: null, error: errorMessage(e) }); });
     return () => { live = false; };
   }, [scope]);
@@ -49,7 +49,7 @@ export function SavingsGoals({ generation, today, version, compact = false, hide
   async function remove(g: SavingsGoal) {
     if (lock.current || frozen) return;
     lock.current = true; setBusy(true); setNotice('');
-    try { await writeSavingsGoal('savings_goals_trash', { request_id: crypto.randomUUID(), generation, id: g.id, expected_revision: g.revision, deleted: true }, '删除存钱目标'); setArmed(null); reload(); }
+    try { await writeSavingsGoal('savings_goals_trash', { request_id: crypto.randomUUID(), generation, id: g.id, expected_revision: g.revision, deleted: true }, t('删除存钱目标')); setArmed(null); reload(); }
     catch (e) { setNotice(errorMessage(e)); onPendingChange?.(); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -76,7 +76,7 @@ function GoalCard({ view, data, hidden, compact, onEdit, onDelete, armed, disabl
     <div className="ui-section-head"><h4>{g.fields.name}</h4>{!compact && <div className="savings-actions"><button type="button" disabled={disabled} onClick={onEdit}>{t('编辑')}</button><button type="button" className="danger" disabled={disabled} onClick={onDelete}>{armed ? t('确认移入最近删除') : t('删除…')}</button></div>}</div>
     <p className="savings-amount">{!p.complete ? t('已知部分 ') : ''}<strong>{amount(p.known_cents)}</strong><span> / {amount(g.fields.target_cents)}</span></p>
     {!hidden && p.percent_hundredths !== null && <progress max={10000} value={p.percent_hundredths} aria-label={t('{name}关联余额进度', { name: g.fields.name })}/>}
-    <p>{p.reached === null ? t('{missing} 个账户余额未知{v2}', { missing: p.missing, v2: p.unavailable ? `，${p.unavailable} 个关联账户需处理` : '' }) : p.reached ? t('该次盘点余额达标') : t('还差 {v1}', { v1: amount(p.gap_cents) })}</p>
+    <p>{p.reached === null ? t('{missing} 个账户余额未知{v2}', { missing: p.missing, v2: p.unavailable ? t('，{unavailable} 个关联账户需处理', { unavailable: p.unavailable }) : '' }) : p.reached ? t('该次盘点余额达标') : t('还差 {v1}', { v1: amount(p.gap_cents) })}</p>
     {!compact && g.fields.target_date && <p className="muted small">{t('目标日期 {target_date}', { target_date: g.fields.target_date })}{p.deadline === 'past' ? t(' · 目标日期已过') : p.deadline === 'today' ? t(' · 目标日期为今天') : p.deadline === 'this_month' ? t(' · 目标在本月，请直接核对差额') : ''}</p>}
     {!compact && p.monthly_cents !== null && <p>{t('按该次盘点计算，每月平均还需 {v1}', { v1: amount(p.monthly_cents) })}<small className="muted">{t('（从盘点下个月起，含目标月，共 {months} 个月；不计收益、费用或期间实际收支）', { months: p.months })}</small></p>}
     {!!view.shared_account_ids.length && <p className="muted small">{t('部分账户也关联其他目标，资金未分别预留。')}</p>}
@@ -121,9 +121,9 @@ function GoalEditor({ generation, today, initial, data, onClose }: { generation:
   const invalid = old.filter(o => !candidates.some(a => a.id === o.account_id));
   async function save() {
     if (lock.current || stuck) return;
-    if (!fields.name.trim() || !/^\d+$/.test(fields.target_cents) || BigInt(fields.target_cents) <= 0n || !ids.length) { setError('请填写名称、正的目标金额，并至少关联一个账户。'); return; }
+    if (!fields.name.trim() || !/^\d+$/.test(fields.target_cents) || BigInt(fields.target_cents) <= 0n || !ids.length) { setError(t('请填写名称、正的目标金额，并至少关联一个账户。')); return; }
     lock.current = true; setBusy(true); setError('');
-    try { await writeSavingsGoal('savings_goals_save', { request_id: crypto.randomUUID(), generation, id: initial?.id ?? null, expected_revision: initial?.revision ?? null, fields, account_ids: ids }, '存钱目标'); onClose(true); }
+    try { await writeSavingsGoal('savings_goals_save', { request_id: crypto.randomUUID(), generation, id: initial?.id ?? null, expected_revision: initial?.revision ?? null, fields, account_ids: ids }, t('存钱目标')); onClose(true); }
     catch (e) { setStuck(e instanceof Unresolved); setError(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
   }

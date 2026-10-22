@@ -8,10 +8,10 @@ import { useNav } from "../nav-context";
 import { Button, FormGroup, Loading, NavBar, Notice, TextField } from "../ui";
 import { t } from '../../i18n.ts';
 export const assumptionFields = [
-  ["real_return_before_hundredths", "停工前实际年收益（%）"],
-  ["real_return_after_hundredths", "停工后实际年收益（%）"],
-  ["inflation_hundredths", "通胀（%）"],
-  ["volatility_hundredths", "市场模拟年波动率（%）"],
+  ["real_return_before_hundredths", t('停工前实际年收益（%）')],
+  ["real_return_after_hundredths", t('停工后实际年收益（%）')],
+  ["inflation_hundredths", t('通胀（%）')],
+  ["volatility_hundredths", t('市场模拟年波动率（%）')],
 ] as const;
 
 /**
@@ -36,7 +36,7 @@ export function useAssumptionDraft(sources: PlanningSources, enabled = true) {
         return;
       }
       if (r.value.generation !== sources.generation) {
-        setError("资料库已变化，请返回后重新读取。");
+        setError(t('资料库已变化，请返回后重新读取。'));
         return;
       }
       setRead(r.value);
@@ -59,8 +59,8 @@ export function useAssumptionDraft(sources: PlanningSources, enabled = true) {
    * Resolves to an error message, or null when saved.
    */
   async function commit(fresh = false): Promise<string | null> {
-    if (!read) return "假设还没读取完成。";
-    if (invalidKey() !== null) return "请填写有效百分数，例如 2 或 2.5。";
+    if (!read) return t('假设还没读取完成。');
+    if (invalidKey() !== null) return t('请填写有效百分数，例如 2 或 2.5。');
     const parsed = Object.fromEntries(
       Object.entries(values).map(([k, v]) => [k, pctToHundredths(v)]),
     );
@@ -86,7 +86,7 @@ export function useAssumptionDraft(sources: PlanningSources, enabled = true) {
     }
     if (result.status === "rejected")
       return result.issues.map((i) => i.message).join("；");
-    return "保存结果未确定，请核对原请求。";
+    return t('保存结果未确定，请核对原请求。');
   }
   return { read, error, setError, values, setValues, confirmed, setConfirmed, edited, invalidKey, commit };
 }

@@ -36,7 +36,7 @@ export function QuickUpdateDialog({ account, generation, today, points, onClose 
     let live = true; setDraft(null); setError('');
     invoke<Draft>('wealth_snapshot_draft', { date }).then(next => {
       if (!live) return;
-      if (next.generation !== generation) { setError('资料库已切换，请关闭后重新打开。'); return; }
+      if (next.generation !== generation) { setError(t('资料库已切换，请关闭后重新打开。')); return; }
       setDraft(next);
       setHoldingValues(old=>({...old,quantityPrice:old.quantityPrice || quickFact(next,account.id)?.unit_price_e6 || ''}));
       setRates(old => ({ ...Object.fromEntries(Object.entries(rateSuggestions(next)).map(([c,s])=>[c,s.rate])), ...old }));
@@ -60,27 +60,27 @@ export function QuickUpdateDialog({ account, generation, today, points, onClose 
   const holdingPrevious = draft ? quickFact(draft,account.id) : null;
   const showFact = (id: string, next?: QuickUpdate['changes'][number]) => {
     const fact=next??(draft?quickFact(draft,id):null),code=currencyCode(draft?.rows.find(r=>r.account.id===id)?.account.fields.currency);
-    if(fact?.amount_cents==null)return '未知'; if(hidden)return '••••';
-    const position=holdingText(fact,account.fields.holding_mode?(account.fields.holding_unit??'份'):null,code);
-    const result=code==='CNY'?money(fact.amount_cents):`${fact.original_minor!=null?currencyAmount(code,fact.original_minor):'原币未知'} ≈ ${money(fact.amount_cents)} · 汇率 ${fact.fx_rate_micro?rateLabel(fact.fx_rate_micro):'未知'}`;
+    if(fact?.amount_cents==null)return t('未知'); if(hidden)return '••••';
+    const position=holdingText(fact,account.fields.holding_mode?(account.fields.holding_unit??t('份')):null,code);
+    const result=code==='CNY'?money(fact.amount_cents):t('{v1} ≈ {v2} · 汇率 {v3}', { v1: fact.original_minor!=null?currencyAmount(code,fact.original_minor):'原币未知', v2: money(fact.amount_cents), v3: fact.fx_rate_micro?rateLabel(fact.fx_rate_micro):'未知' });
     return position?`${position} = ${result}`:result;
   };
   let changes: QuickUpdate['changes'] = [], invalid = '';
-  if (draft && !inScope) invalid = '这个账户不在所选日期的盘点范围内。历史金额请到盘点记录更正。';
+  if (draft && !inScope) invalid = t('这个账户不在所选日期的盘点范围内。历史金额请到盘点记录更正。');
   if (draft && inScope) {
     try { changes = holding ? [holdingQuickChange(draft,account.id,holdingMode,holdingMode==='quantity'?holdingValues.quantity:holdingValues.replace,holdingMode==='replace'?holdingValues.replacePrice:holdingMode==='quantity'?holdingValues.quantityPrice:holdingValues.price,rates[selectedCode]??'')] : quickChanges(draft, account.id, mode, values[mode], from, to, rates[selectedCode]??''); }
     catch (e) { invalid = errorMessage(e); }
   }
   async function save() {
     if (submitting.current || frozen || !draft || !inScope || draft.date !== date || date < minimum || date > today || invalid) return;
-    if ([...note].length > 500 || note.includes('\0')) { setNotice('备注最多 500 字，且不能含空字符。'); return; }
+    if ([...note].length > 500 || note.includes('\0')) { setNotice(t('备注最多 500 字，且不能含空字符。')); return; }
     const input: QuickUpdate = { request_id: crypto.randomUUID(), generation: draft.generation, date, note, changes };
     submitting.current = true; setBusy(true); setNotice('');
     try { const result = await submit<Snapshot>({ command: 'wealth_quick_update', input, label: t('{name} 快速更新', { name: account.fields.name }) }); onClose(true, result); }
     catch (e) {
       if (e instanceof Unresolved) setStuck(true);
-      if (code(e) === 'QUICK_STALE') { setNotice('金额已经变化，已重新读取原余额；你的输入已保留，请核对新的预览后再保存。'); setDraft(null); setRetry(n => n + 1); }
-      else if (code(e) === 'QUICK_DATE') { setNotice('已有更新的盘点，请关闭后重新打开，选择最近盘点当天或之后的日期。'); setError('快速更新不能早于最近一次盘点。'); }
+      if (code(e) === 'QUICK_STALE') { setNotice(t('金额已经变化，已重新读取原余额；你的输入已保留，请核对新的预览后再保存。')); setDraft(null); setRetry(n => n + 1); }
+      else if (code(e) === 'QUICK_DATE') { setNotice(t('已有更新的盘点，请关闭后重新打开，选择最近盘点当天或之后的日期。')); setError(t('快速更新不能早于最近一次盘点。')); }
       else setNotice(e instanceof Error ? e.message : errorMessage(e));
     } finally { submitting.current = false; setBusy(false); }
   }
@@ -94,7 +94,7 @@ export function QuickUpdateDialog({ account, generation, today, points, onClose 
         const outcome = await resolvePending(pending);
         if (outcome === 'stale') { onClose(false); return; }
         if (outcome !== 'saved') {
-          setStuck(false); setNotice('已确认没有保存。输入已保留，请核对原余额后再保存。'); setRetry(n => n + 1); return;
+          setStuck(false); setNotice(t('已确认没有保存。输入已保留，请核对原余额后再保存。')); setRetry(n => n + 1); return;
         }
         confirmed = { date: 'date' in pending.input ? String(pending.input.date) : date, generation: pending.input.generation };
         setConfirmedSaved(confirmed);
@@ -106,12 +106,12 @@ export function QuickUpdateDialog({ account, generation, today, points, onClose 
       }
       onClose(true, read.existing);
     } catch (e) {
-      setNotice(confirmed ? `已确认保存，但暂时无法读取本次盘点。${errorMessage(e)} 请重新读取，勿重复保存。` : errorMessage(e) + ' 原请求已保留，请稍后再核对。');
+      setNotice(confirmed ? t('已确认保存，但暂时无法读取本次盘点。{v1} 请重新读取，勿重复保存。', { v1: errorMessage(e) }) : errorMessage(e) + t(' 原请求已保留，请稍后再核对。'));
     } finally { submitting.current = false; setBusy(false); }
   }
   return <dialog ref={dialog} className="editor quick-update-editor" aria-labelledby="quick-update-heading" onCancel={event => { event.preventDefault(); if (!busy) onClose(!!confirmedSaved); }}><form noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">{t('账户与盘点')}</p><h2 id="quick-update-heading">{t('更新此账户 · {name}', { name: account.fields.name })}</h2><p className="muted">{t('只改这次需要更新的账户，其他账户沿用已有金额；没有金额的仍保留未知。')}</p></div><CloseButton type="button" disabled={busy} aria-label={t('关闭账户金额更新')} onClick={() => onClose(!!confirmedSaved)}/></header>
-    {holding ? <div className="page-tabs quick-update-modes" role="group" aria-label={t('持仓更新方式')}>{([['replace','修改持仓'],['quantity','增减持仓'],['price','更新价格']] as const).map(([key,label])=><button type="button" key={key} aria-pressed={holdingMode===key} disabled={frozen||!draft||(key!=='replace'&&(holdingPrevious?.amount_cents==null||holdingPrevious?.quantity_e8==null))} onClick={()=>{setHoldingMode(key);setNotice('');}}>{label}</button>)}</div> : <div className="page-tabs quick-update-modes" role="group" aria-label={t('更新方式')}>{([['balance', '修改余额'], ['delta', '增减金额'], ['transfer', '转账']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={mode === key} disabled={frozen || !draft || (key === 'delta' && previous === null) || (key === 'transfer' && !pairs.length)} onClick={() => { setMode(key); setNotice(''); }}>{label}</button>)}</div>}
+    {holding ? <div className="page-tabs quick-update-modes" role="group" aria-label={t('持仓更新方式')}>{([['replace',t('修改持仓')],['quantity',t('增减持仓')],['price',t('更新价格')]] as const).map(([key,label])=><button type="button" key={key} aria-pressed={holdingMode===key} disabled={frozen||!draft||(key!=='replace'&&(holdingPrevious?.amount_cents==null||holdingPrevious?.quantity_e8==null))} onClick={()=>{setHoldingMode(key);setNotice('');}}>{label}</button>)}</div> : <div className="page-tabs quick-update-modes" role="group" aria-label={t('更新方式')}>{([['balance', t('修改余额')], ['delta', t('增减金额')], ['transfer', t('转账')]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={mode === key} disabled={frozen || !draft || (key === 'delta' && previous === null) || (key === 'transfer' && !pairs.length)} onClick={() => { setMode(key); setNotice(''); }}>{label}</button>)}</div>}
     <section className="form-block"><FormRow label={t('日期')} hint={t('不能早于最近盘点{v1}，也不能晚于今天。', { v1: minimum === '1900-01-01' ? '' : ` ${minimum}` })}><DateInput id="quick-update-date" value={date} min={minimum} max={today} disabled={frozen} onChange={value => { if (value) { setDate(value); setNotice(''); } }}/></FormRow>
       {error ? <div role="alert"><p>{t('原金额读取失败：{error}', { error })}</p><button type="button" disabled={frozen} onClick={() => setRetry(n => n + 1)}>{t('重新读取')}</button></div> : !draft ? <p role="status">{t('正在读取原金额…')}</p> : <>
         {!inScope && <p role="status" className="muted">{t('这个账户不在所选日期的盘点范围内。历史金额请到盘点记录更正。')}</p>}

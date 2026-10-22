@@ -39,7 +39,7 @@ export function FutureIncomeSection({ fields, issues, busy, today, onOpenOfficia
           <div>{startText(i)} · {yuanText(i.monthly_cents)}{incomeState(i) === 'counted' ? t('/月') : ''}</div>
           <small className="muted">{basisSentence(i)}</small>
         </div>
-        <Switch label={t('计入{v1}', { v1: i.name || '这项收入' })} value={i.included} disabled={busy || isEditing} onChange={v => patchIncome(i.id, { included: v })}/>
+        <Switch label={t('计入{v1}', { v1: i.name || t('这项收入') })} value={i.included} disabled={busy || isEditing} onChange={v => patchIncome(i.id, { included: v })}/>
         <div className="simplified-income-actions">
           <button type="button" disabled={busy || isEditing} onClick={() => { setEditingId(i.id); setAdding(null); setPendingDelete(null); }}>{t('修改')}</button>
           {pendingDelete === i.id

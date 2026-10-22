@@ -33,9 +33,9 @@ export const monthsBefore = monthsBeforeDay;
 export type CustomTrendRange = { from: string; to: string };
 export function customRangeError(custom: CustomTrendRange, today: string): string | null {
   const valid = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && +v.slice(0, 4) > 0 && Number(v.slice(5, 7)) >= 1 && Number(v.slice(5, 7)) <= 12 && +v.slice(8) >= 1 && +v.slice(8) <= daysIn(+v.slice(0, 4), +v.slice(5, 7));
-  if (!valid(custom.from) || !valid(custom.to)) return '请填写有效的起止日期（YYYY-MM-DD）。';
-  if (custom.from > custom.to) return '开始日期不能晚于结束日期。';
-  if (custom.to > today) return '结束日期不能晚于今天。';
+  if (!valid(custom.from) || !valid(custom.to)) return t('请填写有效的起止日期（YYYY-MM-DD）。');
+  if (custom.from > custom.to) return t('开始日期不能晚于结束日期。');
+  if (custom.to > today) return t('结束日期不能晚于今天。');
   return null;
 }
 export function rangePoints(points: Point[], range: TrendRange, today: string, custom?: CustomTrendRange) {
@@ -99,13 +99,13 @@ export type Attention = { id: string; priority: number; date: string; title: str
 export function attention(review: Review, m: Modules = allModules): Attention[] {
   const groups = new Map<string, Attention>();
   const latest = m.wealth ? ready(review.wealth)?.points.at(-1) : undefined;
-  if (latest && !latest.complete) groups.set('snapshot:' + latest.snapshot_id, { id: 'snapshot:' + latest.snapshot_id, priority: 0, date: latest.date, title: t('最新盘点尚未完整'), details: [`${latest.date} · 缺 ${latest.missing} 个账户`], entries: [{ action: '查看盘点', target: { kind: 'snapshot', id: latest.snapshot_id } }] });
+  if (latest && !latest.complete) groups.set('snapshot:' + latest.snapshot_id, { id: 'snapshot:' + latest.snapshot_id, priority: 0, date: latest.date, title: t('最新盘点尚未完整'), details: [t('{date} · 缺 {missing} 个账户', { date: latest.date, missing: latest.missing })], entries: [{ action: t('查看盘点'), target: { kind: 'snapshot', id: latest.snapshot_id } }] });
   const recurring = m.recurring ? ready(review.recurring) : undefined;
   const reminders = recurring ? paymentReminders(recurring) : { due: [], upcoming: [] };
-  for (const [rows, priority, label] of [[reminders.due, 1, '付款待确认'], [reminders.upcoming, 2, '即将到期付款']] as const) {
+  for (const [rows, priority, label] of [[reminders.due, 1, t('付款待确认')], [reminders.upcoming, 2, t('即将到期付款')]] as const) {
     for (const r of rows) {
       const id = 'plan:' + r.plan_id;
-      if (!groups.has(id)) groups.set(id, { id, priority, date: r.due_date, title: r.plan_name, details: [`${label} · ${r.due_date}`], entries: [{ action: '进入计划', target: { kind: 'plan', id: r.plan_id } }] });
+      if (!groups.has(id)) groups.set(id, { id, priority, date: r.due_date, title: r.plan_name, details: [`${label} · ${r.due_date}`], entries: [{ action: t('进入计划'), target: { kind: 'plan', id: r.plan_id } }] });
     }
   }
   for (const v of m.virtual ? ready(review.virtual_assets)?.items ?? [] : []) {
@@ -115,8 +115,8 @@ export function attention(review: Review, m: Modules = allModules): Attention[] 
     const linked = v.fields.plan_id && !v.plan_deleted;
     const id = linked ? 'plan:' + v.fields.plan_id : 'virtual:' + v.id;
     const priority = v.status === 'expired' ? 1 : 2, date = v.valid_until!;
-    const detail = `${v.fields.name} · 权益${v.status === 'expired' ? '已到期' : '即将到期'} · ${date}`;
-    const entry: AttentionEntry = { action: '打开虚拟档案', target: { kind: 'virtual', id: v.id } };
+    const detail = t('{name} · 权益{v2} · {date}', { name: v.fields.name, v2: v.status === 'expired' ? '已到期' : '即将到期', date });
+    const entry: AttentionEntry = { action: t('打开虚拟档案'), target: { kind: 'virtual', id: v.id } };
     const group = groups.get(id);
     if (group) { group.details.push(detail); group.entries.push(entry); group.priority = Math.min(priority, group.priority); group.date = date < group.date ? date : group.date; }
     else groups.set(id, { id, priority, date, title: v.fields.name, details: [detail], entries: [entry] });

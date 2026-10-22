@@ -23,7 +23,7 @@ function MaterialImage({ entry, generation }: { entry: MaterialEntry; generation
 
 export default function ItemIcon({ params }: PageProps) {
   const nav = useNav(), session = useSession(), channel = getIconSession(String(params.channel ?? ''));
-  const [source, setSource] = useState<MaterialSource>('icon'), [category, setCategory] = useState('全部'), [search, setSearch] = useState('');
+  const [source, setSource] = useState<MaterialSource>('icon'), [category, setCategory] = useState(t('全部')), [search, setSearch] = useState('');
   const [entries, setEntries] = useState<MaterialEntry[]>([]), [error, setError] = useState(''), [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [retry, setRetry] = useState(0);
   const camera = useRef<HTMLInputElement>(null), album = useRef<HTMLInputElement>(null), lock = useRef(false);
   const [chosen,setChosen]=useState(false);
@@ -42,22 +42,22 @@ export default function ItemIcon({ params }: PageProps) {
   }
   async function upload(file?: File) {
     if (!file || !channel || lock.current) return;
-    if (file.size > 20 * 1024 * 1024) { setError('请选择不超过 20 MiB 的图片。'); return; }
+    if (file.size > 20 * 1024 * 1024) { setError(t('请选择不超过 20 MiB 的图片。')); return; }
     lock.current = true; setBusy(true); session.setBusy(true); setError('');
-    try { const photo = await invoke<Photo>('import_photo_bytes', { generation, name: file.name || '拍摄的图片.jpg', bytes: Array.from(new Uint8Array(await file.arrayBuffer())) }); channel.choose(photo, true); setChosen(true); }
+    try { const photo = await invoke<Photo>('import_photo_bytes', { generation, name: file.name || t('拍摄的图片.jpg'), bytes: Array.from(new Uint8Array(await file.arrayBuffer())) }); channel.choose(photo, true); setChosen(true); }
     catch (cause) { setError(errorMessage(cause)); } finally { lock.current = false; setBusy(false); session.setBusy(false); }
   }
   const visible = filterMaterials(entries, source, category, search, recent), own = source === 'custom' ? channel?.photos.filter(photo => photo.name.includes(search.trim())) ?? [] : [];
   return <div className="m-item-icon">
     {!channel && <Notice>{t('请从新增或编辑物品进入，所选图标随物品一起保存。')}</Notice>}
-    <SegmentedControl label={t('素材类型')} items={[{ id: 'icon', label: t('图标') }, { id: 'dimensional', label: t('立体图标') }, { id: 'recent', label: t('最近使用') }, { id: 'custom', label: t('我的图片') }]} value={source} onChange={value => { setSource(value); setCategory('全部'); }}/>
+    <SegmentedControl label={t('素材类型')} items={[{ id: 'icon', label: t('图标') }, { id: 'dimensional', label: t('立体图标') }, { id: 'recent', label: t('最近使用') }, { id: 'custom', label: t('我的图片') }]} value={source} onChange={value => { setSource(value); setCategory(t('全部')); }}/>
     <TextField label={t('搜索图标')} value={search} onChange={setSearch} placeholder={t('例如相机、镜头')}/>
     {source !== 'custom' && <ChipRow label={t('图标分类')} items={materialCategories.map(id => ({ id, label: id }))} value={category} onChange={setCategory}/>}
     {error && <ErrorState message={error} onRetry={() => setRetry(value => value + 1)}/>}
     {loading ? <Loading/> : <div className="m-item-icon-grid">
       {source === 'icon' && category === '全部' && !search && <button disabled={busy || !channel} onClick={() => void choose(null)} aria-label={t('选择默认图标')}><img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt=""/><span>{t('默认图标')}</span></button>}
-      {visible.map(entry => <button key={entry.id} disabled={busy || !channel} onClick={() => void choose(entry)} aria-label={'选择图标：' + entry.name}><MaterialImage entry={entry} generation={generation}/><span>{entry.name}</span></button>)}
-      {own.map(photo => <button key={photo.id} disabled={busy} aria-label={'选择档案图片：' + photo.name} onClick={() => void choose(null, photo)}><PhotoView photo={photo} generation={generation}/><span>{photo.name}</span></button>)}
+      {visible.map(entry => <button key={entry.id} disabled={busy || !channel} onClick={() => void choose(entry)} aria-label={t('选择图标：') + entry.name}><MaterialImage entry={entry} generation={generation}/><span>{entry.name}</span></button>)}
+      {own.map(photo => <button key={photo.id} disabled={busy} aria-label={t('选择档案图片：') + photo.name} onClick={() => void choose(null, photo)}><PhotoView photo={photo} generation={generation}/><span>{photo.name}</span></button>)}
     </div>}
     {!loading && !visible.length && !own.length && source !== 'icon' && <EmptyState title={t('没有匹配的素材')} message={source === 'recent' ? t('使用过的素材会出现在这里。') : t('换个关键词，或从相册添加图片。')}/>}
     <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={event => { void upload(event.target.files?.[0]); event.target.value = ''; }}/>

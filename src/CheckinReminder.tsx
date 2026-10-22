@@ -24,7 +24,7 @@ export function CheckinReminder({ wealthOn, today }: { wealthOn: boolean; today:
       const { status: saved, warning: note } = await applyCheckinReminderInterval(months, invoke, () => window.dispatchEvent(new Event('thingary-reminders-changed')));
       setStatus(saved);
       if (note) setWarning(note);
-    } catch (e) { setError('盘点提醒未保存：' + errorMessage(e)); void reload(); }
+    } catch (e) { setError(t('盘点提醒未保存：') + errorMessage(e)); void reload(); }
     finally { setBusy(false); }
   }
   return <section className="ui-card ui-content checkin-reminder" aria-labelledby="checkin-reminder-heading">

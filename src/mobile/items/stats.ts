@@ -14,7 +14,7 @@ export type Holding = { scope: HoldingScope; groups: { key: string; label: strin
 export type Statistics = { overview: OverviewData; snapshot: StatsSnapshot; trend: Trend; holding: Holding; resale: ResaleRate };
 export type StatsInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 /** Display a server-provided numerator/denominator in the desktop one-decimal format. */
-export const percentage = (part: number, total: number) => total > 0 ? `${(part / total * 100).toFixed(1)}%` : '未知';
+export const percentage = (part: number, total: number) => total > 0 ? `${(part / total * 100).toFixed(1)}%` : t('未知');
 
 /** Guard commands without their own generation using bracketing reads, as a single page read. */
 export async function readStatistics(call: StatsInvoke, options: { period: StatsPeriod; granularity: Granularity; scope: HoldingScope; today: string; generation?: string }): Promise<Statistics> {

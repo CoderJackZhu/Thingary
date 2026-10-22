@@ -1,8 +1,8 @@
 import type { IncomeCategory, IncomeFields } from './plan.ts';
-
+import { t } from './i18n.ts';
 export const incomeCategories: Record<IncomeCategory, string> = {
-  unclassified: '未分类', non_investment: '工作及其他非投资收入', interest: '利息',
-  cash_dividend: '现金分红', other_investment: '其他投资现金收入',
+  unclassified: t('未分类'), non_investment: t('工作及其他非投资收入'), interest: t('利息'),
+  cash_dividend: t('现金分红'), other_investment: t('其他投资现金收入'),
 };
 export const isInvestmentIncome = (f: Pick<IncomeFields, 'category'>) =>
   f.category === 'interest' || f.category === 'cash_dividend' || f.category === 'other_investment';
@@ -16,7 +16,7 @@ export function classifyIncome(f: IncomeFields, category: IncomeCategory): Incom
 export function incomeClassificationIssue(f: IncomeFields): string | null {
   if (!isInvestmentIncome(f)) return null;
   if (f.destination === 'transferred' && f.source_account_id && f.source_account_id === f.receiving_account_id)
-    return '转到其他账户时，接收账户不能与来源账户相同。';
+    return t('转到其他账户时，接收账户不能与来源账户相同。');
   return null;
 }
 

@@ -3,8 +3,8 @@ import { t } from './i18n.ts';
 type Props = { field: string; label: string; sort: ListSort; onSort: (sort: ListSort) => void; className?: string; sortLabel?: string };
 export function SortButton({ field, label, sort, onSort, className = '', sortLabel = label }: Props) {
   const active = sort.key === field, next = nextListSort(sort, field);
-  const current = active ? sort.descending ? '降序' : '升序' : '未排序';
-  const action = `点击按${next.descending ? '降序' : '升序'}排列`;
+  const current = active ? sort.descending ? t('降序') : t('升序') : t('未排序');
+  const action = t('点击按{v1}排列', { v1: next.descending ? '降序' : '升序' });
   return <button type="button" className={`column-sort ${className}`} aria-pressed={active} aria-label={t('按{sortLabel}排序，{current}；{action}', { sortLabel, current, action })} title={`${sortLabel}：${current}，${action}`} onClick={() => onSort(next)}>
     {label}<span className="column-sort-arrow" aria-hidden="true">{active ? sort.descending ? '↓' : '↑' : '↕'}</span>
   </button>;

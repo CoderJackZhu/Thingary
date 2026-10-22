@@ -20,7 +20,7 @@ export type GoalAction = GoalEdit | 'income' | 'funds' | 'costs' | 'debt' | 'eve
 
 const conditionOrder: GoalAction[] = ['mode', 'time', 'saving', 'spend', 'start', 'income', 'assumptions', 'emergency'];
 
-const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: '试算值，未确认', confirmed: '已核对', needs_review: '条件已变，请确认' };
+const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: t('试算值，未确认'), confirmed: t('已核对'), needs_review: t('条件已变，请确认') };
 
 export function GoalOverview({ saved, caps, today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onTrial, savingHint, onReport, reportDisabled = false, assumptionRead }: {
   saved: Saved; caps: BasicCapabilities; today: string; cards: Refinement[]; accountFunds?: ReturnType<typeof fundScopeSummary>; purchasePlans?: ReactNode;
@@ -35,46 +35,46 @@ export function GoalOverview({ saved, caps, today, cards, accountFunds, purchase
   const annotations = caps.annotations ?? [];
   const uncertain = annotations.some(a => a.effect !== 'none');
   const time = r.simplified.time, retirementAge = ageAtMonth(time.reference, time.target_month), horizonAge = ageAtMonth(time.reference, time.horizon_month);
-  const retirementText = retirementAge === null ? time.target_month ?? '退休时间未填写' : `${ageText(retirementAge)}退休（${time.target_month}）`;
-  const horizonText = horizonAge === null ? time.horizon_month ?? '尚未确定' : `${ageText(horizonAge)}（${time.horizon_month}）`;
+  const retirementText = retirementAge === null ? time.target_month ?? t('退休时间未填写') : t('{v1}退休（{target_month}）', { v1: ageText(retirementAge), target_month: time.target_month });
+  const horizonText = horizonAge === null ? time.horizon_month ?? t('尚未确定') : `${ageText(horizonAge)}（${time.horizon_month}）`;
   const difference = req && 'monthly_cents' in req.set && b.contribution.monthly_cents !== null && Number(b.contribution.monthly_cents) >= 0 ? Number(b.contribution.monthly_cents) - Number(req.set.monthly_cents) : null;
   const predictedMonth = (m: number | null) => m === null || !plan?.anchor_date ? null : monthTextV1(monthIndexV1(plan.anchor_date) + m - plan.now_months);
   const household = householdOf(r.simplified), splitCouple = isSplitCouple(household, today);
   const fiMonth = projection?.fi_month ?? null, predictedRetire = projection?.retire_month ?? null;
   const myStopMonth = r.mode === 'fire' ? predictedMonth(predictedRetire) : plan ? predictedMonth(plan.target_months) : null;
   const capMonth = plan ? predictedMonth(Math.min(plan.search_cap_months, plan.horizon_months - 1)) : null;
-  const assumptionTag = assumptionRead === undefined ? '测算假设'
-    : assumptionRead === null ? '读取中'
-    : assumptionRead.status !== 'ready' ? (assumptionRead.status === 'disabled' ? '暂不可用' : '读取失败')
+  const assumptionTag = assumptionRead === undefined ? t('测算假设')
+    : assumptionRead === null ? t('读取中')
+    : assumptionRead.status !== 'ready' ? (assumptionRead.status === 'disabled' ? t('暂不可用') : t('读取失败'))
     : assumptionTagText[assumptionRead.value.confirmation];
   const rows: { id: GoalAction; title: string; value: string; description: string }[] = [
-    { id: 'mode', title: t('退休方式'), value: r.mode === 'fire' ? '钱够用后退休' : '按计划时间退休', description: r.mode === 'fire' ? t('从你希望的时间起，看看什么时候可以不靠工资生活。') : t('看看按你选的时间退休，钱能不能用到最后。') },
-    { id: 'time', title: t('停止工作时间'), value: retirementText, description: t('规划到 {horizonText}；{v2}退休目标不等于养老金领取时间。', { horizonText, v2: time.reference?.age_months === 0 ? `出生年月 ${time.reference.month}。` : !time.reference ? '填写出生年月后可按年龄设置。' : '' }) },
-    { id: 'income', title: t('未来固定收入'), value: r.simplified.income_mode === 'excluded' ? '暂不计入' : r.simplified.income_mode === 'unconfirmed' ? '尚未确认' : `${r.simplified.future_incomes.filter(i => i.included).length} 项已选择`, description: r.simplified.future_incomes.map(i => `${i.name}：${i.start_month ?? '开始月待定'}，${i.monthly_cents === null ? '金额待定' : money(i.monthly_cents) + '/月'}`).join('；') || t('可以添加官方测算的养老金或其他固定收入。') },
-    { id: 'spend', title: t('退休生活费'), value: r.spend_cents === null ? '还没估计' : `${money(r.spend_cents)} / 月`, description: t('{v1}按现在物价的生活费总额；缴费、租金等是否包含，单独核对。', { v1: isCouple(household) ? '两人合计，' : '' }) },
-    { id: 'start', title: t('准备拿来养老的钱'), value: funds ? money(funds.available_cents) : '资金待确认', description: funds ? b.start.kind === 'simulation' ? t('你手填的金额，截至 {date}；不与账户余额相加。', { date: funds.date }) : t('来自 {date} 的盘点，只算你确认愿意用、现在能动用的钱。', { date: funds.date }) : t('从账户中选择，或先手填一个金额；不改变实际余额。') },
-    { id: 'saving', title: t('每月能存的钱'), value: b.contribution.monthly_cents === null ? '还没估计' : `${money(b.contribution.monthly_cents)} / 月`, description: t('{v1}还在工作时，每月收入扣掉全部开销后剩下的钱；需要动用存款就填负数。', { v1: isCouple(household) ? '两人合计，' : '' }) },
-    { id: 'assumptions', title: t('计算假设'), value: `实际年收益 ${r.real_return_before_hundredths / 100}% / ${r.real_return_after_hundredths / 100}% · 波动率 ${r.volatility_hundredths / 100}%`, description: t('依次为退休前／后，已扣除通胀。通胀假设 {v1}%；波动率只用于市场模拟。', { v1: p.assumptions.inflation_hundredths / 100 }) },
-    { id: 'emergency', title: t('应急金'), value: `${r.emergency_months} 个月`, description: t('按退休后每月必需支出计的参考金，用于大额计划的应急金线提示；不会从退休月账本另外扣除。') },
+    { id: 'mode', title: t('退休方式'), value: r.mode === 'fire' ? t('钱够用后退休') : t('按计划时间退休'), description: r.mode === 'fire' ? t('从你希望的时间起，看看什么时候可以不靠工资生活。') : t('看看按你选的时间退休，钱能不能用到最后。') },
+    { id: 'time', title: t('停止工作时间'), value: retirementText, description: t('规划到 {horizonText}；{v2}退休目标不等于养老金领取时间。', { horizonText, v2: time.reference?.age_months === 0 ? t('出生年月 {month}。', { month: time.reference.month }) : !time.reference ? t('填写出生年月后可按年龄设置。') : '' }) },
+    { id: 'income', title: t('未来固定收入'), value: r.simplified.income_mode === 'excluded' ? t('暂不计入') : r.simplified.income_mode === 'unconfirmed' ? t('尚未确认') : `${r.simplified.future_incomes.filter(i => i.included).length} 项已选择`, description: r.simplified.future_incomes.map(i => `${i.name}：${i.start_month ?? t('开始月待定')}，${i.monthly_cents === null ? t('金额待定') : money(i.monthly_cents) + t('/月')}`).join('；') || t('可以添加官方测算的养老金或其他固定收入。') },
+    { id: 'spend', title: t('退休生活费'), value: r.spend_cents === null ? t('还没估计') : t('{v1} / 月', { v1: money(r.spend_cents) }), description: t('{v1}按现在物价的生活费总额；缴费、租金等是否包含，单独核对。', { v1: isCouple(household) ? t('两人合计，') : '' }) },
+    { id: 'start', title: t('准备拿来养老的钱'), value: funds ? money(funds.available_cents) : t('资金待确认'), description: funds ? b.start.kind === 'simulation' ? t('你手填的金额，截至 {date}；不与账户余额相加。', { date: funds.date }) : t('来自 {date} 的盘点，只算你确认愿意用、现在能动用的钱。', { date: funds.date }) : t('从账户中选择，或先手填一个金额；不改变实际余额。') },
+    { id: 'saving', title: t('每月能存的钱'), value: b.contribution.monthly_cents === null ? t('还没估计') : t('{v1} / 月', { v1: money(b.contribution.monthly_cents) }), description: t('{v1}还在工作时，每月收入扣掉全部开销后剩下的钱；需要动用存款就填负数。', { v1: isCouple(household) ? t('两人合计，') : '' }) },
+    { id: 'assumptions', title: t('计算假设'), value: t('实际年收益 {v1}% / {v2}% · 波动率 {v3}%', { v1: r.real_return_before_hundredths / 100, v2: r.real_return_after_hundredths / 100, v3: r.volatility_hundredths / 100 }), description: t('依次为退休前／后，已扣除通胀。通胀假设 {v1}%；波动率只用于市场模拟。', { v1: p.assumptions.inflation_hundredths / 100 }) },
+    { id: 'emergency', title: t('应急金'), value: t('{emergency_months} 个月', { emergency_months: r.emergency_months }), description: t('按退休后每月必需支出计的参考金，用于大额计划的应急金线提示；不会从退休月账本另外扣除。') },
   ];
   const required = cards.find(c => c.required);
   const impact = cards.find(c => c.impacts);
   const card = required ?? impact;
   const missingCondition: GoalAction | null = !time.target_month || !time.horizon_month ? 'time' : r.spend_cents === null ? 'spend' : !funds ? 'start' : r.simplified.income_mode === 'unconfirmed' ? 'income' : b.contribution.monthly_cents === null ? 'saving' : null;
-  const reloadCard: Refinement = { id: 'assumptions-read', title: t('重新读取试算假设'), benefit: assumptionRead?.status === 'error' ? assumptionRead.message : '试算假设读取失败。', duration: '约几秒', action: 'reload', required: false };
+  const reloadCard: Refinement = { id: 'assumptions-read', title: t('重新读取试算假设'), benefit: assumptionRead?.status === 'error' ? assumptionRead.message : t('试算假设读取失败。'), duration: t('约几秒'), action: 'reload', required: false };
   let nextCard: { title: string; benefit: string; disabled?: boolean; run: (from: HTMLElement) => void } | null;
-  if (card) nextCard = { title: card.title, benefit: card.benefit || '只调整这一项，其余已填条件保留。', run: from => onRefine(card, from) };
-  else if (missingCondition) nextCard = { title: `填写${rows.find(row => row.id === missingCondition)!.title}`, benefit: missingCondition === 'saving' ? '可暂不填写；补充后可判断按当前投入能否达成目标。' : '补充这项计算条件，其余已填条件保留。', run: from => onEdit(missingCondition, from) };
+  if (card) nextCard = { title: card.title, benefit: card.benefit || t('只调整这一项，其余已填条件保留。'), run: from => onRefine(card, from) };
+  else if (missingCondition) nextCard = { title: `填写${rows.find(row => row.id === missingCondition)!.title}`, benefit: missingCondition === 'saving' ? t('可暂不填写；补充后可判断按当前投入能否达成目标。') : t('补充这项计算条件，其余已填条件保留。'), run: from => onEdit(missingCondition, from) };
   else nextCard = null;
   const headline = r.mode === 'fire' && projection
-    ? predictedRetire !== null ? `预计 ${predictedMonth(predictedRetire)} 退休` : `按当前假设，${capMonth ?? '规划终点'} 前尚未达成`
-    : time.target_month === null ? '先设置退休时间' : `希望 ${retirementText}${retirementAge === null ? ' 退休' : ''}`;
+    ? predictedRetire !== null ? t('预计 {v1} 退休', { v1: predictedMonth(predictedRetire) }) : t('按当前假设，{v1} 前尚未达成', { v1: capMonth ?? '规划终点' })
+    : time.target_month === null ? t('先设置退休时间') : t('希望 {retirementText}{v2}', { retirementText, v2: retirementAge === null ? ' 退休' : '' });
   const predictionLines: { label: string; text: string }[] = [];
   if (pred && plan && projection && outcome) {
     if (pred.source === 'temporary') predictionLines.push({ label: t('数据来源'), text: t('临时试算，未保存') });
     if (r.mode === 'fire') {
       predictionLines.push({ label: t('资金预计够用'), text: fiMonth === null ? t('规划终点前未见资金够用') : predictedMonth(fiMonth)! });
-      predictionLines.push({ label: t('预计退休月份'), text: predictedRetire === null ? t('{v1} 前尚未达成', { v1: capMonth ?? '规划终点' }) : predictedMonth(predictedRetire)! });
+      predictionLines.push({ label: t('预计退休月份'), text: predictedRetire === null ? t('{v1} 前尚未达成', { v1: capMonth ?? t('规划终点') }) : predictedMonth(predictedRetire)! });
     } else predictionLines.push({ label: t('目标年龄时资金'), text: outcome.funded_at_goal ? t('已够用') : t('还差 {v1}', { v1: forecastMoney(String(Math.round(outcome.shortfall_at_goal))) }) });
     // The verdict line above the amounts already states the overall conclusion.
     predictionLines.push({ label: t('最后一个月预计剩下'), text: forecastMoney(String(Math.round(outcome.at_horizon))) });

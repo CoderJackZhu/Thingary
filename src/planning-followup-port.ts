@@ -12,7 +12,7 @@ async function read<T>(command: string, args: Record<string, unknown>): Promise<
 }
 async function write(pending: Pending, request: FollowupWriteContext): Promise<FollowupWriteResult> {
   const old = storedPending();
-  if (old && JSON.stringify(old) !== JSON.stringify(pending)) return issue('pending_request', '还有一个提交结果待核对，请先核对原请求。');
+  if (old && JSON.stringify(old) !== JSON.stringify(pending)) return issue('pending_request', t('还有一个提交结果待核对，请先核对原请求。'));
   try {
     const result = await submit<{ id?: string; revision: number }>(pending);
     return { status: 'saved', id: result.id ?? 'profile', revision: result.revision };
@@ -34,10 +34,10 @@ export function nativePlanningFollowupPortV1(): PlanningFollowupPortV1 {
     setReviewDeleted: (id, deleted, context) => write({ command: 'followup_review_trash', input: { ...context, id, deleted }, label: t('投资区间删除恢复') }, context),
     resolve: async context => {
       const pending = storedPending();
-      if (!pending || !['plan_assumptions_save', 'movement_save', 'movement_trash', 'followup_review_save', 'followup_review_trash'].includes(pending.command) || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return issue('receipt_mismatch', '请核对原请求与资料库身份。');
+      if (!pending || !['plan_assumptions_save', 'movement_save', 'movement_trash', 'followup_review_save', 'followup_review_trash'].includes(pending.command) || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return issue('receipt_mismatch', t('请核对原请求与资料库身份。'));
       try {
         const result = await invoke<{ id: string; revision: number } | null>('followup_receipt', { request: context.request_id, generation: context.generation });
-        if (result === null) { clearPending(); return issue('not_committed', '原请求未保存。'); }
+        if (result === null) { clearPending(); return issue('not_committed', t('原请求未保存。')); }
         if (!result.id || !Number.isInteger(result.revision) || result.revision < 1) throw new Error(t('无法核对已保存资料'));
         clearPending(); return { status: 'saved', ...result };
       } catch { return { status: 'unresolved', request_id: context.request_id }; }

@@ -22,18 +22,18 @@ export function AutoBackup({ generation, demo, blocked, busy, candidateOpen, pau
   async function openFolder() {
     setActionError('');
     try { await invoke('auto_backup_open_folder'); }
-    catch (e) { setActionError('未能打开备份文件夹：' + errorMessage(e)); }
+    catch (e) { setActionError(t('未能打开备份文件夹：') + errorMessage(e)); }
   }
   async function chooseExtra() {
     setBusyButton('extra'); setActionError('');
     try { const next = await invoke<AutoBackupStatus | null>('auto_backup_choose_extra'); if (next) setStatus(next); }
-    catch (e) { setActionError('额外备份位置未更新：' + errorMessage(e)); void reload(); }
+    catch (e) { setActionError(t('额外备份位置未更新：') + errorMessage(e)); void reload(); }
     finally { setBusyButton(null); }
   }
   async function clearExtra() {
     setBusyButton('extra'); setActionError('');
     try { setStatus(await invoke<AutoBackupStatus>('auto_backup_clear_extra')); }
-    catch (e) { setActionError('额外备份位置未取消：' + errorMessage(e)); void reload(); }
+    catch (e) { setActionError(t('额外备份位置未取消：') + errorMessage(e)); void reload(); }
     finally { setBusyButton(null); }
   }
   const restoreDisabled = busy || candidateOpen || blocked || demo || !generation;

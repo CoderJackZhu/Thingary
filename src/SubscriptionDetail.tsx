@@ -54,8 +54,8 @@ export function SubscriptionDetail({ plan: initialPlan, today, modules, sourcePa
   const namesDiffer = !!asset && asset.name !== f.name;
   const state = ended ? 'expired' : pending ? 'future' : f.paused ? 'paused' : 'ongoing';
   const monthly = !pending && plan.monthly_cents && !f.interval_days && f.interval_months > 1 ? plan.monthly_cents : null;
-  const schedule = ended ? `已于 ${f.end_date} 结束` : f.paused ? '续费已暂停' : plan.next_due ? `下次付款 ${plan.next_due}` : '当前没有待记录期';
-  const paidText = link ? (link.paid_count ? `${money(link.paid_cents ?? '0')} · ${link.paid_count} 笔` : '未记录付款') : plan.paid_cents ? money(plan.paid_cents) : '未记录付款';
+  const schedule = ended ? t('已于 {end_date} 结束', { end_date: f.end_date }) : f.paused ? t('续费已暂停') : plan.next_due ? t('下次付款 {next_due}', { next_due: plan.next_due }) : t('当前没有待记录期');
+  const paidText = link ? (link.paid_count ? t('{v1} · {paid_count} 笔', { v1: money(link.paid_cents ?? '0'), paid_count: link.paid_count }) : t('未记录付款')) : plan.paid_cents ? money(plan.paid_cents) : t('未记录付款');
   const meta = asset ? [asset.provider, asset.label_name].filter(Boolean).join(' · ') : '';
   const sub = f.category === 'subscription' || linked;
   const stale = !!link && !!detail && (link.generation !== detail.generation || (!!link.plan && link.plan.revision !== plan.revision));
@@ -69,7 +69,7 @@ export function SubscriptionDetail({ plan: initialPlan, today, modules, sourcePa
     if (!ready || !editablePending || !link) return;
     setBusy(true); setMutationError('');
     try {
-      await submit({ command: 'recurring_cancel_resumption', input: { request_id: crypto.randomUUID(), generation: link.generation, plan_id: plan.id, expected_revision: plan.revision, asset_id: link.asset?.id ?? null, asset_expected_revision: link.asset?.revision ?? null }, label: '撤销待生效订阅 ' + f.name });
+      await submit({ command: 'recurring_cancel_resumption', input: { request_id: crypto.randomUUID(), generation: link.generation, plan_id: plan.id, expected_revision: plan.revision, asset_id: link.asset?.id ?? null, asset_expected_revision: link.asset?.revision ?? null }, label: t('撤销待生效订阅 ') + f.name });
       if (onSaved) onSaved(); else { setCancelPrompt(false); setLinkRetry(n => n + 1); }
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setMutationError(errorMessage(e)); }
     finally { setBusy(false); }

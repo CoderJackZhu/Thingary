@@ -59,7 +59,7 @@ export default function Overview(_props: PageProps) {
         modules.wishlist ? readConsideringWishes().catch(() => null) : Promise.resolve([] as WishDue[]),
       ]);
       if (!live) return;
-      if (!gate.current.accepts(ticket, first.counts.generation, review.generation)) { setError('资料库已变化，请重新读取。'); return; }
+      if (!gate.current.accepts(ticket, first.counts.generation, review.generation)) { setError(t('资料库已变化，请重新读取。')); return; }
       setLoaded({ gate: first, review, warranty, wishes, warrantyFailed: warranty === null, wishesFailed: wishes === null });
     })().catch(cause => { if (live) setError(errorMessage(cause)); });
     return () => { live = false; gate.current.invalidate(); };
@@ -85,7 +85,7 @@ export default function Overview(_props: PageProps) {
 
   async function leaveSample() {
     if (demoBusy) return;
-    if (session.pending) { setDemoError('上次保存的结果待核对，请先核对后再切换。'); return; }
+    if (session.pending) { setDemoError(t('上次保存的结果待核对，请先核对后再切换。')); return; }
     setDemoBusy(true); setDemoError('');
     try { await invoke('switch_demo', { demo: false }); location.reload(); }
     catch (cause) { setDemoBusy(false); setDemoError(errorMessage(cause)); }
@@ -107,7 +107,7 @@ export default function Overview(_props: PageProps) {
       ? <HeroCard eyebrow={t('金融净资产')} action={t('查看财富')} title={net.net} onClick={() => openRoute(nav, 'wealth.overview')}
           subtitle={<span className={`m-hero-sub${net.changeTone ? ` m-${net.changeTone}` : ''}`}>{net.change ?? t('截至 {v1}', { v1: dayLabel(net.date, today) })}</span>}
           footnote={net.incomplete ?? t('截至 {v1}盘点', { v1: dayLabel(net.date, today) })}>
-          {net.values.length > 1 && <LineChart compact height={56} hidden={hidden} series={[{ name: '金融净资产', values: net.values }]} labels={net.dates} summary={net.summary}/>}
+          {net.values.length > 1 && <LineChart compact height={56} hidden={hidden} series={[{ name: t('金融净资产'), values: net.values }]} labels={net.dates} summary={net.summary}/>}
         </HeroCard>
       : <HeroCard eyebrow={t('金融净资产')} action={t('查看财富')} title={<span className="m-unknown">{t('未知')}</span>} subtitle={view.wealthError || t('还没有完整盘点，净资产不会按零计算')} onClick={() => openRoute(nav, 'wealth.overview')}/>)}
     {plan && (plan.state === 'error'

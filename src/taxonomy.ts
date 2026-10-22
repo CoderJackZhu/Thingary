@@ -157,9 +157,9 @@ export function previewSnapshot(catalog: PreviewCatalog): TaxonomySnapshot {
 
 export function validatePreviewName(entries: readonly TaxonomyEntry[], kind: TaxonomyKind, name: string, editingId?: string): string | null {
   const normalized = normalizeName(name);
-  if (!normalized) return "请填写名称。";
-  if (normalized === (kind === "category" ? "未分类" : "未记录")) return "这是未选择时的显示名称，请换一个名称。";
-  return isDuplicateName(entries, normalized, editingId) ? "已有同名项，请更换。" : null;
+  if (!normalized) return t('请填写名称。');
+  if (normalized === (kind === "category" ? t('未分类') : t('未记录'))) return t('这是未选择时的显示名称，请换一个名称。');
+  return isDuplicateName(entries, normalized, editingId) ? t('已有同名项，请更换。') : null;
 }
 
 export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCommand, newId?: string): PreviewCatalog {
@@ -204,6 +204,6 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
 /** Production name policy; Rust canonical_name enforces the same NFC/scalar rules. */
 export function validateTaxonomyName(entries: readonly TaxonomyEntry[], kind: TaxonomyKind, name: string, editingId?: string): string | null {
   const normalized = normalizeName(name);
-  if (!normalized || [...normalized].length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(normalized)) return '名称须为 1–80 字，不能包含控制字符。';
+  if (!normalized || [...normalized].length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(normalized)) return t('名称须为 1–80 字，不能包含控制字符。');
   return validatePreviewName(entries, kind, normalized, editingId);
 }

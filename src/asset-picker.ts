@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { AssetRecord } from './asset';
-
+import { t } from './i18n.ts';
 /** 物品候选：按稳定 ID、名称与购入日期区分同名记录（§6.2、§7.1）。 */
 export type AssetCandidate = { id: string; name: string; purchase_date: string | null; state: string; revision: number; own?: boolean };
 export type AssetCandidatePage = { items: AssetCandidate[]; nextOffset: number | null };
@@ -21,4 +21,4 @@ export async function loadAssetCandidates(legacyId: string | null, search: strin
   return { items: items.sort((a, b) => Number(b.own ?? false) - Number(a.own ?? false)), nextOffset: page.items.length && next < page.total ? next : null };
 }
 
-export const assetStateLabel = (state: string): string => state === 'sold' ? '已售出' : state === 'retired' ? '已退役' : '使用中';
+export const assetStateLabel = (state: string): string => state === 'sold' ? t('已售出') : state === 'retired' ? t('已退役') : t('使用中');

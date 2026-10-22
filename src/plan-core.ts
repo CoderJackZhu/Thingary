@@ -17,10 +17,10 @@ export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | 
   let available = 0n, restricted = 0n, housingFund = 0n, debt = 0n, net = 0n;
   const missing: string[] = [];
   let unconfirmed = 0;
-  if (!snapshot || snapshot.missing?.length) return { available: null, restricted: 0, housingFund: 0, debt: 0, net: null, missing: ['需要完整盘点作为资金起点。'] };
+  if (!snapshot || snapshot.missing?.length) return { available: null, restricted: 0, housingFund: 0, debt: 0, net: null, missing: [t('需要完整盘点作为资金起点。')] };
   for (const e of snapshot.entries) {
     if (!e.counted) continue;
-    if (e.amount_cents === null) { missing.push('账户余额未知。'); continue; }
+    if (e.amount_cents === null) { missing.push(t('账户余额未知。')); continue; }
     const v = BigInt(e.amount_cents); net += e.side === 'liability' ? -v : v;
     if (e.side === 'liability') { debt += v; continue; }
     const rule = core?.fund_rules.find(x => x.account_id === e.account_id);
@@ -31,7 +31,7 @@ export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | 
     if (mode === 'available') available += amount;
     else if (mode === 'restricted') { restricted += amount; if (e.kind === 'housing_fund') housingFund += amount; }
   }
-  if (unconfirmed) missing.push(`${unconfirmed} 个账户的规划用途待确认，请核对资金范围。`);
+  if (unconfirmed) missing.push(t('{unconfirmed} 个账户的规划用途待确认，请核对资金范围。', { unconfirmed }));
   return { available: Number(available), restricted: Number(restricted), housingFund: Number(housingFund), debt: Number(debt), net: Number(net), missing };
 }
 export const eventSource = (id: string, kind: 'loan' | 'holding') => `event:${id}:${kind}`;
@@ -52,25 +52,25 @@ export function occurrenceIssues(snapshot: Snapshot, core: PlanningCore | null |
   for (const e of events) {
     const add = (kind: OccurrenceIssueKind, message: string) => missing.push({ event_id: e.id, kind, message });
     const o = core?.occurrences.find(x => x.event_id === e.id);
-    if (!o) { if (e.included && e.date < today.slice(0, 7)) add('overdue', `${e.label}：日期已过，请确认是否发生。`); continue; }
+    if (!o) { if (e.included && e.date < today.slice(0, 7)) add('overdue', t('{label}：日期已过，请确认是否发生。', { label: e.label })); continue; }
     if (o.status === 'cancelled') continue;
-    if (o.actual_date > today) add('actual_date', `${e.label}：实际日期不能晚于今天。`);
-    if (!o.payments.length) add('payments', `${e.label}：实际付款分项待补充。`);
+    if (o.actual_date > today) add('actual_date', t('{label}：实际日期不能晚于今天。', { label: e.label }));
+    if (!o.payments.length) add('payments', t('{label}：实际付款分项待补充。', { label: e.label }));
     for (const p of o.payments) {
       const rule = core?.fund_rules.find(x => x.account_id === p.account_id);
-      if (p.amount_cents === null || !p.account_id || rule?.availability !== 'available' || rule.share_hundredths !== 10000) add('payment_source', `${e.label}：请确认付款金额和付款账户范围。`);
-      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', `${e.label}：请确认付款已反映在哪次盘点中。`);
-      if (p.date > snapshot.date && p.absorbed_snapshot_id) add('absorption', `${e.label}：起点盘点之后的付款，不能标为已计入盘点。`);
+      if (p.amount_cents === null || !p.account_id || rule?.availability !== 'available' || rule.share_hundredths !== 10000) add('payment_source', t('{label}：请确认付款金额和付款账户范围。', { label: e.label }));
+      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', t('{label}：请确认付款已反映在哪次盘点中。', { label: e.label }));
+      if (p.date > snapshot.date && p.absorbed_snapshot_id) add('absorption', t('{label}：起点盘点之后的付款，不能标为已计入盘点。', { label: e.label }));
     }
     const paid = o.payments.filter(p => p.amount_cents !== null).reduce((s, p) => s + BigInt(p.amount_cents!), 0n);
-    if (!o.payments_complete || paid < 0n) add('payments', `${e.label}：仅部分付款已核对，剩余安排待补充。`);
+    if (!o.payments_complete || paid < 0n) add('payments', t('{label}：仅部分付款已核对，剩余安排待补充。', { label: e.label }));
     if (Number(e.price_cents) > Number(e.down_cents) || o.loan !== null) {
       const l = o.loan;
-      if (!l || l.as_of !== snapshot.date) add('loan', `${e.label}：请确认截至资金起点的剩余欠款与剩余期数。`);
+      if (!l || l.as_of !== snapshot.date) add('loan', t('{label}：请确认截至资金起点的剩余欠款与剩余期数。', { label: e.label }));
       else {
         const entry = snapshot.entries.find(x => x.account_id === l.account_id && x.side === 'liability' && x.counted);
-        if (!entry || entry.amount_cents !== l.principal_cents) add('loan', `${e.label}：剩余欠款与盘点里的负债不一致。`);
-        else { if (coveredDebts.has(l.account_id)) add('loan', `${e.label}：同一笔剩余欠款重复计入。`); coveredDebts.add(l.account_id); }
+        if (!entry || entry.amount_cents !== l.principal_cents) add('loan', t('{label}：剩余欠款与盘点里的负债不一致。', { label: e.label }));
+        else { if (coveredDebts.has(l.account_id)) add('loan', t('{label}：同一笔剩余欠款重复计入。', { label: e.label })); coveredDebts.add(l.account_id); }
       }
     }
   }

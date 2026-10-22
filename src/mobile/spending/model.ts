@@ -33,7 +33,7 @@ export function periodFromKey(key: PeriodKey, today: string, custom?: { from: st
   }
 }
 /** 汇总卡标签里的时间词：本月已付、今年已付、累计已付、区间已付。 */
-export const periodWord = (key: PeriodKey): string => ({ month: '本月', year: '今年', all: '累计', custom: '区间' })[key];
+export const periodWord = (key: PeriodKey): string => ({ month: tr('本月'), year: tr('今年'), all: tr('累计'), custom: tr('区间') })[key];
 export const periodTitle = (period: FinancePeriod): string => expensePeriodLabel(period);
 /** The host answers for the period it was asked about; a different period must not be drawn. */
 export function samePeriod(a: FinancePeriod, b: FinancePeriod): boolean {
@@ -70,7 +70,7 @@ export function expenseRows(lines: Line[], keyword = '', today?: string): Expens
   const match = (l: Line) => !word || [l.title, categoryText(l), l.notes ?? '', sourceLabel[l.source]].some(t => t.toLowerCase().includes(word));
   return lines.filter(match).map(l => ({
     key: l.source + ':' + l.id + ':' + (l.date ?? ''), title: l.title,
-    subtitle: [l.date ? dayLabel(l.date, today) : '日期未知', sourceLabel[l.source], categoryText(l)].join(' · '),
+    subtitle: [l.date ? dayLabel(l.date, today) : tr('日期未知'), sourceLabel[l.source], categoryText(l)].join(' · '),
     amount: l.amount_cents, sign: l.source === 'refund' || l.source === 'sale' ? '-' : '', target: expenseSourceTarget(l), line: l, counts: countsAsSpending(l),
   }));
 }
@@ -85,16 +85,16 @@ export type ChartModel = { title: string; caption: string; bars: { label: string
 /** 全部期间画逐年柱，某一年画 12 个月柱；月度、自选区间不画图。未知金额画成缺口，不画成 0。 */
 export function expenseChart(view: ExpenseView, period: FinancePeriod): ChartModel | null {
   if (period.kind === 'all' && view.annual_totals.length) {
-    const bars = view.annual_totals.map(t => { const d = spendDisplay(t); return { label: String(t.year).slice(2) + '年', value: d.value === null ? null : Number(t.spent_cents), text: tr('{year} 年{v2}', { year: t.year, v2: d.value !== null ? ' ' + moneyText(t.spent_cents) : ' ' + d.note }) }; });
+    const bars = view.annual_totals.map(t => { const d = spendDisplay(t); return { label: String(t.year).slice(2) + tr('年'), value: d.value === null ? null : Number(t.spent_cents), text: tr('{year} 年{v2}', { year: t.year, v2: d.value !== null ? ' ' + moneyText(t.spent_cents) : ' ' + d.note }) }; });
     const top = view.annual_totals.filter(t => spendDisplay(t).value !== null).sort((a, b) => Number(b.spent_cents) - Number(a.spent_cents))[0];
     return { title: tr('各年支出'), caption: tr('仅列有记录的年份 · 柱高为已知支出'), bars: bars.map(b => ({ label: b.label, value: b.value })),
-      summary: `各年支出：${bars.map(b => b.text).join('，')}。${top ? `${top.year} 年最多，${moneyText(top.spent_cents)}。` : '暂无已知金额。'}` };
+      summary: `各年支出：${bars.map(b => b.text).join('，')}。${top ? tr('{year} 年最多，{v2}。', { year: top.year, v2: moneyText(top.spent_cents) }) : tr('暂无已知金额。')}` };
   }
   if (period.kind === 'year' && view.months.length) {
-    const bars = view.months.map(m => { const d = spendDisplay(m); return { label: `${Number(m.month.slice(5))}`, value: m.count === 0 ? 0 : d.value === null ? null : Number(m.spent_cents), text: tr('{v1} 月{v2}', { v1: Number(m.month.slice(5)), v2: m.count === 0 ? '无记录' : d.value !== null ? ' ' + moneyText(m.spent_cents) : ' 金额未知' }) }; });
+    const bars = view.months.map(m => { const d = spendDisplay(m); return { label: `${Number(m.month.slice(5))}`, value: m.count === 0 ? 0 : d.value === null ? null : Number(m.spent_cents), text: tr('{v1} 月{v2}', { v1: Number(m.month.slice(5)), v2: m.count === 0 ? tr('无记录') : d.value !== null ? ' ' + moneyText(m.spent_cents) : tr(' 金额未知') }) }; });
     const top = view.months.filter(m => m.count > 0 && spendDisplay(m).value !== null).sort((a, b) => Number(b.spent_cents) - Number(a.spent_cents))[0];
     return { title: tr('各月支出'), caption: tr('{year} 年 · 不含日期未知', { year: period.year }), bars: bars.map(b => ({ label: b.label, value: b.value })),
-      summary: `${period.year} 年各月支出：${bars.map(b => b.text).join('，')}。${top ? `${Number(top.month.slice(5))} 月最多，${moneyText(top.spent_cents)}。` : '暂无已知金额。'}` };
+      summary: `${period.year} 年各月支出：${bars.map(b => b.text).join('，')}。${top ? tr('{v1} 月最多，{v2}。', { v1: Number(top.month.slice(5)), v2: moneyText(top.spent_cents) }) : tr('暂无已知金额。')}` };
   }
   return null;
 }
@@ -124,7 +124,7 @@ export function planCost(p: Pick<Plan, 'estimated_cents' | 'paid_cents'>): { cen
 /** 「每期 ¥4,500 / 月」，非月付另列月均（待生效的计划不列）。 */
 export function planAmountText(p: Plan, pendingStart: boolean): { main: string; monthly: string | null } {
   const f = p.fields;
-  return { main: `每期 ${moneyText(f.amount_cents)} / ${intervalUnit(f)}`, monthly: !pendingStart && !f.interval_days && f.interval_months > 1 && p.monthly_cents ? `月均 ${moneyText(p.monthly_cents)}` : null };
+  return { main: tr('每期 {v1} / {v2}', { v1: moneyText(f.amount_cents), v2: intervalUnit(f) }), monthly: !pendingStart && !f.interval_days && f.interval_months > 1 && p.monthly_cents ? tr('月均 {v1}', { v1: moneyText(p.monthly_cents) }) : null };
 }
 /** 期间内已确认付款（按实付日期）；金额未知的付款单独计数，不按 0 算。 */
 export function paidInPeriod(payments: Payment[], period: FinancePeriod): { cents: string; count: number; unknown: number } {
@@ -173,11 +173,11 @@ export function progressParts(list: PeriodList): { paid: number; skipped: number
 /** 租期文字：2025-03 至 2027-02（24 期）；无结束日期则是持续进行。 */
 export function termText(plan: Plan, list: PeriodList, today?: string): string {
   const f = plan.fields, start = f.service_start ?? f.first_due;
-  if (!f.end_date) return `${monthLabel(start, today)} 起，持续进行`;
-  return `${monthLabel(start, today)} 至 ${monthLabel(f.end_date, today)}${list.total !== null ? `（${list.total} 期）` : ''}`;
+  if (!f.end_date) return tr('{v1} 起，持续进行', { v1: monthLabel(start, today) });
+  return tr('{v1} 至 {v2}{v3}', { v1: monthLabel(start, today), v2: monthLabel(f.end_date, today), v3: list.total !== null ? `（${list.total} 期）` : '' });
 }
 export function periodLabelText(row: PeriodRow): string {
-  return row.ordinal !== null ? `第 ${row.ordinal} 期` : '计划外';
+  return row.ordinal !== null ? tr('第 {ordinal} 期', { ordinal: row.ordinal }) : tr('计划外');
 }
 export function nextPayment(plan: Plan, today: string): { date: string; badge: ReturnType<typeof dueBadge> } | null {
   if (plan.fields.paused || (plan.fields.end_date && plan.fields.end_date < today) || !plan.next_due) return null;
@@ -209,7 +209,7 @@ export function virtualSummary(items: VirtualAsset[]) {
     topups: topups.length, balance: withBalance.length ? balance.toString() : null, balanceUnknown: topups.length - withBalance.length,
   };
 }
-export const virtualFilterChips = [['all', '全部'], ['valid', '有效'], ['expiring', '即将到期'], ['expired', '已结束／到期'], ['stopped', '已停用']] as const;
+export const virtualFilterChips = [['all', tr('全部')], ['valid', tr('有效')], ['expiring', tr('即将到期')], ['expired', tr('已结束／到期')], ['stopped', tr('已停用')]] as const;
 export type VirtualLine = { detail: string; flag: { text: string; tone: Tone } | null; cost: { text: string | null; note: string; label: string }; typeLabel: string; status: string };
 /** 列表行：类型、计费方式、期限／续费日期、累计费用；金额未知写明原因。 */
 export function virtualLine(v: VirtualAsset, today: string): VirtualLine {
@@ -217,11 +217,11 @@ export function virtualLine(v: VirtualAsset, today: string): VirtualLine {
   let detail: string;
   if (mode === 'subscription') {
     const f = v.plan?.fields;
-    detail = f ? `${f.interval_days ? `每 ${f.interval_days} 天` : ({ 1: '月付', 3: '季付', 6: '半年付', 12: '年付' } as Record<number, string>)[f.interval_months] ?? '周期付'} ${moneyText(f.amount_cents)}${v.status !== 'future' && !f.interval_days && f.interval_months > 1 && v.plan?.monthly_cents ? `（月均 ${moneyText(v.plan.monthly_cents)}）` : ''} · ${localizeDates(validityText(v), today)}` : '每期价格未知';
+    detail = f ? `${f.interval_days ? tr('每 {interval_days} 天', { interval_days: f.interval_days }) : ({ 1: tr('月付'), 3: tr('季付'), 6: tr('半年付'), 12: tr('年付') } as Record<number, string>)[f.interval_months] ?? tr('周期付')} ${moneyText(f.amount_cents)}${v.status !== 'future' && !f.interval_days && f.interval_months > 1 && v.plan?.monthly_cents ? tr('（月均 {v1}）', { v1: moneyText(v.plan.monthly_cents) }) : ''} · ${localizeDates(validityText(v), today)}` : tr('每期价格未知');
   } else if (mode === 'topup') {
-    detail = `${v.balance ? `余额 ${moneyText(v.balance.balance_cents)}` : '余额未知'} · ${v.topup_count ? `累计充值 ${v.topup_known_cents != null ? moneyText(v.topup_known_cents) : '金额未知'}` : '暂无充值记录'}`;
+    detail = `${v.balance ? tr('余额 {v1}', { v1: moneyText(v.balance.balance_cents) }) : tr('余额未知')} · ${v.topup_count ? tr('累计充值 {v1}', { v1: v.topup_known_cents != null ? moneyText(v.topup_known_cents) : '金额未知' }) : tr('暂无充值记录')}`;
   } else {
-    detail = `${v.fields.price_cents != null ? `单次 ${moneyText(v.fields.price_cents)}` : '单次价格未知'} · ${localizeDates(validityText(v), today)}`;
+    detail = `${v.fields.price_cents != null ? tr('单次 {v1}', { v1: moneyText(v.fields.price_cents) }) : tr('单次价格未知')} · ${localizeDates(validityText(v), today)}`;
   }
   let flag: VirtualLine['flag'] = null;
   if (v.payment_due) { const b = dueBadge(v.payment_due.due_date, today); flag = { text: tr('{v1} 续费 · {text}', { v1: dayLabel(v.payment_due.due_date, today), text: b.text }), tone: b.tone === 'danger' ? 'danger' : 'warn' }; }
@@ -229,8 +229,8 @@ export function virtualLine(v: VirtualAsset, today: string): VirtualLine {
   else if (v.needs_review) flag = { text: tr('停用待核对'), tone: 'warn' };
   const t = billingOf(v) === 'topup' ? topupSpendText(v) : null;
   const text = t ? t.main : cost.cents;
-  const note = t ? (t.note === '尚未记录充值' ? '暂无充值记录' : t.note ?? '') : cost.estimated ? '估算' : mode === 'single' && cost.cents === null ? '价格未知' : '';
-  return { detail, flag, cost: { text, note, label: mode === 'topup' ? tr('累计充值') : tr('累计费用') }, typeLabel: mode === 'single' ? '一次买断' : billingText(mode), status: virtualStatusText(v) };
+  const note = t ? (t.note === '尚未记录充值' ? tr('暂无充值记录') : t.note ?? '') : cost.estimated ? tr('估算') : mode === 'single' && cost.cents === null ? tr('价格未知') : '';
+  return { detail, flag, cost: { text, note, label: mode === 'topup' ? tr('累计充值') : tr('累计费用') }, typeLabel: mode === 'single' ? tr('一次买断') : billingText(mode), status: virtualStatusText(v) };
 }
 export function matchesVirtual(v: VirtualAsset, keyword: string): boolean {
   const word = keyword.trim().toLowerCase();

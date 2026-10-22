@@ -2,7 +2,7 @@
 // 不新增数据字段；复杂的计划（固定天数、试用、分段价格、特殊期）不进简易表单，仍用完整表单。
 import { previousDay, scheduleDates, shiftDays, shiftMonth } from './recurring-model.ts';
 import type { Plan, PlanFields } from './recurring.ts';
-
+import { t } from './i18n.ts';
 export type RentForm = {
   /** 每期总额（分）：季付填整季。 */
   amount_cents: string;
@@ -16,7 +16,7 @@ export type RentForm = {
   end: string;
 };
 
-export const rentIntervals: [RentForm['interval_months'], string][] = [[1, '每月'], [3, '每季'], [6, '每半年'], [12, '每年']];
+export const rentIntervals: [RentForm['interval_months'], string][] = [[1, t('每月')], [3, t('每季')], [6, t('每半年')], [12, t('每年')]];
 
 const isDay = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(Date.parse(s + 'T12:00:00Z'));
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000);

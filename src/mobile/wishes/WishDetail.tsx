@@ -34,7 +34,7 @@ export default function WishDetail({ params }: PageProps) {
 
   useEffect(() => {
     let live = true; setError('');
-    readWish(id).then(next => { if (!live) return; setItem(next); if (!next) setError('找不到这条心愿，可能已被删除。'); })
+    readWish(id).then(next => { if (!live) return; setItem(next); if (!next) setError(t('找不到这条心愿，可能已被删除。')); })
       .catch(cause => { if (live) setError(errorMessage(cause)); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [id, reveal, tick]);
@@ -44,7 +44,7 @@ export default function WishDetail({ params }: PageProps) {
     setReplacement(null); setReplacementError('');
     if (!replacementId) return;
     let live = true;
-    readAsset(replacementId).then(record => { if (!live) return; setReplacement(record); if (!record) setReplacementError('原物品已删除或不存在，请重新读取心愿。'); }).catch(cause => { if (live) setReplacementError(errorMessage(cause)); });
+    readAsset(replacementId).then(record => { if (!live) return; setReplacement(record); if (!record) setReplacementError(t('原物品已删除或不存在，请重新读取心愿。')); }).catch(cause => { if (live) setReplacementError(errorMessage(cause)); });
     return () => { live = false; };
   }, [replacementId, item?.revision, replacementTick]);
   // 对规划的影响：只对考虑中的心愿计算，规划关闭或没有设置时不显示。
@@ -69,20 +69,20 @@ export default function WishDetail({ params }: PageProps) {
       else { setSheetError(outcome.message); if (outcome.status === 'unknown') { setSheet(null); receipts.refresh(); } }
     } finally { setBusy(false); session.setBusy(false); }
   }
-  const need = () => { if (!item || !generation) { setSheetError('资料库还没有读取完整，请稍后再试。'); return null; } return { item, generation }; };
-  function drop(note: string) { const c = need(); if (c) void run({ kind: 'decision', label: t('不再考虑'), input: dropChange(c.item, c.generation, note, crypto.randomUUID()) }, () => { setSheet(null); setNotice('已记录为不再考虑；档案与图片都保留着。'); }); }
-  function reconsider(note: string) { const c = need(); if (c) void run({ kind: 'decision', label: t('重新考虑'), input: reconsiderChange(c.item, c.generation, note, crypto.randomUUID()) }, () => { setSheet(null); setNotice('已回到考虑中；上次的提醒不会自动恢复。'); }); }
-  function link(candidate: { id: string; revision: number }) { const c = need(); if (c) void run({ kind: 'link', label: t('关联已有物品'), input: linkRequest(c.item, c.generation, candidate, crypto.randomUUID()) }, () => { setSheet(null); setNotice('已关联这件物品为本次购入；物品资料保持原样。'); }); }
+  const need = () => { if (!item || !generation) { setSheetError(t('资料库还没有读取完整，请稍后再试。')); return null; } return { item, generation }; };
+  function drop(note: string) { const c = need(); if (c) void run({ kind: 'decision', label: t('不再考虑'), input: dropChange(c.item, c.generation, note, crypto.randomUUID()) }, () => { setSheet(null); setNotice(t('已记录为不再考虑；档案与图片都保留着。')); }); }
+  function reconsider(note: string) { const c = need(); if (c) void run({ kind: 'decision', label: t('重新考虑'), input: reconsiderChange(c.item, c.generation, note, crypto.randomUUID()) }, () => { setSheet(null); setNotice(t('已回到考虑中；上次的提醒不会自动恢复。')); }); }
+  function link(candidate: { id: string; revision: number }) { const c = need(); if (c) void run({ kind: 'link', label: t('关联已有物品'), input: linkRequest(c.item, c.generation, candidate, crypto.randomUUID()) }, () => { setSheet(null); setNotice(t('已关联这件物品为本次购入；物品资料保持原样。')); }); }
   function verify(outcome: WishVerify['outcome'], note: string, patch: WishVerify['asset_patch']) {
     const c = need();
-    if (c) void run({ kind: 'verify', label: t('核实旧记录'), input: verifyRequest(c.item, c.generation, outcome, note, patch, crypto.randomUUID()) }, () => { setSheet(null); setNotice(outcome === 'purchased' ? '已确认购入：复用原物品，未新建第二件。' : outcome === 'considering' ? '已确认尚未购入，回到考虑中；旧版生成的物品仍在档案中。' : '已记录为不再考虑；原物品保留在档案中。'); });
+    if (c) void run({ kind: 'verify', label: t('核实旧记录'), input: verifyRequest(c.item, c.generation, outcome, note, patch, crypto.randomUUID()) }, () => { setSheet(null); setNotice(outcome === 'purchased' ? t('已确认购入：复用原物品，未新建第二件。') : outcome === 'considering' ? t('已确认尚未购入，回到考虑中；旧版生成的物品仍在档案中。') : t('已记录为不再考虑；原物品保留在档案中。')); });
   }
   async function remove() {
     const c = need();
     if (!c || busy) return;
     setBusy(true); session.setBusy(true); setSheetError('');
     try {
-      await submit({ command: 'wealth_trash', label: '删除' + c.item.fields.name, input: { request_id: crypto.randomUUID(), generation: c.generation, kind: 'wish', id: c.item.id, expected_revision: c.item.revision, deleted: true } });
+      await submit({ command: 'wealth_trash', label: t('删除') + c.item.fields.name, input: { request_id: crypto.randomUUID(), generation: c.generation, kind: 'wish', id: c.item.id, expected_revision: c.item.revision, deleted: true } });
       setSheet(null); setGone(true);
     } catch (cause) {
       setSheetError(cause instanceof Error ? cause.message : errorMessage(cause));
@@ -92,8 +92,8 @@ export default function WishDetail({ params }: PageProps) {
   async function checkOldSaving() {
     if (!generation || busy) return;
     setBusy(true); session.setBusy(true);
-    try { const outcome = await resolveSaving(id, generation); setOldSaving(false); setTick(n => n + 1); setNotice(outcome === 'saved' ? '已核对：这笔旧攒钱在升级前已保存，结果按历史数据显示。' : '已核对：这笔旧攒钱没有提交。攒钱功能已停用，如需记录实际购入，请使用「已买到，记录购入」。'); }
-    catch (cause) { setNotice(errorMessage(cause) + ' 暂时无法核对，请求仍保留。'); }
+    try { const outcome = await resolveSaving(id, generation); setOldSaving(false); setTick(n => n + 1); setNotice(outcome === 'saved' ? t('已核对：这笔旧攒钱在升级前已保存，结果按历史数据显示。') : t('已核对：这笔旧攒钱没有提交。攒钱功能已停用，如需记录实际购入，请使用「已买到，记录购入」。')); }
+    catch (cause) { setNotice(errorMessage(cause) + t(' 暂时无法核对，请求仍保留。')); }
     finally { setBusy(false); session.setBusy(false); }
   }
 
@@ -136,7 +136,7 @@ export default function WishDetail({ params }: PageProps) {
       {photos.length > 0 && <Card className="w-block"><h3>{t('图片')}</h3><div className="w-photos">{photos.map(photo => <span className="w-photo" key={photo.id}>{generation && <PhotoView photo={photo} generation={generation} compact/>}</span>)}</div></Card>}
 
       {(item.fields.target_date || p?.channel_id) && <ListGroup title={t('计划与渠道')}>
-        {item.fields.target_date && <ListRow title={t('计划日期')} value={item.fields.target_date + (overdue ? '（已过）' : '')} subtitle={overdue ? t('不会自动购买，更新日期后规划会重新估算') : undefined} icon="calendar" tone={overdue ? 'warn' : 'accent'}/>}
+        {item.fields.target_date && <ListRow title={t('计划日期')} value={item.fields.target_date + (overdue ? t('（已过）') : '')} subtitle={overdue ? t('不会自动购买，更新日期后规划会重新估算') : undefined} icon="calendar" tone={overdue ? 'warn' : 'accent'}/>}
         {item.fields.target_date && (p?.reminder || item.decision_state === 'considering') && <ListRow title={t('计划日期提醒')} value={p?.reminder ? t('已开启') : t('未开启')} subtitle={p?.reminder ? t('当日上午 9 点单次通知，不会自动购买') : t('只提醒日期，不会自动购买')} icon="bell"/>}
         {p?.channel_id && <ListRow title={t('可能购买的渠道')} value={taxonomy.data?.channels.find(c => c.id === p.channel_id)?.name ?? t('未设置')} icon="tag"/>}
       </ListGroup>}

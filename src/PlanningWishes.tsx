@@ -9,7 +9,7 @@ import { t } from './i18n.ts';
 const yuan = (c: number) => money(String(Math.round(c)));
 
 /** 试算页的心愿影响卡：把「考虑中」的心愿当作一次性支出，看对 FIRE 日期的影响。只读，不改心愿。 */
-export function PlanningWishes({ calc, today, hint = '退休资料待补齐', onContribution }: { calc: RetireCalc | null; today: string; hint?: string; onContribution?: () => void }) {
+export function PlanningWishes({ calc, today, hint = t('退休资料待补齐'), onContribution }: { calc: RetireCalc | null; today: string; hint?: string; onContribution?: () => void }) {
   const [wishes, setWishes] = useState<WishLike[] | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
     let live = true; setError('');
@@ -25,7 +25,7 @@ export function PlanningWishes({ calc, today, hint = '退休资料待补齐', on
   if (error) return <article className="ui-card ui-content" role="alert"><p>{t('心愿读取失败：{error}', { error })}</p><button onClick={() => setRetry(n => n + 1)}>{t('重新读取')}</button></article>;
   if (!view) return <article className="ui-card ui-content plan-goal" role="status">{t('正在读取心愿…')}</article>;
   if (!view.spends.length) return <article className="ui-card ui-content plan-goal" aria-label={t('心愿对目标的影响')}><div className="ui-section-head"><h3>{t('心愿对目标的影响')}</h3><span>{t('来自心愿清单')}</span></div><p className="muted small">{t('只比较影响，不计入目标；决定后可加入大额计划。')}</p><p className="muted">{t('还没有考虑中的心愿。在心愿清单记录打算买的东西、预计价格与计划日期，就能在这里查看。')}</p></article>;
-  const delayText = (d: number | null, base: number | null, withSpend: number | null) => base === null ? '本来就达不到' : withSpend === null ? '所选规划终点前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d} 个月`;
+  const delayText = (d: number | null, base: number | null, withSpend: number | null) => base === null ? t('本来就达不到') : withSpend === null ? t('所选规划终点前达不到') : d === 0 ? t('几乎无影响') : t('推迟约 {d} 个月', { d });
   return <article className="ui-card ui-content plan-goal" aria-label={t('心愿对目标的影响')}>
     <div className="ui-section-head"><h3>{t('心愿对目标的影响')}</h3><span>{t('来自「考虑中」的心愿')}</span></div>
     <p className="muted small">{t('只比较影响，不计入目标；决定后可加入大额计划。')}</p>

@@ -82,7 +82,7 @@ export function SimplifiedPlanningDialog({ port, today, onClose, pendingContext 
       if (outcome.status === 'saved') { retain(null); setIssues([]); onClose(true); }
       else if (outcome.status === 'rejected') { retain(null); setIssues(outcome.issues); }
     } catch {
-      if (alive.current) setNotice('未能确认保存结果，请核对原请求，避免重复保存。');
+      if (alive.current) setNotice(t('未能确认保存结果，请核对原请求，避免重复保存。'));
     } finally {
       locked.current = false;
       if (alive.current) setBusy(false);
@@ -98,9 +98,9 @@ export function SimplifiedPlanningDialog({ port, today, onClose, pendingContext 
       if (!alive.current) return; // The host reconciles the retained request after a remount.
       if (outcome.status === 'saved') { retain(null); setIssues([]); onClose(true); }
       else if (outcome.status === 'rejected') { retain(null); setIssues(outcome.issues); }
-      else setNotice('仍未能确认上次保存的结果；原请求保留，请稍后继续核对。');
+      else setNotice(t('仍未能确认上次保存的结果；原请求保留，请稍后继续核对。'));
     } catch {
-      if (alive.current) setNotice('暂时无法核对；原请求仍保留，请稍后重试。');
+      if (alive.current) setNotice(t('暂时无法核对；原请求仍保留，请稍后重试。'));
     } finally {
       locked.current = false;
       if (alive.current) setBusy(false);

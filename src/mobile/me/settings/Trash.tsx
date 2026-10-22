@@ -51,45 +51,45 @@ export default function TrashPage() {
     if (asset) {
       const result = await invoke<AssetRecord | null>('saved_request', { request: asset.input.request_id, generation: asset.input.generation });
       localStorage.removeItem(assetKey); setPendingNote(false);
-      return result ? '已核对：上次操作已保存。' : '已核对：上次操作未提交，可以重新操作。';
+      return result ? t('已核对：上次操作已保存。') : t('已核对：上次操作未提交，可以重新操作。');
     }
     if (record) {
       const result = await invoke<AssetRecord | null>('saved_record_trash_request', { input: record.input });
       localStorage.removeItem(recordPendingKey); setPendingNote(false);
-      return result ? '已核对：上次操作已保存。' : '已核对：上次操作未提交，可以重新操作。';
+      return result ? t('已核对：上次操作已保存。') : t('已核对：上次操作未提交，可以重新操作。');
     }
     setPendingNote(false); return null;
   });
 
   const restore = (entry: TrashEntry, generation: string) => guarded(async () => {
     const title = entryDisplay(entry).title;
-    if (storedPending() || storedTrash() || storedRecordTrash()) return '上次保存结果待核对，请先核对后再恢复。';
+    if (storedPending() || storedTrash() || storedRecordTrash()) return t('上次保存结果待核对，请先核对后再恢复。');
     if (entry.kind === 'asset') {
       const record = await invoke<AssetRecord | null>('read_asset', { id: entry.id });
-      if (!record) return '找不到这件物品，请重新读取。';
+      if (!record) return t('找不到这件物品，请重新读取。');
       const input = { request_id: crypto.randomUUID(), generation, asset_id: entry.id, expected_revision: record.asset.revision, deleted: false };
-      try { localStorage.setItem(assetKey, JSON.stringify({ input, record, pending: true })); } catch { return '无法暂存操作请求，尚未提交。请检查可用空间。'; }
+      try { localStorage.setItem(assetKey, JSON.stringify({ input, record, pending: true })); } catch { return t('无法暂存操作请求，尚未提交。请检查可用空间。'); }
       try { await invoke('change_trash', { input }); localStorage.removeItem(assetKey); }
       catch (cause) {
         const saved = await invoke<AssetRecord | null>('saved_request', { request: input.request_id, generation }).catch(() => undefined);
-        if (saved === undefined) { setPendingNote(true); return '暂时无法确认结果，原请求已保留，请核对。'; }
+        if (saved === undefined) { setPendingNote(true); return t('暂时无法确认结果，原请求已保留，请核对。'); }
         localStorage.removeItem(assetKey);
-        if (!saved) return errorMessage(cause) + ' 本次操作未提交。';
+        if (!saved) return errorMessage(cause) + t(' 本次操作未提交。');
       }
-      return `已恢复「${title}」。`;
+      return t('已恢复「{title}」。', { title });
     }
     if (entry.kind === 'maintenance' || entry.kind === 'warranty') {
       if (!entry.asset_id) return null;
       const input = { request_id: crypto.randomUUID(), generation, asset_id: entry.asset_id, record_id: entry.id, kind: entry.kind, expected_revision: entry.asset_revision, deleted: false };
-      try { localStorage.setItem(recordPendingKey, JSON.stringify({ input, meta: { title: entry.title || title, assetName: entry.asset_name ?? '' }, pending: true })); } catch { return '无法暂存操作请求，尚未提交。请检查可用空间。'; }
+      try { localStorage.setItem(recordPendingKey, JSON.stringify({ input, meta: { title: entry.title || title, assetName: entry.asset_name ?? '' }, pending: true })); } catch { return t('无法暂存操作请求，尚未提交。请检查可用空间。'); }
       try { await invoke('change_record_trash', { input }); localStorage.removeItem(recordPendingKey); }
       catch (cause) {
         const saved = await invoke<AssetRecord | null>('saved_record_trash_request', { input }).catch(() => undefined);
-        if (saved === undefined) { setPendingNote(true); return '暂时无法确认结果，原请求已保留，请核对。'; }
+        if (saved === undefined) { setPendingNote(true); return t('暂时无法确认结果，原请求已保留，请核对。'); }
         localStorage.removeItem(recordPendingKey);
-        if (!saved) return errorMessage(cause) + (hasCode(cause, 'PARENT_DELETED') ? '' : ' 本次操作未提交。');
+        if (!saved) return errorMessage(cause) + (hasCode(cause, 'PARENT_DELETED') ? '' : t(' 本次操作未提交。'));
       }
-      return `已恢复「${title}」。`;
+      return t('已恢复「{title}」。', { title });
     }
     if (restoresAsGroup(entry.kind)) { setGroupRestore({ id: entry.id, name: title }); return null; }
     if (entry.kind === 'virtual' || entry.kind === 'plan') {
@@ -98,14 +98,14 @@ export default function TrashPage() {
       if ((link.asset && link.plan) || link.candidates.length) { setRepairing({ side: entry.kind, id: entry.id }); return null; }
     }
     const base = { request_id: crypto.randomUUID(), generation, id: entry.id, expected_revision: entry.asset_revision, deleted: false };
-    if (entry.kind === 'savings_goal') await writeSavingsGoal('savings_goals_trash', base, '恢复存钱目标');
-    else await submit({ command: 'wealth_trash', input: { ...base, kind: entry.kind }, label: '恢复' + title });
-    return `已恢复「${title}」。`;
+    if (entry.kind === 'savings_goal') await writeSavingsGoal('savings_goals_trash', base, t('恢复存钱目标'));
+    else await submit({ command: 'wealth_trash', input: { ...base, kind: entry.kind }, label: t('恢复') + title });
+    return t('已恢复「{title}」。', { title });
   });
   const purge = (entry: TrashEntry, generation: string) => guarded(async () => {
     setArmed(null);
     await invoke('purge_trash', { input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id } });
-    return `已永久删除「${entryDisplay(entry).title}」。`;
+    return t('已永久删除「{title}」。', { title: entryDisplay(entry).title });
   });
   async function openClear() {
     setClearing({ preview: null, error: '' });
@@ -115,7 +115,7 @@ export default function TrashPage() {
     try {
       const result = await submit<Purged>({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: preview.generation, kind: null, id: '', preview: preview.preview }, label: t('清空最近删除') });
       setClearing(null);
-      return `已永久清除 ${result.removed} 项${result.kept ? `，保留 ${result.kept} 项。${result.kept_reasons.join('；')}` : '。'}`;
+      return t('已永久清除 {removed} 项{v2}', { removed: result.removed, v2: result.kept ? `，保留 ${result.kept} 项。${result.kept_reasons.join('；')}` : '。' });
     } catch (cause) { setClearing(null); throw cause; }
   });
 
@@ -131,7 +131,7 @@ export default function TrashPage() {
         <ListGroup title={t('{total} 项 · 按删除时间从新到旧', { total })}>
           {page.items.map(entry => {
             const display = entryDisplay(entry);
-            const facts = [display.typeLabel, entry.kind !== 'asset' && entry.asset_name ? `所属：${entry.asset_name}` : '', entry.asset_id ? `状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : '', entry.deleted_at ? `删除于 ${dayLabel(deletedDay(entry.deleted_at))}` : '删除时间未知', ...display.facts, contentsText(entry.contents) ? contentsText(entry.contents) + '，恢复时一起回来' : '', display.parentBlocked ? '所属物品仍在最近删除中，请先恢复所属物品' : ''].filter(Boolean);
+            const facts = [display.typeLabel, entry.kind !== 'asset' && entry.asset_name ? t('所属：{asset_name}', { asset_name: entry.asset_name }) : '', entry.asset_id ? t('状态：{v1}', { v1: stateText[entry.asset_state ?? 'active'] ?? '使用中' }) : '', entry.deleted_at ? t('删除于 {v1}', { v1: dayLabel(deletedDay(entry.deleted_at)) }) : t('删除时间未知'), ...display.facts, contentsText(entry.contents) ? contentsText(entry.contents) + t('，恢复时一起回来') : '', display.parentBlocked ? t('所属物品仍在最近删除中，请先恢复所属物品') : ''].filter(Boolean);
             const row = <ListRow icon="trash" tone="danger" title={display.title} subtitle={facts.join(' · ')} onClick={() => setArmed(entry)}/>;
             // 滑动操作与点开后的面板走同一套恢复 / 永久删除逻辑；所属物品还在回收站时先打开面板说明原因。
             return <SwipeRow key={entry.kind + entry.id} label={t('{title} 操作', { title: display.title })} actions={[

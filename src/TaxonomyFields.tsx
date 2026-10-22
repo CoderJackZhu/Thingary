@@ -10,9 +10,9 @@ import type {
   TaxonomyEntry,
 } from "./taxonomy";
 import { t } from './i18n.ts';
-const UNCATEGORIZED_LABEL = "未分类";
-const UNCHANNELED_LABEL = "未记录";
-const STALE_HINT = "选项已不可用，请重新选择";
+const UNCATEGORIZED_LABEL = t('未分类');
+const UNCHANNELED_LABEL = t('未记录');
+const STALE_HINT = t('选项已不可用，请重新选择');
 
 function buildOptionList(
   entries: readonly TaxonomyEntry[],
@@ -132,10 +132,10 @@ export function ChannelSelect({
 }
 
 function targetLabel(target: CategoryFilterValue, entries: readonly TaxonomyEntry[]): string {
-  if (target.mode === "all") return "全部分类";
+  if (target.mode === "all") return t('全部分类');
   if (target.mode === "uncategorized") return UNCATEGORIZED_LABEL;
   const found = entries.find((entry) => entry.id === target.id);
-  return found ? found.name : "已不可用的分类";
+  return found ? found.name : t('已不可用的分类');
 }
 
 function isSameTarget(a: CategoryFilterValue, b: CategoryFilterValue): boolean {
@@ -201,9 +201,9 @@ function CategoryMenuPortal({
   const keyword = search.trim().toLowerCase();
   const matched = entries.filter((entry) => !keyword || entry.name.toLowerCase().includes(keyword));
   const options: { key: string; label: string; target: CategoryFilterValue; selected: boolean; aria: string }[] = [
-    { key: "all", label: t('全部分类'), target: { mode: "all" }, selected: value.mode === "all", aria: "全部分类" },
+    { key: "all", label: t('全部分类'), target: { mode: "all" }, selected: value.mode === "all", aria: t('全部分类') },
     { key: "none", label: UNCATEGORIZED_LABEL, target: { mode: "uncategorized" }, selected: value.mode === "uncategorized", aria: UNCATEGORIZED_LABEL },
-    ...matched.map((entry) => ({ key: entry.id, label: entry.name, target: { mode: "category" as const, id: entry.id }, selected: value.mode === "category" && value.id === entry.id, aria: `仅看分类 ${entry.name}` })),
+    ...matched.map((entry) => ({ key: entry.id, label: entry.name, target: { mode: "category" as const, id: entry.id }, selected: value.mode === "category" && value.id === entry.id, aria: t('仅看分类 {name}', { name: entry.name }) })),
   ];
   // 键盘路径（第二轮复审 P2-1）：序列＝搜索框→各选项，↓/↑ 沿序列循环移动
   // （搜索框 ↓ 进第一个选项，第一个选项 ↑ 回搜索框）；搜索框内 Enter 选中
@@ -287,7 +287,7 @@ export function CategoryFilter({
   onRetry,
 }: CategoryFilterProps) {
   const labelId = `${id}-label`;
-  const heading = "分类筛选";
+  const heading = t('分类筛选');
   const wrapRef = useRef<HTMLDivElement>(null);
   const measureLayerRef = useRef<HTMLDivElement>(null);
   // 触发按钮用回调 ref 存 state：portal 只在真实按钮挂载后渲染，
@@ -363,7 +363,7 @@ export function CategoryFilter({
     type: "button" as const,
     disabled,
     "aria-pressed": isSameTarget(value, target),
-    "aria-label": target.mode === "category" ? `仅看分类 ${label}` : targetLabel(target, entries),
+    "aria-label": target.mode === "category" ? t('仅看分类 {label}', { label }) : targetLabel(target, entries),
     onClick: () => { if (!isSameTarget(value, target)) onChange(target); },
   });
 
@@ -392,7 +392,7 @@ export function CategoryFilter({
           </button>
         ) : (
           <>
-            <button {...chipProps({ mode: "all" }, "全部分类")} data-chip="__all__" className="cat-chip">{t('全部分类')}</button>
+            <button {...chipProps({ mode: "all" }, t('全部分类'))} data-chip="__all__" className="cat-chip">{t('全部分类')}</button>
             <button {...chipProps({ mode: "uncategorized" }, UNCATEGORIZED_LABEL)} data-chip="__none__" className="cat-chip">{UNCATEGORIZED_LABEL}</button>
             {prefixEntries.map((entry) => (
               <button key={entry.id} {...chipProps({ mode: "category", id: entry.id }, entry.name)} data-chip={entry.id} className="cat-chip">{entry.name}</button>

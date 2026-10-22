@@ -108,7 +108,7 @@ function Ready({
   const minMonth = pred.projection.retire_month ?? pred.plan.target_months,
     maxMonth = pred.plan.horizon_months - 1;
   const cover = coverage(pred.plan, pred.projection, selected, mode);
-  const conclusion = `${terminalText[pred.terminal]}；${timeLabel(pred.plan, pred.plan.horizon_months - 1)} 时预计资金（按今天购买力）${forecastMoneyText(pred.outcome.at_horizon)}。`;
+  const conclusion = t('{v1}；{v2} 时预计资金（按今天购买力）{v3}。', { v1: terminalText[pred.terminal], v2: timeLabel(pred.plan, pred.plan.horizon_months - 1), v3: forecastMoneyText(pred.outcome.at_horizon) });
   return (
     <div className="m-page mp-page">
       <LargeTitle
@@ -144,7 +144,7 @@ function Ready({
           height={210}
           summary={t('预计资金实线，所需资金虚线。{conclusion}', { conclusion })}
           {...chart}
-          tip={(i) => ({ title: points[i].label, rows: [{ name: "预计资金", value: forecastMoneyText(points[i].projected), color: "var(--accent)" }, { name: "所需资金", value: forecastMoneyText(points[i].required), color: "var(--muted)" }] })}
+          tip={(i) => ({ title: points[i].label, rows: [{ name: t('预计资金'), value: forecastMoneyText(points[i].projected), color: "var(--accent)" }, { name: t('所需资金'), value: forecastMoneyText(points[i].required), color: "var(--muted)" }] })}
         />
         <p className="mp-muted">
           {t('实线：预计资金 · 虚线：此时停止工作所需资金。假设推演，不是证券行情或历史收益。')}
@@ -158,7 +158,7 @@ function Ready({
               title={c.label}
               subtitle={
                 c.stop
-                  ? t('预计停工 {stop} · {v2}', { stop: c.stop, v2: c.success ? "所选期间可覆盖" : "尚未满足完整目标" })
+                  ? t('预计停工 {stop} · {v2}', { stop: c.stop, v2: c.success ? t('所选期间可覆盖') : t('尚未满足完整目标') })
                   : t('规划终点前尚未达成')
               }
               value={forecastMoneyText(c.required)}
@@ -215,12 +215,12 @@ function Ready({
             {timeLabel(pred.plan, selected)}
           </p>
           <div className="mp-month-steps" role="group" aria-label={t('调整查看月份')}>
-            {([["−1年", -12], ["−1月", -1], ["+1月", 1], ["+1年", 12]] as const).map(([label, delta]) => (
+            {([[t('−1年'), -12], [t('−1月'), -1], [t('+1月'), 1], [t('+1年'), 12]] as const).map(([label, delta]) => (
               <button
                 key={label}
                 type="button"
                 disabled={stepMonth(selected, delta, minMonth, maxMonth) === selected}
-                aria-label={delta % 12 === 0 ? t('{v1}一年', { v1: delta < 0 ? "前移" : "后移" }) : t('{v1}一个月', { v1: delta < 0 ? "前移" : "后移" })}
+                aria-label={delta % 12 === 0 ? t('{v1}一年', { v1: delta < 0 ? t('前移') : t('后移') }) : t('{v1}一个月', { v1: delta < 0 ? t('前移') : t('后移') })}
                 onClick={() => setSelected(stepMonth(selected, delta, minMonth, maxMonth))}
               >
                 {label}

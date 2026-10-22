@@ -36,7 +36,7 @@ function Form({ generation, income, hpfDefault }: { generation: string; income: 
     if (!check.ok) { setProblem(check.message); return; }
     void saver.run(requestId => submit({ command: 'plan_income_save', input: incomeSave(f, income, generation, requestId), label: t('收入 {date}', { date: f.date }) }), { close: true });
   }
-  const remove = () => income && void saver.run(requestId => trash('income', income.id, income.revision, generation, `收入 ${f.date}`, requestId), { close: true });
+  const remove = () => income && void saver.run(requestId => trash('income', income.id, income.revision, generation, t('收入 {date}', { date: f.date }), requestId), { close: true });
   return <EditorFrame title={income ? t('编辑收入') : t('记一笔收入')} onSave={save} busy={saver.busy} error={problem || (asking ? '' : saver.error)}>
     <p className="sp-note sp-note-pad">{t('记录实际到账的税后收入和公积金缴存，同日可多笔。缴存留空表示未知，填 0 表示明确没有。')}</p>
     <FormGroup footer={t('转入本金不属于收入，账户涨跌也不记在这里；旧记录保留未分类，不自动判断为工资。')}>

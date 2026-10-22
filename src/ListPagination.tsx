@@ -4,7 +4,7 @@ export const pageSize = 50;
 
 export function PageControls({ page, total, label, onPage }: { page: number; total: number; label: string; onPage: (page: number) => void }) {
   const count = Math.max(1, Math.ceil(total / pageSize));
-  return total > pageSize && <nav className="pagination" aria-label={label + '分页'}>
+  return total > pageSize && <nav className="pagination" aria-label={label + t('分页')}>
     <button type="button" disabled={page === 0} onClick={() => onPage(page - 1)}>{t('上一页')}</button>
     <span>{t('第')} {page + 1} {t('/ {count} 页 · 共 {total} 条', { count, total })}</span>
     <button type="button" disabled={page + 1 >= count} onClick={() => onPage(page + 1)}>{t('下一页')}</button>

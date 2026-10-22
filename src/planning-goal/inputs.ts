@@ -4,7 +4,7 @@ import { householdOf, isCouple } from '../planning-simplified-ui/household-view.
 import { t } from '../i18n.ts';
 export type Saved = NonNullable<ProfileState['saved']>;
 export type GoalEdit = 'mode' | 'time' | 'spend' | 'saving' | 'assumptions' | 'start' | 'emergency';
-export const editTitles: Record<GoalEdit, string> = { mode: '目标类型', time: '停止工作时间', spend: '退休生活费', saving: '每月能存的钱', assumptions: '计算假设', start: '现在可用的钱', emergency: '应急金' };
+export const editTitles: Record<GoalEdit, string> = { mode: t('目标类型'), time: t('停止工作时间'), spend: t('退休生活费'), saving: t('每月能存的钱'), assumptions: t('计算假设'), start: t('现在可用的钱'), emergency: t('应急金') };
 
 /** Scoped editors copy untouched values verbatim; they never normalize unrelated drafts. */
 export function basicFields(saved: Saved): BasicFields {

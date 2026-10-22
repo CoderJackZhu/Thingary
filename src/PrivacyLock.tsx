@@ -116,12 +116,12 @@ export function PrivacySettings() {
   const windows = /Windows/i.test(navigator.userAgent);
   async function changeLock(value: LockPreference) {
     setError('');
-    try { if (!await privacy!.setLock(value)) setError('无法保存隐私设置，请重试。'); }
+    try { if (!await privacy!.setLock(value)) setError(t('无法保存隐私设置，请重试。')); }
     catch (e) { setError(errorMessage(e)); }
   }
   return <section className="privacy-settings" aria-labelledby="privacy-settings-heading">
     <h3 id="privacy-settings-heading">{t('屏幕隐私')}</h3>
-    <label className="privacy-toggle"><input type="checkbox" checked={privacy.cover} onChange={event => { setError(privacy.setCover(event.target.checked) ? '' : '无法保存隐私设置，请重试。'); }}/>{t('窗口不在前台时遮住内容')}</label>
+    <label className="privacy-toggle"><input type="checkbox" checked={privacy.cover} onChange={event => { setError(privacy.setCover(event.target.checked) ? '' : t('无法保存隐私设置，请重试。')); }}/>{t('窗口不在前台时遮住内容')}</label>
     <label className="privacy-toggle privacy-toggle-stacked"><input type="checkbox" checked={privacy.lock.enabled} disabled={windows || privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, enabled: event.target.checked })}/><span>{t('启用身份验证')}<small className="muted">{t('每次打开物谱需要验证身份')}</small></span></label>
     {windows ? <p className="muted small">{t('Windows 版暂不支持')}</p> : privacy.available === false ? <p className="muted small">{t('这台 Mac 没有设置登录密码或 Touch ID')}</p> : privacy.available === null ? <p className="muted small">{t('暂未确认这台设备是否支持验证身份')}</p> : null}
     {privacy.lock.enabled && <><label className="privacy-idle">{t('闲置后重新验证')}<select value={privacy.lock.idleMinutes} disabled={privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, idleMinutes: Number(event.target.value) })}><option value="0">{t('从不')}</option><option value="5">{t('5 分钟')}</option><option value="15">{t('15 分钟')}</option><option value="60">{t('1 小时')}</option></select></label>

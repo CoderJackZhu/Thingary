@@ -14,7 +14,7 @@ const templates: Template[] = [
   { key: 'parents', label: tr('赡养父母'), hint: tr('按预计支出的月份填写；不确定结束时间可以留空，算到规划终点。') },
   { key: 'care', label: tr('医疗与护理'), hint: tr('按预计需要支出的月份填写；医疗费用可能涨得比通胀快，可以填更高的每年上涨（这是假设）。'), start: '' },
 ];
-const ageText = (i: StoredSpendItem) => `${i.start_month ?? '目标月份起'} → ${i.end_month ?? '规划终点'}${i.time_unconfirmed ? ' · 请确认起止月份' : ''}`;
+const ageText = (i: StoredSpendItem) => `${i.start_month ?? tr('目标月份起')} → ${i.end_month ?? tr('规划终点')}${i.time_unconfirmed ? tr(' · 请确认起止月份') : ''}`;
 
 /** 退休后的阶段性支出：只在退休后计入，按「额外」叠加在生活费总额之上；退休前的花费已在每月能存多少里。 */
 export function SpendItems({ d, setD, frozen, today }: { d: Draft; setD: React.Dispatch<React.SetStateAction<Draft>>; frozen: boolean; today: string }) {
@@ -38,11 +38,11 @@ function NewSpend({ target, today: _today, frozen, onAdd, onCancel }: { target: 
   const helper = (nextBirth: string, nextAge: string) => { setBirth(nextBirth); setAge(nextAge); const m = monthChildReachesAge(nextBirth, nextAge); if (m) setEnd(m); };
   function add() {
     const s = start || null, e = end || null, rate = infl.trim() === '' ? null : pctToHundredths(infl);
-    if (!label.trim() || label.trim().length > 40) return setErr('请填写名称（不超过 40 字）。');
-    if (!cents || cents === '0') return setErr('每月金额须大于 0。');
-    if ([s, e].some(v => v !== null && !/^\d{4}-(0[1-9]|1[0-2])$/.test(v))) return setErr('请填写有效年月，或留空。');
-    if (s !== null && e !== null && e <= s) return setErr('结束月份须晚于开始月份。');
-    if (rate === null && infl.trim() !== '' || rate !== null && (rate < -1000 || rate > 2000)) return setErr('每年上涨请填 -10 到 20 之间的百分数，或留空跟随通胀。');
+    if (!label.trim() || label.trim().length > 40) return setErr(tr('请填写名称（不超过 40 字）。'));
+    if (!cents || cents === '0') return setErr(tr('每月金额须大于 0。'));
+    if ([s, e].some(v => v !== null && !/^\d{4}-(0[1-9]|1[0-2])$/.test(v))) return setErr(tr('请填写有效年月，或留空。'));
+    if (s !== null && e !== null && e <= s) return setErr(tr('结束月份须晚于开始月份。'));
+    if (rate === null && infl.trim() !== '' || rate !== null && (rate < -1000 || rate > 2000)) return setErr(tr('每年上涨请填 -10 到 20 之间的百分数，或留空跟随通胀。'));
     onAdd({ id: crypto.randomUUID(), label: label.trim(), monthly_cents: cents, start_month: s, end_month: e, time_unconfirmed: false, inflation_hundredths: rate, essential });
   }
   return <div className="plan-new-income" role="group" aria-label={tr('添加阶段性支出')}>

@@ -29,7 +29,7 @@ export function holdingFact(code: string, quantity: string, price: string, rate 
   return {amount_cents:amount,quantity_e8:quantity,unit_price_e6:price,...(code==='CNY'?{}:{original_minor:original,fx_rate_micro:rate})};
 }
 export function holdingText(fact: CurrencyFact, unit: string | null = null, code = 'CNY'): string | null {
-  return fact.quantity_e8 != null && fact.unit_price_e6 != null ? `${unit==null?'份额 ':''}${decimalUnits(fact.quantity_e8,8).replace(/\.?0+$/,'')}${unit==null?'':' '+(unit||'份')} × ${unit==null?'单价 ':''}${decimalUnits(fact.unit_price_e6,6).replace(/\.?0+$/,'')} ${currencyCode(code)}` : null;
+  return fact.quantity_e8 != null && fact.unit_price_e6 != null ? `${unit==null?t('份额 '):''}${decimalUnits(fact.quantity_e8,8).replace(/\.?0+$/,'')}${unit==null?'':' '+(unit||t('份'))} × ${unit==null?t('单价 '):''}${decimalUnits(fact.unit_price_e6,6).replace(/\.?0+$/,'')} ${currencyCode(code)}` : null;
 }
 
 export function validateHoldingFact(code: string, fact: CurrencyFact): void {

@@ -59,7 +59,7 @@ export default function Data({ params }: PageProps) {
       const done = await task.withTask(taskId => shareBackup(plaintext, taskId));
       if (done) writeLastBackup(browserStorage(), new Date());
       setState(done ? { kind: 'done', text: plaintext ? t('已导出未加密副本「{name}」。仅本次例外；自动备份仍按已开启的加密策略执行。', { name: done.name }) : t('已保存并校验「{name}」。', { name: done.name }) } : { kind: 'idle' });
-    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : '备份未完成，当前资料未改变：' + errorMessage(cause) }); }
+    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : t('备份未完成，当前资料未改变：') + errorMessage(cause) }); }
   }
   async function inspect() {
     if (locked) return;
@@ -69,7 +69,7 @@ export default function Data({ params }: PageProps) {
       if (!alive.current) { if (found?.token) void invoke('cancel_backup_session', { token: found.token }).catch(() => undefined); return; }
       if (found) { candidateRef.current = found; setCandidate(found); setUnlockKey(''); }
       setState({ kind: 'idle' });
-    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(cause) }); }
+    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : t('这个备份不能用于恢复，当前资料未改变：') + errorMessage(cause) }); }
   }
   async function inspectAuto(name: string) {
     if (locked) return;
@@ -78,7 +78,7 @@ export default function Data({ params }: PageProps) {
       const found = await task.withTask(taskId => invoke<Inspected>('inspect_auto_backup', { name, taskId }));
       if (!alive.current) { if (found.token) void invoke('cancel_backup_session', { token: found.token }).catch(() => undefined); return; }
       candidateRef.current = found; setCandidate(found); setUnlockKey(''); setState({ kind: 'idle' });
-    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(cause) }); }
+    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : t('这个备份不能用于恢复，当前资料未改变：') + errorMessage(cause) }); }
   }
   async function unlock() {
     if (!candidate?.encrypted || !candidate.token) return;
@@ -105,7 +105,7 @@ export default function Data({ params }: PageProps) {
     restoreLock.current = true;
     setState({ kind: 'running', label: t('正在恢复：先保护当前资料，再整体切换…') });
     try { await invoke<string>('restore_backup_session', { token: candidate.token }); completeRestore(); }
-    catch (cause) { if (alive.current) { setRestoreUnknown(true); setState({ kind: 'error', text: '恢复结果尚未确认：' + errorMessage(cause) + ' 请只读核对原检查会话，不要重新恢复。' }); } }
+    catch (cause) { if (alive.current) { setRestoreUnknown(true); setState({ kind: 'error', text: t('恢复结果尚未确认：') + errorMessage(cause) + t(' 请只读核对原检查会话，不要重新恢复。') }); } }
     finally { restoreLock.current = false; }
   }
   async function verifyRestore() {
@@ -116,7 +116,7 @@ export default function Data({ params }: PageProps) {
       const result = await invoke<string | null>('backup_session_result', { token: candidate.token });
       if (!alive.current) return;
       if (result) completeRestore(); else { setRestoreUnknown(false); setState({ kind: 'done', text: t('核对完成：原会话尚未恢复。可取消，或重新明确确认替换。') }); }
-    } catch (cause) { if (alive.current) setState({ kind: 'error', text: '暂时无法确认恢复结果；原会话已保留，请重新启动后核对当前资料。' + errorMessage(cause) }); }
+    } catch (cause) { if (alive.current) setState({ kind: 'error', text: t('暂时无法确认恢复结果；原会话已保留，请重新启动后核对当前资料。') + errorMessage(cause) }); }
     finally { restoreLock.current = false; }
   }
   async function toggleAuto(enabled: boolean) {

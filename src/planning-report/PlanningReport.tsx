@@ -33,7 +33,7 @@ function TrendChart({ trend, privacy }: { trend: TrendModel; privacy: boolean })
   const y = (p: SeriesPoint) => H - 24 - (Number(p.available!.cents) - lo) / span * (H - 48);
   const line = (rows: SeriesPoint[]) => rows.map((p, i) => `${i ? 'L' : 'M'}${x(p.date).toFixed(1)} ${y(p).toFixed(1)}`).join(' ');
   const shown = cur === null ? null : points[cur];
-  const describe = (p: SeriesPoint) => `${p.date} ${seriesKindLabel(p.kind)}可用资金 ${formatMoney(p.available!)}`;
+  const describe = (p: SeriesPoint) => t('{date} {v2}可用资金 {v3}', { date: p.date, v2: seriesKindLabel(p.kind), v3: formatMoney(p.available!) });
   return <>
     <div className="pr-chart" tabIndex={0} role="img" aria-label={trendAriaLabel(trend)}
       onFocus={() => setCur(points.length - 1)} onBlur={() => setCur(null)}
@@ -81,15 +81,15 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
   const showTrend = hasTrend || view.kind !== 'current';
   const impactItems = summary ? view.missing.filter(m => m.impact === 'blocks_headline') : [];
   const firstRestricted = view.funds.findIndex(f => f.availability === 'restricted');
-  const estimatedText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? `${formatMoney(s.estimated_contribution)}（取用，不计为储蓄）` : formatMoney(s.estimated_contribution);
-  const differenceText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference);
+  const estimatedText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? t('{v1}（取用，不计为储蓄）', { v1: formatMoney(s.estimated_contribution) }) : formatMoney(s.estimated_contribution);
+  const differenceText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? t('取用不计差额') : formatMoney(s.difference);
   const doCopy = async () => {
     if (copying) return;
     const copiedText = copyText(report!, privacy);
     const text = !summary && incomplete && incompleteHeadlineLabel ? copiedText.replace('关键资料缺失，无法给出完整结论。', incompleteHeadlineLabel) : copiedText;
     setCopying(true); setCopied(false); setCopyError('');
     try { await navigator.clipboard.writeText(text); setCopied(true); }
-    catch { setCopyError('复制失败，请重试。'); }
+    catch { setCopyError(t('复制失败，请重试。')); }
     finally { setCopying(false); }
   };
   const doPrint = () => {

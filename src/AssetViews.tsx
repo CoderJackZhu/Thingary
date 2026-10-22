@@ -16,19 +16,20 @@ import { Cover, Gallery, PhotoPreview, PhotoView } from './Photos';
 import { Timeline } from './Timeline';
 import { goalProgress, retiredOn } from './preferences';
 import { t, numberLocale } from './i18n.ts';
+import { t as tr } from './i18n.ts';
 function MaintenancePhotos({ photos, generation }: { photos: Photo[]; generation: string }) {
   const [preview, setPreview] = useState<Photo | null>(null);
-  return <><div className="photo-strip">{photos.map(photo => <button className="photo-tile" key={photo.id} aria-label={'预览维护图片 ' + photo.name} onClick={() => setPreview(photo)}><PhotoView photo={photo} generation={generation}/><span className="photo-name">{photo.name}</span></button>)}</div>{preview && <PhotoPreview photo={preview} generation={generation} onClose={() => setPreview(null)}/>}</>;
+  return <><div className="photo-strip">{photos.map(photo => <button className="photo-tile" key={photo.id} aria-label={tr('预览维护图片 ') + photo.name} onClick={() => setPreview(photo)}><PhotoView photo={photo} generation={generation}/><span className="photo-name">{photo.name}</span></button>)}</div>{preview && <PhotoPreview photo={preview} generation={generation} onClose={() => setPreview(null)}/>}</>;
 }
 
 function WarrantyPhotos({ photos, generation }: { photos: Photo[]; generation: string }) {
   const [preview, setPreview] = useState<Photo | null>(null);
-  return <><div className="photo-strip">{photos.map(photo => <button className="photo-tile" key={photo.id} aria-label={'预览保障图片 ' + photo.name} onClick={() => setPreview(photo)}><PhotoView photo={photo} generation={generation}/><span className="photo-name">{photo.name}</span></button>)}</div>{preview && <PhotoPreview photo={preview} generation={generation} onClose={() => setPreview(null)}/>}</>;
+  return <><div className="photo-strip">{photos.map(photo => <button className="photo-tile" key={photo.id} aria-label={tr('预览保障图片 ') + photo.name} onClick={() => setPreview(photo)}><PhotoView photo={photo} generation={generation}/><span className="photo-name">{photo.name}</span></button>)}</div>{preview && <PhotoPreview photo={preview} generation={generation} onClose={() => setPreview(null)}/>}</>;
 }
 
 function warrantyRange(item: Warranty) {
-  const start = item.fields.start_date ?? '起日期未知';
-  const end = item.fields.end_date ?? '止日期未知';
+  const start = item.fields.start_date ?? tr('起日期未知');
+  const end = item.fields.end_date ?? tr('止日期未知');
   return `${start} – ${end}`;
 }
 
@@ -46,7 +47,7 @@ export function AssetOverview({ page, filtered }: { page: Page; filtered: boolea
   const known = held.filter(r => r.asset.price_cents !== null);
   const total = known.reduce((sum, r) => sum + BigInt(r.asset.price_cents!), 0n);
   const unknown = held.length - known.length, sold = counted.length - held.length;
-  const scope = (filtered ? '筛选结果 · ' : '') + (page.total > page.items.length ? '本页' : '');
+  const scope = (filtered ? tr('筛选结果 · ') : '') + (page.total > page.items.length ? tr('本页') : '');
   return <span className="page-meta asset-overview-line" aria-label={t('当前结果概览')} title={unknown ? t('{unknown} 件金额未知，未计入；不含已售出', { unknown }) : t('不含已售出')}>
     {t('{scope}持有 {length} 件 ·', { scope, length: held.length })} {known.length ? money(total.toString()) : held.length ? t('金额待补充') : money('0')}{unknown ? t('（{unknown} 件未知）', { unknown }) : ''}{sold ? t(' · 已售出 {sold} 件', { sold }) : ''}
   </span>;
@@ -55,19 +56,19 @@ export function AssetOverview({ page, filtered }: { page: Page; filtered: boolea
 // 单位成本：按天为日均，按次为每次；列表「日均」列与检视器共用。
 export function unitCostText(record: AssetRecord) {
   const perUse = record.preferences?.cost_mode === 'per_use', unit = perUse ? record.per_use_cents ?? null : record.costs.daily_cents;
-  return unit === null ? '—' : unitMoney(unit) + (perUse ? ' / 次' : '');
+  return unit === null ? '—' : unitMoney(unit) + (perUse ? tr(' / 次') : '');
 }
 
 export function AssetFacts({ record }: { record: AssetRecord }) {
   const c = record.costs;
   const perUse=record.preferences?.cost_mode==='per_use',unitCost=perUse?record.per_use_cents??null:c.daily_cents;
-  const unitLabel=perUse?'单次使用成本':record.sale ? '售出后净日均' : '日均持有成本';
+  const unitLabel=perUse?tr('单次使用成本'):record.sale ? tr('售出后净日均') : tr('日均持有成本');
   return <><div className="inspector-metrics"><div title={perUse?t('已记录 {v1} 次使用', { v1: record.preferences?.use_count??0 }):record.sale ? t('净生命周期成本 ÷ 持有天数') : t('购入与已记录维护费用 ÷ 持有天数')}><span>{unitLabel}</span><strong>{unitMoney(unitCost)}{unitCost !== null && <small>/{perUse?t('次'):t('天')}</small>}</strong></div><div><span>{perUse?t('已使用'):t('已持有')}</span><strong>{perUse?`${record.preferences?.use_count??0}`:c.held_days === null ? '—' : c.held_days.toLocaleString(numberLocale())}<small>{perUse?t('次'):t('天')}</small></strong></div></div>
     <dl className="facts"><dt>{t('购入')}</dt><dd>{money(record.asset.price_cents)} · {record.asset.purchase_date || t('日期待补充')}</dd><dt>{t('维护')}</dt><dd>{money(c.known_maintenance_cents)}</dd>{(record.warranty_summary?.total ?? 0) > 0 && <><dt>{t('保障')}</dt><dd className={record.warranty_summary?.expiring_count ? 'warn' : undefined}>{warrantySummaryText(record.warranty_summary)}</dd></>}{record.sale && <><dt>{t('净成本')}</dt><dd>{money(c.net_cost_cents)}</dd></>}</dl>
     {c.unknown_maintenance_count > 0 && <p className="muted small">{t('有 {unknown_maintenance_count} 条维护费用待补录，精确总成本与日均成本暂不显示。', { unknown_maintenance_count: c.unknown_maintenance_count })}</p>}</>;
 }
 
-const heldText = (days: number | null) => days === null ? '待补充' : `${days.toLocaleString(numberLocale())} 天`;
+const heldText = (days: number | null) => days === null ? tr('待补充') : tr('{v1} 天', { v1: days.toLocaleString(numberLocale()) });
 
 // Detail hero card: unit cost beside held days (use count for per-use), then the goal.
 function CostHeadline({ record }: { record: AssetRecord }) {
@@ -82,7 +83,7 @@ function EmptySection({ title, action, onAdd }: { title: string; action: string;
 function GoalCard({ record }: { record: AssetRecord }) {
   const p = record.preferences, c = record.costs;
   if (!p || p.goal.mode === 'none') return null;
-  const perUse = p.cost_mode === 'per_use', cost = record.sale ? c.net_cost_cents : c.total_investment_cents, per = perUse ? '次' : '天';
+  const perUse = p.cost_mode === 'per_use', cost = record.sale ? c.net_cost_cents : c.total_investment_cents, per = perUse ? tr('次') : tr('天');
   const frozen = retiredOn(record.lifecycle), held = frozen ? costs(record.asset, frozen).days : c.held_days;
   const g = c.unknown_maintenance_count > 0 ? null : goalProgress(p, cost, held, record.asset.purchase_date);
   // Frozen goals report the daily cost as of the retirement day, not today's still-falling figure.
@@ -101,7 +102,7 @@ function GoalCard({ record }: { record: AssetRecord }) {
 
 export function AssetDetail({ record, generation, today, taxonomy, onEdit, onLifecycle, onSale, onMaintenance, onWarranty, onOpenWish, onDelete }: { onOpenWish?: (id: string) => void; onDelete?: () => void; taxonomy: TaxonomySnapshot | null; record: AssetRecord; generation: string; today: string; onEdit: () => void; onLifecycle: (action: LifecycleAction) => void; onSale: (mode: SaleDraft['mode']) => void; onMaintenance: (id?: string) => void; onWarranty: (id?: string) => void; }) {
   const warranties = record.warranties ?? [];
-  return <><header className="asset-hero"><Cover record={record} generation={generation} large/><div className="hero-copy"><div className="hero-meta">{taxonomy?.categories.find(c => c.id === record.classification?.category_id)?.name ?? t('未分类')} · <span className="pill" data-state={record.lifecycle?.state ?? 'active'}>{stateLabel(record)}</span></div>{record.label_name&&<span className="pill">{record.label_name}</span>}{(record.warranty_summary.active_count+record.warranty_summary.expiring_count)>0&&<span className="pill">{t('保障中')}</span>}<h2 id="detail-heading" tabIndex={-1}>{record.asset.name}</h2><p className="muted">{[record.details.brand, record.details.model, record.details.notes?.split('\n')[0]].filter(Boolean).join(' · ') || t('一件物品，一段日常')}</p>{record.origin_wishlist && <p className="muted origin-wish">{t('来自心愿「{name}」 ·', { name: record.origin_wishlist.name })} {record.origin_wishlist.estimated_price_cents === null ? t('预计价格未知') : '预计 ' + money(record.origin_wishlist.estimated_price_cents)} {t('· 加入 {v1}', { v1: localDay(new Date(record.origin_wishlist.created_at)) })}{onOpenWish && <button type="button" onClick={() => onOpenWish(record.origin_wishlist!.id)}>{t('查看原心愿')}</button>}</p>}<div className="hero-actions"><button onClick={onEdit}>{t('编辑资料')} <kbd>{modKey()}E</kbd></button><details className="popover-menu" data-popover><summary aria-label={t('记一笔')}>{t('＋ 记一笔')}</summary><div role="menu"><button role="menuitem" onClick={e => { closeMenu(e); onMaintenance(); }}>{t('新增维护')}</button><button role="menuitem" onClick={e => { closeMenu(e); onWarranty(); }}>{t('添加保障')}</button></div></details><details className="popover-menu" data-popover><summary aria-label={t('更多操作')} title={t('更多操作')}>⋯</summary><div role="menu">{record.lifecycle?.state !== 'sold' && <button role="menuitem" onClick={e => { closeMenu(e); onLifecycle({type:'append',kind:record.lifecycle?.state === 'retired' ? 'activate' : 'retire',date:today,notes:''}); }}>{record.lifecycle?.state === 'retired' ? t('重新启用…') : t('退役…')}</button>}{!record.sale && <button role="menuitem" onClick={e => { closeMenu(e); onSale('sell'); }}>{t('售出…')}</button>}{onDelete && <><hr/><button role="menuitem" className="danger" onClick={e => { closeMenu(e); onDelete(); }}>{t('删除物品…')}</button></>}</div></details></div></div><CostHeadline record={record}/></header>
+  return <><header className="asset-hero"><Cover record={record} generation={generation} large/><div className="hero-copy"><div className="hero-meta">{taxonomy?.categories.find(c => c.id === record.classification?.category_id)?.name ?? t('未分类')} · <span className="pill" data-state={record.lifecycle?.state ?? 'active'}>{stateLabel(record)}</span></div>{record.label_name&&<span className="pill">{record.label_name}</span>}{(record.warranty_summary.active_count+record.warranty_summary.expiring_count)>0&&<span className="pill">{t('保障中')}</span>}<h2 id="detail-heading" tabIndex={-1}>{record.asset.name}</h2><p className="muted">{[record.details.brand, record.details.model, record.details.notes?.split('\n')[0]].filter(Boolean).join(' · ') || t('一件物品，一段日常')}</p>{record.origin_wishlist && <p className="muted origin-wish">{t('来自心愿「{name}」 ·', { name: record.origin_wishlist.name })} {record.origin_wishlist.estimated_price_cents === null ? t('预计价格未知') : tr('预计 ') + money(record.origin_wishlist.estimated_price_cents)} {t('· 加入 {v1}', { v1: localDay(new Date(record.origin_wishlist.created_at)) })}{onOpenWish && <button type="button" onClick={() => onOpenWish(record.origin_wishlist!.id)}>{t('查看原心愿')}</button>}</p>}<div className="hero-actions"><button onClick={onEdit}>{t('编辑资料')} <kbd>{modKey()}E</kbd></button><details className="popover-menu" data-popover><summary aria-label={t('记一笔')}>{t('＋ 记一笔')}</summary><div role="menu"><button role="menuitem" onClick={e => { closeMenu(e); onMaintenance(); }}>{t('新增维护')}</button><button role="menuitem" onClick={e => { closeMenu(e); onWarranty(); }}>{t('添加保障')}</button></div></details><details className="popover-menu" data-popover><summary aria-label={t('更多操作')} title={t('更多操作')}>⋯</summary><div role="menu">{record.lifecycle?.state !== 'sold' && <button role="menuitem" onClick={e => { closeMenu(e); onLifecycle({type:'append',kind:record.lifecycle?.state === 'retired' ? 'activate' : 'retire',date:today,notes:''}); }}>{record.lifecycle?.state === 'retired' ? t('重新启用…') : t('退役…')}</button>}{!record.sale && <button role="menuitem" onClick={e => { closeMenu(e); onSale('sell'); }}>{t('售出…')}</button>}{onDelete && <><hr/><button role="menuitem" className="danger" onClick={e => { closeMenu(e); onDelete(); }}>{t('删除物品…')}</button></>}</div></details></div></div><CostHeadline record={record}/></header>
     <div className="detail-columns"><div className="detail-primary">
       <article className="ui-card detail-panel"><h3>{t('购买与投入')}</h3><dl className="facts facts-grid"><dt>{t('购入日期')}</dt><dd>{record.asset.purchase_date || t('待补充')}</dd><dt>{t('购买渠道')}</dt><dd>{taxonomy?.channels.find(c => c.id === record.classification?.channel_id)?.name ?? t('未记录')}</dd><dt>{t('购入金额')}</dt><dd>{money(record.asset.price_cents)}</dd>{originText(record) && <><dt>{t('原币价格')}</dt><dd>{originText(record)}</dd></>}<dt>{t('维护投入')}</dt><dd>{money(record.costs.known_maintenance_cents)}</dd><dt>{t('总投入')}</dt><dd>{money(record.costs.total_investment_cents)}</dd>{record.sale ? <><dt>{t('净成本')}</dt><dd>{money(record.costs.net_cost_cents)}</dd></> : record.preferences?.cost_mode === 'per_use' && <><dt>{t('持有时长')}</dt><dd>{heldText(record.costs.held_days)}</dd></>}<dt>{t('序列号')}</dt><dd>{record.details.serial_number || t('待补充')}</dd></dl><p className="muted small">{record.preferences?.cost_mode==='per_use'?t('总投入除以已记录次数；售出后使用净成本。'):t('按自然日计算，包含购入当天；售出后截止到售出日。')}</p>{record.costs.unknown_maintenance_count > 0 && <p className="muted small">{t('有 {unknown_maintenance_count} 条维护费用待补录，精确总成本与日均成本暂不显示。', { unknown_maintenance_count: record.costs.unknown_maintenance_count })}</p>}<div className="detail-notes"><h3>{t('关于这件物品')}</h3><p className="notes">{record.details.notes || t('还没有备注。记下购买的缘由，或使用中的小细节。')}</p></div></article>
 

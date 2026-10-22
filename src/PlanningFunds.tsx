@@ -15,7 +15,7 @@ import type { Account, Snapshot } from './wealth';
 import { t } from './i18n.ts';
 /** Account purposes never change factual balances or infer policy releases. */
 export function FundsEditor({ d, patch, frozen, snapshot, accounts, live, focusIds }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; snapshot: Snapshot | null; accounts: Account[]; live: boolean; hideHpf?: boolean; focusIds?: Set<string>; accountsOnly?: boolean }) {
-  const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? `${kindLabel(kind)}（历史账户）`;
+  const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? t('{v1}（历史账户）', { v1: kindLabel(kind) });
   const assets = snapshot?.entries.filter(e => e.counted && e.side === 'asset') ?? [];
   const update = (id: string, v: Partial<Draft['funds'][number]>) => patch({ funds: d.funds.map(f => f.account_id === id ? { ...f, ...v } : f) });
   return <>

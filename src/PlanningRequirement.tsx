@@ -5,7 +5,7 @@ import type { BasicCapabilities, PlanningMissing } from './plan';
 import type { CapabilityResult } from './planning-basic-port';
 import { missingOwners, missingAction, missingText, requirementLine, returnDropText, returnRiseText, returnBasisText } from './planning-basic-view';
 import { t } from './i18n.ts';
-const monthText = (m: string) => `${m.slice(0, 4)} 年 ${Number(m.slice(5, 7))} 月`;
+const monthText = (m: string) => t('{v1} 年 {v2} 月', { v1: m.slice(0, 4), v2: Number(m.slice(5, 7)) });
 const yuanOf = forecastMoney;
 
 /** Each missing item says what is unknown and which owner fixes it; one action per owner, never a UUID list. */

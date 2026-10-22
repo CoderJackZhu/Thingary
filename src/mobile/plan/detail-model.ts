@@ -40,8 +40,8 @@ export function fundsChart(pred: PredictionValue, mode: "today" | "nominal" = "t
       labels: points.map((p) => p.label),
       xs: points.map((p) => p.month),
       series: [
-        { name: "预计资金", values: points.map((p) => p.projected) },
-        { name: "所需资金", values: points.map((p) => p.required), color: "var(--muted)", dashed: true, area: false },
+        { name: t('预计资金'), values: points.map((p) => p.projected) },
+        { name: t('所需资金'), values: points.map((p) => p.required), color: "var(--muted)", dashed: true, area: false },
       ],
       marker: at < 0 ? undefined : { at, label: t('预计停工') },
       shade:
@@ -60,7 +60,7 @@ export function yearCard(row: { period: string | null; year: number; age: number
   const title = `${row.period ?? row.year}${row.marks.length ? ` · ${row.marks.join("/")}` : ""}`;
   return {
     title,
-    age: row.age === null ? "" : `${row.age}岁`,
+    age: row.age === null ? "" : t('{age}岁', { age: row.age }),
     end: row.end,
     unfunded: row.unfunded,
     hasGap: row.unfunded > 0,

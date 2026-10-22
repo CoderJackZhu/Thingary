@@ -67,7 +67,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
     if (draft) port.previewReview(pair, toDraft(draft), generation).then(v => {
       if (!live) return;
       if (v.status === 'ready' && v.value.generation === generation) setPreviewRead({ key: draftKey, value: v.value });
-      else setPreviewError(v.status === 'ready' ? '资料库已变化，请关闭后重读。' : v.message);
+      else setPreviewError(v.status === 'ready' ? tr('资料库已变化，请关闭后重读。') : v.message);
     }).catch(e => { if (live) setPreviewError(e instanceof Error ? e.message : String(e)); });
     return () => { live = false; };
   }, [port, generation, pair.from_snapshot_id, pair.to_snapshot_id, draftKey, movementsEnabled]);
@@ -125,19 +125,19 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
       setIntent(null);
       try { if (await reread()) { setPhase('idle'); onClose(true); return; } }
       catch (e) { void e; }
-      setPhase('saved'); setNotice('已保存，刷新失败：请关闭后重新打开核对，不要重复提交。');
+      setPhase('saved'); setNotice(tr('已保存，刷新失败：请关闭后重新打开核对，不要重复提交。'));
     } catch (e) { if (mounted.current) setIssues([{ path: '', code: 'SAVE_ERROR', message: e instanceof Error ? e.message : String(e) }]); } finally { lock.current = false; if (mounted.current) setPhase(p => p === 'saving' ? 'idle' : p); }
   }
 
   const preview = previewRead?.key === draftKey ? previewRead.value : read?.status === 'ready' ? read.value.preview : null;
   const previewReady = previewRead?.key === draftKey;
   const result = previewReady ? preview?.result : null;
-  const totals = (t: { inflow_cents: string | null; outflow_cents: string | null } | null) => !t ? null : `转入 ${t.inflow_cents === null ? '未知' : formatCents(t.inflow_cents)} · 转出 ${t.outflow_cents === null ? '未知' : formatCents(t.outflow_cents)}`;
+  const totals = (t: { inflow_cents: string | null; outflow_cents: string | null } | null) => !t ? null : tr('转入 {v1} · 转出 {v2}', { v1: t.inflow_cents === null ? '未知' : formatCents(t.inflow_cents), v2: t.outflow_cents === null ? '未知' : formatCents(t.outflow_cents) });
   return <dialog ref={dialogRef} className="pfu-dialog pfu-review-dialog" aria-labelledby="pfu-review-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(phase === 'saved'); }}>
     <form noValidate onSubmit={e => { e.preventDefault(); if (draft) void saveDraft(draft); }}>
       <header className="pfu-dialog-head">
         <div><p className="pfu-eyebrow">{tr('财富 · 财务复盘')}</p><h3 id="pfu-review-heading">{tr('核对区间资金')}</h3>
-          {preview && <p className="pfu-meta">{tr('区间 {v1} · 投资范围 {length} 个账户', { v1: intervalLabel(preview.input.from.date, preview.input.to.date), length: preview.input.from.members.length })}{preview.review_id !== null ? tr(' · 已有核对记录（{v1}）', { v1: preview.saved_mode === 'movements' ? '明细汇总' : '手填合计' }) : tr(' · 尚无核对记录')}</p>}</div>
+          {preview && <p className="pfu-meta">{tr('区间 {v1} · 投资范围 {length} 个账户', { v1: intervalLabel(preview.input.from.date, preview.input.to.date), length: preview.input.from.members.length })}{preview.review_id !== null ? tr(' · 已有核对记录（{v1}）', { v1: preview.saved_mode === 'movements' ? tr('明细汇总') : tr('手填合计') }) : tr(' · 尚无核对记录')}</p>}</div>
         <button type="button" className="pfu-close" aria-label={tr('关闭区间核对')} disabled={busy} onClick={() => onClose(phase === 'saved')}>×</button>
       </header>
       {!read ? <p className="pfu-state" role="status">{tr('正在读取核对方式…')}</p>
@@ -209,10 +209,10 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
 
 /** 核对状态与假设确认分开：这里说明区间核对来源的确认情况。 */
 function confirmationChip(preview: ReviewPreviewV1): string {
-  if (preview.confirmation === 'unavailable') return '明细核对暂不可用：资金流动记录已关闭，原方式保留；没有读取明细或确认完整性。';
-  if (preview.confirmation === 'confirmed') return '本区间已确认记全；相关流动或来源变化后需要重新确认。';
-  if (preview.confirmation === 'needs_review') return '相关流动、端点或来源已变化，请重新确认；原有确认已失效。';
-  return '本区间尚未确认；投资损益未知，不显示就绪结果。';
+  if (preview.confirmation === 'unavailable') return tr('明细核对暂不可用：资金流动记录已关闭，原方式保留；没有读取明细或确认完整性。');
+  if (preview.confirmation === 'confirmed') return tr('本区间已确认记全；相关流动或来源变化后需要重新确认。');
+  if (preview.confirmation === 'needs_review') return tr('相关流动、端点或来源已变化，请重新确认；原有确认已失效。');
+  return tr('本区间尚未确认；投资损益未知，不显示就绪结果。');
 }
 
 /** A changed library or interval starts a fresh editor; old async work stays unmounted. */

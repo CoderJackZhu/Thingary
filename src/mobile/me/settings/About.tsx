@@ -53,7 +53,7 @@ export default function About({ page }: { page: Extract<SettingsPage, 'about' | 
     </Card>
     <aside className="star-card" aria-label={t('支持物谱')}><span className="star-card-mark" aria-hidden="true">⭐</span><p>{t('物谱是个人开源项目，每颗 ⭐ 都是继续做下去的动力。')}</p><SupportLink target="project">{t('去 GitHub 点个 Star')}</SupportLink></aside>
     <ListGroup title={t('帮助与项目')} footer={t('网页链接在浏览器中打开，需要联网。')}>
-      {([['site', '产品主页'], ['guide', '使用指南'], ['feedback', '问题反馈'], ['project', '项目源码']] as const).map(([target, label]) => <p key={target} className="me-link-row"><SupportLink target={target}>{label}</SupportLink></p>)}
+      {([['site', t('产品主页')], ['guide', t('使用指南')], ['feedback', t('问题反馈')], ['project', t('项目源码')]] as const).map(([target, label]) => <p key={target} className="me-link-row"><SupportLink target={target}>{label}</SupportLink></p>)}
     </ListGroup>
     <Block title={t('隐私与资料安全')}>
       <p>{t('没有账号，资料保存在这台手机，应用不上传资料，使用完全离线。')}</p>

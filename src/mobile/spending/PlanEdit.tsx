@@ -51,11 +51,11 @@ function Form({ generation, plan, link }: { generation: string; plan: Plan | nul
         // The plan is saved; a failed backfill must not save it again, so the page stops offering 保存.
         const range = backfillRange(saved, fields.amount_cents, generation, today, crypto.randomUUID());
         if (range) try { await submit({ command: 'recurring_payment_range_save', input: range, label: t('{name} 往期付款补记', { name: fields.name }) }); }
-        catch (cause) { setLate(true); throw new Error('计划已保存，但自动补记没有完成：' + (cause instanceof Error ? cause.message : errorMessage(cause)) + ' 请返回后打开这条计划，用「补记往期付款」补上。'); }
+        catch (cause) { setLate(true); throw new Error(t('计划已保存，但自动补记没有完成：') + (cause instanceof Error ? cause.message : errorMessage(cause)) + t(' 请返回后打开这条计划，用「补记往期付款」补上。')); }
       }
     }, { close: true });
   }
-  function remove() { if (plan) void saver.run(requestId => trash('plan', plan.id, plan.revision, generation, `计划 ${plan.fields.name}`, requestId), { close: true }); }
+  function remove() { if (plan) void saver.run(requestId => trash('plan', plan.id, plan.revision, generation, t('计划 {name}', { name: plan.fields.name }), requestId), { close: true }); }
   const frozen = saver.busy || late;
   return <EditorFrame title={plan ? t('编辑计划') : t('新增计划')} onSave={save} busy={saver.busy} canSave={!late} error={problem || (asking ? '' : saver.error)}>
     <p className="sp-note sp-note-pad">{t('改动只影响尚未记录的期；已确认的付款保持原样。删除计划会连同付款记录一起移入最近删除，可以恢复。')}</p>

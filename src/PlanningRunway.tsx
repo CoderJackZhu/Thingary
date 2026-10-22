@@ -19,7 +19,7 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
   const useManual = manual || !funds;
   const balance = useManual ? cents(start) : funds?.status === 'ready' ? Number(funds.value.available_cents) : null;
   const anchor = useManual ? date : funds?.status === 'ready' ? funds.value.date : '';
-  const dateError = balance !== null && (!validDate(anchor) || anchor > today) ? '请选择有效的截至日，不能晚于今天。' : null;
+  const dateError = balance !== null && (!validDate(anchor) || anchor > today) ? t('请选择有效的截至日，不能晚于今天。') : null;
   const incomeCents = none ? 0 : cents(income), spendCents = cents(spend), floorCents = cents(floor);
   const out = useMemo(() => balance !== null && !dateError && incomeCents !== null && spendCents !== null
     ? runway({ start_cents: balance, income_cents: incomeCents, spend_cents: spendCents, floor_cents: floorCents, months })

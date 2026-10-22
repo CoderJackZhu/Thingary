@@ -42,7 +42,7 @@ export function BackupSecurity({ demo, blocked, onStatusChange, onBusyChange }: 
     if (actionLock.current || blocked || demo) return;
     actionLock.current = true; setBusy(true); setActionError('');
     try { const value = await action(); if (alive.current) onDone?.(value); }
-    catch (e) { if (alive.current) { if ((e as { code?: string })?.code === 'CANCELLED') { closeSetup('cancel'); setActionError('已取消本次备份，原成品保留。加密策略可能已验证提交，请核对当前最新状态与首份备份结果。'); } else setActionError(errorMessage(e)); } }
+    catch (e) { if (alive.current) { if ((e as { code?: string })?.code === 'CANCELLED') { closeSetup('cancel'); setActionError(t('已取消本次备份，原成品保留。加密策略可能已验证提交，请核对当前最新状态与首份备份结果。')); } else setActionError(errorMessage(e)); } }
     finally { actionLock.current = false; if (alive.current) { setBusy(false); void reload(); } }
   }
   async function withBackupTask<T>(action: (taskId: string) => Promise<T>): Promise<T> {
@@ -55,11 +55,11 @@ export function BackupSecurity({ demo, blocked, onStatusChange, onBusyChange }: 
   async function cancelTask() {
     const task = activeTaskRef.current;
     if (!task || task.requested) return;
-    task.requested = true; setTaskNotice('正在请求取消，请等待原操作收尾');
+    task.requested = true; setTaskNotice(t('正在请求取消，请等待原操作收尾'));
     try {
       const accepted = await invoke<boolean>('backup_task_cancel', { taskId: task.id });
-      if (alive.current && activeTaskRef.current?.id === task.id) setTaskNotice(accepted ? '正在取消，请等待清理' : '本次操作已发布或完成，请等待原结果');
-    } catch { if (alive.current && activeTaskRef.current?.id === task.id) setTaskNotice('未能确认取消请求，请等待原操作结果'); }
+      if (alive.current && activeTaskRef.current?.id === task.id) setTaskNotice(accepted ? t('正在取消，请等待清理') : t('本次操作已发布或完成，请等待原结果'));
+    } catch { if (alive.current && activeTaskRef.current?.id === task.id) setTaskNotice(t('未能确认取消请求，请等待原操作结果')); }
   }
   async function beginSetup() {
     const started = await invoke<KeySetupStarted>('backup_security_begin_setup');
@@ -74,7 +74,7 @@ export function BackupSecurity({ demo, blocked, onStatusChange, onBusyChange }: 
   async function copyKey() {
     if (!setup) return;
     try { await navigator.clipboard.writeText(setup.recovery_key); setCopied(true); setTimeout(() => setCopied(false), 2500); }
-    catch { setActionError('未能复制，请手动选中密钥文本复制。'); }
+    catch { setActionError(t('未能复制，请手动选中密钥文本复制。')); }
   }
   async function saveKeyFile() {
     if (!setup || actionLock.current || blocked || demo) return;
@@ -83,7 +83,7 @@ export function BackupSecurity({ demo, blocked, onStatusChange, onBusyChange }: 
       const id = setup.session_id;
       const path = await invoke<string | null>('backup_security_export_key', { sessionId: id });
       if (alive.current && setupRef.current?.session_id === id && path) setSavedKeyFile(path);
-    } catch (e) { if (alive.current) setActionError('恢复密钥文件未保存：' + errorMessage(e)); }
+    } catch (e) { if (alive.current) setActionError(t('恢复密钥文件未保存：') + errorMessage(e)); }
     finally { actionLock.current = false; if (alive.current) setBusy(false); }
   }
   const disabled = busy || blocked || demo;
@@ -162,7 +162,7 @@ export function BackupSecurity({ demo, blocked, onStatusChange, onBusyChange }: 
         <button disabled={busy} onClick={() => closeSetup('cancel')}>{t('取消，作废本次密钥')}</button>
         <button className="primary" disabled={disabled || !looksLikeRecoveryKey(reentered).ok} onClick={() => void run(
           () => withBackupTask(taskId => invoke<SecurityStatus>('backup_security_confirm_setup', { sessionId: setup.session_id, keyText: reentered, taskId })),
-          next => { setupRef.current = null; setSetup(null); setReentered(''); setSavedKeyFile(null); if (next.first_backup?.state === 'failed') setActionError('加密已开启，但首份加密备份失败：' + (next.first_backup.state === 'failed' ? next.first_backup.message : '')); },
+          next => { setupRef.current = null; setSetup(null); setReentered(''); setSavedKeyFile(null); if (next.first_backup?.state === 'failed') setActionError(t('加密已开启，但首份加密备份失败：') + (next.first_backup.state === 'failed' ? next.first_backup.message : '')); },
         )}>{t('验证并开启加密')}</button>
       </div>
       <p className="muted">{t('验证通过后会立即生成首份加密备份，即使资料没有变化。验证成功不等于备份成功，两者分别显示。')}</p>

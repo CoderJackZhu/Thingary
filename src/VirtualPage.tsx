@@ -122,7 +122,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   async function stop(item: VirtualAsset) {
     if (!data || stopping || pending || busy) return;
     setStopping(true);
-    try { await submit({ command: 'virtual_save', input: { request_id: crypto.randomUUID(), generation: data.generation, id: item.id, expected_revision: item.revision, fields: { ...item.fields, stopped_on: today } } as VirtualSave, label: '停用 ' + item.fields.name }); reload(); }
+    try { await submit({ command: 'virtual_save', input: { request_id: crypto.randomUUID(), generation: data.generation, id: item.id, expected_revision: item.revision, fields: { ...item.fields, stopped_on: today } } as VirtualSave, label: tt('停用 ') + item.fields.name }); reload(); }
     catch (e) { setError(errorMessage(e)); setPending(storedPending()); }
     finally { setStopping(false); }
   }
@@ -158,7 +158,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
             <div className={selected && !linkedDetail ? "virtual-browser has-inspector" : "virtual-browser"}><article className="ui-card ui-content"><div className="ui-section-head"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? tt('找到 {length} 条 · ', { length: shown.length }) : ''}{tt('点名称或行查看详情；在详情中明确编辑')}</span></div>
               {!shown.length ? <p className="muted">{keyword ? <>{tt('当前条件下没有找到记录。')}<button onClick={() => onSearch('')}>{tt('清除搜索')}</button></> : tt('这一类目前没有虚拟资产。')}</p> : <table className="ui-table virtual-table"><thead><tr><SortHeader field="name" label={tt('名称')} sort={sort} onSort={setSort} /><SortHeader field="price" label={tt('金额')} sort={sort} onSort={setSort} sortLabel={tt('每期价格或单次金额（未年化原始金额；周期不同不代表负担可比）')} /><SortHeader field="end" label={tt('期限与付款安排')} sort={sort} onSort={setSort} sortLabel={tt('结束日期（无结束日期置后）')} /><SortHeader field="status" label={tt('状态')} sort={sort} onSort={setSort} /><SortHeader field="spent" label={tt('累计费用')} sort={sort} onSort={setSort} sortLabel={tt('累计费用（估算或实际投入）')} /></tr></thead><tbody>
                 {shown.map(v => <tr key={v.id} tabIndex={0} aria-selected={selectedId === v.id} onClick={() => { if (!maintenance && !pending && !busy) { setSelectedId(v.id); setTopupFocus(null); } }} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (!maintenance && !pending && !busy) { setSelectedId(v.id); setTopupFocus(null); } } }} className={v.status === 'stopped' ? 'closed' : undefined}>
-                  <td><button className="link-cell" disabled={!!pending || busy || stopping || maintenance} onClick={e => { e.stopPropagation(); setSelectedId(v.id); setTopupFocus(null); }} aria-label={'查看 ' + v.fields.name + ' 详情'}>{v.fields.name}</button>{(v.label_name || v.fields.provider || v.plan_name) && <small className="muted">{[v.label_name, v.fields.provider, v.plan_name && v.plan_name !== v.fields.name && `付款计划「${v.plan_name}」`].filter(Boolean).join(' · ')}</small>}</td>
+                  <td><button className="link-cell" disabled={!!pending || busy || stopping || maintenance} onClick={e => { e.stopPropagation(); setSelectedId(v.id); setTopupFocus(null); }} aria-label={tt('查看 ') + v.fields.name + tt(' 详情')}>{v.fields.name}</button>{(v.label_name || v.fields.provider || v.plan_name) && <small className="muted">{[v.label_name, v.fields.provider, v.plan_name && v.plan_name !== v.fields.name && tt('付款计划「{plan_name}」', { plan_name: v.plan_name })].filter(Boolean).join(' · ')}</small>}</td>
                   <AmountCell v={v} />
                   <td>{validityText(v)}{v.plan && billingOf(v) === 'subscription' && <small className="muted">{paymentScheduleText(v)}</small>}{billingOf(v) === 'topup' && <small className="muted">{paymentScheduleText(v)}</small>}</td>
                   <td><span className="virtual-state" data-state={v.status}>{virtualStatusText(v)}{v.status === 'stopped' && v.fields.stopped_on ? ` · ${v.fields.stopped_on}` : ''}</span>{v.needs_review && <small className="muted"> {tt('停用待核对')}</small>}{v.payment_due && <button className="ui-link" disabled={!!pending || busy || stopping || maintenance} onClick={e => { e.stopPropagation(); pay(v); }}>{tt('记录付款')}</button>}</td>
@@ -180,7 +180,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
     {resuming && <ResumeSubscriptionDialog plan={resuming.plan} link={resuming.link} today={today} onClose={closed} />}
     {reviewing && data && <LinkReviewDialog assetId={reviewing.id} planId={reviewing.fields.plan_id!} assetName={reviewing.fields.name} assetRevision={reviewing.revision} planRevision={reviewing.plan!.revision} stoppedOn={reviewing.fields.stopped_on} today={today} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
     {unifying && data && <UnifyNameDialog assetId={unifying.id} planId={unifying.fields.plan_id!} assetName={unifying.fields.name} planName={unifying.plan!.fields.name} assetRevision={unifying.revision} planRevision={unifying.plan!.revision} fields={unifying.plan!.fields} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
-    {groupDelete && data && <LinkDeleteDialog side="virtual" id={groupDelete.id} name={groupDelete.name} generation={data.generation} onClose={saved => { setGroupDelete(null); if (saved) { setEditing(null); reload(); } refocusHeading(); }} onDone={(groupId, name) => { setEditing(null); offerUndo(`已整组删除「${name}」。`, async () => { await undoLinkDelete(groupId); }); reload(); }} />}
+    {groupDelete && data && <LinkDeleteDialog side="virtual" id={groupDelete.id} name={groupDelete.name} generation={data.generation} onClose={saved => { setGroupDelete(null); if (saved) { setEditing(null); reload(); } refocusHeading(); }} onDone={(groupId, name) => { setEditing(null); offerUndo(tt('已整组删除「{name}」。', { name }), async () => { await undoLinkDelete(groupId); }); reload(); }} />}
   </section>;
 }
 
@@ -193,7 +193,7 @@ function AmountCell({ v }: { v: VirtualAsset }) {
   const mode = billingOf(v);
   if (mode === 'subscription') {
     const cents = v.plan?.fields.amount_cents ?? null;
-    return <td className="amount">{cents != null ? <>{money(cents)}<span className="muted">／{v.plan!.fields.interval_days ? tt('{interval_days}天', { interval_days: v.plan!.fields.interval_days }) : ({ 1: '月', 3: '季', 6: '半年', 12: '年' } as Record<number, string>)[v.plan!.fields.interval_months] ?? tt('期')}</span>{v.status !== 'future' && !v.plan!.fields.interval_days && v.plan!.fields.interval_months > 1 && v.plan!.monthly_cents != null && <small className="muted">{tt('月均 {v1}', { v1: money(v.plan!.monthly_cents) })}</small>}</> : <span className="muted">{tt('待补充')}</span>}</td>;
+    return <td className="amount">{cents != null ? <>{money(cents)}<span className="muted">／{v.plan!.fields.interval_days ? tt('{interval_days}天', { interval_days: v.plan!.fields.interval_days }) : ({ 1: tt('月'), 3: tt('季'), 6: tt('半年'), 12: tt('年') } as Record<number, string>)[v.plan!.fields.interval_months] ?? tt('期')}</span>{v.status !== 'future' && !v.plan!.fields.interval_days && v.plan!.fields.interval_months > 1 && v.plan!.monthly_cents != null && <small className="muted">{tt('月均 {v1}', { v1: money(v.plan!.monthly_cents) })}</small>}</> : <span className="muted">{tt('待补充')}</span>}</td>;
   }
   if (mode === 'topup') return <td className="amount"><small className="muted">{tt('按充值实付')}</small></td>;
   return <td className="amount">{v.fields.price_cents != null ? <>{money(v.fields.price_cents)}<small className="muted"> {tt('单次')}</small></> : <span className="muted">{tt('待补充')}</span>}</td>;
@@ -259,15 +259,15 @@ function TopupMaintenance({ data, item, today, disabled, focus, onSaved, onError
   const startEdit = (t: TopupRecord) => { creditTouched.current = t.fields.credit_cents != null; setEditing({ id: t.id, fields: { ...t.fields } }); };
   async function saveTopup() {
     if (!editing) return;
-    if (!editing.fields.paid_cents && !editing.fields.gift_cents && !editing.fields.credit_cents && autoCredit == null) { onError('请至少填写实付、赠送或到账额度中的一项。'); return; }
+    if (!editing.fields.paid_cents && !editing.fields.gift_cents && !editing.fields.credit_cents && autoCredit == null) { onError(tt('请至少填写实付、赠送或到账额度中的一项。')); return; }
     const credit = editing.fields.credit_cents ?? autoCredit;
     // 空串统一为 null：未知实付不落成 0（设计 §6）。
     const clean = (v: string | null) => (v === '' ? null : v);
     setBusy(true);
     try {
-      await submit({ command: 'virtual_topup_save', input: { request_id: crypto.randomUUID(), generation: data.generation, asset_id: item.id, id: editing.id, expected_revision: editing.id ? (topups.find(t => t.id === editing.id)?.revision ?? null) : null, fields: { ...editing.fields, paid_cents: clean(editing.fields.paid_cents ?? null), gift_cents: clean(editing.fields.gift_cents ?? null), credit_cents: clean(credit) } }, label: (editing.id ? '更正充值 ' : '新增充值 ') + item.fields.name });
+      await submit({ command: 'virtual_topup_save', input: { request_id: crypto.randomUUID(), generation: data.generation, asset_id: item.id, id: editing.id, expected_revision: editing.id ? (topups.find(t => t.id === editing.id)?.revision ?? null) : null, fields: { ...editing.fields, paid_cents: clean(editing.fields.paid_cents ?? null), gift_cents: clean(editing.fields.gift_cents ?? null), credit_cents: clean(credit) } }, label: (editing.id ? tt('更正充值 ') : tt('新增充值 ')) + item.fields.name });
       setEditing(null); onSaved();
-    } catch (e) { if (e instanceof Unresolved) { setEditing(null); onError('保存结果未确认，请核对后继续。'); } else onError(e instanceof Error ? e.message : errorMessage(e)); }
+    } catch (e) { if (e instanceof Unresolved) { setEditing(null); onError(tt('保存结果未确认，请核对后继续。')); } else onError(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
   const [balanceDraft, setBalanceDraft] = useState<{ cents: string; date: string; notes: string } | null>(null);
@@ -282,12 +282,12 @@ function TopupMaintenance({ data, item, today, disabled, focus, onSaved, onError
     finally { setBusy(false); }
   }
   async function saveBalance() {
-    if (!balanceDraft || !balanceDraft.cents) { onError('请填写剩余额度。'); return; }
+    if (!balanceDraft || !balanceDraft.cents) { onError(tt('请填写剩余额度。')); return; }
     setBusy(true);
     try {
-      await submit({ command: 'virtual_balance_save', input: { request_id: crypto.randomUUID(), generation: data.generation, asset_id: item.id, id: item.balance?.id ?? null, expected_revision: item.balance?.revision ?? null, balance_cents: balanceDraft.cents, recorded_on: balanceDraft.date, notes: balanceDraft.notes }, label: '记录余额 ' + item.fields.name });
+      await submit({ command: 'virtual_balance_save', input: { request_id: crypto.randomUUID(), generation: data.generation, asset_id: item.id, id: item.balance?.id ?? null, expected_revision: item.balance?.revision ?? null, balance_cents: balanceDraft.cents, recorded_on: balanceDraft.date, notes: balanceDraft.notes }, label: tt('记录余额 ') + item.fields.name });
       setBalanceDraft(null); onSaved();
-    } catch (e) { if (e instanceof Unresolved) { setBalanceDraft(null); onError('保存结果未确认，请核对后继续。'); } else onError(e instanceof Error ? e.message : errorMessage(e)); }
+    } catch (e) { if (e instanceof Unresolved) { setBalanceDraft(null); onError(tt('保存结果未确认，请核对后继续。')); } else onError(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <section className="topup-maintenance" aria-label={tt('充值与余额维护')}>
@@ -319,7 +319,7 @@ function TopupMaintenance({ data, item, today, disabled, focus, onSaved, onError
 }
 
 const blank = (): VirtualFields => ({ name: '', kind: 'general', billing: 'subscription', label_id: null, provider: '', purchase_date: null, price_cents: null, expires: null, plan_id: null, url: '', notes: '', stopped_on: null });
-const providerLabel: Record<string, string> = { license: '软件商', domain: '注册商', subscription: '平台', general: '提供方' };
+const providerLabel: Record<string, string> = { license: tt('软件商'), domain: tt('注册商'), subscription: tt('平台'), general: tt('提供方') };
 
 function VirtualDialog({ item, data, today, onClose, backfill, onGroupDelete, onUnify }: { backfill: boolean; item: VirtualAsset | null; data: VirtualOverview; today: string; onClose: (saved: boolean, warning?: string | null) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (item: VirtualAsset) => void }) {
   // 旧记录两页名称可能不同：仅原本统一（或新建）时才一起改计划名（设计 §4）。
@@ -354,11 +354,11 @@ function VirtualDialog({ item, data, today, onClose, backfill, onGroupDelete, on
   const dirty = !!item && (renewal !== initialRenewal || renewalFrom !== (item.plan?.renewal_from ?? '') || specialOn !== !!item.plan?.special_end || specialEnd !== (item.plan?.special_end ?? '') || (simple ? JSON.stringify(simpleState) !== JSON.stringify(initialSimple) : JSON.stringify(planFields) !== JSON.stringify(item.plan?.fields ?? null)) || JSON.stringify({ ...f, billing: billingOf(item), pay_method: f.pay_method ?? null }) !== JSON.stringify({ ...item.fields, billing: billingOf(item) }));
   async function save() {
     if (!dialog.current?.querySelector("form")?.reportValidity()) return;
-    if (!f.name.trim()) { setNotice('请填写名称。'); document.getElementById('virtual-name')?.focus(); return; }
+    if (!f.name.trim()) { setNotice(tt('请填写名称。')); document.getElementById('virtual-name')?.focus(); return; }
     const fields: VirtualFields = { ...f, name: f.name.trim(), perpetual, ...(isSubscription && !legacyLink ? { purchase_date: planFields.service_start && planFields.service_start <= today ? planFields.service_start : null, price_cents: null, expires: null } : {}), ...(mode === 'topup' ? { price_cents: null, plan_id: null, perpetual: false } : {}) };
-    if (isSubscription && !legacyLink && (!planFields.amount_cents || planFields.amount_cents === '0')) { setNotice('请填写每期金额。'); document.querySelector<HTMLElement>('dialog [aria-label="每期金额"]')?.focus(); return; }
-    if (mode === 'single' && item?.fields.kind === 'license' && !fields.stopped_on && !perpetual && !fields.expires) { setNotice('旧买断软件未设期限时按永久有效解释；有限期授权请填有效至，不再使用请选已结束使用。'); return; }
-    if (mode === 'single' && perpetual && fields.expires) { setNotice('选择永久有效时不要填写有效至。'); return; }
+    if (isSubscription && !legacyLink && (!planFields.amount_cents || planFields.amount_cents === '0')) { setNotice(tt('请填写每期金额。')); document.querySelector<HTMLElement>('dialog [aria-label="每期金额"]')?.focus(); return; }
+    if (mode === 'single' && item?.fields.kind === 'license' && !fields.stopped_on && !perpetual && !fields.expires) { setNotice(tt('旧买断软件未设期限时按永久有效解释；有限期授权请填有效至，不再使用请选已结束使用。')); return; }
+    if (mode === 'single' && perpetual && fields.expires) { setNotice(tt('选择永久有效时不要填写有效至。')); return; }
     const renewalLoad = isSubscription && !legacyLink ? (renewal === initialRenewal && renewalFrom !== (item?.plan?.renewal_from ?? '') ? renewal : renewalPayload(initialRenewal, renewal)) : null;
     const input: VirtualSave = {
       ...(isSubscription && ((item?.plan && !item.plan_deleted) || !item) ? { plan: { id: item?.plan?.id ?? null, expected_revision: item?.plan?.revision ?? null, fields: { ...(legacyLink ? planFieldsState : planFields), name: namesUnified || !item ? fields.name : item.plan!.fields.name, category: planFields.category || 'subscription' } } } : {}),
@@ -374,7 +374,7 @@ function VirtualDialog({ item, data, today, onClose, backfill, onGroupDelete, on
   const switchMode = (next: BillingMode) => {
     if (item && billingOf(item) !== next) {
       const hadFacts = billingOf(item) === 'topup' ? (item.topup_count ?? 0) > 0 : billingOf(item) === 'subscription' ? !!item.fields.plan_id : !!item.fields.price_cents;
-      if (hadFacts) { setNotice('已有付款或充值事实的档案不能更换计费方式；请保留原方式或新建档案。'); return; }
+      if (hadFacts) { setNotice(tt('已有付款或充值事实的档案不能更换计费方式；请保留原方式或新建档案。')); return; }
     }
     setF(x => ({ ...x, billing: next }));
   };
@@ -435,11 +435,11 @@ function VirtualDialog({ item, data, today, onClose, backfill, onGroupDelete, on
 }
 
 function subscriptionSummary(f: PlanFields, today: string): string {
-  if (!f.service_start) return '填写开始日期后显示首期与付款摘要。';
+  if (!f.service_start) return tt('填写开始日期后显示首期与付款摘要。');
   const parts: string[] = [];
-  if (f.trial_days) parts.push(`试用至 ${shiftDays(f.service_start, f.trial_days - 1)}，计费开始 ${shiftDays(f.service_start, f.trial_days)}`);
-  parts.push(f.end_date ? `使用至 ${f.end_date}` : '持续续费，无结束日期');
-  if (f.end_date && f.end_date < today) parts.push('已结束，无后续付款');
+  if (f.trial_days) parts.push(tt('试用至 {v1}，计费开始 {v2}', { v1: shiftDays(f.service_start, f.trial_days - 1), v2: shiftDays(f.service_start, f.trial_days) }));
+  parts.push(f.end_date ? tt('使用至 {end_date}', { end_date: f.end_date }) : tt('持续续费，无结束日期'));
+  if (f.end_date && f.end_date < today) parts.push(tt('已结束，无后续付款'));
   return parts.join('；') + '。';
 }
 

@@ -46,7 +46,7 @@ export function useSectionSaver(sources: PlanningSources, reload: () => void, on
   const revision = sources.profile.status === 'ready' ? sources.profile.value.saved?.revision ?? null : null;
   async function save(input: SectionInput, expected: number | null = revision): Promise<{ revision: number } | null> {
     if (lock.current || stuck) return null;
-    if (storedPending()) { setNotice('还有提交结果待核对，请先在页面上核对原请求。'); onPending(); return null; }
+    if (storedPending()) { setNotice(t('还有提交结果待核对，请先在页面上核对原请求。')); onPending(); return null; }
     lock.current = true; setBusy(true); setNotice('');
     try {
       const saved = await savePlanningSection({ ...input, request_id: crypto.randomUUID(), generation: sources.generation, expected_revision: expected } as ProfileUpdate);

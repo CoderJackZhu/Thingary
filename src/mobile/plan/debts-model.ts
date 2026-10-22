@@ -37,9 +37,9 @@ export function debtSummary(
     pending,
     changed,
     text: t('已有贷款 {length} 笔 · {v2}', { length: rows.length, v2: pending
-        ? "还款待确认"
+        ? t('还款待确认')
         : changed
-          ? `${changed} 笔余额变了，请复核`
-          : "还款已确认" }),
+          ? t('{changed} 笔余额变了，请复核', { changed })
+          : t('还款已确认') }),
   };
 }

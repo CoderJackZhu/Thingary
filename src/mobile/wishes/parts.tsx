@@ -45,7 +45,7 @@ export function useReceipts(generation: string | null, onSettled: (outcome: Sett
     setBusy(true); session.setBusy(true); setNotice('');
     try {
       const outcome = await resolveOp(op, generation);
-      setNotice(outcome.status === 'saved' ? `已确认「${op.label}」已保存。` : outcome.status === 'unsaved' ? `已确认「${op.label}」没有保存，请重新操作。` : outcome.status === 'stale' ? '资料库已切换，上次请求不属于当前资料，已放弃。' : outcome.message);
+      setNotice(outcome.status === 'saved' ? t('已确认「{label}」已保存。', { label: op.label }) : outcome.status === 'unsaved' ? t('已确认「{label}」没有保存，请重新操作。', { label: op.label }) : outcome.status === 'stale' ? t('资料库已切换，上次请求不属于当前资料，已放弃。') : outcome.message);
       if (outcome.status !== 'unknown') onSettled(outcome);
     } finally { setBusy(false); session.setBusy(false); refresh(); }
   }
@@ -107,7 +107,7 @@ export type IconChoice = { kind: 'default' } | { kind: 'material'; entry: Materi
 const sources: { id: MaterialSource; label: string }[] = [{ id: 'icon', label: t('图标') }, { id: 'dimensional', label: t('立体图标') }, { id: 'recent', label: t('最近') }, { id: 'custom', label: t('我的图片') }];
 /** 图标与素材：复用 materials.ts 的图标库，选择结果由 onUse 准备成封面（与电脑端一致）。 */
 export function IconSheet({ generation, photos, cover, onUse, onClose }: { generation: string; photos: Photo[]; cover: string | null; onUse: (choice: IconChoice) => Promise<void>; onClose: () => void }) {
-  const [source, setSource] = useState<MaterialSource>('icon'), [category, setCategory] = useState('全部'), [search, setSearch] = useState('');
+  const [source, setSource] = useState<MaterialSource>('icon'), [category, setCategory] = useState(t('全部')), [search, setSearch] = useState('');
   const [entries, setEntries] = useState<MaterialEntry[]>([]), [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [reload, setReload] = useState(0);
   const [recent] = useState(() => { try { return readRecentMaterials(localStorage, generation); } catch { return []; } });
   const lock = useRef(false);
@@ -139,7 +139,7 @@ export function IconSheet({ generation, photos, cover, onUse, onClose }: { gener
   return <Sheet title={t('图标与素材')} onClose={() => { if (!busy) onClose(); }} cancelLabel={t('取消')}>
     <div className="w-sheet-stack">
       <p>{t('给它一个一眼就能认出的样子；素材是示意图，不是实物照片。')}</p>
-      <ChipRow label={t('图片来源')} items={sources} value={source} onChange={id => { setSource(id as MaterialSource); setCategory('全部'); setSearch(''); }}/>
+      <ChipRow label={t('图片来源')} items={sources} value={source} onChange={id => { setSource(id as MaterialSource); setCategory(t('全部')); setSearch(''); }}/>
       <SearchField subject={source === 'custom' ? t('我的图片') : t('图标')} value={search} disabled={busy} onChange={setSearch}/>
       {(source === 'icon' || source === 'dimensional') && <ChipRow label={t('素材分类')} items={materialCategories.map(name => ({ id: name, label: name }))} value={category} onChange={setCategory}/>}
       {error && <Notice tone="danger">{error}</Notice>}
@@ -148,9 +148,9 @@ export function IconSheet({ generation, photos, cover, onUse, onClose }: { gener
       {source === 'custom' && <Button disabled={busy} onClick={() => void choosePhoto()}>{t('从相册选择图片')}</Button>}
       {loading ? <Loading label={t('正在读取素材…')}/> : <div className="w-materials">
         {source === 'icon' && category === '全部' && !search && <button type="button" className="w-material" aria-pressed={defaultSelected} aria-label={t('选择默认箱子图标')} disabled={busy} onClick={() => void apply({ kind: 'default' })}><img src={boxArt} alt=""/><span>{t('默认图标')}</span></button>}
-        {visible.map(entry => <button type="button" key={entry.id} className="w-material" aria-label={'选择图标：' + entry.name} disabled={busy} onClick={() => void apply({ kind: 'material', entry })}>
+        {visible.map(entry => <button type="button" key={entry.id} className="w-material" aria-label={t('选择图标：') + entry.name} disabled={busy} onClick={() => void apply({ kind: 'material', entry })}>
           {entry.builtin ? <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt(entry.id))} alt=""/> : <PhotoView photo={{ id: entry.id, name: entry.name }} generation={generation} compact/>}<span>{entry.name}</span></button>)}
-        {own.map(photo => <button type="button" key={photo.id} className="w-material" aria-pressed={cover === photo.id} aria-label={'选择档案图片：' + photo.name} disabled={busy} onClick={() => void apply({ kind: 'photo', photo })}><PhotoView photo={photo} generation={generation} compact/><span>{photo.name}</span></button>)}
+        {own.map(photo => <button type="button" key={photo.id} className="w-material" aria-pressed={cover === photo.id} aria-label={t('选择档案图片：') + photo.name} disabled={busy} onClick={() => void apply({ kind: 'photo', photo })}><PhotoView photo={photo} generation={generation} compact/><span>{photo.name}</span></button>)}
       </div>}
       {!loading && !loadError && !visible.length && !own.length && <p role="status">{search ? t('没有匹配的图标，换个关键词试试。') : source === 'recent' ? t('使用过的素材会出现在这里。') : source === 'custom' ? t('当前心愿的图片会出现在这里。') : t('这个分类暂时没有素材。')}</p>}
     </div>

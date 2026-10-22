@@ -1,6 +1,6 @@
 import type { BasicCapabilities } from './plan-basic-contract.ts';
 import { monthIndexV1, monthTextV1 } from './plan-simplified.ts';
-
+import { t } from './i18n.ts';
 /** Mirrors `goal_progress::Point`: every figure may be unknown, and unknown is never zero. */
 export type GoalProgressPoint = {
   mode: 'fire' | 'traditional';
@@ -44,10 +44,10 @@ export function goalProgressPoint(caps: BasicCapabilities, mode: string, targetM
 
 /** What the saved estimate meant on that day, in the words of the goal page. */
 export function goalProgressVerdict(p: GoalProgressPoint, money: (cents: string) => string): string {
-  if (p.success === null) return '当时没有每月能存的估计，只算了需要多少';
-  if (p.mode === 'fire') return p.predicted_retire_month ? `预计 ${p.predicted_retire_month} 退休` : '规划终点前尚未达成';
-  if (p.success) return '按当时投入，目标期间可覆盖';
-  return p.shortfall_at_goal_cents ? `按当时投入，目标年龄时还差 ${money(p.shortfall_at_goal_cents)}` : '按当时投入，尚未满足完整目标';
+  if (p.success === null) return t('当时没有每月能存的估计，只算了需要多少');
+  if (p.mode === 'fire') return p.predicted_retire_month ? t('预计 {predicted_retire_month} 退休', { predicted_retire_month: p.predicted_retire_month }) : t('规划终点前尚未达成');
+  if (p.success) return t('按当时投入，目标期间可覆盖');
+  return p.shortfall_at_goal_cents ? t('按当时投入，目标年龄时还差 {v1}', { v1: money(p.shortfall_at_goal_cents) }) : t('按当时投入，尚未满足完整目标');
 }
 
 const diff = (a: string | null, b: string | null): number | null => a === null || b === null ? null : Number(b) - Number(a);
@@ -55,8 +55,8 @@ const diff = (a: string | null, b: string | null): number | null => a === null |
 export function goalProgressChange(previous: GoalProgressEntry, latest: GoalProgressEntry, money: (cents: string) => string): string {
   const parts: string[] = [];
   const need = diff(previous.point.required_monthly_cents, latest.point.required_monthly_cents);
-  if (need !== null && need !== 0) parts.push(`需要每月存${need < 0 ? '少了' : '多了'} ${money(String(Math.abs(need)))}`);
+  if (need !== null && need !== 0) parts.push(t('需要每月存{v1} {v2}', { v1: need < 0 ? '少了' : '多了', v2: money(String(Math.abs(need))) }));
   const funds = diff(previous.point.available_cents, latest.point.available_cents);
-  if (funds !== null && funds !== 0) parts.push(`可用资金${funds > 0 ? '增加' : '减少'} ${money(String(Math.abs(funds)))}`);
-  return parts.length ? `较上次盘点（${previous.date}）：${parts.join('，')}。` : `较上次盘点（${previous.date}）没有可比的变化。`;
+  if (funds !== null && funds !== 0) parts.push(t('可用资金{v1} {v2}', { v1: funds > 0 ? '增加' : '减少', v2: money(String(Math.abs(funds))) }));
+  return parts.length ? t('较上次盘点（{date}）：{v2}。', { date: previous.date, v2: parts.join('，') }) : t('较上次盘点（{date}）没有可比的变化。', { date: previous.date });
 }

@@ -12,7 +12,7 @@ import type { AnalysisViewState, TagInvestmentView, TagScope } from './tag-inves
 import { t as tt } from './i18n.ts';
 export type { AnalysisViewState } from './tag-investment';
 
-const stateText: Record<string, string> = { active: '使用中', retired: '已退役', sold: '已售出' };
+const stateText: Record<string, string> = { active: tt('使用中'), retired: tt('已退役'), sold: tt('已售出') };
 
 export function TagInvestment({ state, version, onScope, onSearch, onMore, onOpenAsset, onBackToList, onFocused }: {
   state: AnalysisViewState;
@@ -78,8 +78,8 @@ export function TagInvestmentBody({ state, view, loading, error, onRetry, onScop
   return <section className="tag-investment" aria-label={tt('标签投入分析')}>
     <HeaderSlot>
       <div className="segmented tag-scope" role="group" aria-label={tt('投入统计范围')}>
-        {scopeButton('all', '历史全部')}
-        {scopeButton('held', '当前持有')}
+        {scopeButton('all', tt('历史全部'))}
+        {scopeButton('held', tt('当前持有'))}
       </div>
       <Info text={tt('按标签汇总物品整个生命周期的购入与有效维护，售出回收单列；不含最近删除，已设置“不计入统计”的物品只计件数。')} />
     </HeaderSlot>
@@ -125,7 +125,7 @@ export function TagInvestmentBody({ state, view, loading, error, onRetry, onScop
                     const bar = complete ? percentBar(view.totals.known_investment_cents, item.known_investment_cents) : null;
                     const investment = item.complete_investment_cents != null
                       ? money(item.complete_investment_cents)
-                      : item.has_known_investment ? `已知 ${money(item.known_investment_cents)} · 待补录` : '待补录';
+                      : item.has_known_investment ? tt('已知 {v1} · 待补录', { v1: money(item.known_investment_cents) }) : tt('待补录');
                     const maintenance = maintenanceCellText(item);
                     return <tr key={item.id}>
                       <td>

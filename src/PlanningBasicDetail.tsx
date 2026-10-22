@@ -23,9 +23,9 @@ import type { PlanningFollowupPortV1 } from './planning-followup-contract';
 import './retire.css';
 import { t } from './i18n.ts';
 type Saved = NonNullable<ProfileState['saved']>
-const incomeModeText = { unconfirmed: '还没确认收入计入方式', excluded: '本次不计未来收入', manual: '手填的未来收入' } as const;
-const treatmentText = { included: '已含在总预算', extra: '另外计入', excluded: '本次不计' } as const;
-const contributionText = (cents: string | null) => { const s = amountState(cents); return s === 'unknown' ? '以后再估计' : s === 'zero' ? '每月存 0 元（本次估计）' : `${money(cents!)}/月`; };
+const incomeModeText = { unconfirmed: t('还没确认收入计入方式'), excluded: t('本次不计未来收入'), manual: t('手填的未来收入') } as const;
+const treatmentText = { included: t('已含在总预算'), extra: t('另外计入'), excluded: t('本次不计') } as const;
+const contributionText = (cents: string | null) => { const s = amountState(cents); return s === 'unknown' ? t('以后再估计') : s === 'zero' ? t('每月存 0 元（本次估计）') : t('{v1}/月', { v1: money(cents!) }); };
 
 /** Basic-plan detail: the requirement stays visible; prediction and risk tools open only for an explicit saved or trial contribution. */
 export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onEvents, onBack, assumptionsPort, advancedOpen = false, onAdvancedOpenChange }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onEvents: () => void; onBack: () => void; assumptionsPort?: PlanningFollowupPortV1; advancedOpen?: boolean; onAdvancedOpenChange?: (open: boolean) => void }) {
@@ -111,16 +111,16 @@ const Rows = ({ rows }: { rows: [string, ReactNode][] }) => <dl className="rs-ro
 function BasicSidebar({ saved, caps, openSetup, contribution }: { saved: Saved; caps: BasicCapabilities | null; openSetup: (step: number, from?: HTMLElement | null) => void; contribution: ReactNode }) {
   const p = saved.profile, r = p.retire, b = r.basic!;
   const funds = caps?.funds;
-  const scope = (id: string) => { const c = b.retirement_costs.find(x => x.source_id === id); return c ? treatmentText[c.treatment] : '这笔钱是否已含在生活费里，待确认'; };
+  const scope = (id: string) => { const c = b.retirement_costs.find(x => x.source_id === id); return c ? treatmentText[c.treatment] : t('这笔钱是否已含在生活费里，待确认'); };
   return <div className="rd-side">
     <Card title={t('目标与预算')} onEdit={el => openSetup(0, el)}>
-      <Rows rows={[['计划类型', r.mode === 'fire' ? '财务自由' : '按月份退休'], ['目标月份', r.simplified.time.target_month ?? '未设定'], [r.simplified.time.reference?.age_months === 0 ? '出生年月' : '年龄参考', r.simplified.time.reference ? r.simplified.time.reference.age_months === 0 ? r.simplified.time.reference.month : `${r.simplified.time.reference.month} 时 ${ageText(r.simplified.time.reference.age_months)}` : '未填写（可选）'], ['退休后每月预算', r.spend_cents === null ? '未填写' : money(r.spend_cents)], ['应急金参考线', `${r.emergency_months} 个月`]]}/>
+      <Rows rows={[[t('计划类型'), r.mode === 'fire' ? t('财务自由') : t('按月份退休')], [t('目标月份'), r.simplified.time.target_month ?? t('未设定')], [r.simplified.time.reference?.age_months === 0 ? t('出生年月') : t('年龄参考'), r.simplified.time.reference ? r.simplified.time.reference.age_months === 0 ? r.simplified.time.reference.month : t('{month} 时 {v2}', { month: r.simplified.time.reference.month, v2: ageText(r.simplified.time.reference.age_months) }) : t('未填写（可选）')], [t('退休后每月预算'), r.spend_cents === null ? t('未填写') : money(r.spend_cents)], [t('应急金参考线'), t('{emergency_months} 个月', { emergency_months: r.emergency_months })]]}/>
       {(r.spend_items.length > 0 || Number(r.rent_cents) > 0) && <><p className="muted small">{t('已有的支出明细（阶段性支出可在「每月生活费」一步增删）：')}</p>
         <ul className="rs-list">{r.spend_items.map(i => <li key={i.id}><span>{i.label}<small>{i.essential ? t('必需') : t('灵活')} · {scope(`spend:${i.id}`)}</small></span><b>{t('{v1}/月', { v1: money(i.monthly_cents) })}</b></li>)}
           {Number(r.rent_cents) > 0 && <li><span>{t('房租')}<small>{scope('rent')}</small></span><b>{t('{v1}/月', { v1: money(r.rent_cents) })}</b></li>}</ul></>}
     </Card>
     <Card title={t('资金起点')} onEdit={el => openSetup(2, el)}>
-      {funds?.status === 'ready' ? <Rows rows={[['来源', funds.value.kind === 'simulation' ? '手填金额' : '实际盘点'], ['截至', funds.value.date], ['可以动用', money(funds.value.available_cents)], ['暂不能动用 / 欠款', `${money(funds.value.restricted_cents)} / ${money(funds.value.debt_cents)}`]]}/> : funds ? <ul className="plan-missing-list">{funds.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul> : <p className="muted small">{t('读取中…')}</p>}
+      {funds?.status === 'ready' ? <Rows rows={[[t('来源'), funds.value.kind === 'simulation' ? t('手填金额') : t('实际盘点')], [t('截至'), funds.value.date], [t('可以动用'), money(funds.value.available_cents)], [t('暂不能动用 / 欠款'), `${money(funds.value.restricted_cents)} / ${money(funds.value.debt_cents)}`]]}/> : funds ? <ul className="plan-missing-list">{funds.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul> : <p className="muted small">{t('读取中…')}</p>}
     </Card>
     <Card title={t('未来收入')} onEdit={el => openSetup(3, el)} tip={t('官方工具的测算结果或其他手填收入假设；不在本应用计算领取资格。')}>
       <p>{incomeModeText[r.simplified.income_mode]}</p>
@@ -128,7 +128,7 @@ function BasicSidebar({ saved, caps, openSetup, contribution }: { saved: Saved; 
     </Card>
     {contribution}
     <Card title={t('更多假设')} onEdit={el => openSetup(5, el)} tip={t('全部是假设，不是事实。收益按扣除通胀后的实际收益填写。')}>
-      <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', r.simplified.time.horizon_month ?? '未设定']]}/>
+      <Rows rows={[[t('退休前 / 后实际收益'), `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], [t('通胀'), rateText(p.assumptions.inflation_hundredths)], [t('规划终点'), r.simplified.time.horizon_month ?? t('未设定')]]}/>
     </Card>
 
   </div>;

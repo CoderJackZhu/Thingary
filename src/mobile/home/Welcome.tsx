@@ -39,18 +39,18 @@ export default function Welcome(_props: PageProps) {
   }
   async function start(choice: StartChoice) {
     if (lock.current || busy) return;
-    if (blocked()) { setError('有未完成的操作或待核对的保存结果，请先处理后再开始。'); return; }
-    if (choice === 'combined' && modules && !modules.wealth) { setError('账户与盘点已关闭，请先在我的 › 设置 › 功能模块中打开后再盘点。'); return; }
+    if (blocked()) { setError(t('有未完成的操作或待核对的保存结果，请先处理后再开始。')); return; }
+    if (choice === 'combined' && modules && !modules.wealth) { setError(t('账户与盘点已关闭，请先在我的 › 设置 › 功能模块中打开后再盘点。')); return; }
     lock.current = true; setBusy(true); setError('');
     try {
       if (hideExtras) {
         const payload = starterModules(modules as RuntimeModules, modules !== null);
-        if (!payload) { setHideExtras(false); setError('模块开关尚未可靠读取，本次没有隐藏辅助模块。再点一次「开始记录」会直接开始，也可在设置中重新读取开关后再试。'); return; }
+        if (!payload) { setHideExtras(false); setError(t('模块开关尚未可靠读取，本次没有隐藏辅助模块。再点一次「开始记录」会直接开始，也可在设置中重新读取开关后再试。')); return; }
         try { await invoke<RuntimeModules>('modules_set', payload); reload(); }
         catch (cause) {
           setHideExtras(false);
           try { await invoke<RuntimeModules>('modules_get'); reload(); } catch { /* the original failure is the one to report */ }
-          setError('辅助模块设置未完成：' + errorMessage(cause) + ' 再点一次「开始记录」会直接开始，起步选择会保留。');
+          setError(t('辅助模块设置未完成：') + errorMessage(cause) + t(' 再点一次「开始记录」会直接开始，起步选择会保留。'));
           return;
         }
       }
@@ -61,7 +61,7 @@ export default function Welcome(_props: PageProps) {
   }
   async function sample() {
     if (lock.current || busy) return;
-    if (blocked()) { setError('有未完成的操作或待核对的保存结果，请先处理后再查看样例。'); return; }
+    if (blocked()) { setError(t('有未完成的操作或待核对的保存结果，请先处理后再查看样例。')); return; }
     lock.current = true; setBusy(true); setError('');
     try { await invoke('switch_demo', { demo: true }); location.reload(); }
     catch (cause) { setError(errorMessage(cause)); lock.current = false; setBusy(false); }
@@ -77,7 +77,7 @@ export default function Welcome(_props: PageProps) {
     <div className="h-welcome-brand"><span className="h-logo"><LogoMark maskId="welcome-logo"/></span><span>{t('物谱')}</span></div>
     <h1 className="h-welcome-title">{t('记下每件东西，')}<br/>{t('算清还要上几年班')}</h1>
     <div className="h-welcome-cards">
-      {([['camera', 'accent', '物品档案', '拍照建档、保修提醒、日均成本'], ['doc', 'positive', '账户盘点', '每月一次，看清家底'], ['chart', 'warn', '规划', '还要上几年班，两个人一起算']] as const).map(([icon, tone, title, text]) =>
+      {([['camera', 'accent', t('物品档案'), t('拍照建档、保修提醒、日均成本')], ['doc', 'positive', t('账户盘点'), t('每月一次，看清家底')], ['chart', 'warn', t('规划'), t('还要上几年班，两个人一起算')]] as const).map(([icon, tone, title, text]) =>
         <Card key={title}><div className="h-feature"><span className={`m-row-icon m-tone-${tone} h-feature-icon`}><Icon name={icon} size={22}/></span><div><strong>{title}</strong><p>{text}</p></div></div></Card>)}
     </div>
     <p className="h-privacy"><Icon name="shield" size={16}/>{t('资料只存在这台手机，没有账号，不联网。')}</p>

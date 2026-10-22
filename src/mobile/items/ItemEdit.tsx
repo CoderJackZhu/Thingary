@@ -52,10 +52,10 @@ export default function ItemEdit({ params }: PageProps) {
   useEffect(() => {
     const settled = session.settled;
     if (!settled || settled.command !== 'save_asset' || !('base' in settled.input) || !submitted.current || !catalog || settled.input.base.request_id !== submitted.current || settled.input.base.generation !== catalog.generation) return;
-    session.setNotice?.('已确认物品保存，请核对保存后的档案。');
+    session.setNotice?.(t('已确认物品保存，请核对保存后的档案。'));
     const request = submitted.current;
     let live = true;
-    invoke<AssetRecord | null>('saved_request', { request, generation: catalog.generation }).then(async record => { if (live && record) { await keepOrigin(record); setSavedId(record.asset.id); } }).catch(cause => { if (live) setNotice(errorMessage(cause) + ' 请重试读取保存后的物品。'); });
+    invoke<AssetRecord | null>('saved_request', { request, generation: catalog.generation }).then(async record => { if (live && record) { await keepOrigin(record); setSavedId(record.asset.id); } }).catch(cause => { if (live) setNotice(errorMessage(cause) + t(' 请重试读取保存后的物品。')); });
     return () => { live = false; };
   }, [session.settled, catalog]);
   const cur = currencyCode(draft?.fields.currency);
@@ -91,16 +91,16 @@ export default function ItemEdit({ params }: PageProps) {
   async function upload(files: FileList | null) {
     if (!files?.length || !draft || !catalog || lock.current || disabled) return;
     const list = Array.from(files);
-    if (list.length + draft.photos.length > 20) { setPhotoError('最多保存 20 张图片，请减少所选图片。'); return; }
-    if (list.some(file => file.size > 20 * 1024 * 1024)) { setPhotoError('每张图片不得超过 20 MiB。'); return; }
+    if (list.length + draft.photos.length > 20) { setPhotoError(t('最多保存 20 张图片，请减少所选图片。')); return; }
+    if (list.some(file => file.size > 20 * 1024 * 1024)) { setPhotoError(t('每张图片不得超过 20 MiB。')); return; }
     lock.current = true; setLocalBusy(true); session.setBusy(true); setPhotoError('');
     try {
       for (const file of list) {
-        const photo = await invoke<Photo>('import_photo_bytes', { generation: catalog.generation, name: file.name || '拍摄的图片.jpg', bytes: Array.from(new Uint8Array(await file.arrayBuffer())) });
+        const photo = await invoke<Photo>('import_photo_bytes', { generation: catalog.generation, name: file.name || t('拍摄的图片.jpg'), bytes: Array.from(new Uint8Array(await file.arrayBuffer())) });
         setDraft(current => current && ({ ...current, photos: [...current.photos, photo] }));
       }
-      setNotice('图片已准备好，保存物品后生效。');
-    } catch (cause) { setPhotoError(errorMessage(cause) + ' 已成功读取的图片保留，请检查后重试。'); }
+      setNotice(t('图片已准备好，保存物品后生效。'));
+    } catch (cause) { setPhotoError(errorMessage(cause) + t(' 已成功读取的图片保留，请检查后重试。')); }
     finally { lock.current = false; setLocalBusy(false); session.setBusy(false); }
   }
   async function save() {
@@ -110,7 +110,7 @@ export default function ItemEdit({ params }: PageProps) {
     catch (cause) { setNotice(errorMessage(cause)); return; }
     lock.current = true; session.setBusy(true); setNotice(''); submitted.current = input.base.request_id;
     try { const record = await submit<AssetRecord>({ command: 'save_asset', input, label: draft.id ? t('编辑物品') : t('新增物品') }); await keepOrigin(record); setSavedId(record.asset.id); }
-    catch (cause) { setNotice(errorMessage(cause) + ' 当前输入已保留。'); }
+    catch (cause) { setNotice(errorMessage(cause) + t(' 当前输入已保留。')); }
     finally { lock.current = false; session.setBusy(false); session.refreshPending(); }
   }
   async function enableReminder(checked: boolean) {
@@ -145,7 +145,7 @@ export default function ItemEdit({ params }: PageProps) {
       {draft.id && <Notice>{t('保障、维护、售出和退役记录请在物品详情中管理。')}</Notice>}
       <FormGroup><SelectField label={t('成本计算模式')} value={p.cost_mode} options={[{ id: 'daily', label: t('按日计算') }, { id: 'per_use', label: t('按次计算') }]} onChange={value => preferences({ cost_mode: value as AssetPreferences['cost_mode'] })} disabled={disabled}/>{p.cost_mode === 'per_use' && <TextField label={t('已使用次数')} value={String(p.use_count)} inputMode="numeric" disabled={disabled} onChange={value => { if (/^\d{0,10}$/.test(value)) preferences({ use_count: Number(value) }); }}/>}<SelectField label={t('目标设定')} value={p.goal.mode} options={[{ id: 'none', label: t('不设定') }, { id: 'cost', label: t('目标单位成本') }, { id: 'date', label: t('目标日期') }]} disabled={disabled} onChange={value => preferences({ goal: value === 'cost' ? { mode: 'cost', cents: '' } : value === 'date' ? { mode: 'date', date: '' } : { mode: 'none' } })}/>{p.goal.mode === 'cost' && <MoneyField label={t('目标单位成本')} value={p.goal.cents} onChange={cents => preferences({ goal: { mode: 'cost', cents } })} disabled={disabled}/>}{p.goal.mode === 'date' && <DateField label={t('目标日期')} value={p.goal.date} onChange={date => preferences({ goal: { mode: 'date', date } })} disabled={disabled}/>}</FormGroup>
       <details className="m-card m-item-fold" open={foldOpen} onToggle={event => setFoldOpen(event.currentTarget.open)}><summary>{t('品牌 · 型号 · 序列号')}</summary><TextField label={t('品牌')} value={draft.fields.brand} onChange={value => change('brand', value)} disabled={disabled}/><TextField label={t('型号')} value={draft.fields.model} onChange={value => change('model', value)} disabled={disabled}/><TextField label={t('序列号')} value={draft.fields.serial_number} onChange={value => change('serial_number', value)} disabled={disabled}/></details>
-      <FormGroup><FormRow label={t('置顶物品')}><Switch label={t('置顶物品')} checked={p.pinned} onChange={pinned => preferences({ pinned })} disabled={disabled}/></FormRow><FormRow label={t('不计入统计')}><Switch label={t('不计入统计')} checked={Object.values(p.exclude).some(Boolean)} onChange={checked => preferences({ exclude: { total: checked, daily: checked, statistics: checked, timeline: checked } })} disabled={disabled}/></FormRow>{Object.values(p.exclude).some(Boolean) && (['total', 'daily', 'statistics', 'timeline'] as const).map((key, index) => <FormRow key={key} label={['不计入总金额', '不计入日均成本', '不计入统计页面', '不在时间轴显示'][index]}><Switch label={['不计入总金额', '不计入日均成本', '不计入统计页面', '不在时间轴显示'][index]} checked={p.exclude[key]} onChange={checked => preferences({ exclude: { ...p.exclude, [key]: checked } })} disabled={disabled}/></FormRow>)}</FormGroup>
+      <FormGroup><FormRow label={t('置顶物品')}><Switch label={t('置顶物品')} checked={p.pinned} onChange={pinned => preferences({ pinned })} disabled={disabled}/></FormRow><FormRow label={t('不计入统计')}><Switch label={t('不计入统计')} checked={Object.values(p.exclude).some(Boolean)} onChange={checked => preferences({ exclude: { total: checked, daily: checked, statistics: checked, timeline: checked } })} disabled={disabled}/></FormRow>{Object.values(p.exclude).some(Boolean) && (['total', 'daily', 'statistics', 'timeline'] as const).map((key, index) => <FormRow key={key} label={[t('不计入总金额'), t('不计入日均成本'), t('不计入统计页面'), t('不在时间轴显示')][index]}><Switch label={[t('不计入总金额'), t('不计入日均成本'), t('不计入统计页面'), t('不在时间轴显示')][index]} checked={p.exclude[key]} onChange={checked => preferences({ exclude: { ...p.exclude, [key]: checked } })} disabled={disabled}/></FormRow>)}</FormGroup>
       {addSheet && <Sheet title={t('添加图片')} cancelLabel={t('取消')} onClose={() => setAddSheet(false)}><div className="m-item-add-sheet"><Button onClick={() => pickFrom(camera)}>{t('拍照')}</Button><Button onClick={() => pickFrom(album)}>{t('从相册选')}</Button></div></Sheet>}
       {viewing && <PhotoViewer photo={viewing} generation={catalog.generation} onClose={() => setViewing(null)} onRemove={disabled ? undefined : () => { setDraft(current => current && ({ ...current, photos: current.photos.filter(item => item.id !== viewing.id) })); setViewing(null); }}/>}
     </>}

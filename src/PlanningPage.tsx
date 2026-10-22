@@ -72,7 +72,7 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
     if (next === view) return;
     if (viewBlocked) {
       if (onNavigationBlocked) onNavigationBlocked();
-      else setViewNotice(pending ? `上次「${pending.label}」的保存结果未确认，请使用页面上方的核对入口后再切换规划视图。` : '「目标」中的编辑或待确认操作尚未完成，请先关闭表单或处理本页提示，再切换规划视图。');
+      else setViewNotice(pending ? t('上次「{label}」的保存结果未确认，请使用页面上方的核对入口后再切换规划视图。', { label: pending.label }) : t('「目标」中的编辑或待确认操作尚未完成，请先关闭表单或处理本页提示，再切换规划视图。'));
       return;
     }
     if (next === 'detail' && !saved?.profile.retire.basic) return;
@@ -88,7 +88,7 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
     if (reportBlocked || !sources) return;
     reportOpener.current = from; setReportError('');
     try { setCurrentReport({ generation: sources.generation, report: currentReportInput(sources, buildBasicCapabilities(sources), today) }); }
-    catch (error) { setReportError(error instanceof Error ? error.message : '报告生成失败，请重新读取规划。'); }
+    catch (error) { setReportError(error instanceof Error ? error.message : t('报告生成失败，请重新读取规划。')); }
   };
   const closeCurrentReport = () => {
     setCurrentReport(null);

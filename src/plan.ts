@@ -42,9 +42,9 @@ export type ReasonLine = Line;
 export type Reasons = { generation: string; snapshot_id: string; from: string; to: string; notes: string; lines: ReasonLine[] };
 export type Mark = { request_id: string; generation: string; snapshot_id: string; excluded: boolean };
 
-export const statusText: Record<IntervalStatus, string> = { ok: '', scope_changed: '账户范围变化，暂不可比', no_income: '收入未记录' };
+export const statusText: Record<IntervalStatus, string> = { ok: '', scope_changed: tr('账户范围变化，暂不可比'), no_income: tr('收入未记录') };
 export const reasonSourceLabel: Record<string, string> = {
-  purchase: '物品购入', maintenance: '维护', expense: '重要支出', linked: '已并入物品', refund: '退款', sale: '售出回收', payment: '周期付款', virtual: '虚拟资产', topup: '充值',
+  purchase: tr('物品购入'), maintenance: tr('维护'), expense: tr('重要支出'), linked: tr('已并入物品'), refund: tr('退款'), sale: tr('售出回收'), payment: tr('周期付款'), virtual: tr('虚拟资产'), topup: tr('充值'),
 };
 /** 退款与售出是回流，不是支出。 */
 export const reasonIsInflow = (l: ReasonLine) => l.source === 'refund' || l.source === 'sale';
@@ -61,15 +61,15 @@ export function rateText(hundredths: number | null): string {
 /** 复盘「变化」一句话：本区间月储蓄与常态中位数比较。常态为空或不为正时不按比例说。 */
 export function changeSentence(interval: Interval, stats: Stats): string {
   if (interval.status !== 'ok' || interval.monthly_saving_cents === null) return '';
-  if (interval.excluded) return '这一期已标记为一次性变动，不计入常态储蓄。';
+  if (interval.excluded) return tr('这一期已标记为一次性变动，不计入常态储蓄。');
   const usual = stats.median_monthly_saving_cents;
   if (usual === null) return '';
   const m = BigInt(interval.monthly_saving_cents), u = BigInt(usual);
-  if (u <= 0n) return '常态月储蓄不为正，无法按比例比较。';
+  if (u <= 0n) return tr('常态月储蓄不为正，无法按比例比较。');
   const percent = Number(((m - u) * 10000n) / u) / 100;
   const rounded = Math.round(Math.abs(percent));
-  if (rounded < 5) return '本期储蓄与常态基本持平。';
-  return `本期储蓄比常态${percent < 0 ? '少' : '多'} ${rounded}%。`;
+  if (rounded < 5) return tr('本期储蓄与常态基本持平。');
+  return tr('本期储蓄比常态{v1} {rounded}%。', { v1: percent < 0 ? '少' : '多', rounded });
 }
 
 // ---- 以下仅供浏览器预览：与 plan_savings.rs::compute 同一规则，整数运算 ----
@@ -221,7 +221,7 @@ export function latestHpf(rows: { fields: { date: string; hpf_cents: string | nu
 }
 
 /** 年龄（月）显示为「63 岁 1 个月」。 */
-export const ageText = (months: number) => `${Math.floor(months / 12)} 岁${months % 12 ? ` ${months % 12} 个月` : ''}`;
+export const ageText = (months: number) => tr('{v1} 岁{v2}', { v1: Math.floor(months / 12), v2: months % 12 ? ` ${months % 12} 个月` : '' });
 
 /** 区间里的大额一次性支出：物品购入与重要支出，单笔不低于阈值（分）。只用来解释，不改变储蓄统计。 */
 export function largeOneOffs(lines: ReasonLine[], thresholdCents: number): { count: number; total: bigint } {
@@ -237,7 +237,7 @@ export function monthlyWithoutOneOffs(interval: Interval, oneOffs: bigint): bigi
 
 /** Full deposit sum and its completeness share one display rule across review and income list. */
 export function hpfSummary(total: string | null, known: string | null, unknown: number, money: (v: string | null) => string): string {
-  return unknown ? `未知／不完整（已知 ${known === null ? '金额未知' : money(known)}，另有 ${unknown} 条未知）` : money(total);
+  return unknown ? tr('未知／不完整（已知 {v1}，另有 {unknown} 条未知）', { v1: known === null ? '金额未知' : money(known), unknown }) : money(total);
 }
 
 export function incomeHpfTotals(rows: Pick<Income, 'fields'>[]): { total: string | null; known: string | null; unknown: number } {

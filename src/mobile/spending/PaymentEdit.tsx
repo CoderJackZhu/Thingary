@@ -39,7 +39,7 @@ function Form({ overview, detail, due }: { overview: Overview; detail: Subscript
   }
   function remove() {
     if (!record) return;
-    void saver.run(requestId => trash('payment', record.id, record.revision, detail.generation, `${plan.fields.name} ${due} 付款`, requestId), { close: true });
+    void saver.run(requestId => trash('payment', record.id, record.revision, detail.generation, t('{name} {due} 付款', { name: plan.fields.name, due }), requestId), { close: true });
   }
   return <EditorFrame title={record ? t('更正付款记录') : t('确认付款')} onSave={save} busy={saver.busy} error={problem || (asking ? '' : saver.error)}>
     <p className="sp-note sp-note-pad">{t('{name} · {due} 这一期。', { name: plan.fields.name, due })}{record ? t('按这笔记录的实际情况更正。') : t('计划金额 {v1}。', { v1: moneyText(item?.amount_cents ?? plan.fields.amount_cents) })}{coverage ? t(' 对应服务：{v1}。', { v1: periodLabel(coverage[0], coverage[1]) }) : ''}{t('实付日期填真正扣款的那一天；确认付款不会改变账户余额。')}</p>

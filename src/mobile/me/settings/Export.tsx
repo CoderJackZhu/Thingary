@@ -16,7 +16,7 @@ export default function ExportPage() {
     if (state.kind === 'running') return;
     setState({ kind: 'running' });
     try { const done = await shareWorkbook(); setState(done ? { kind: 'done', done } : { kind: 'idle' }); }
-    catch (cause) { setState({ kind: 'error', text: '导出未完成：' + errorMessage(cause) }); }
+    catch (cause) { setState({ kind: 'error', text: t('导出未完成：') + errorMessage(cause) }); }
   }
   return <SettingsShell title={t('导出表格')} lead={t('把物品、账户、盘点、支出和周期费用导出成一份 Excel 工作簿，用来在电脑上查看或自己分析。')}>
     <FormGroup footer={t('导出的表格不是备份，不能用来恢复。要保护资料，请使用「数据管理」里的完整备份。')}><div className="me-pad"><Button variant="primary" block disabled={demo || state.kind === 'running'} onClick={() => void run()}>{state.kind === 'running' ? t('正在导出…') : t('导出并分享表格')}</Button></div></FormGroup>

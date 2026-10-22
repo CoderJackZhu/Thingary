@@ -23,12 +23,12 @@ export function Editor({ account, groups, reloadGroups }: { account: Account | n
   const groupWriter = useWrite(()=>{ setNewGroup(false); reloadGroups(); });
   const set = <K extends keyof AccountFields>(key: K, value: AccountFields[K]) => setFields(old=>({...old,[key]:value}));
   function chooseKind(kind: string) {
-    if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on || account?.fields.purchase_cents != null || account?.fields.purchased_on)) { writer.setError('请先清空并保存购入价和购入日期，再更改类型。'); return; }
+    if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on || account?.fields.purchase_cents != null || account?.fields.purchased_on)) { writer.setError(t('请先清空并保存购入价和购入日期，再更改类型。')); return; }
     setFields(old=>({...selectAccountKind(old,kind,choice.current),...(!holdingSupported(kind)?{holding_mode:false,holding_unit:null}:{})}));
   }
   async function save() {
-    if (!fields.name.trim()) { writer.setError('请填写账户名称。'); return; }
-    if (!validCurrency(currencyCode(fields.currency))) { writer.setError('币种须为三位大写字母。'); return; }
+    if (!fields.name.trim()) { writer.setError(t('请填写账户名称。')); return; }
+    if (!validCurrency(currencyCode(fields.currency))) { writer.setError(t('币种须为三位大写字母。')); return; }
     const normalized = {...fields,...(fields.group_id&&!groups.some(g=>g.id===fields.group_id)?{group_id:null}:{}),name:fields.name.trim(),institution:fields.institution.trim()};
     if (normalized.currency === 'CNY') delete normalized.currency;
     if (!normalized.holding_mode) { delete normalized.holding_mode; delete normalized.holding_unit; }

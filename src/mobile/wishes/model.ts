@@ -17,8 +17,8 @@ export const sortItems: { id: WishlistQuery['sort']; label: string }[] = [{ id: 
 /** 换排序字段时的默认方向，与电脑端一致：计划日期与优先级升序，其余降序。 */
 export const defaultDescending = (sort: WishlistQuery['sort']): boolean => !(sort === 'priority' || sort === 'target');
 export function sortLabel(sort: WishlistQuery['sort'], descending: boolean): string {
-  const name = sortItems.find(item => item.id === sort)?.label ?? '加入日期';
-  const direction = sort === 'created' ? (descending ? '新 → 旧' : '旧 → 新') : sort === 'target' ? (descending ? '晚 → 早' : '早 → 晚') : sort === 'price' ? (descending ? '高 → 低' : '低 → 高') : descending ? '倒序' : '正序';
+  const name = sortItems.find(item => item.id === sort)?.label ?? t('加入日期');
+  const direction = sort === 'created' ? (descending ? t('新 → 旧') : t('旧 → 新')) : sort === 'target' ? (descending ? t('晚 → 早') : t('早 → 晚')) : sort === 'price' ? (descending ? t('高 → 低') : t('低 → 高')) : descending ? t('倒序') : t('正序');
   return `${name} ${direction}`;
 }
 export const isFiltered = (query: WishlistQuery): boolean => !!query.search.trim() || query.filter !== 'all';
@@ -40,11 +40,11 @@ export type SummaryParts = { count: string; amount: string; unknown: string; leg
  */
 export function summaryParts(page: Pick<WishlistPage, 'considering_known_cents' | 'considering_unknown_count' | 'legacy_achieved_count'>, considering: number | null): SummaryParts {
   const unknownCount = page.considering_unknown_count;
-  const count = `考虑中 ${considering ?? '—'} 条`;
+  const count = t('考虑中 {v1} 条', { v1: considering ?? '—' });
   const amount = considering === 0 ? moneyText('0') : considering !== null && unknownCount === considering ? UNKNOWN : moneyText(page.considering_known_cents);
-  const unknown = unknownCount > 0 ? `（${unknownCount} 条价格未知）` : '';
-  const legacy = page.legacy_achieved_count > 0 ? `${page.legacy_achieved_count} 条历史待核实` : '';
-  return { count, amount, unknown, legacy, allUnknown: considering !== null && considering > 0 && unknownCount === considering, main: `${count} · 预计价格合计 ${amount}${unknown}` };
+  const unknown = unknownCount > 0 ? t('（{unknownCount} 条价格未知）', { unknownCount }) : '';
+  const legacy = page.legacy_achieved_count > 0 ? t('{legacy_achieved_count} 条历史待核实', { legacy_achieved_count: page.legacy_achieved_count }) : '';
+  return { count, amount, unknown, legacy, allUnknown: considering !== null && considering > 0 && unknownCount === considering, main: t('{count} · 预计价格合计 {amount}{unknown}', { count, amount, unknown }) };
 }
 
 export const addedDate = (item: WishlistItem): string => item.preferences?.added_date ?? localDay(new Date(item.created_at));
@@ -56,9 +56,9 @@ export function reasonSummary(note: string): string {
 }
 /** 分类名：未分类显示「未分类」；分类资料读不到时不显示，避免把未知当成未分类。 */
 export function categoryName(item: WishlistItem, categories: readonly { id: string; name: string }[] | null): string | null {
-  if (!item.fields.category_id) return '未分类';
+  if (!item.fields.category_id) return t('未分类');
   if (!categories) return null;
-  return categories.find(c => c.id === item.fields.category_id)?.name ?? '未分类';
+  return categories.find(c => c.id === item.fields.category_id)?.name ?? t('未分类');
 }
 export type Tone = 'accent' | 'positive' | 'neutral' | 'warn';
 export const stateTone = (decision: string): Tone => decision === 'purchased' ? 'positive' : decision === 'dropped' ? 'neutral' : decision === 'legacy_achieved' ? 'warn' : 'accent';
@@ -69,7 +69,7 @@ export function cardView(item: WishlistItem, today: string, categories: readonly
   return {
     id: item.id, name: item.fields.name, state: wishDecisionLabel(item.decision_state), tone: stateTone(item.decision_state), category: categoryName(item, categories),
     pinned: !!item.preferences?.pinned, price: cents === null ? null : moneyText(cents), added: dayLabel(addedDate(item), today),
-    plan: item.fields.target_date ? `计划 ${dayLabel(item.fields.target_date, today)}` : `计划日期${NOT_SET}`, overdue: planOverdue(item, today), reason: reasonSummary(item.fields.notes), cover: item.cover,
+    plan: item.fields.target_date ? t('计划 {v1}', { v1: dayLabel(item.fields.target_date, today) }) : t('计划日期{NOT_SET}', { NOT_SET }), overdue: planOverdue(item, today), reason: reasonSummary(item.fields.notes), cover: item.cover,
   };
 }
 /** 列表顶部的提醒：已加载的考虑中心愿里计划日期已过的。 */
@@ -91,15 +91,15 @@ export function detailActions(item: WishlistItem): DetailActions {
     trashHint: item.decision_state === 'purchased' && !!item.converted_asset?.deleted,
   };
 }
-export const assetStateText = (state: string): string => state === 'sold' ? '已售出' : state === 'retired' ? '已退役' : '使用中';
+export const assetStateText = (state: string): string => state === 'sold' ? t('已售出') : state === 'retired' ? t('已退役') : t('使用中');
 /** 考虑替换的物品：购入日期、状态、已有总投入（含维护金额未知的提示）。 */
 export function replacementLine(record: AssetRecord, today: string = localDay()): { text: string; investment: string } {
   const costs = record.costs, unknown = costs.unknown_maintenance_count;
   const investment = moneyText(costs.total_investment_cents);
-  return { text: `${record.asset.purchase_date ? dayLabel(record.asset.purchase_date, today) : '购入日期未知'} · ${assetStateText(record.lifecycle?.state ?? 'active')}`, investment: `已有总投入 ${investment}${unknown > 0 ? `（${unknown} 笔维护金额未知）` : ''}` };
+  return { text: `${record.asset.purchase_date ? dayLabel(record.asset.purchase_date, today) : t('购入日期未知')} · ${assetStateText(record.lifecycle?.state ?? 'active')}`, investment: t('已有总投入 {investment}{v2}', { investment, v2: unknown > 0 ? `（${unknown} 笔维护金额未知）` : '' }) };
 }
 export const linkHost = (link: string): string => { try { return new URL(link).host; } catch { return link; } };
-export const decisionNoteTitle = '为什么不买';
+export const decisionNoteTitle = t('为什么不买');
 
 // ---- 编辑草稿 ----
 /** 分转成输入框里的元文本，不经过浮点数。 */
@@ -129,11 +129,11 @@ export function purchaseSave(draft: PurchaseDraft, today: string, requestId: str
   const { name, price, date, ...details } = draft.fields;
   return { errors, input: { options: { preferences: defaultPreferences() }, classification: draft.classification, base: { request_id: requestId, generation: draft.generation, asset_id: null, expected_revision: null, name, price_cents: inputMoney(price), purchase_date: date || null }, details, photos: { ids: draft.photos.map(p => p.id), cover_id: draft.cover } } };
 }
-export const purchaseHint = (estimate: string | null): string => estimate === null ? '心愿未填预计价格。' : `预计 ${moneyText(estimate)} 仅作参考，不会当作实付金额。`;
+export const purchaseHint = (estimate: string | null): string => estimate === null ? t('心愿未填预计价格。') : t('预计 {v1} 仅作参考，不会当作实付金额。', { v1: moneyText(estimate) });
 
 /** 规划影响下方的覆盖说明，与电脑端 CoverageNote 的紧凑版同一口径。 */
 export function planNotes(annotations: readonly PlanningAnnotation[]): string[] {
   if (!annotations.length) return [];
   const count = actionableAnnotations(annotations).length;
-  return [count ? `有 ${count} 项条件待确认，详见目标页` : '有安排未计入，详见目标页', ...annotationSummary(annotations)];
+  return [count ? t('有 {count} 项条件待确认，详见目标页', { count }) : t('有安排未计入，详见目标页'), ...annotationSummary(annotations)];
 }

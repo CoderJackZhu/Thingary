@@ -30,12 +30,12 @@ export function ResumeSubscriptionDialog({ plan, link, today, onClose }: {
   const dueValid = shiftDays(firstDue, 0) === firstDue && firstDue >= minimum;
   async function save() {
     if (busy || stuck) return;
-    if (!period?.[1] || period[1] < start || start < minimum) { setError('请填写有效的服务生效日期，须晚于上段最后使用日。'); return; }
-    if (!dueValid) { setError('请填写有效的首期计划付款日，须晚于上段最后使用日。'); return; }
-    if (!amount || BigInt(amount) <= 0n) { setError('请填写本次每期价格。'); return; }
+    if (!period?.[1] || period[1] < start || start < minimum) { setError(t('请填写有效的服务生效日期，须晚于上段最后使用日。')); return; }
+    if (!dueValid) { setError(t('请填写有效的首期计划付款日，须晚于上段最后使用日。')); return; }
+    if (!amount || BigInt(amount) <= 0n) { setError(t('请填写本次每期价格。')); return; }
     const input: ResumeSave = { request_id: crypto.randomUUID(), generation: link.generation, plan_id: plan.id, expected_revision: plan.revision, asset_id: link.asset?.id ?? null, asset_expected_revision: link.asset?.revision ?? null, start_date: start, ...(firstDue !== start ? { first_due: firstDue } : {}), ...(replacing ? { replace_pending: true } : {}), amount_cents: amount, interval_months: f.interval_months, interval_days: f.interval_days ?? null };
     setBusy(true); setError('');
-    try { await submit({ command: 'recurring_resume', input, label: '重新订阅 ' + plan.fields.name }); onClose(true); }
+    try { await submit({ command: 'recurring_resume', input, label: t('重新订阅 ') + plan.fields.name }); onClose(true); }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setError(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }

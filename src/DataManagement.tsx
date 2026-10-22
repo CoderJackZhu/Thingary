@@ -10,6 +10,7 @@ import { pendingKey, storedPending, code } from './wealth';
 import { FinancialImportDialog } from './FinancialImportDialog';
 import { preserveImportReceipt } from './financial-import';
 import { t, numberLocale } from './i18n.ts';
+import { t as tr } from './i18n.ts';
 type Summary = { savings_goals?: number; planning_conditions_reset?: boolean; hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; plans: number; payments: number; virtual_assets: number; import_mappings: number; import_receipts: number; files: number };
 type Inspected = { path: string; name: string; encrypted: boolean; token: string | null; summary: Summary | null };
 type Note = { line: number; name: string; reason: string };
@@ -24,7 +25,7 @@ export function storedItemImport(): ItemImportPending | null {
   return null;
 }
 const clearItemImport = () => { try { localStorage.removeItem(itemImportPendingKey); } catch { /* nothing to clear */ } };
-const importSummary = (done: ImportDone) => `已导入 ${done.imported} 件物品` + (done.skipped_duplicates ? `，跳过疑似重复 ${done.skipped_duplicates} 行` : '') + (done.invalid ? `，${done.invalid} 行无效未导入` : '') + '。';
+const importSummary = (done: ImportDone) => tr('已导入 {imported} 件物品', { imported: done.imported }) + (done.skipped_duplicates ? tr('，跳过疑似重复 {skipped_duplicates} 行', { skipped_duplicates: done.skipped_duplicates }) : '') + (done.invalid ? tr('，{invalid} 行无效未导入', { invalid: done.invalid }) : '') + '。';
 /** Read-only: a stored reply confirms the write; null is a definite not-committed for this dataset. */
 async function itemReceipt(input: ItemImportPending): Promise<ImportDone | null> {
   return invoke<ImportDone | null>('item_import_receipt', { input });
@@ -104,11 +105,11 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     const active = activeTaskRef.current;
     if (!active || active.requested) return;
     active.requested = true;
-    setTaskNotice('正在请求取消，请等待原操作收尾');
+    setTaskNotice(tr('正在请求取消，请等待原操作收尾'));
     try {
       const accepted = await invoke<boolean>('backup_task_cancel', { taskId: active.id });
-      if (alive.current && activeTaskRef.current?.id === active.id) setTaskNotice(accepted ? '正在取消，请等待清理' : '本次操作已发布或完成，请等待原结果');
-    } catch { if (alive.current && activeTaskRef.current?.id === active.id) setTaskNotice('未能确认取消请求，请等待原操作结果'); }
+      if (alive.current && activeTaskRef.current?.id === active.id) setTaskNotice(accepted ? tr('正在取消，请等待清理') : tr('本次操作已发布或完成，请等待原结果'));
+    } catch { if (alive.current && activeTaskRef.current?.id === active.id) setTaskNotice(tr('未能确认取消请求，请等待原操作结果')); }
   }
   async function saveTemplate() {
     if (!canStart()) return;
@@ -116,7 +117,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     try {
       const path = await invoke<string | null>('save_spreadsheet_template');
       setTask(path ? { kind: 'done', text: t('模板已保存到 {path}。按表头填写后，用「选择表格…」导入。', { path }) } : { kind: 'idle' });
-    } catch (e) { setTask({ kind: 'error', text: '模板未保存：' + errorMessage(e) }); }
+    } catch (e) { setTask({ kind: 'error', text: tr('模板未保存：') + errorMessage(e) }); }
   }
   async function inspectCsv() {
     if (!canStart()) return;
@@ -124,7 +125,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     try {
       const found = await invoke<CsvPreview | null>('inspect_item_workbook');
       setSheet(found); setWithDuplicates(false); setImportId(crypto.randomUUID()); setTask({ kind: 'idle' });
-    } catch (e) { setTask({ kind: 'error', text: '这个表格不能导入，当前资料未改变：' + errorMessage(e) }); }
+    } catch (e) { setTask({ kind: 'error', text: tr('这个表格不能导入，当前资料未改变：') + errorMessage(e) }); }
   }
   async function commitCsv() {
     if (!sheet || !generation || busy || demo || financeImport || candidate || storedPending() || storedItemImport()) return;
@@ -149,9 +150,9 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
         onImported();
       } else if (checked === null) {
         clearItemImport(); refreshItemPending(n => n + 1); window.dispatchEvent(new Event('thingary-restored'));
-        setTask({ kind: 'error', text: '导入未提交，资料未改变：' + errorMessage(e) });
+        setTask({ kind: 'error', text: tr('导入未提交，资料未改变：') + errorMessage(e) });
       } else {
-        setTask({ kind: 'error', text: '导入结果未知：' + errorMessage(e) + ' 上次操作编号已保留，请点「核对物品导入结果」，不要重新选择同一文件重复导入。' });
+        setTask({ kind: 'error', text: tr('导入结果未知：') + errorMessage(e) + tr(' 上次操作编号已保留，请点「核对物品导入结果」，不要重新选择同一文件重复导入。') });
       }
     }
   }
@@ -169,7 +170,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
         setTask({ kind: 'done', text: t('核对完成：上次没有导入，资料未改变。可重新选择表格导入。') });
       }
     } catch (e) {
-      setTask({ kind: 'error', text: code(e) === 'STALE_DATASET' ? t('已经切换资料，上次操作编号仍保留。请回到原来的资料中核对，不要在这里重复导入同一文件。') : '暂时无法核对，上次操作编号仍保留：' + errorMessage(e) });
+      setTask({ kind: 'error', text: code(e) === 'STALE_DATASET' ? t('已经切换资料，上次操作编号仍保留。请回到原来的资料中核对，不要在这里重复导入同一文件。') : tr('暂时无法核对，上次操作编号仍保留：') + errorMessage(e) });
     }
   }
   async function backup(forcePlaintext = false) {
@@ -182,15 +183,15 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
             ? t('已导出未加密副本「{name}」，位于 {folder}。仅本次例外；自动与额外备份仍按已开启的加密策略执行。', { name: done.name, folder: done.folder })
             : t('已保存并校验「{name}」，位于 {folder}。', { name: done.name, folder: done.folder }) }
         : { kind: 'idle' });
-    } catch (e) { if (alive.current) setTask({ kind: 'error', text: code(e) === 'CANCELLED' ? t('已取消，原成品保留。') : '备份未完成，当前资料未改变：' + errorMessage(e) }); }
+    } catch (e) { if (alive.current) setTask({ kind: 'error', text: code(e) === 'CANCELLED' ? t('已取消，原成品保留。') : tr('备份未完成，当前资料未改变：') + errorMessage(e) }); }
   }
   async function exportAll() {
     if (!canStart()) return;
     setCandidate(null); setTask({ kind: 'running', label: t('正在导出资料表格…') });
     try {
       const done = await invoke<{ path: string; files: { name: string; rows: number }[] } | null>('export_workbook');
-      setTask(done ? { kind: 'done', text: `已导出到 Excel「${done.path}」：${done.files.map(f => `${f.name} ${f.rows} 行`).join('、')}。` } : { kind: 'idle' });
-    } catch (e) { setTask({ kind: 'error', text: '导出未完成：' + errorMessage(e) }); }
+      setTask(done ? { kind: 'done', text: `已导出到 Excel「${done.path}」：${done.files.map(f => tr('{name} {rows} 行', { name: f.name, rows: f.rows })).join('、')}。` } : { kind: 'idle' });
+    } catch (e) { setTask({ kind: 'error', text: tr('导出未完成：') + errorMessage(e) }); }
   }
   async function inspect() {
     if (!canStart()) return;
@@ -201,7 +202,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       if (!alive.current || scopeRef.current !== startedScope) { if (found?.token) void invoke('cancel_backup_session', { token: found.token }).catch(() => undefined); return; }
       if (found) { candidateRef.current = found; setCandidate(found); setUnlockKey(''); }
       setTask({ kind: 'idle' });
-    } catch (e) { if (alive.current) setTask({ kind: 'error', text: code(e) === 'CANCELLED' ? t('已取消，原成品保留。') : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(e) }); }
+    } catch (e) { if (alive.current) setTask({ kind: 'error', text: code(e) === 'CANCELLED' ? t('已取消，原成品保留。') : tr('这个备份不能用于恢复，当前资料未改变：') + errorMessage(e) }); }
   }
   async function unlock() {
     if (!candidate?.encrypted || !candidate.token) return;
@@ -228,7 +229,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       const found = await withBackupTask(taskId => invoke<Inspected>('inspect_auto_backup', { name, taskId }));
       if (!alive.current || scopeRef.current !== startedScope) { if (found.token) void invoke('cancel_backup_session', { token: found.token }).catch(() => undefined); return; }
       candidateRef.current = found; setCandidate(found); setUnlockKey(''); setTask({ kind: 'idle' });
-    } catch (e) { if (alive.current) setTask({ kind: 'error', text: code(e) === 'CANCELLED' ? t('已取消，原成品保留。') : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(e) }); }
+    } catch (e) { if (alive.current) setTask({ kind: 'error', text: code(e) === 'CANCELLED' ? t('已取消，原成品保留。') : tr('这个备份不能用于恢复，当前资料未改变：') + errorMessage(e) }); }
   }
   async function restore() {
     if (restoreUnknown || restoreLock.current || securityBusy || !candidate || !candidate.token || !candidate.summary || !generation || busy || demo || financeImport || sheet || storedPending()) return;
@@ -238,7 +239,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       await invoke<string>('restore_backup_session', { token: candidate.token });
       completeRestore();
     } catch (e) {
-      if (alive.current) { setRestoreUnknown(true); setTask({ kind: 'error', text: '恢复结果尚未确认：' + errorMessage(e) + ' 请先核对这次恢复是否完成，核对不会写入资料，不要重新恢复。' }); }
+      if (alive.current) { setRestoreUnknown(true); setTask({ kind: 'error', text: tr('恢复结果尚未确认：') + errorMessage(e) + tr(' 请先核对这次恢复是否完成，核对不会写入资料，不要重新恢复。') }); }
     } finally { restoreLock.current = false; }
   }
   function completeRestore() {
@@ -254,7 +255,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       if (!alive.current) return;
       if (result) completeRestore();
       else { setRestoreUnknown(false); setTask({ kind: 'done', text: t('核对完成：这次尚未恢复。可取消，或再次确认替换。') }); }
-    } catch (e) { if (alive.current) setTask({ kind: 'error', text: '暂时无法确认恢复结果；这次检查的信息仍保留，请重新启动后核对当前资料。' + errorMessage(e) }); }
+    } catch (e) { if (alive.current) setTask({ kind: 'error', text: tr('暂时无法确认恢复结果；这次检查的信息仍保留，请重新启动后核对当前资料。') + errorMessage(e) }); }
     finally { restoreLock.current = false; }
   }
   // Ordinary drafts are cleared; unknown import request metadata remains for read-only receipt verification.

@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { areaPath, axisLabel, lineAxis, monotonePath, nearestIndex, runsOf, xTicks } from './chart-model';
 import type { Pt } from './chart-model';
-
+import { t as tr } from '../../i18n.ts';
 type Num = number | null;
 type BandPt = Pt & { low?: number };
 export type LineSeries = { name: string; values: Num[]; color?: string; dashed?: boolean; area?: boolean };
@@ -74,7 +74,7 @@ export function LineChart({ series, band, labels, xs, summary, height = 180, com
     const rect = e.currentTarget.getBoundingClientRect(), at = nearestIndex(pos.map(px), e.clientX - rect.left);
     setScrub(at < 0 ? null : at);
   };
-  const info: ScrubTip | null = scrub === null || compact ? null : tip ? tip(scrub) : { title: labels[scrub], rows: [...series.map((s, i) => ({ name: s.name, value: s.values[scrub] === null ? '未知' : hidden ? '******' : axisLabel(s.values[scrub]!), color: drawn[i].color })), ...(band ? [{ name: band.name, value: band.lower[scrub] === null || band.upper[scrub] === null ? '未知' : hidden ? '******' : `${axisLabel(band.lower[scrub]!)}–${axisLabel(band.upper[scrub]!)}`, color: band.color ?? 'var(--accent)' }] : [])] };
+  const info: ScrubTip | null = scrub === null || compact ? null : tip ? tip(scrub) : { title: labels[scrub], rows: [...series.map((s, i) => ({ name: s.name, value: s.values[scrub] === null ? tr('未知') : hidden ? '******' : axisLabel(s.values[scrub]!), color: drawn[i].color })), ...(band ? [{ name: band.name, value: band.lower[scrub] === null || band.upper[scrub] === null ? tr('未知') : hidden ? '******' : `${axisLabel(band.lower[scrub]!)}–${axisLabel(band.upper[scrub]!)}`, color: band.color ?? 'var(--accent)' }] : [])] };
   const sx = scrub === null ? 0 : px(pos[scrub]), flip = sx > width / 2;
   const shadeX = shade && [Math.max(left, px(shade.from)), Math.min(right, px(shade.to))] as const;
   const mx = marker && marker.at >= 0 && marker.at < count ? px(pos[marker.at]) : null;

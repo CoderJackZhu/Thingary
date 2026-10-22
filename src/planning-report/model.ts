@@ -4,6 +4,7 @@
 // 隐私报告先从同一快照生成脱敏载荷（redactReport），渲染/打印/复制/文件名只接触脱敏后的视图。
 import { planningModelVersion } from '../planning-engine.ts';
 import { t as tr, currentLang } from '../i18n.ts';
+import { t as tt } from '../i18n.ts';
 export const CONTRACT_VERSION = 1;
 
 export type Basis = 'known' | 'estimated' | 'unknown';
@@ -327,8 +328,8 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
   });
   return {
     contract_version: 1, kind: r.kind, status: r.status,
-    subject_name: privacy ? (r.kind === 'comparison' ? '方案 A' : r.kind === 'baseline' ? '基准 A' : '当前方案') : r.subject_name,
-    other_name: privacy && r.other_name !== null ? '方案 B' : r.other_name,
+    subject_name: privacy ? (r.kind === 'comparison' ? tt('方案 A') : r.kind === 'baseline' ? tt('基准 A') : tt('当前方案')) : r.subject_name,
+    other_name: privacy && r.other_name !== null ? tt('方案 B') : r.other_name,
     generated_on: r.generated_on, source_date: r.source_date, monetary_basis_date: r.monetary_basis_date,
     scenario_revision: r.scenario_revision,
     // Only the app's own public kernel identifier is non-private metadata.
@@ -337,11 +338,11 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
     headline: { status: r.headline.status, amount: money(r.headline.amount), date: r.headline.date },
     next_step: { label: privacy ? tr('核对计算依据与缺项') : r.next_step.label, detail: privacy ? null : r.next_step.detail },
     current_summary: r.current_summary ? summary(r.current_summary) : null,
-    funds: r.funds.map((f, i) => ({ id: privacy ? `f${i + 1}` : f.id, name: privacy ? `账户 ${i + 1}` : f.name,
+    funds: r.funds.map((f, i) => ({ id: privacy ? `f${i + 1}` : f.id, name: privacy ? tt('账户 {v1}', { v1: i + 1 }) : f.name,
       availability: f.availability, amount: money(f.amount), note: privacy ? null : f.note })),
-    goals: r.goals.map((g, i) => ({ id: privacy ? `g${i + 1}` : g.id, name: privacy ? `目标 ${i + 1}` : g.name,
+    goals: r.goals.map((g, i) => ({ id: privacy ? `g${i + 1}` : g.id, name: privacy ? tt('目标 {v1}', { v1: i + 1 }) : g.name,
       template: g.template, date: g.date, result: g.result, amount: money(g.amount), ratio: g.ratio === null ? null : ratio(g.ratio),
-      note: privacy ? null : g.note, missing: privacy ? g.missing.map(() => '存在需确认资料') : [...g.missing] })),
+      note: privacy ? null : g.note, missing: privacy ? g.missing.map(() => tt('存在需确认资料')) : [...g.missing] })),
     assumptions: r.assumptions.map((a, i) => ({ id: privacy ? `a${i + 1}` : a.id, label: privacy ? tr('依据 {v1}', { v1: i + 1 }) : a.label,
       value: value(a.value), source: a.source, confirmed_on: a.confirmed_on })),
     series: r.series.map(s => ({ date: s.date, kind: s.kind, available: s.available === null ? null : money(s.available),
@@ -372,13 +373,13 @@ export function formatCents(cents: string): string {
 
 /** 视图金额显示：被隐藏 → 金额已隐藏；未知 → 未知（不显示 0）。估算值带“约”。 */
 export function formatMoney(m: Money): string {
-  if (m.hidden) return '金额已隐藏';
-  if (m.cents === null) return '未知';
-  return (m.basis === 'estimated' ? '约 ' : '') + formatCents(m.cents);
+  if (m.hidden) return tt('金额已隐藏');
+  if (m.cents === null) return tt('未知');
+  return (m.basis === 'estimated' ? tt('约 ') : '') + formatCents(m.cents);
 }
 export function formatRatio(r: Ratio): string {
-  if (r.hidden) return '已隐藏';
-  if (r.hundredths === null) return '未知';
+  if (r.hidden) return tt('已隐藏');
+  if (r.hundredths === null) return tt('未知');
   const h = r.hundredths;
   return `${h < 0 ? '−' : ''}${(Math.abs(h) / 100).toFixed(2)}%`;
 }
@@ -386,50 +387,50 @@ export function formatValue(v: Value): string {
   if (v.kind === 'money') return formatMoney(v);
   if (v.kind === 'ratio') return formatRatio(v);
   if (v.kind === 'text') return v.text;
-  if (v.kind === 'date') return v.date ?? '未知';
-  return '未知';
+  if (v.kind === 'date') return v.date ?? tt('未知');
+  return tt('未知');
 }
-export const basisLabel = (b: Basis) => b === 'known' ? '实际值' : b === 'estimated' ? '估算' : '未知';
-export const sourceLabel = (s: Assumption['source']) => s === 'confirmed' ? '已确认' : s === 'estimated' ? '估算' : s === 'excluded' ? '本次排除' : '未知';
-export const availabilityLabel = (a: FundRow['availability']) => a === 'available' ? '可用资金' : a === 'restricted' ? '暂时取不出的钱' : '债务';
-export const templateLabel = (t: GoalRow['template']) => t === 'expense' ? '一笔支出' : t === 'milestone' ? '余额目标' : t === 'income_break' ? '暂停工作' : '退休';
-export const kindLabel = (k: ReportKind) => k === 'current' ? '当前方案' : k === 'baseline' ? '历史基准' : '方案比较';
-export const impactLabel = (i: MissingItem['impact']) => i === 'blocks_headline' ? '影响主结论' : i === 'degrades' ? '部分结果缺失' : '提示';
-export const seriesKindLabel = (k: SeriesPoint['kind']) => k === 'projected' ? '预计' : k === 'actual' ? '实际' : '参考';
-export const dateLabel = (d: string | null) => d ?? '未知';
+export const basisLabel = (b: Basis) => b === 'known' ? tt('实际值') : b === 'estimated' ? tt('估算') : tt('未知');
+export const sourceLabel = (s: Assumption['source']) => s === 'confirmed' ? tt('已确认') : s === 'estimated' ? tt('估算') : s === 'excluded' ? tt('本次排除') : tt('未知');
+export const availabilityLabel = (a: FundRow['availability']) => a === 'available' ? tt('可用资金') : a === 'restricted' ? tt('暂时取不出的钱') : tt('债务');
+export const templateLabel = (t: GoalRow['template']) => t === 'expense' ? tt('一笔支出') : t === 'milestone' ? tt('余额目标') : t === 'income_break' ? tt('暂停工作') : tt('退休');
+export const kindLabel = (k: ReportKind) => k === 'current' ? tt('当前方案') : k === 'baseline' ? tt('历史基准') : tt('方案比较');
+export const impactLabel = (i: MissingItem['impact']) => i === 'blocks_headline' ? tt('影响主结论') : i === 'degrades' ? tt('部分结果缺失') : tt('提示');
+export const seriesKindLabel = (k: SeriesPoint['kind']) => k === 'projected' ? tt('预计') : k === 'actual' ? tt('实际') : tt('参考');
+export const dateLabel = (d: string | null) => d ?? tt('未知');
 
 /** 一句结论：隐私视图保留一般结论与日期，金额显示“金额已隐藏”。 */
 export function headlineSentence(report: ReportInputV1): string {
   const h = report.headline;
-  if (h.status === 'ok') return h.date ? `按当前假设，截至 ${h.date} 资金可以覆盖所选期间。` : '按当前假设，资金可以覆盖所选期间。';
+  if (h.status === 'ok') return h.date ? tt('按当前假设，截至 {date} 资金可以覆盖所选期间。', { date: h.date }) : tt('按当前假设，资金可以覆盖所选期间。');
   if (h.status === 'shortfall') {
-    const when = h.date ? `${h.date} 起` : '预测期内';
-    return `按当前假设，${when}出现资金缺口 ${formatMoney(h.amount)}。`;
+    const when = h.date ? tt('{date} 起', { date: h.date }) : tt('预测期内');
+    return tt('按当前假设，{when}出现资金缺口 {v2}。', { when, v2: formatMoney(h.amount) });
   }
-  return '关键资料缺失，无法给出完整结论。';
+  return tt('关键资料缺失，无法给出完整结论。');
 }
 
 export const currentOutcomeLabel = (o: CurrentSummaryOutcome): string =>
-  o === 'covered' ? '资金可覆盖' : o === 'no_margin' ? '终点无余量' : o === 'not_covered' ? '目标未达成' : o === 'provisional' ? '结果仍需确认' : '缺输入';
-export const currentModeLabel = (m: CurrentSummaryMode): string => m === 'fire' ? '财务自由（FIRE）' : '按计划退休';
+  o === 'covered' ? tt('资金可覆盖') : o === 'no_margin' ? tt('终点无余量') : o === 'not_covered' ? tt('目标未达成') : o === 'provisional' ? tt('结果仍需确认') : tt('缺输入');
+export const currentModeLabel = (m: CurrentSummaryMode): string => m === 'fire' ? tt('财务自由（FIRE）') : tt('按计划退休');
 export const contributionDirectionLabel = (d: ContributionDirection): string =>
-  d === 'contribution' ? '储蓄投入' : d === 'withdrawal' ? '取用' : d === 'none' ? '零投入' : '未知';
+  d === 'contribution' ? tt('储蓄投入') : d === 'withdrawal' ? tt('取用') : d === 'none' ? tt('零投入') : tt('未知');
 
 export function currentNextStep(s: CurrentSummary): string {
-  if (s.outcome === 'covered') return '需要比较其他条件时，可返回目标修改。';
-  if (s.outcome === 'no_margin') return '核对终点后的安排，或调整投入与生活预算。';
-  if (s.outcome === 'not_covered') return '返回目标，调整退休时间、每月投入或生活预算。';
-  if (s.outcome === 'provisional') return '先核对下方影响结论的事项，再重新生成报告。';
-  return '补充下方缺项后，重新生成报告。';
+  if (s.outcome === 'covered') return tt('需要比较其他条件时，可返回目标修改。');
+  if (s.outcome === 'no_margin') return tt('核对终点后的安排，或调整投入与生活预算。');
+  if (s.outcome === 'not_covered') return tt('返回目标，调整退休时间、每月投入或生活预算。');
+  if (s.outcome === 'provisional') return tt('先核对下方影响结论的事项，再重新生成报告。');
+  return tt('补充下方缺项后，重新生成报告。');
 }
 
 /** 当前报告的受控结论句；不读 assumptions id，也不包含任何金额。 */
 export function currentSummaryConclusion(s: CurrentSummary): string {
-  if (s.outcome === 'covered') return '按已保存条件与所选期间，完整预算可覆盖，终点仍有余量。';
-  if (s.outcome === 'no_margin') return '所选期间预算可覆盖，但终点没有余量，不能据此判断终点以后安全。';
-  if (s.outcome === 'not_covered') return '按已保存净投入，所选条件未满足完整目标。';
-  if (s.outcome === 'provisional') return '结果已按当前条件计算，但存在影响结论的待核对项，核对后可能变化。';
-  return '关键资料缺失，无法给出完整结论。';
+  if (s.outcome === 'covered') return tt('按已保存条件与所选期间，完整预算可覆盖，终点仍有余量。');
+  if (s.outcome === 'no_margin') return tt('所选期间预算可覆盖，但终点没有余量，不能据此判断终点以后安全。');
+  if (s.outcome === 'not_covered') return tt('按已保存净投入，所选条件未满足完整目标。');
+  if (s.outcome === 'provisional') return tt('结果已按当前条件计算，但存在影响结论的待核对项，核对后可能变化。');
+  return tt('关键资料缺失，无法给出完整结论。');
 }
 
 /** 结论文本：当前报告 summary 优先，否则回退通用 headline；复制、打印与屏幕使用同一句。 */
@@ -440,11 +441,11 @@ export function reportConclusion(report: ReportInputV1): string {
 /** 目标结果短语：状态 + 结构化金额/比例，不读自由备注。 */
 export function goalResultText(g: GoalRow): string {
   const parts: string[] = [];
-  if (g.result === 'ok') parts.push(g.date ? `预计 ${g.date} 可达成` : '预计可达成');
-  else if (g.result === 'shortfall') parts.push(g.date ? `${g.date} 存在缺口` : '存在缺口');
-  else parts.push('资料不足，暂无法判断');
+  if (g.result === 'ok') parts.push(g.date ? tt('预计 {date} 可达成', { date: g.date }) : tt('预计可达成'));
+  else if (g.result === 'shortfall') parts.push(g.date ? tt('{date} 存在缺口', { date: g.date }) : tt('存在缺口'));
+  else parts.push(tt('资料不足，暂无法判断'));
   if (g.amount.cents !== null || g.amount.hidden) parts.push(formatMoney(g.amount));
-  if (g.ratio && (g.ratio.hundredths !== null || g.ratio.hidden)) parts.push(`比例 ${formatRatio(g.ratio)}`);
+  if (g.ratio && (g.ratio.hundredths !== null || g.ratio.hidden)) parts.push(tt('比例 {v1}', { v1: formatRatio(g.ratio) }));
   return parts.join('，');
 }
 
@@ -474,9 +475,9 @@ export function trendModel(series: SeriesPoint[]): TrendModel {
 
 /** 趋势图的无障碍描述：逐点列出实际值，不插值。 */
 export function trendAriaLabel(trend: TrendModel): string {
-  if (!trend.projected.length && !trend.actual.length && !trend.reference.length) return '资金趋势：暂无可显示的数据';
-  const parts = [`资金趋势：预计 ${trend.projected.length} 点，实际 ${trend.actual.length} 点，参考 ${trend.reference.length} 点`];
-  for (const a of trend.actual) parts.push(`${a.date} 实际可用资金 ${formatMoney(a.available!)}`);
+  if (!trend.projected.length && !trend.actual.length && !trend.reference.length) return tt('资金趋势：暂无可显示的数据');
+  const parts = [tt('资金趋势：预计 {length} 点，实际 {v2} 点，参考 {v3} 点', { length: trend.projected.length, v2: trend.actual.length, v3: trend.reference.length })];
+  for (const a of trend.actual) parts.push(tt('{date} 实际可用资金 {v2}', { date: a.date, v2: formatMoney(a.available!) }));
   return parts.join('。');
 }
 
@@ -488,39 +489,39 @@ export function escapeHtml(s: string): string {
 
 /** 导出文件名：只含报告类型与生成日，不含金额、账号或敏感方案名。 */
 export function exportFileName(report: ReportInputV1, privacy: boolean): string {
-  const day = report.generated_on ?? '未知日期';
-  return `${kindLabel(report.kind)}决策报告-${day}${privacy ? '-隐私版' : ''}.html`;
+  const day = report.generated_on ?? tt('未知日期');
+  return tt('{v1}决策报告-{day}{v3}.html', { v1: kindLabel(report.kind), day, v3: privacy ? '-隐私版' : '' });
 }
 
 /** 复制摘要纯文本：只从视图（可能已脱敏）生成。 */
 export function copyText(report: ReportInputV1, privacy: boolean): string {
   const view = privacy ? redactReport(report) : report;
   const lines: string[] = [];
-  lines.push(`${kindLabel(view.kind)}决策报告${privacy ? '（隐私版）' : ''}`);
-  lines.push(`名称：${view.subject_name}${view.other_name ? ` / ${view.other_name}` : ''}`);
-  lines.push(`起点日：${dateLabel(view.source_date)} · 生成日：${dateLabel(view.generated_on)} · 金额基准：${dateLabel(view.monetary_basis_date)}`);
-  lines.push(`模型版本：${view.model_version ?? '未知'} · 方案修订：${view.scenario_revision ?? '未知'}`);
-  lines.push(`结论：${reportConclusion(view)}`);
-  if (view.current_summary) lines.push(`下一步：${currentNextStep(view.current_summary)}`);
-  else if (view.next_step.label) lines.push(`下一步：${view.next_step.label}${view.next_step.detail ? `（${view.next_step.detail}）` : ''}`);
+  lines.push(tt('{v1}决策报告{v2}', { v1: kindLabel(view.kind), v2: privacy ? '（隐私版）' : '' }));
+  lines.push(tt('名称：{subject_name}{v2}', { subject_name: view.subject_name, v2: view.other_name ? ` / ${view.other_name}` : '' }));
+  lines.push(tt('起点日：{v1} · 生成日：{v2} · 金额基准：{v3}', { v1: dateLabel(view.source_date), v2: dateLabel(view.generated_on), v3: dateLabel(view.monetary_basis_date) }));
+  lines.push(tt('模型版本：{v1} · 方案修订：{v2}', { v1: view.model_version ?? '未知', v2: view.scenario_revision ?? '未知' }));
+  lines.push(tt('结论：{v1}', { v1: reportConclusion(view) }));
+  if (view.current_summary) lines.push(tt('下一步：{v1}', { v1: currentNextStep(view.current_summary) }));
+  else if (view.next_step.label) lines.push(tt('下一步：{label}{v2}', { label: view.next_step.label, v2: view.next_step.detail ? `（${view.next_step.detail}）` : '' }));
   if (view.current_summary) {
     const s = view.current_summary;
-    lines.push(`关键结果（${currentOutcomeLabel(s.outcome)} · ${currentModeLabel(s.mode)}）：`);
-    lines.push(`- 所需月投入：${formatMoney(s.required_contribution)}`);
-    lines.push(`- 预计月投入（${contributionDirectionLabel(s.contribution_direction)}）：${formatMoney(s.estimated_contribution)}`);
-    lines.push(`- 差额（预计 − 所需）：${s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference)}`);
-    lines.push(`- 终点预计可用资金：${formatMoney(s.terminal_available)}`);
-    lines.push('主要条件：');
-    lines.push(`- 目标月：${dateLabel(s.target_month)} · 预测终点：${dateLabel(s.horizon_month)} · ${s.mode === 'fire' ? '预计达成月' : '预计退休月'}：${dateLabel(s.expected_retirement_month)}`);
-    lines.push(`- 可用资金：${formatMoney(s.available_funds)} · 完整生活预算／月：${formatMoney(s.budget)}`);
-    lines.push(`- 目标前／后实际年收益：${s.before_return ? formatRatio(s.before_return) : '未知'} / ${s.after_return ? formatRatio(s.after_return) : '未知'}`);
+    lines.push(tt('关键结果（{v1} · {v2}）：', { v1: currentOutcomeLabel(s.outcome), v2: currentModeLabel(s.mode) }));
+    lines.push(tt('- 所需月投入：{v1}', { v1: formatMoney(s.required_contribution) }));
+    lines.push(tt('- 预计月投入（{v1}）：{v2}', { v1: contributionDirectionLabel(s.contribution_direction), v2: formatMoney(s.estimated_contribution) }));
+    lines.push(tt('- 差额（预计 − 所需）：{v1}', { v1: s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference) }));
+    lines.push(tt('- 终点预计可用资金：{v1}', { v1: formatMoney(s.terminal_available) }));
+    lines.push(tt('主要条件：'));
+    lines.push(tt('- 目标月：{v1} · 预测终点：{v2} · {v3}：{v4}', { v1: dateLabel(s.target_month), v2: dateLabel(s.horizon_month), v3: s.mode === 'fire' ? '预计达成月' : '预计退休月', v4: dateLabel(s.expected_retirement_month) }));
+    lines.push(tt('- 可用资金：{v1} · 完整生活预算／月：{v2}', { v1: formatMoney(s.available_funds), v2: formatMoney(s.budget) }));
+    lines.push(tt('- 目标前／后实际年收益：{v1} / {v2}', { v1: s.before_return ? formatRatio(s.before_return) : '未知', v2: s.after_return ? formatRatio(s.after_return) : '未知' }));
   }
-  lines.push('资金范围：');
+  lines.push(tt('资金范围：'));
   for (const f of view.funds) lines.push(`- ${f.name}（${availabilityLabel(f.availability)}）：${formatMoney(f.amount)}${f.note ? ` · ${f.note}` : ''}`);
-  lines.push('目标结果：');
+  lines.push(tt('目标结果：'));
   for (const g of view.goals) lines.push(`- ${g.name}（${templateLabel(g.template)}）：${goalResultText(g)}`);
   if (view.missing.length) {
-    lines.push('缺项：');
+    lines.push(tt('缺项：'));
     for (const m of view.missing) lines.push(`- ${m.label}（${impactLabel(m.impact)}）`);
   }
   return lines.join('\n');
@@ -587,7 +588,7 @@ export function trendSvg(trend: TrendModel): string {
 export function printableHtml(report: ReportInputV1, opts: { privacy: boolean }): string {
   const view = opts.privacy ? redactReport(report) : report;
   const h = escapeHtml;
-  const title = `${kindLabel(view.kind)}决策报告${opts.privacy ? '（隐私版）' : ''}`;
+  const title = tt('{v1}决策报告{v2}', { v1: kindLabel(view.kind), v2: opts.privacy ? '（隐私版）' : '' });
   const trend = trendModel(view.series);
   const svg = trendSvg(trend);
   const out: string[] = [];
@@ -595,70 +596,70 @@ export function printableHtml(report: ReportInputV1, opts: { privacy: boolean })
   out.push(`<meta name="viewport" content="width=device-width,initial-scale=1.0"/>`);
   out.push(`<title>${h(title)} ${h(dateLabel(view.generated_on))}</title>`);
   out.push(`<style>${PRINT_CSS}</style></head><body>`);
-  out.push(`<div class="print-bar"><strong>${h(title)}</strong><button onclick="window.print()">打印</button><span class="muted">可用浏览器“存储为 PDF”；分页、页码以浏览器打印预览为准</span></div>`);
+  out.push(tt('<div class="print-bar"><strong>{v1}</strong><button onclick="window.print()">打印</button><span class="muted">可用浏览器“存储为 PDF”；分页、页码以浏览器打印预览为准</span></div>', { v1: h(title) }));
   out.push(`<header class="report-head"><h1>${h(title)}</h1><div class="meta">`);
-  out.push(`<span>名称：${h(view.subject_name)}${view.other_name ? ` / ${h(view.other_name)}` : ''}</span>`);
-  out.push(`<span>起点日：${h(dateLabel(view.source_date))}</span><span>生成日：${h(dateLabel(view.generated_on))}</span>`);
-  out.push(`<span>金额基准：${h(dateLabel(view.monetary_basis_date))}</span>`);
-  out.push(`<span>方案修订：${view.scenario_revision ?? '未知'}</span><span>模型版本：${h(view.model_version ?? '未知')}</span>`);
+  out.push(tt('<span>名称：{v1}{v2}</span>', { v1: h(view.subject_name), v2: view.other_name ? ` / ${h(view.other_name)}` : '' }));
+  out.push(tt('<span>起点日：{v1}</span><span>生成日：{v2}</span>', { v1: h(dateLabel(view.source_date)), v2: h(dateLabel(view.generated_on)) }));
+  out.push(tt('<span>金额基准：{v1}</span>', { v1: h(dateLabel(view.monetary_basis_date)) }));
+  out.push(tt('<span>方案修订：{v1}</span><span>模型版本：{v2}</span>', { v1: view.scenario_revision ?? '未知', v2: h(view.model_version ?? '未知') }));
   out.push('</div></header>');
-  if (view.status === 'partial') out.push(`<p class="banner">${view.current_summary ? '本报告展示范围有限；逐月趋势、逐项购买结果与历史实际对照不在本报告中，输入缺项另行列明。' : '本报告输入不完整（partial），部分结果保留缺项，未知不等于零。'}</p>`);
+  if (view.status === 'partial') out.push(`<p class="banner">${view.current_summary ? tt('本报告展示范围有限；逐月趋势、逐项购买结果与历史实际对照不在本报告中，输入缺项另行列明。') : tt('本报告输入不完整（partial），部分结果保留缺项，未知不等于零。')}</p>`);
   out.push(`<section><p class="conclusion">${h(reportConclusion(view))}</p>`);
-  out.push(`<p class="muted">下一步：${view.current_summary ? h(currentNextStep(view.current_summary)) : h(view.next_step.label) + (view.next_step.detail ? `（${h(view.next_step.detail)}）` : '')}</p></section>`);
+  out.push(tt('<p class="muted">下一步：{v1}</p></section>', { v1: view.current_summary ? h(currentNextStep(view.current_summary)) : h(view.next_step.label) + (view.next_step.detail ? `（${h(view.next_step.detail)}）` : '') }));
   if (view.current_summary) {
     const s = view.current_summary;
-    out.push('<section><h2>关键结果</h2><table><tbody>');
-    out.push(tableRow([`所需月投入`, `<span class="num">${h(formatMoney(s.required_contribution))}</span>`]));
-    out.push(tableRow([`预计月投入（${contributionDirectionLabel(s.contribution_direction)}）`, `<span class="num">${h(formatMoney(s.estimated_contribution))}</span>`]));
-    out.push(tableRow(['差额（预计 − 所需）', `<span class="num">${h(s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference))}</span>`]));
-    out.push(tableRow(['终点预计可用资金', `<span class="num">${h(formatMoney(s.terminal_available))}</span>`]));
+    out.push(tt('<section><h2>关键结果</h2><table><tbody>'));
+    out.push(tableRow([tt('所需月投入'), `<span class="num">${h(formatMoney(s.required_contribution))}</span>`]));
+    out.push(tableRow([tt('预计月投入（{v1}）', { v1: contributionDirectionLabel(s.contribution_direction) }), `<span class="num">${h(formatMoney(s.estimated_contribution))}</span>`]));
+    out.push(tableRow([tt('差额（预计 − 所需）'), `<span class="num">${h(s.contribution_direction === 'withdrawal' ? tt('取用不计差额') : formatMoney(s.difference))}</span>`]));
+    out.push(tableRow([tt('终点预计可用资金'), `<span class="num">${h(formatMoney(s.terminal_available))}</span>`]));
     out.push('</tbody></table></section>');
-    out.push(`<section><h2>主要条件摘要</h2><p class="muted">${h(currentOutcomeLabel(s.outcome))} · ${h(currentModeLabel(s.mode))}</p><table><tbody>`);
-    out.push(tableRow(['目标月', h(dateLabel(s.target_month))]));
-    out.push(tableRow(['预测终点', h(dateLabel(s.horizon_month))]));
-    out.push(tableRow([s.mode === 'fire' ? '预计达成月' : '预计退休月', h(dateLabel(s.expected_retirement_month))]));
-    out.push(tableRow(['可用资金', `<span class="num">${h(formatMoney(s.available_funds))}</span>`]));
-    out.push(tableRow(['完整生活预算／月', `<span class="num">${h(formatMoney(s.budget))}</span>`]));
-    out.push(tableRow(['目标前／后实际年收益', `${h(s.before_return ? formatRatio(s.before_return) : '未知')} / ${h(s.after_return ? formatRatio(s.after_return) : '未知')}`]));
+    out.push(tt('<section><h2>主要条件摘要</h2><p class="muted">{v1} · {v2}</p><table><tbody>', { v1: h(currentOutcomeLabel(s.outcome)), v2: h(currentModeLabel(s.mode)) }));
+    out.push(tableRow([tt('目标月'), h(dateLabel(s.target_month))]));
+    out.push(tableRow([tt('预测终点'), h(dateLabel(s.horizon_month))]));
+    out.push(tableRow([s.mode === 'fire' ? tt('预计达成月') : tt('预计退休月'), h(dateLabel(s.expected_retirement_month))]));
+    out.push(tableRow([tt('可用资金'), `<span class="num">${h(formatMoney(s.available_funds))}</span>`]));
+    out.push(tableRow([tt('完整生活预算／月'), `<span class="num">${h(formatMoney(s.budget))}</span>`]));
+    out.push(tableRow([tt('目标前／后实际年收益'), `${h(s.before_return ? formatRatio(s.before_return) : tt('未知'))} / ${h(s.after_return ? formatRatio(s.after_return) : tt('未知'))}`]));
     out.push('</tbody></table></section>');
   }
   // 资金范围
-  out.push('<section><h2>资金范围</h2><table><thead><tr><th>名称</th><th>可用性</th><th>金额</th><th>依据</th><th>备注</th></tr></thead><tbody>');
+  out.push(tt('<section><h2>资金范围</h2><table><thead><tr><th>名称</th><th>可用性</th><th>金额</th><th>依据</th><th>备注</th></tr></thead><tbody>'));
   for (const f of view.funds) out.push(tableRow([h(f.name), availabilityLabel(f.availability), `<span class="num">${h(formatMoney(f.amount))}</span>`, basisLabel(f.amount.basis), f.note ? h(f.note) : '<span class="muted">—</span>']));
   out.push('</tbody></table></section>');
   // 目标结果
-  out.push('<section><h2>目标结果</h2><table><thead><tr><th>目标</th><th>类型</th><th>日期</th><th>结果</th><th>缺项</th></tr></thead><tbody>');
+  out.push(tt('<section><h2>目标结果</h2><table><thead><tr><th>目标</th><th>类型</th><th>日期</th><th>结果</th><th>缺项</th></tr></thead><tbody>'));
   for (const g of view.goals) out.push(tableRow([h(g.name), templateLabel(g.template), h(dateLabel(g.date)), h(goalResultText(g)), g.missing.length ? h(g.missing.join('；')) : '<span class="muted">—</span>']));
   out.push('</tbody></table></section>');
   // 趋势
-  out.push('<section><h2>资金趋势</h2>');
+  out.push(tt('<section><h2>资金趋势</h2>'));
   if (svg) {
     out.push(svg);
-    out.push('<p class="muted">实线为预计，虚线为参考，绿色圆点为实际（仅完整盘点，不插值）。</p>');
-    out.push('<table><thead><tr><th>日期</th><th>种类</th><th>可用资金</th><th>暂时取不出的钱</th><th>债务</th></tr></thead><tbody>');
+    out.push(tt('<p class="muted">实线为预计，虚线为参考，绿色圆点为实际（仅完整盘点，不插值）。</p>'));
+    out.push(tt('<table><thead><tr><th>日期</th><th>种类</th><th>可用资金</th><th>暂时取不出的钱</th><th>债务</th></tr></thead><tbody>'));
     for (const s of trend.all) out.push(tableRow([h(s.date), seriesKindLabel(s.kind), `<span class="num">${h(s.available ? formatMoney(s.available) : '—')}</span>`, `<span class="num">${h(s.restricted ? formatMoney(s.restricted) : '—')}</span>`, `<span class="num">${h(s.debt ? formatMoney(s.debt) : '—')}</span>`]));
     out.push('</tbody></table>');
   } else {
-    out.push(`<p class="muted">${opts.privacy ? '金额已隐藏，趋势图与明细不显示。' : '暂无可显示的资金趋势。'}</p>`);
+    out.push(`<p class="muted">${opts.privacy ? tt('金额已隐藏，趋势图与明细不显示。') : tt('暂无可显示的资金趋势。')}</p>`);
   }
   out.push('</section>');
   // 假设与依据
-  out.push('<section><h2>计算依据</h2><table><thead><tr><th>项目</th><th>值</th><th>来源</th><th>确认日</th></tr></thead><tbody>');
+  out.push(tt('<section><h2>计算依据</h2><table><thead><tr><th>项目</th><th>值</th><th>来源</th><th>确认日</th></tr></thead><tbody>'));
   for (const a of view.assumptions) out.push(tableRow([h(a.label), h(formatValue(a.value)), sourceLabel(a.source), h(dateLabel(a.confirmed_on))]));
   out.push('</tbody></table></section>');
   // 方案差异
   if (view.kind === 'comparison' && view.differences.length) {
-    out.push('<section><h2>方案差异</h2><table><thead><tr><th>项目</th><th>方案 A</th><th>方案 B</th><th>差额</th><th>依据</th></tr></thead><tbody>');
-    for (const d of view.differences) out.push(tableRow([h(d.label), h(formatValue(d.current)), h(formatValue(d.other)), d.delta ? `<span class="num">${h(formatMoney(d.delta))}</span>` : '<span class="muted">不可比</span>', d.note ? h(d.note) : '<span class="muted">—</span>']));
-    out.push('</tbody></table><p class="muted">差额仅展示生成方已确认的结果，不作因果归因。</p></section>');
+    out.push(tt('<section><h2>方案差异</h2><table><thead><tr><th>项目</th><th>方案 A</th><th>方案 B</th><th>差额</th><th>依据</th></tr></thead><tbody>'));
+    for (const d of view.differences) out.push(tableRow([h(d.label), h(formatValue(d.current)), h(formatValue(d.other)), d.delta ? `<span class="num">${h(formatMoney(d.delta))}</span>` : tt('<span class="muted">不可比</span>'), d.note ? h(d.note) : '<span class="muted">—</span>']));
+    out.push(tt('</tbody></table><p class="muted">差额仅展示生成方已确认的结果，不作因果归因。</p></section>'));
   }
   // 缺项
   if (view.missing.length) {
-    out.push('<section><h2>缺项与未覆盖</h2><ul>');
+    out.push(tt('<section><h2>缺项与未覆盖</h2><ul>'));
     for (const m of view.missing) out.push(`<li>${h(m.label)}<span class="badge">${impactLabel(m.impact)}</span>${m.hint ? ` <span class="muted">${h(m.hint)}</span>` : ''}</li>`);
     out.push('</ul></section>');
   }
-  out.push(`<footer>${h(title)} · 生成日 ${h(dateLabel(view.generated_on))} · 报告为固定快照的只读视图，不是可恢复备份。</footer>`);
+  out.push(tt('<footer>{v1} · 生成日 {v2} · 报告为固定快照的只读视图，不是可恢复备份。</footer>', { v1: h(title), v2: h(dateLabel(view.generated_on)) }));
   out.push('</body></html>');
   return out.join('');
 }

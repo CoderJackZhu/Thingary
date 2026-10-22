@@ -59,7 +59,7 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
     try { const value = await action(); if (alive.current) done?.(value); }
     catch (cause) {
       if (alive.current) {
-        if ((cause as { code?: string })?.code === 'CANCELLED') { closeSetup(true); setError('已取消本次备份，原成品保留。加密策略可能已验证提交，请核对当前最新状态与首份备份结果。'); }
+        if ((cause as { code?: string })?.code === 'CANCELLED') { closeSetup(true); setError(t('已取消本次备份，原成品保留。加密策略可能已验证提交，请核对当前最新状态与首份备份结果。')); }
         else setError(errorMessage(cause));
       }
     } finally { lock.current = false; if (alive.current) { setBusy(false); void reload(); } }
@@ -72,7 +72,7 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
   async function copyKey() {
     if (!setup) return;
     try { await navigator.clipboard.writeText(setup.recovery_key); setCopied(true); setTimeout(() => setCopied(false), 2500); }
-    catch { setError('未能复制，请手动选中密钥文本复制。'); }
+    catch { setError(t('未能复制，请手动选中密钥文本复制。')); }
   }
   async function saveKey() {
     if (!setup) return;
@@ -94,7 +94,7 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
       <ListRow icon="doc" title={t('以后明文备份')} disabled={disabled} onClick={() => setPlaintext(true)}/>
     </>}
     {state === 'needs_attention' && <>
-      <ListRow icon="refresh" title={t('重新读取配置')} subtitle={t('{v1}。自动备份已暂停，不会回退明文', { v1: status?.reason ?? '备份安全配置异常' })} disabled={disabled} onClick={() => void reload()}/>
+      <ListRow icon="refresh" title={t('重新读取配置')} subtitle={t('{v1}。自动备份已暂停，不会回退明文', { v1: status?.reason ?? t('备份安全配置异常') })} disabled={disabled} onClick={() => void reload()}/>
       <ListRow icon="doc" title={t('修复为明文')} disabled={disabled} onClick={() => setPlaintext(true)}/>
     </>}
     {state === 'disabled' && <ListRow icon={<MeIcon name="lock"/>} title={t('开启加密…')} disabled={disabled} onClick={() => void run(beginSetup)}/>}
@@ -128,7 +128,7 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
         <KeyInput value={reentered} onChange={setReentered} disabled={disabled}/>
         <Button variant="primary" block disabled={disabled || !looksLikeRecoveryKey(reentered).ok} onClick={() => void run(
           () => task.withTask(taskId => invoke<SecurityStatus>('backup_security_confirm_setup', { sessionId: setup.session_id, keyText: reentered, taskId })),
-          next => { setupRef.current = null; setSetup(null); setReentered(''); setSaved(false); if (next.first_backup?.state === 'failed') setError('加密已开启，但首份加密备份失败：' + next.first_backup.message); },
+          next => { setupRef.current = null; setSetup(null); setReentered(''); setSaved(false); if (next.first_backup?.state === 'failed') setError(t('加密已开启，但首份加密备份失败：') + next.first_backup.message); },
         )}>{t('验证并开启加密')}</Button>
         <p className="m-group-footer">{t('验证通过后会立即生成首份加密备份。验证成功不等于备份成功，两者分别显示。')}</p>
         {error && <Notice tone="danger">{error}</Notice>}

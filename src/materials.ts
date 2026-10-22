@@ -1,9 +1,10 @@
 import catalog from '../src-tauri/materials/materials.json' with { type: 'json' };
 import { objectArt } from './illustrations.ts';
+import { t } from './i18n.ts';
 export type Material = { id: string; name: string; style: string; category: string; keywords: string; shape?: string; art?: string; hidden?: boolean };
 export type MaterialEntry = { id: string; name: string; builtin: boolean };
 export const MATERIALS: Material[] = catalog;
-export const materialCategories = ['全部', '通用', '数码', '摄影', '家电', '家居', '办公', '交通', '运动', '厨具'] as const;
+export const materialCategories = [t('全部'), t('通用'), t('数码'), t('摄影'), t('家电'), t('家居'), t('办公'), t('交通'), t('运动'), t('厨具')] as const;
 export type MaterialSource = 'icon' | 'dimensional' | 'recent' | 'custom';
 export function materialOf(id: string | null): Material | null { return id ? MATERIALS.find(m => m.id === id) ?? null : null; }
 export function materialArt(id: string): string {
@@ -12,9 +13,9 @@ export function materialArt(id: string): string {
   if (!m?.shape) return objectArt(m?.id ?? 'box');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" rx="18" fill="#eef3f7"/><g transform="translate(8 8)" fill="none" stroke="#48627d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${m.shape}</g></svg>`;
 }
-export function materialPhotoName(material: { name: string }): string { return `${material.name}示意图（非实物照片）`; }
+export function materialPhotoName(material: { name: string }): string { return t('{name}示意图（非实物照片）', { name: material.name }); }
 export function materialActionLabel(entry: MaterialEntry): string {
-  return entry.builtin ? `添加素材：${entry.name}（示意图，非实物照片）` : `添加素材：${entry.name}`;
+  return entry.builtin ? t('添加素材：{name}（示意图，非实物照片）', { name: entry.name }) : t('添加素材：{name}', { name: entry.name });
 }
 export function filterMaterials(entries: MaterialEntry[], source: MaterialSource, category: string, search: string, recent: string[]) {
   const query = search.trim().toLocaleLowerCase();

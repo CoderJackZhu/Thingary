@@ -1,6 +1,6 @@
 import { numberLocale } from '../../i18n.ts';
 import type { Matrix, StressResult, SorrPath, Bands, MonteCarlo } from "../../plan-risk.ts";
-
+import { t } from '../../i18n.ts';
 /** A compact view of the engine matrix: keep the current setting and its nearest alternatives. */
 export function compactMatrix(matrix: Matrix): Matrix {
   const indices = (length: number, base: number | null) => {
@@ -34,18 +34,18 @@ export function riskMoney(cents: number): string {
 }
 
 export function stressConclusion(top: StressResult | null): string {
-  if (!top) return "这些压力测试未实质性改变基础计划。";
-  return `${top.label}的影响最大：${top.shortfall_delta > 0 ? `目标缺口增加 ${riskMoney(top.shortfall_delta)}` : "目标缺口未增加"}${top.fi_delay_months !== null && top.fi_delay_months > 0 ? `，准备就绪推迟 ${top.fi_delay_months} 个月` : ""}${top.stressed.failure_month !== null ? "，规划期内存在无法支付的月份" : ""}。`;
+  if (!top) return t('这些压力测试未实质性改变基础计划。');
+  return t('{label}的影响最大：{v2}{v3}{v4}。', { label: top.label, v2: top.shortfall_delta > 0 ? `目标缺口增加 ${riskMoney(top.shortfall_delta)}` : "目标缺口未增加", v3: top.fi_delay_months !== null && top.fi_delay_months > 0 ? `，准备就绪推迟 ${top.fi_delay_months} 个月` : "", v4: top.stressed.failure_month !== null ? "，规划期内存在无法支付的月份" : "" });
 }
 
 export function sequenceConclusion(paths: SorrPath[] | null): string {
   if (!paths)
-    return "需要规划期内已开始退休，且退休开始时有可用投资资金，才能比较收益顺序。";
+    return t('需要规划期内已开始退休，且退休开始时有可用投资资金，才能比较收益顺序。');
   const early = paths.find((p) => p.id === "early"),
     late = paths.find((p) => p.id === "late");
-  if (!early || !late) return "本次收益顺序结果不完整。";
+  if (!early || !late) return t('本次收益顺序结果不完整。');
   const difference = early.final - late.final;
-  return `同一次下跌放在开头，期末剩余 ${riskMoney(early.final)}；放在末段，剩余 ${riskMoney(late.final)}。${Math.abs(difference) < 1 ? "两者期末结果相同。" : difference < 0 ? "开头下跌的期末资金更少。" : "末段下跌的期末资金更少。"}`;
+  return t('同一次下跌放在开头，期末剩余 {v1}；放在末段，剩余 {v2}。{v3}', { v1: riskMoney(early.final), v2: riskMoney(late.final), v3: Math.abs(difference) < 1 ? "两者期末结果相同。" : difference < 0 ? "开头下跌的期末资金更少。" : "末段下跌的期末资金更少。" });
 }
 
 /** All lines share an axis; SVG paths only project already computed results. */
@@ -85,7 +85,7 @@ export function fanChart(mc: Pick<MonteCarlo, "bands"> & Partial<Pick<MonteCarlo
   const { p10, p50, p90 } = mc.bands;
   return {
     ...axisOf(p50.length, mc.calendar_months, mc.months),
-    series: [{ name: "中位数", values: cents(p50) }],
+    series: [{ name: t('中位数'), values: cents(p50) }],
     band: { name: "10%–90%", lower: cents(p10), upper: cents(p90) },
   };
 }

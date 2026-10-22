@@ -35,17 +35,17 @@ export function earliestAction(row: BatchRow): string | undefined {
 
 /** Why a row cannot take a state action, or '' when it can. */
 export function stateBlock(row: BatchRow, action: 'retire' | 'activate'): string {
-  if (row.state === 'sold') return '已售出 · 不适用';
-  if (action === 'retire' && row.state === 'retired') return '已退役 · 不适用';
-  if (action === 'activate' && row.state === 'active') return '使用中 · 不适用';
+  if (row.state === 'sold') return t('已售出 · 不适用');
+  if (action === 'retire' && row.state === 'retired') return t('已退役 · 不适用');
+  if (action === 'activate' && row.state === 'active') return t('使用中 · 不适用');
   return '';
 }
 
 export function dateError(row: BatchRow, day: string, today: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return '请填写日期';
-  if (day > today) return '不能晚于今天';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return t('请填写日期');
+  if (day > today) return t('不能晚于今天');
   const earliest = earliestAction(row);
-  if (earliest && day < earliest) return `不能早于 ${earliest}`;
+  if (earliest && day < earliest) return t('不能早于 {earliest}', { earliest });
   return '';
 }
 

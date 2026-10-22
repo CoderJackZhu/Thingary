@@ -22,7 +22,7 @@ export function Update({draft,id,onStale,header}:{draft:Draft;id:string;onStale?
   try {changes=account.fields.holding_mode?[holdingQuickChange(draft,id,holdingMode,quantity,price,rates[code]??'')]:quickChanges(draft,id,mode,amount,from,to,rates[code]??'');} catch(e){problem=e instanceof Error?e.message:String(e);}
   async function save() {
     if(problem){writer.setError(problem);return;}
-    if([...note].length>500||note.includes('\0')){writer.setError('备注最多 500 字，不能含空字符。');return;}
+    if([...note].length>500||note.includes('\0')){writer.setError(t('备注最多 500 字，不能含空字符。'));return;}
     await writer.write({command:'wealth_quick_update',label:t('{name} 快速更新', { name: account!.fields.name }),input:{request_id:crypto.randomUUID(),generation:draft.generation,date:draft.date,note,changes}});
   }
   return <><NavBar title={t('更新余额')} primary={{label:t('保存'),onClick:()=>void save(),disabled:writer.frozen}}/>{header}<p className="mw-muted">{t('原金额：{v1}', { v1: factText(quickFact(draft,id),account) })}</p>{draft.existing && <Notice>{t('当天已有盘点，保存将更正同一次记录，其他账户保留原记录。')}</Notice>}
@@ -43,7 +43,7 @@ export function Update({draft,id,onStale,header}:{draft:Draft;id:string;onStale?
 }
 export default function QuickUpdatePage({params}:PageProps) {
   const s=useSession(),id=String(params.id??''),[date,setDate]=useState(s.today),generation=s.data?.summary.generation??'';
-  const read=useRead(`quick:${generation}:${date}`,async()=>{const d=await invoke<Draft>('wealth_snapshot_draft',{date});if(d.generation!==generation || d.date!==date)throw Error('账户资料已变化，请返回后重新读取。');return d;});
+  const read=useRead(`quick:${generation}:${date}`,async()=>{const d=await invoke<Draft>('wealth_snapshot_draft',{date});if(d.generation!==generation || d.date!==date)throw Error(t('账户资料已变化，请返回后重新读取。'));return d;});
   const header=<DateField label={t('日期')} value={date} min={quickDateMin(s.data?.summary.points??[])} max={s.today} disabled={s.navBlocked} onChange={setDate}/>;
   return <div className="m-page m-wealth">{read.value ? <Update key={`${generation}:${date}`} draft={read.value} id={id} onStale={read.reload} header={header}/> : <><NavBar title={t('更新余额')}/>{header}<ReadState error={read.error} reload={read.reload} loading/></>}</div>;
 }

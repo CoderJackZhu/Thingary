@@ -85,7 +85,7 @@ function ExpensesPanel({ period, today }: { period: FinancePeriod; today: string
       {empty ? <EmptyState icon="wallet" title={period.kind === 'all' ? t('还没有重要支出') : t('{v1}没有记录', { v1: periodTitle(period) })} message={t('物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。')} action={<Button variant="primary" onClick={() => nav.push('spending.expenseEdit')}>{t('记一笔支出')}</Button>}/> : <>
         <SearchField subject={t('支出明细')} value={keyword} onChange={value => { setKeyword(value); setShown(40); }}/>
         {!rows.length ? <EmptyState icon="wallet" title={t('当前条件下没有找到记录')} message={t('搜索只筛选明细，上面的合计不变。')} action={<Button onClick={() => setKeyword('')}>{t('清除搜索')}</Button>}/>
-          : <ListGroup title={t('明细 · {v1} 条', { v1: keyword.trim() ? `找到 ${rows.length}` : rows.length })} footer={t('仅已记录支出；退款按发生日期，售出回收单列。物品的购入与维护从物品里读取。')}>
+          : <ListGroup title={t('明细 · {v1} 条', { v1: keyword.trim() ? t('找到 {length}', { length: rows.length }) : rows.length })} footer={t('仅已记录支出；退款按发生日期，售出回收单列。物品的购入与维护从物品里读取。')}>
             {rows.slice(0, shown).map(row => {
               const amount = signedMoney(row);
               return <ListRow key={row.key} title={row.title} subtitle={row.subtitle} value={amount ?? t('金额未知')} unknown={amount === null} onClick={tappable(row) ? () => open(row) : undefined}/>;
@@ -109,7 +109,7 @@ function RecurringPanel({ period, periodKey, today }: { period: FinancePeriod; p
     const items = [...data.due.map(d => ({ d, overdue: true })), ...data.upcoming.map(d => ({ d, overdue: false }))];
     const shownItems = all ? items : items.slice(0, 4);
     const plans = sortPlans(data.plans.filter(p => matchesPlan(p, keyword)), today);
-    const skip = () => skipping && void saver.run(requestId => submit({ command: 'recurring_payment_save', input: skipSave(skipping, data.generation, requestId), label: t('{plan_name} {due_date} 本期不付', { plan_name: skipping.plan_name, due_date: skipping.due_date }) }), { onDone: () => { setNotice(`已标记「${skipping.plan_name}」${dayLabel(skipping.due_date, today)} 本期不付。`); setSkipping(null); read.reload(); } });
+    const skip = () => skipping && void saver.run(requestId => submit({ command: 'recurring_payment_save', input: skipSave(skipping, data.generation, requestId), label: t('{plan_name} {due_date} 本期不付', { plan_name: skipping.plan_name, due_date: skipping.due_date }) }), { onDone: () => { setNotice(t('已标记「{plan_name}」{v2} 本期不付。', { plan_name: skipping.plan_name, v2: dayLabel(skipping.due_date, today) })); setSkipping(null); read.reload(); } });
     return <>
       {notice && <Notice tone="positive">{notice}</Notice>}
       <div className="sp-stat3">
@@ -119,7 +119,7 @@ function RecurringPanel({ period, periodKey, today }: { period: FinancePeriod; p
       </div>
       <p className="sp-note sp-note-pad">{t('月均、未来 12 个月都是估算；只有确认付款后才计入重要支出，不改变账户余额。')}</p>
       {items.length > 0 && <>
-        <div className="sp-head-line"><h2>{t('即将到期')}</h2><span>{[data.due.length ? `${data.due.length} 笔待确认` : '', data.upcoming.length ? `${data.upcoming.length} 笔即将到期` : ''].filter(Boolean).join(' · ')} · {moneyText(dueTotal([...data.due, ...data.upcoming]))}</span></div>
+        <div className="sp-head-line"><h2>{t('即将到期')}</h2><span>{[data.due.length ? t('{length} 笔待确认', { length: data.due.length }) : '', data.upcoming.length ? t('{length} 笔即将到期', { length: data.upcoming.length }) : ''].filter(Boolean).join(' · ')} · {moneyText(dueTotal([...data.due, ...data.upcoming]))}</span></div>
         {shownItems.map(({ d, overdue }) => { const badge = dueBadge(d.due_date, today); return <Card key={d.plan_id + d.due_date} className="sp-due">
           <div className="sp-due-head"><strong>{d.plan_name}</strong><span className="sp-due-amount">{moneyText(d.amount_cents)}</span></div>
           <div className="sp-due-sub"><span>{shortDay(d.due_date, today)}{d.coverage_start && d.coverage_end ? t(' · 覆盖 {v1}', { v1: localizeDates(periodLabel(d.coverage_start, d.coverage_end), today) }) : ''}</span><Tag tone={overdue ? 'danger' : badge.tone}>{overdue && badge.tone !== 'danger' ? t('待确认') : badge.text}</Tag></div>

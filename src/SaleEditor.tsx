@@ -13,18 +13,18 @@ import { t } from './i18n.ts';
 export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: { initial: SaleDraft; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void }) {
   const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
   const [draft, setDraft] = useState(initial), [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState(initial.pending ? '上次售出保存结果待确认，请先核对。' : '');
+  const [notice, setNotice] = useState(initial.pending ? t('上次售出保存结果待确认，请先核对。') : '');
   const [conflict, setConflict] = useState(false);
-  const title = draft.mode === 'revoke' ? '撤销误记售出' : draft.mode === 'correct' ? '修改售出记录' : '售出';
+  const title = draft.mode === 'revoke' ? t('撤销误记售出') : draft.mode === 'correct' ? t('修改售出记录') : t('售出');
   useEffect(() => { dialog.current?.showModal(); document.getElementById('sale-date')?.focus(); return () => dialog.current?.close(); }, []);
   useEffect(() => { if (closeIntent) askClose(closeIntent); }, [closeIntent]);
   function remember(next: SaleDraft) { persistSubmission(saleKey, next); setDraft(next); }
   function edit(key: keyof SaleForm, value: string) {
     const next = {...draft, fields:{...draft.fields,[key]:value}}; setDraft(next);
-    try { persistSubmission(saleKey, next); } catch {setNotice('暂时无法更新编辑状态，请重试。');}
+    try { persistSubmission(saleKey, next); } catch {setNotice(t('暂时无法更新编辑状态，请重试。'));}
   }
   function askClose(intent: CloseIntent) {
-    if (lock.current || draft.pending) { setNotice('请先核对售出保存结果，再关闭表单。'); onKeep(); return; }
+    if (lock.current || draft.pending) { setNotice(t('请先核对售出保存结果，再关闭表单。')); onKeep(); return; }
     onClose(intent);
   }
   function success(record: AssetRecord) { localStorage.removeItem(saleKey); onSaved(record); }
@@ -34,8 +34,8 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
     try {
       const result = await invoke<AssetRecord | null>('saved_request', { request: draft.pending.request_id, generation: draft.generation });
       if (result) success(result);
-      else { remember({ ...draft, pending: null }); setNotice('确认尚未提交。输入已保留，可以重试或修改。'); }
-    } catch (e) { setNotice(errorMessage(e) + ' 原请求与输入已保留，请稍后核对。'); }
+      else { remember({ ...draft, pending: null }); setNotice(t('确认尚未提交。输入已保留，可以重试或修改。')); }
+    } catch (e) { setNotice(errorMessage(e) + t(' 原请求与输入已保留，请稍后核对。')); }
     finally { lock.current = false; setBusy(false); }
   }
   async function save() {
@@ -45,23 +45,23 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
     const input: SaleChange = { request_id: crypto.randomUUID(), generation: draft.generation, asset_id: draft.record.asset.id, expected_revision: draft.record.asset.revision, action: saleAction(draft) };
     lock.current = true; setBusy(true);
     try { remember({ ...draft, pending: input }); }
-    catch { lock.current = false; setBusy(false); setNotice('无法暂存本次请求，尚未提交，请检查可用空间后重试。'); return; }
+    catch { lock.current = false; setBusy(false); setNotice(t('无法暂存本次请求，尚未提交，请检查可用空间后重试。')); return; }
     try { success(await invoke<AssetRecord>('change_sale', { input })); }
     catch (e) {
       try {
         const result = await invoke<AssetRecord | null>('saved_request', { request: input.request_id, generation: input.generation });
         if (result) success(result);
-        else { remember({ ...draft, pending: null }); setConflict(typeof e === 'object' && e !== null && 'code' in e && ['REVISION_CONFLICT','STATE_CONFLICT'].includes(String(e.code))); setNotice(errorMessage(e) + ' 输入已保留。'); }
-      } catch { setNotice('暂时无法确认结果。原请求和输入已保留，请核对售出保存结果。'); }
+        else { remember({ ...draft, pending: null }); setConflict(typeof e === 'object' && e !== null && 'code' in e && ['REVISION_CONFLICT','STATE_CONFLICT'].includes(String(e.code))); setNotice(errorMessage(e) + t(' 输入已保留。')); }
+      } catch { setNotice(t('暂时无法确认结果。原请求和输入已保留，请核对售出保存结果。')); }
     } finally { lock.current = false; setBusy(false); }
   }
   async function reload() {
     if (lock.current) return; lock.current = true; setBusy(true);
     try {
       const record = await invoke<AssetRecord | null>('read_asset', { id: draft.record.asset.id });
-      if (!record || record.deleted) { setNotice('档案已删除或不可用，请关闭后重新读取。'); return; }
+      if (!record || record.deleted) { setNotice(t('档案已删除或不可用，请关闭后重新读取。')); return; }
       remember({ ...draft, record }); setConflict(false);
-      setNotice(`已读取最新状态：${record.lifecycle?.state === 'sold' ? '已售出' : record.lifecycle?.state === 'retired' ? '已退役' : '使用中'}。你的输入仍保留，请核对最新售出资料后再保存。`);
+      setNotice(t('已读取最新状态：{v1}。你的输入仍保留，请核对最新售出资料后再保存。', { v1: record.lifecycle?.state === 'sold' ? '已售出' : record.lifecycle?.state === 'retired' ? '已退役' : '使用中' }));
     } catch (e) { setNotice(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
   }

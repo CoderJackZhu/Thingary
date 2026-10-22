@@ -37,11 +37,11 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
   useEffect(() => { setPair({ from: fromSnapshotId, to: toSnapshotId }); setDraft(null); }, [fromSnapshotId, toSnapshotId, generation]);
   useEffect(() => {
     let live = true; onPreviewChange?.(null); setOuter({ status: 'loading' }); setRead(null); setListError(''); setListLoading(true);
-    listInvestmentReviews(generation).then(v => { if (!live) return; if (v.generation !== generation) throw Error('资料库已变化，请重新读取。'); setRecords(v.records); }).catch(e => { if (live) setListError(errorMessage(e)); }).finally(() => { if (live) setListLoading(false); });
+    listInvestmentReviews(generation).then(v => { if (!live) return; if (v.generation !== generation) throw Error(t('资料库已变化，请重新读取。')); setRecords(v.records); }).catch(e => { if (live) setListError(errorMessage(e)); }).finally(() => { if (live) setListLoading(false); });
     if (!pair.from) setOuter({ status: 'empty' });
     else readInvestmentReview(generation, pair.from, pair.to).then(v => {
       if (!live) return;
-      if (v.generation !== generation || !parseReviewInput(v.input) || !parseReviewResult(v.result)) throw Error('投资核对资料格式不兼容或资料库已变化。');
+      if (v.generation !== generation || !parseReviewInput(v.input) || !parseReviewResult(v.result)) throw Error(t('投资核对资料格式不兼容或资料库已变化。'));
       onPreviewChange?.({ fromSnapshotId: pair.from!, toSnapshotId: pair.to, result: v.result }); setRead(v); setOuter({ status: 'ready', input: v.input, result: v.result });
     }).catch(e => { if (live) setOuter({ status: 'error', code: 'READ_ERROR', message: errorMessage(e) }); });
     return () => { live = false; };
@@ -77,7 +77,7 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
   const hintsView = <details><summary>{t('已记录投资现金收入（仅供核对）')}</summary><p className="muted small">{t('转到范围外的分红已包含在转出合计中，不再加进总损益。记录存在不代表资金流动已核对完整。')}</p>{incomes === null ? <p role="alert">{t('收入明细读取失败。')}</p> : !hints.length ? <p>{t('这一期间没有已记录的投资现金收入。')}</p> : <ul>{hints.map(i => <li key={i.id}>{i.fields.date} · {incomeCategories[i.fields.category ?? 'unclassified']} · {money(i.fields.net_cents)} · {assigned(i) ? i.fields.destination === 'retained' ? t('留在投资账户') : scope.has(i.fields.receiving_account_id!) ? t('范围内转移') : t('转到范围外') : t('未归属明细')}{i.fields.notes && ` · ${i.fields.notes}`}</li>)}</ul>}</details>;
   const disclosure = reviewDisclosureState(outer);
   const historyPending = records.filter(r => !r.deleted && !r.flow.confirmed_complete).length;
-  const messages = [disclosure.attention, listError && `已保存投资核对区间读取失败：${listError}`, historyPending ? `有 ${historyPending} 个已保存投资核对区间尚未确认完整，请查看已保存区间。` : '', read && incomes === null ? '投资现金收入明细读取失败，请展开查看。' : '', notice, pendingReceipt || uncertain ? '存在未确认的保存结果，请通过页面顶部“核对结果”确认。' : ''].filter((m): m is string => !!m);
+  const messages = [disclosure.attention, listError && t('已保存投资核对区间读取失败：{listError}', { listError }), historyPending ? t('有 {historyPending} 个已保存投资核对区间尚未确认完整，请查看已保存区间。', { historyPending }) : '', read && incomes === null ? t('投资现金收入明细读取失败，请展开查看。') : '', notice, pendingReceipt || uncertain ? t('存在未确认的保存结果，请通过页面顶部“核对结果”确认。') : ''].filter((m): m is string => !!m);
   return <section aria-label={t('投资区间复盘')}><InvestmentReviewDisclosure label={disclosure.label} messages={messages} editing={draft !== null || busy || deleting !== null}>
     <InvestmentReviewCard accountNames={accountNames} outer={outer} onCheckFlow={followupPort ? undefined : edit} onEditFlow={followupPort ? undefined : edit} disabled={frozen}/>
     {/* 注入端口后由 FollowupSection 提供核对方式（手填／明细）与资金流动入口，避免双核对窗。 */}

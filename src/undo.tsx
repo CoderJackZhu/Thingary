@@ -48,8 +48,8 @@ export function UndoBar() {
   async function undo() {
     if (!offer || busy) return;
     setBusy(true); window.clearTimeout(timer.current);
-    try { setMessage((await offer.run()) || '已撤销删除。'); window.dispatchEvent(new Event(restoredEvent)); }
-    catch (e) { setMessage(errorMessage(e) + ' 可以到“最近删除”恢复。'); }
+    try { setMessage((await offer.run()) || t('已撤销删除。')); window.dispatchEvent(new Event(restoredEvent)); }
+    catch (e) { setMessage(errorMessage(e) + t(' 可以到“最近删除”恢复。')); }
     finally { setBusy(false); hideLater(4000); }
   }
   latest.current = { offered: !!offer && !message && !busy, undo: () => void undo() };

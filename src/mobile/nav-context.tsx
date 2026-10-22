@@ -145,7 +145,7 @@ export function useEntry() {
   return {
     entry, params: entry.params, kind: routeKind(entry.route), isRoot: index === 0,
     /** Label for the back button: the title of the page below. */
-    backTitle: previous ? previous.title ?? routeDef(previous.route)?.title ?? '返回' : undefined,
+    backTitle: previous ? previous.title ?? routeDef(previous.route)?.title ?? t('返回') : undefined,
     title: entry.title ?? routeDef(entry.route)?.title ?? '',
   };
 }

@@ -19,7 +19,7 @@ export default function Groups() {
   const close = () => { if (!writer.frozen) { setEditing(null); setProblem(''); writer.setError(''); } };
   const taken = (value: string, id?: string) => list.some(g => g.id !== id && g.name === value.trim());
   const save = () => {
-    const error = groupNameError(name) ?? (taken(name, row?.id) ? '已有同名分组' : null);
+    const error = groupNameError(name) ?? (taken(name, row?.id) ? t('已有同名分组') : null);
     if (error) { setProblem(error); return; }
     setProblem(''); stay.current = false;
     void writer.write({ command: 'account_group_save', label: row ? t('分组改名') : t('新增分组'), input: { request_id: crypto.randomUUID(), generation, id: row?.id ?? null, expected_revision: row?.revision ?? null, name: name.trim() } });

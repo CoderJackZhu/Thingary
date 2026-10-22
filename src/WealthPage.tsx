@@ -49,8 +49,8 @@ export function usePendingReceipt(reload: () => void) {
     try {
       const outcome = await resolvePending(pending);
       setPending(null); reload();
-      setNotice(outcome === 'saved' ? `已确认「${pending.label}」保存成功。` : outcome === 'stale' ? '资料库已切换，上次请求不属于当前资料，已放弃。' : `「${pending.label}」没有保存，请重新录入。`);
-    } catch (e) { setPending(storedPending()); setNotice(errorMessage(e) + ' 原请求已保留，请稍后再核对。'); }
+      setNotice(outcome === 'saved' ? tt('已确认「{label}」保存成功。', { label: pending.label }) : outcome === 'stale' ? tt('资料库已切换，上次请求不属于当前资料，已放弃。') : tt('「{label}」没有保存，请重新录入。', { label: pending.label }));
+    } catch (e) { setPending(storedPending()); setNotice(errorMessage(e) + tt(' 原请求已保留，请稍后再核对。')); }
     finally { setBusy(false); }
   }
   return { pending, setPending, notice, setNotice, busy, verify };
@@ -139,7 +139,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     else {
       const p = summary.points.find(p => p.snapshot_id === reviewFocus.id);
       if (p) { setCheckInPin(p.snapshot_id); setCheckIn(p.date); }
-      else setError('这条盘点已删除或变化，请重新读取。');
+      else setError(tt('这条盘点已删除或变化，请重新读取。'));
     }
     onReviewFocusDone?.();
   }, [reviewFocus, summary]);
@@ -210,7 +210,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     {createdAccount && !error && loadedRetry >= createdAccount.afterRead && summary?.generation === createdAccount.generation && <div className="notice wealth-account-created" role="status"><span>{tt('已添加「{name}」。', { name: createdAccount.name })}</span><button type="button" className="ui-link" disabled={!!pending || busy} onClick={() => setEditing('new')}>{tt('继续添加账户')}</button><button type="button" className="ui-link" disabled={!!pending || busy} onClick={() => { setCreatedAccount(null); setCheckIn(today); }}>{tt('去填写余额')}</button><CloseButton type="button" aria-label={tt('关闭添加账户成功提示')} onClick={() => setCreatedAccount(null)}/></div>}
     {pending && <div className="notice" role="status">{tt('上次「{label}」的保存结果未确认。', { label: pending.label })}{pending.command === 'financial_import_commit' ? <span>{tt('请到设置的数据管理核对上次导入结果。')}</span> : <button disabled={busy} onClick={() => void verify()}>{tt('核对结果')}</button>}</div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label={tt('财富页面')}>{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).filter(([k]) => !onCompare || k !== 'changes').map(([k, l]) => <button key={k} type="button" aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div></HeaderSlot>
+    <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label={tt('财富页面')}>{([['overview', tt('概览')], ['accounts', tt('账户')], ['changes', tt('变化')], ['history', tt('盘点记录')]] as const).filter(([k]) => !onCompare || k !== 'changes').map(([k, l]) => <button key={k} type="button" aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div></HeaderSlot>
     {tab !== 'overview' && tab !== 'history' && accountScope}
     {tab === 'accounts' && <div className="account-group-toolbar"><label>{tt('分组方式')}<select aria-label={tt('账户分组方式')} value={groupView} onChange={e => { const mode = e.target.value as 'list' | 'group'; setGroupView(mode); if (summary) rememberGroupView(summary.generation, 'mode', mode); }}><option value="list">{tt('列表')}</option><option value="group">{tt('按分组')}</option></select></label><button type="button" disabled={!!pending || busy || !summary} onClick={() => setManageGroups(true)}>{tt('管理分组')}</button></div>}
 
@@ -258,9 +258,9 @@ function Overview({ groups, allAccounts, onQuick, accountScope, summary, account
   return <>
     {!latest.complete && <div className="notice">{tt('{date} 的盘点还有 {missing} 个账户没有金额，未计入完整净资产和变化比较。', { date: latest.date, missing: latest.missing })}<button onClick={() => onCheckIn(latest.date)}>{tt('补录')}</button></div>}
     <div className="ui-metrics ui-card">
-      <article><span>{tt('金融净资产')}</span><strong>{lastComplete ? signedMoney(lastComplete.net_cents) : '—'}</strong><em>{lastComplete ? tt('截至 {date} 完整盘点 · 距今 {v2} 天{v3}', { date: lastComplete.date, v2: Math.max(0, Math.round((Date.parse(today) - Date.parse(lastComplete.date)) / 86400000)), v3: lastComplete.has_unchanged ? ' · 含沿用金额' : '' }) : tt('—／尚无完整盘点')}</em></article>
-      <article><span>{tt('金融资产')}</span><strong>{money(shown.assets_cents)}</strong><em>{`${shown.date} · ${shown.complete ? '计入净资产的账户' : '仅已知部分'}`}</em></article>
-      <article><span>{tt('负债')}</span><strong>{money(shown.liabilities_cents)}</strong><em>{`${shown.date} · ${shown.complete ? '计入净资产的尚欠金额' : '仅已知部分'}`}</em></article>
+      <article><span>{tt('金融净资产')}</span><strong>{lastComplete ? signedMoney(lastComplete.net_cents) : '—'}</strong><em>{lastComplete ? tt('截至 {date} 完整盘点 · 距今 {v2} 天{v3}', { date: lastComplete.date, v2: Math.max(0, Math.round((Date.parse(today) - Date.parse(lastComplete.date)) / 86400000)), v3: lastComplete.has_unchanged ? tt(' · 含沿用金额') : '' }) : tt('—／尚无完整盘点')}</em></article>
+      <article><span>{tt('金融资产')}</span><strong>{money(shown.assets_cents)}</strong><em>{`${shown.date} · ${shown.complete ? tt('计入净资产的账户') : tt('仅已知部分')}`}</em></article>
+      <article><span>{tt('负债')}</span><strong>{money(shown.liabilities_cents)}</strong><em>{`${shown.date} · ${shown.complete ? tt('计入净资产的尚欠金额') : tt('仅已知部分')}`}</em></article>
       <article><span>{tt('与上次比较')}</span><strong>{comparisonText(lastComplete?.change_cents, lastComplete?.compared_to)}</strong><em>{!lastComplete?.compared_to ? tt('至少两次完整盘点后显示') : lastComplete.scope_changed ? tt('有账户改变了计入设置，不直接比较') : tt('对比 {compared_to}{v2}', { compared_to: lastComplete.compared_to, v2: lastComplete.change_rate_hundredths !== null ? ' · ' + rateText(lastComplete.change_rate_hundredths) : '' })}</em>{comparedPoint && lastComplete && <button className="link-cell changes-link" onClick={() => onOpenChanges({ from: comparedPoint.snapshot_id, to: lastComplete.snapshot_id })}>{tt('看哪些账户带来变化 →')}</button>}</article>
     </div>
     {lastComplete?.has_unchanged && <p className="notice">{tt('这次完整盘点含沿用金额，并非所有账户都在当天重新核对。账户清单标明最近手动录入时间。')}</p>}
@@ -328,7 +328,7 @@ function AccountListing(props: Parameters<typeof Accounts>[0] & { mode: 'list' |
 
 function Accounts({ basis, quickPoints = [], accounts, onEdit, onNew, found, onQuick, today }: { basis?: Summary; quickPoints?: Point[]; onQuick: (account: Account) => void; today: string; accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
   const [sort, setSort] = useState<ListSort>({ key: 'name', descending: false });
-  const sorted = sortRecords(accounts, sort, (a, key) => key === 'name' ? a.fields.name : key === 'kind' ? (a.fields.side === 'liability' ? '负债 · ' : '') + kindLabel(a.fields.kind) : key === 'counted' ? Number(a.fields.counted) : key === 'status' ? Number(!!a.fields.closed_on) : moneySortValue(accountBalanceView(a, basis?.points.at(-1)?.date, basis?.latest_entries).fact?.amount_cents), a => a.id);
+  const sorted = sortRecords(accounts, sort, (a, key) => key === 'name' ? a.fields.name : key === 'kind' ? (a.fields.side === 'liability' ? tt('负债 · ') : '') + kindLabel(a.fields.kind) : key === 'counted' ? Number(a.fields.counted) : key === 'status' ? Number(!!a.fields.closed_on) : moneySortValue(accountBalanceView(a, basis?.points.at(-1)?.date, basis?.latest_entries).fact?.amount_cents), a => a.id);
   if (!accounts.length) return <div className="empty"><h2>{tt('当前范围没有账户')}</h2><p>{tt('可以切换上方账户范围，或添加新的账户。')}</p><button className="primary" onClick={onNew}>{tt('新增账户')}</button></div>;
   return <>{found !== null && <p className="muted small" role="status">{tt('找到 {found} 条', { found })}</p>}<div className="table-scroll"><table className="ui-table wealth-accounts"><thead><tr><SortHeader field="name" label={tt('账户')} sort={sort} onSort={setSort}/><SortHeader field="kind" label={tt('类型')} sort={sort} onSort={setSort}/><SortHeader field="counted" label={tt('计入净资产')} sort={sort} onSort={setSort}/><SortHeader field="amount" label={tt('最近盘点金额')} sort={sort} onSort={setSort}/><SortHeader field="status" label={tt('状态')} sort={sort} onSort={setSort}/><th>{tt('操作')}</th></tr></thead><tbody>{(sort.key === 'status' ? sorted : [...sorted].sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))).map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
     <td><button className="link-cell" onClick={() => onEdit(a)}>{a.fields.name}</button>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}</td>
@@ -365,8 +365,8 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
     groupCreating.current = true; setBusy(true);
     try {
       const result = await resolvePending(request);
-      if (result === 'saved') { const g = await submit<AccountGroup>(request); setCreatedGroup(g); setFields(f => ({ ...f, group_id: g.id })); setCreateGroup(false); setNotice('已确认分组已保存，账户输入仍保留。'); }
-      else setNotice('分组没有保存，输入已保留，可以重新创建。');
+      if (result === 'saved') { const g = await submit<AccountGroup>(request); setCreatedGroup(g); setFields(f => ({ ...f, group_id: g.id })); setCreateGroup(false); setNotice(tt('已确认分组已保存，账户输入仍保留。')); }
+      else setNotice(tt('分组没有保存，输入已保留，可以重新创建。'));
       setStuck(false); onGroupsChanged?.();
     } catch (e) { setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { groupCreating.current = false; setBusy(false); }
@@ -376,8 +376,8 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
   useEffect(() => { dialog.current?.showModal(); document.getElementById('wealth-account-name')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof AccountFields>(k: K, v: AccountFields[K]) => setFields(f => ({ ...f, [k]: v }));
   async function save() {
-    if (!fields.name.trim()) { setNotice('请填写账户名称。'); document.getElementById('wealth-account-name')?.focus(); return; }
-    if (!validCurrency(currencyCode(fields.currency))) { setNotice("币种须为三位大写字母。"); return; }
+    if (!fields.name.trim()) { setNotice(tt('请填写账户名称。')); document.getElementById('wealth-account-name')?.focus(); return; }
+    if (!validCurrency(currencyCode(fields.currency))) { setNotice(tt('币种须为三位大写字母。')); return; }
     const normalized = { ...fields }; if (normalized.currency === "CNY") delete normalized.currency; if (!normalized.holding_mode) { delete normalized.holding_mode; delete normalized.holding_unit; } if(normalized.holding_unit==null)delete normalized.holding_unit;
     const input: AccountSave = { request_id: crypto.randomUUID(), generation, id: account?.id ?? null, expected_revision: account?.revision ?? null, fields: { ...normalized, name: fields.name.trim(), institution: fields.institution.trim() } };
     setBusy(true); setNotice('');
@@ -393,13 +393,13 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
       <FormRow label={tt('名称')}><input id="wealth-account-name" aria-label={tt('账户名称')} maxLength={80} value={fields.name} disabled={busy || stuck} onChange={e => set('name', e.target.value)} placeholder={tt('例如 招行储蓄卡')}/></FormRow>
       <FormRow label={tt('平台')} hint={tt('银行、券商等机构，可留空；不决定账户分组')}><input aria-label={tt('平台')} maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder={tt('可留空')}/></FormRow>
       <FormRow label={tt('币种')} hint={account?.has_entries ? tt('已有记录的账户不能更改币种，请新建账户并停用旧账户。') : tt('汇率手填，不联网。')}><CurrencyPicker label={tt('账户币种')} value={currencyCode(fields.currency)} disabled={busy || stuck || !!account?.has_entries} onChange={code => set('currency', code)}/></FormRow>
-      <FormRow label={tt('类型')} hint={account ? tt('资产或负债建立后不能更改') : tt('选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额')}><select aria-label={tt('类型')} value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on || account?.fields.purchase_cents != null || account?.fields.purchased_on)) { setNotice('请先清空并保存购入价和购入日期，再更改类型'); return; } setNotice(''); setFields(f => ({...selectAccountKind(f, kind, countedChoice),...(!holdingSupported(kind)?{holding_mode:false,holding_unit:null}:{})})); }}>
+      <FormRow label={tt('类型')} hint={account ? tt('资产或负债建立后不能更改') : tt('选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额')}><select aria-label={tt('类型')} value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on || account?.fields.purchase_cents != null || account?.fields.purchased_on)) { setNotice(tt('请先清空并保存购入价和购入日期，再更改类型')); return; } setNotice(''); setFields(f => ({...selectAccountKind(f, kind, countedChoice),...(!holdingSupported(kind)?{holding_mode:false,holding_unit:null}:{})})); }}>
         {(!account || fields.side === 'asset') && <optgroup label={tt('资产')}>{assetKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
         {(!account || fields.side === 'liability') && <optgroup label={tt('负债')}>{liabilityKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
       </select></FormRow>
       {accountKindHint(fields.kind) && <p className="muted small">{accountKindHint(fields.kind)}</p>}
       {account && fields.kind === 'property' && account.fields.kind !== 'property' && <p className="notice">{tt('以后盘点不再计入金融净资产；既有盘点保持原记录。')}</p>}
-      <FormRow label={tt('计入金融净资产')} hint={fields.kind === 'property' ? tt('房产固定不计入') : fields.side === 'liability' ? tt('房贷、车贷等可关闭') : tt('此类型新建建议：{v1}', { v1: defaultAccountCounted(fields.kind) ? '计入' : '不计入' })}><Switch label={tt('计入金融净资产')} value={fields.counted} disabled={busy || stuck || fields.kind === 'property'} onChange={v => { setCountedChoice(v); set('counted', v); }}/></FormRow>
+      <FormRow label={tt('计入金融净资产')} hint={fields.kind === 'property' ? tt('房产固定不计入') : fields.side === 'liability' ? tt('房贷、车贷等可关闭') : tt('此类型新建建议：{v1}', { v1: defaultAccountCounted(fields.kind) ? tt('计入') : tt('不计入') })}><Switch label={tt('计入金融净资产')} value={fields.counted} disabled={busy || stuck || fields.kind === 'property'} onChange={v => { setCountedChoice(v); set('counted', v); }}/></FormRow>
       {holdingSupported(fields.kind) && <><FormRow label={tt('按持仓记录')} hint={tt('通常直接填平台总余额就够了。想用份额和单价算金额时再开启；一个账户一个持仓，不记录交易成本或收益。')}><Switch label={tt('按持仓记录')} value={!!fields.holding_mode} disabled={busy || stuck} onChange={value=>setFields(f=>({...f,holding_mode:value,...(!value?{holding_unit:null}:{})}))}/></FormRow>{fields.holding_mode && <FormRow label={tt('持仓单位')} hint={tt('可留空，默认显示份；最多8字')}><input aria-label={tt('持仓单位')} maxLength={8} value={fields.holding_unit??''} disabled={busy||stuck} onChange={e=>set('holding_unit',e.target.value||null)}/></FormRow>}</>}
       <FormRow label={tt('分组')} hint={tt('只影响查看；未分组也可以正常盘点和规划')}><select aria-label={tt('账户分组')} value={fields.group_id ?? ''} disabled={busy || stuck} onChange={e => { if (e.target.value === '__new__') setCreateGroup(true); else set('group_id', e.target.value || null); }}><option value="">{tt('未分组')}</option>{availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}<option value="__new__">{tt('新建分组…')}</option></select>{createGroup && <div className="account-group-create">{stuck && <button type="button" disabled={busy} onClick={() => void verifyGroup()}>{tt('核对分组结果')}</button>}<input aria-label={tt('就地新建分组名称')} value={groupName} maxLength={40} disabled={busy || stuck} onChange={e => setGroupName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveGroup(); } }}/><button type="button" disabled={busy || stuck || !groupName.trim()} onClick={() => void saveGroup()}>{tt('创建并选择')}</button><button type="button" disabled={busy || stuck} onClick={() => setCreateGroup(false)}>{tt('取消')}</button></div>}</FormRow>
       <FormRow label={tt('启用日期')} hint={tt('此日之前的盘点不要求填写')}><DateInput yearIntent="past" id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
@@ -420,10 +420,10 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
   async function remove() {
     setBusy(true); onBusyChange?.(true);
     try {
-      await submit({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision, deleted: true }, label: '删除' + name });
+      await submit({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision, deleted: true }, label: tt('删除') + name });
       onDone();
       // A delete bumps the revision once; the undo restores exactly that state.
-      offerUndo(`已删除「${name}」，已移入最近删除。`, () => submit<void>({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision + 1, deleted: false }, label: '恢复' + name }));
+      offerUndo(tt('已删除「{name}」，已移入最近删除。', { name }), () => submit<void>({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision + 1, deleted: false }, label: tt('恢复') + name }));
     }
     catch (e) { onError(e instanceof Error ? e.message : errorMessage(e), e instanceof Unresolved); setArmed(false); }
     finally { setBusy(false); onBusyChange?.(false); }
@@ -447,7 +447,7 @@ function SnapshotDetail({ id, onCorrect, onClose }: { id: string; onClose: () =>
   usePageBar('wealth', {});
   if (error) return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading"><header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> {tt('返回财富')}</button><div><h2 id="snapshot-detail-heading">{tt('盘点详情')}</h2></div></header><div role="alert"><p>{tt('盘点读取失败：{error}', { error })}</p><button onClick={() => onClose()}>{tt('返回')}</button></div></section>;
   if (!snapshot || !accounts) return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading"><header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> {tt('返回财富')}</button><div><h2 id="snapshot-detail-heading">{tt('盘点详情')}</h2></div></header><p role="status" className="muted">{tt('正在读取盘点…')}</p></section>;
-  const stateText = (state: string, amount: string | null) => amount === null ? '未知' : state === 'unchanged' ? '沿用' : '录入';
+  const stateText = (state: string, amount: string | null) => amount === null ? tt('未知') : state === 'unchanged' ? tt('沿用') : tt('录入');
   return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading">
     <header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> {tt('返回财富')}</button><div><h2 id="snapshot-detail-heading">{tt('盘点详情')}</h2><p className="muted">{tt('只读查看，不改动任何资料。')}</p></div><div className="field check-in-date"><label>{tt('盘点日期')}</label><output>{snapshot.date}</output></div></header>
     {snapshot.entries.some(e => e.state === 'unchanged') && <p className="notice">{tt('快速更新 · 含沿用金额，没有未知账户时仍是完整盘点。')}</p>}
@@ -482,7 +482,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
       if (!live) return;
       // A deleted source snapshot must not reopen as the same-day replacement
       // or as a brand-new check-in; the user returns and re-reads instead.
-      if (pin && d.existing?.id !== pin) { setError('这条盘点已删除或变化，请返回后重新读取。'); return; }
+      if (pin && d.existing?.id !== pin) { setError(tt('这条盘点已删除或变化，请返回后重新读取。')); return; }
       setDraft(d);
       setRates(Object.fromEntries(Object.entries(rateSuggestions(d)).map(([c,s])=>[c,s.rate])));
       // Notes belong to the snapshot of the viewed date; a new date starts empty.
@@ -539,8 +539,8 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
   }
   async function save() {
     if (!draft) return;
-    if (unfilled.length) { setNotice(`还有 ${unfilled.length} 个账户未填写：填写本次金额，零余额请填 0。`); locateNextUnfilled(); return; }
-    if ([...notes].length > 10000 || notes.includes('\0')) { setNotice('备注最多 10000 字，且不能含空字符。'); return; }
+    if (unfilled.length) { setNotice(tt('还有 {length} 个账户未填写：填写本次金额，零余额请填 0。', { length: unfilled.length })); locateNextUnfilled(); return; }
+    if ([...notes].length > 10000 || notes.includes('\0')) { setNotice(tt('备注最多 10000 字，且不能含空字符。')); return; }
     const plain: SnapshotSave = { request_id: crypto.randomUUID(), generation: draft.generation, id: existing?.id ?? null, expected_revision: existing?.revision ?? null, date, notes, entries: open.map(r => snapshotEntryInput(r.account.id, rows[r.account.id])) };
     const input = applyClosing(plain, all.map(r => r.account), closing);
     setBusy(true); setNotice('');

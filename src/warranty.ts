@@ -1,8 +1,8 @@
 import { errorMessage, type AssetRecord, type Photo, type Selection } from "./asset.ts";
 import { t } from './i18n.ts';
 export const warrantyKinds = [
-  ["manufacturer", "厂家保修"], ["extended", "延保"], ["applecare", "AppleCare"],
-  ["store", "商店保修"], ["other", "其他保障"],
+  ["manufacturer", t('厂家保修')], ["extended", t('延保')], ["applecare", "AppleCare"],
+  ["store", t('商店保修')], ["other", t('其他保障')],
 ] as const;
 export type WarrantyKind = typeof warrantyKinds[number][0];
 export interface WarrantyFields { kind: WarrantyKind; provider: string; start_date: string | null; end_date: string | null; notes: string }
@@ -49,17 +49,17 @@ export function summarizeWarranties(items: { fields: { start_date: string | null
   return summary;
 }
 
-export const statusLabel: Record<WarrantyStatus, string> = { pending: "日期待补全", upcoming: "尚未生效", active: "保障中", expiring: "即将到期", expired: "已到期" };
+export const statusLabel: Record<WarrantyStatus, string> = { pending: t('日期待补全'), upcoming: t('尚未生效'), active: t('保障中'), expiring: t('即将到期'), expired: t('已到期') };
 export function warrantySummaryText(summary: WarrantySummary): string {
-  if (summary.status === "none") return "还没有保障记录";
-  if (summary.status === "covered") return summary.expiring_count > 0 ? `保障中，${summary.expiring_count} 份即将到期` : "保障中";
-  if (summary.status === "expiring_soon") return `即将到期（${summary.expiring_count} 份）`;
+  if (summary.status === "none") return t('还没有保障记录');
+  if (summary.status === "covered") return summary.expiring_count > 0 ? t('保障中，{expiring_count} 份即将到期', { expiring_count: summary.expiring_count }) : t('保障中');
+  if (summary.status === "expiring_soon") return t('即将到期（{expiring_count} 份）', { expiring_count: summary.expiring_count });
   const facts = [
-    summary.upcoming_count > 0 ? `${summary.upcoming_count} 份尚未生效` : "",
-    summary.expired_count > 0 ? `${summary.expired_count} 份已到期` : "",
-    summary.pending_count > 0 ? `${summary.pending_count} 份日期待补全` : "",
+    summary.upcoming_count > 0 ? t('{upcoming_count} 份尚未生效', { upcoming_count: summary.upcoming_count }) : "",
+    summary.expired_count > 0 ? t('{expired_count} 份已到期', { expired_count: summary.expired_count }) : "",
+    summary.pending_count > 0 ? t('{pending_count} 份日期待补全', { pending_count: summary.pending_count }) : "",
   ].filter(Boolean).join("，");
-  return `当前无有效保障${facts ? `（${facts}）` : ""}`;
+  return t('当前无有效保障{v1}', { v1: facts ? `（${facts}）` : "" });
 }
 
 // Read-only recovery: never retarget an old request or silently accept a newer revision.
@@ -70,22 +70,22 @@ export async function recoverWarranty(
 ): Promise<WarrantyRecoveryResult> {
   let state = saved;
   const blocked = (message: string): WarrantySession => ({ kind: "edit", state, issue: { kind: "blocked", message } });
-  if (state.generation !== generation) return blocked("资料库已切换。这份草稿及原请求仍保留，不能提交到当前资料库；可保留草稿并关闭，切回原资料库后再核对。");
+  if (state.generation !== generation) return blocked(t('资料库已切换。这份草稿及原请求仍保留，不能提交到当前资料库；可保留草稿并关闭，切回原资料库后再核对。'));
   if (state.pending) {
     const expected = warrantyChange(state.record, state.generation, state.fields, state.warranty_id, state.pending.request_id);
-    if (JSON.stringify(expected) !== JSON.stringify(state.pending)) return blocked("暂存请求与草稿不一致，已停止提交。原始输入保留，请核对资料后处理。");
+    if (JSON.stringify(expected) !== JSON.stringify(state.pending)) return blocked(t('暂存请求与草稿不一致，已停止提交。原始输入保留，请核对资料后处理。'));
     try {
       const result = await receipt(state.pending.request_id, state.generation);
-      if (result) return result.asset.id === state.record.asset.id ? { kind: "saved", record: result } : blocked("回执中的物品与草稿不一致，已停止恢复。");
+      if (result) return result.asset.id === state.record.asset.id ? { kind: "saved", record: result } : blocked(t('回执中的物品与草稿不一致，已停止恢复。'));
       state = { ...state, pending: null };
     } catch (error) {
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "STALE_DATASET") return blocked("资料库已切换，原请求仍保留；请切回原资料库后核对，或保留草稿并关闭。");
-      return { kind: "edit", state, issue: { kind: "pending", message: errorMessage(error) + " 原请求与输入已保留，请稍后核对。" } };
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "STALE_DATASET") return blocked(t('资料库已切换，原请求仍保留；请切回原资料库后核对，或保留草稿并关闭。'));
+      return { kind: "edit", state, issue: { kind: "pending", message: errorMessage(error) + t(' 原请求与输入已保留，请稍后核对。') } };
     }
   }
   const latest = await read(state.record.asset.id);
-  if (!latest || latest.deleted || latest.asset.id !== state.record.asset.id) return blocked("原物品已删除或不可用。输入仍保留，请恢复原物品后重试；不会把草稿转存到其他物品。");
-  if (state.warranty_id && !(latest.warranties ?? []).some(item => item.id === state.warranty_id)) return blocked("原保障记录已不可用。输入仍保留，请恢复原记录后重试；不会自动改成新增。");
+  if (!latest || latest.deleted || latest.asset.id !== state.record.asset.id) return blocked(t('原物品已删除或不可用。输入仍保留，请恢复原物品后重试；不会把草稿转存到其他物品。'));
+  if (state.warranty_id && !(latest.warranties ?? []).some(item => item.id === state.warranty_id)) return blocked(t('原保障记录已不可用。输入仍保留，请恢复原记录后重试；不会自动改成新增。'));
   if (latest.asset.revision !== state.record.asset.revision) return { kind: "edit", state, issue: { kind: "conflict", latest, message: t('物品已更新。请核对当前记录，再明确确认是否保留你的输入；尚未替换草稿版本。') } };
   return { kind: "edit", state: { ...state, record: latest }, issue: null };
 }
@@ -99,12 +99,12 @@ const validDay = (value: string) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
 export function validateWarranty(d: WarrantyDraft): string | null {
-  if (!warrantyKinds.some(([k]) => k === d.kind)) return "请选择保障类型";
-  if ([...d.provider.trim()].length > 200 || [...d.notes].length > 10000 || [d.provider, d.notes].some(v => v.includes("\0"))) return "提供方最多 200 字，备注最多 10000 字，且不能含空字符";
-  if (d.start && !validDay(d.start)) return "开始日期格式应为 YYYY-MM-DD";
-  if (d.end && !validDay(d.end)) return "结束日期格式应为 YYYY-MM-DD";
+  if (!warrantyKinds.some(([k]) => k === d.kind)) return t('请选择保障类型');
+  if ([...d.provider.trim()].length > 200 || [...d.notes].length > 10000 || [d.provider, d.notes].some(v => v.includes("\0"))) return t('提供方最多 200 字，备注最多 10000 字，且不能含空字符');
+  if (d.start && !validDay(d.start)) return t('开始日期格式应为 YYYY-MM-DD');
+  if (d.end && !validDay(d.end)) return t('结束日期格式应为 YYYY-MM-DD');
   // Warranties may start or end in the future; only a reversed pair is invalid.
-  if (d.start && d.end && d.end < d.start) return "保障结束日期不能早于开始日期";
+  if (d.start && d.end && d.end < d.start) return t('保障结束日期不能早于开始日期');
   return null;
 }
 export function warrantyChange(record: AssetRecord, generation: string, d: WarrantyDraft, warrantyId?: string, requestId: string = crypto.randomUUID()): WarrantyChange {

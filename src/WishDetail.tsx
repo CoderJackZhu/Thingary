@@ -52,27 +52,27 @@ export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onCha
  const p=item.preferences??defaultWishPreferences();
  // 考虑替换的物品：读取其现有资料展示日期、状态与已有投入（§7.1）。
  const [replacementRecord,setReplacementRecord]=useState<AssetRecord|null>(null),[replacementError,setReplacementError]=useState(''),[replacementRetry,setReplacementRetry]=useState(0);
- useEffect(()=>{const id=item.replacement_asset?.id;setReplacementRecord(null);setReplacementError('');if(!id)return;let live=true;invoke<AssetRecord|null>('read_asset',{id}).then(r=>{if(live){setReplacementRecord(r);if(!r)setReplacementError('原物品已删除或不存在，请重新读取心愿。')}}).catch(e=>{if(live)setReplacementError(errorMessage(e))});return()=>{live=false}},[item.replacement_asset?.id,item.revision,replacementRetry]);
+ useEffect(()=>{const id=item.replacement_asset?.id;setReplacementRecord(null);setReplacementError('');if(!id)return;let live=true;invoke<AssetRecord|null>('read_asset',{id}).then(r=>{if(live){setReplacementRecord(r);if(!r)setReplacementError(t('原物品已删除或不存在，请重新读取心愿。'))}}).catch(e=>{if(live)setReplacementError(errorMessage(e))});return()=>{live=false}},[item.replacement_asset?.id,item.revision,replacementRetry]);
  const legacy=item.decision_state==='legacy_achieved';
  const considering=item.decision_state==='considering';
  const purchased=item.decision_state==='purchased';
  const dropped=item.decision_state==='dropped';
- function storePending(key:string,input:unknown){try{localStorage.setItem(key,JSON.stringify(input));return true}catch{setNotice('暂时无法记录保存请求，请重试。');return false}}
+ function storePending(key:string,input:unknown){try{localStorage.setItem(key,JSON.stringify(input));return true}catch{setNotice(t('暂时无法记录保存请求，请重试。'));return false}}
  // 决策写（不再考虑／重新考虑）走 change_wishlist 的回执核对路径。
  async function sendDecision(input:WishlistChange,done:(i:WishlistItem)=>void){
    if(lock.current)return;lock.current=true;setBusy(true);
    if(!storePending(decisionKey,input)){lock.current=false;setBusy(false);return}
    setDecisionPending(input);
    try{const saved=await invoke<WishlistItem>('change_wishlist',{input});localStorage.removeItem(decisionKey);setDecisionPending(null);setItem(saved);onChange(saved);done(saved)}
-   catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wishlist_request',{input});if(checked){localStorage.removeItem(decisionKey);setDecisionPending(null);setItem(checked);onChange(checked);done(checked)}else{localStorage.removeItem(decisionKey);setDecisionPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+' 原请求已保留，请稍后再核对。')}}
+   catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wishlist_request',{input});if(checked){localStorage.removeItem(decisionKey);setDecisionPending(null);setItem(checked);onChange(checked);done(checked)}else{localStorage.removeItem(decisionKey);setDecisionPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+t(' 原请求已保留，请稍后再核对。'))}}
    finally{lock.current=false;setBusy(false)}
  }
- async function resolveDecision(){if(!decisionPending)return;setBusy(true);try{const checked=await invoke<WishlistItem|null>('saved_wishlist_request',{input:decisionPending});if(checked){localStorage.removeItem(decisionKey);setDecisionPending(null);setItem(checked);onChange(checked);setNotice('已核对：这次决定已保存。')}else{localStorage.removeItem(decisionKey);setDecisionPending(null);setNotice('已核对：这次决定没有保存。')}}catch(e){setNotice(errorMessage(e)+' 原请求仍保留，请点击“再次核对”。')}finally{setBusy(false)}}
+ async function resolveDecision(){if(!decisionPending)return;setBusy(true);try{const checked=await invoke<WishlistItem|null>('saved_wishlist_request',{input:decisionPending});if(checked){localStorage.removeItem(decisionKey);setDecisionPending(null);setItem(checked);onChange(checked);setNotice(t('已核对：这次决定已保存。'))}else{localStorage.removeItem(decisionKey);setDecisionPending(null);setNotice(t('已核对：这次决定没有保存。'))}}catch(e){setNotice(errorMessage(e)+t(' 原请求仍保留，请点击“再次核对”。'))}finally{setBusy(false)}}
  async function dropWish(){
-   await sendDecision({request_id:crypto.randomUUID(),generation,expected_revision:item.revision,action:{type:'drop',wishlist_id:item.id,decision_note:dropNote.trim()}},()=>{setDropOpen(false);setNotice('已记录为不再考虑；档案与图片都保留着。')});
+   await sendDecision({request_id:crypto.randomUUID(),generation,expected_revision:item.revision,action:{type:'drop',wishlist_id:item.id,decision_note:dropNote.trim()}},()=>{setDropOpen(false);setNotice(t('已记录为不再考虑；档案与图片都保留着。'))});
  }
  async function reconsider(){
-   await sendDecision({request_id:crypto.randomUUID(),generation,expected_revision:item.revision,action:{type:'reconsider',wishlist_id:item.id,decision_note:reconsiderNote.trim()}},()=>{setReconsiderOpen(false);setNotice('已回到考虑中；上次的提醒不会自动恢复。')});
+   await sendDecision({request_id:crypto.randomUUID(),generation,expected_revision:item.revision,action:{type:'reconsider',wishlist_id:item.id,decision_note:reconsiderNote.trim()}},()=>{setReconsiderOpen(false);setNotice(t('已回到考虑中；上次的提醒不会自动恢复。'))});
  }
  function openLink(){setLinkQuery('');setLinkOpen(true);}
  useEffect(()=>{
@@ -101,8 +101,8 @@ export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onCha
    if(lock.current)return;lock.current=true;setBusy(true);
    if(!storePending(linkKey,input)){lock.current=false;setBusy(false);return}
    setLinkPending(input);
-   try{const saved=await invoke<WishlistItem>('link_wish_asset',{input});localStorage.removeItem(linkKey);setLinkPending(null);setItem(saved);onChange(saved);setLinkOpen(false);setNotice('已关联这件物品为本次购入；物品资料保持原样。')}
-   catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(linkKey);setLinkPending(null);setItem(checked);onChange(checked);setLinkOpen(false);setNotice('已核对：关联已保存。')}else{localStorage.removeItem(linkKey);setLinkPending(null);setLinkError(errorMessage(e))}}catch{setLinkError(errorMessage(e)+' 原请求已保留，请稍后再核对。')}}
+   try{const saved=await invoke<WishlistItem>('link_wish_asset',{input});localStorage.removeItem(linkKey);setLinkPending(null);setItem(saved);onChange(saved);setLinkOpen(false);setNotice(t('已关联这件物品为本次购入；物品资料保持原样。'))}
+   catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(linkKey);setLinkPending(null);setItem(checked);onChange(checked);setLinkOpen(false);setNotice(t('已核对：关联已保存。'))}else{localStorage.removeItem(linkKey);setLinkPending(null);setLinkError(errorMessage(e))}}catch{setLinkError(errorMessage(e)+t(' 原请求已保留，请稍后再核对。'))}}
    finally{lock.current=false;setBusy(false)}
  }
  async function openVerify(){
@@ -127,7 +127,7 @@ export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onCha
    if(lock.current)return;
    let assetPatch:WishVerify['asset_patch']=null;
    if(outcome==='purchased'&&item.legacy_generated_asset){
-     if(!verifyBase.current){setNotice('请先重新读取原物品。');return;}
+     if(!verifyBase.current){setNotice(t('请先重新读取原物品。'));return;}
      try{assetPatch=verifyAssetPatch(verifyBase.current,verifyPrice,verifyDate);}
      catch(e){setNotice(errorMessage(e));return;}
    }
@@ -135,21 +135,21 @@ export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onCha
    const input:WishVerify={request_id:crypto.randomUUID(),generation,wishlist_id:item.id,expected_revision:item.revision,outcome,decision_note:verifyNote.trim(),asset_patch:assetPatch};
    if(!storePending(verifyKey,input)){lock.current=false;setBusy(false);return}
    setVerifyPending(input);
-   try{const saved=await invoke<WishlistItem>('verify_legacy_wish',{input});localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(saved);onChange(saved);setVerifyOpen(false);setNotice(outcome==='purchased'?'已确认购入：复用原物品，未新建第二件。':outcome==='considering'?'已确认尚未购入，回到考虑中；旧版生成的物品仍在档案中。':'已记录为不再考虑；原物品保留在档案中。')}
-   catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(checked);onChange(checked);setVerifyOpen(false);setNotice('已核对：这次核实已保存。')}else{localStorage.removeItem(verifyKey);setVerifyPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+' 原请求已保留，请稍后再核对。')}}
+   try{const saved=await invoke<WishlistItem>('verify_legacy_wish',{input});localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(saved);onChange(saved);setVerifyOpen(false);setNotice(outcome==='purchased'?t('已确认购入：复用原物品，未新建第二件。'):outcome==='considering'?t('已确认尚未购入，回到考虑中；旧版生成的物品仍在档案中。'):t('已记录为不再考虑；原物品保留在档案中。'))}
+   catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(checked);onChange(checked);setVerifyOpen(false);setNotice(t('已核对：这次核实已保存。'))}else{localStorage.removeItem(verifyKey);setVerifyPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+t(' 原请求已保留，请稍后再核对。'))}}
    finally{lock.current=false;setBusy(false)}
  }
- async function resendLink(input:WishLink){if(lock.current)return;lock.current=true;setBusy(true);try{const saved=await invoke<WishlistItem>('link_wish_asset',{input});localStorage.removeItem(linkKey);setLinkPending(null);setItem(saved);onChange(saved);setLinkOpen(false);setNotice('已核对：关联已保存。')}catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(linkKey);setLinkPending(null);setItem(checked);onChange(checked);setLinkOpen(false);setNotice('已核对：关联已保存。')}else{localStorage.removeItem(linkKey);setLinkPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+' 原请求仍保留，请稍后再核对。')}}finally{lock.current=false;setBusy(false)}}
- async function resendVerify(input:WishVerify){if(lock.current)return;lock.current=true;setBusy(true);try{const saved=await invoke<WishlistItem>('verify_legacy_wish',{input});localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(saved);onChange(saved);setVerifyOpen(false);setNotice('已核对：这次核实已保存。')}catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(checked);onChange(checked);setVerifyOpen(false);setNotice('已核对：这次核实已保存。')}else{localStorage.removeItem(verifyKey);setVerifyPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+' 原请求仍保留，请稍后再核对。')}}finally{lock.current=false;setBusy(false)}}
+ async function resendLink(input:WishLink){if(lock.current)return;lock.current=true;setBusy(true);try{const saved=await invoke<WishlistItem>('link_wish_asset',{input});localStorage.removeItem(linkKey);setLinkPending(null);setItem(saved);onChange(saved);setLinkOpen(false);setNotice(t('已核对：关联已保存。'))}catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(linkKey);setLinkPending(null);setItem(checked);onChange(checked);setLinkOpen(false);setNotice(t('已核对：关联已保存。'))}else{localStorage.removeItem(linkKey);setLinkPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+t(' 原请求仍保留，请稍后再核对。'))}}finally{lock.current=false;setBusy(false)}}
+ async function resendVerify(input:WishVerify){if(lock.current)return;lock.current=true;setBusy(true);try{const saved=await invoke<WishlistItem>('verify_legacy_wish',{input});localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(saved);onChange(saved);setVerifyOpen(false);setNotice(t('已核对：这次核实已保存。'))}catch(e){try{const checked=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation});if(checked){localStorage.removeItem(verifyKey);setVerifyPending(null);setItem(checked);onChange(checked);setVerifyOpen(false);setNotice(t('已核对：这次核实已保存。'))}else{localStorage.removeItem(verifyKey);setVerifyPending(null);setNotice(errorMessage(e))}}catch{setNotice(errorMessage(e)+t(' 原请求仍保留，请稍后再核对。'))}}finally{lock.current=false;setBusy(false)}}
  async function checkOldSaving(){
    if(!oldSaving)return;setBusy(true);
    try{const saved=await invoke<WishlistItem|null>('saved_wish_feature',{request:oldSaving.request_id,generation});
-     if(saved){localStorage.removeItem(savingsKey);setOldSaving(null);setItem(saved);onChange(saved);setNotice('已核对：这笔旧攒钱在升级前已保存，结果按历史数据显示。')}
-     else{localStorage.removeItem(savingsKey);setOldSaving(null);setNotice('已核对：这笔旧攒钱没有提交。攒钱功能已停用，如需记录实际购入，请使用「已买到，记录购入」。')}}
-   catch(e){setNotice(errorMessage(e)+' 暂时无法核对，请求仍保留。')}
+     if(saved){localStorage.removeItem(savingsKey);setOldSaving(null);setItem(saved);onChange(saved);setNotice(t('已核对：这笔旧攒钱在升级前已保存，结果按历史数据显示。'))}
+     else{localStorage.removeItem(savingsKey);setOldSaving(null);setNotice(t('已核对：这笔旧攒钱没有提交。攒钱功能已停用，如需记录实际购入，请使用「已买到，记录购入」。'))}}
+   catch(e){setNotice(errorMessage(e)+t(' 暂时无法核对，请求仍保留。'))}
    finally{setBusy(false)}
  }
- useEffect(()=>{if(closeIntent){if(busy||!!pending||!!receipt.pending||receipt.busy){setNotice('正在核对这次操作，请稍候。');onKeepClose()}else{onClose();onFinishClose(closeIntent)}}},[closeIntent]);
+ useEffect(()=>{if(closeIntent){if(busy||!!pending||!!receipt.pending||receipt.busy){setNotice(t('正在核对这次操作，请稍候。'));onKeepClose()}else{onClose();onFinishClose(closeIntent)}}},[closeIntent]);
  const blocked=busy||!!pending||!!receipt.pending||receipt.busy;
  return <aside className="ui-inspector wish-inspector" aria-labelledby="wish-detail-title"><header><CloseButton type="button" className="icon-button" disabled={blocked} aria-label={t('关闭心愿详情')} onClick={onClose}/><div className="wish-detail-identity">{item.cover?<PhotoView photo={item.cover} generation={generation}/>:<DefaultAssetIcon/>}<div><p className="eyebrow">{wishDecisionLabel(item.decision_state)}</p><h2 id="wish-detail-title">{item.fields.name}</h2></div></div><button type="button" className="wish-edit" disabled={blocked} onClick={()=>onEdit(item)}>{t('编辑')}</button></header>
  <div className="wish-detail-body">{receipt.pending&&<div className="notice">{t('删除结果待确认。')}<button disabled={receipt.busy} onClick={()=>void receipt.verify()}>{t('核对结果')}</button></div>}

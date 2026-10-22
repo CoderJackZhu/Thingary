@@ -12,12 +12,13 @@ import { yuan } from './RetireOverview';
 import { terminalText } from './planning-basic-view';
 import './retire.css';
 import { t, numberLocale } from './i18n.ts';
+import { t as tt } from './i18n.ts';
 type Ready = { plan: Plan; assets: number };
 /** Basic mode: an unsaved trial is labelled, and the terminal wording follows the complete-budget horizon. */
 export type BasicRisk = { temporary: boolean; note?: string; terminal: keyof typeof terminalText };
 
-const resultTime = (P: Plan, months: number | null) => months === null ? '无法达成' : timeLabel(P, months);
-const sevText = { high: '高', medium: '中', low: '低' };
+const resultTime = (P: Plan, months: number | null) => months === null ? tt('无法达成') : timeLabel(P, months);
+const sevText = { high: tt('高'), medium: tt('中'), low: tt('低') };
 
 /** 假设分析：基准情形、压力测试、市场路径、决策矩阵与崩盘路径。全部用「今天的钱」。 */
 export function RiskLab({ calc, today, basic, advancedOpen = false, onAdvancedOpenChange }: { calc: Ready; today: string; basic?: BasicRisk; advancedOpen?: boolean; onAdvancedOpenChange?: (open: boolean) => void }) {
@@ -39,7 +40,7 @@ export function RiskLab({ calc, today, basic, advancedOpen = false, onAdvancedOp
     const timer = setTimeout(() => {
       void monteCarlo(P, n, { signal: controller.signal, progress: d => { if (!controller.signal.aborted) setDone(d); } })
         .then(value => { if (!controller.signal.aborted) setResult({ plan: P, value }); })
-        .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : '模拟未完成，请重试。'); })
+        .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : tt('模拟未完成，请重试。')); })
         .finally(() => { if (!controller.signal.aborted) setRunning(null); });
     }, 0);
     return () => { clearTimeout(timer); controller.abort(); };
@@ -51,11 +52,11 @@ export function RiskLab({ calc, today, basic, advancedOpen = false, onAdvancedOp
     {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? t('临时试算，未保存')}</span> : <span className="ui-tag">{t('按已保存的预计投入')}</span>} {t('风险结果按完整预算、覆盖到规划终点；{v1}。', { v1: terminalText[basic.terminal] })}</p>}
     <article className="ui-card rl-hero" aria-label={t('基准情形')}>
       <div className="rl-lead"><span>{t('基准情形')}</span><strong>{t('你的基础计划')} <span className={`rd-badge ${v.tone}`}><i/>{v.badge}</span></strong>
-        <small>{top ? t('在这些测试中，{label}的影响最大{v2}{v3}。', { label: top.label, v2: top.shortfall_delta > 0 ? `，退休缺口增加 ${fmt(top.shortfall_delta)}` : '', v3: top.fi_delay_months ? `${top.shortfall_delta > 0 ? ' 和' : '，'}财务独立推迟 ${durationText(top.fi_delay_months)}` : '' }) : t('这些压力测试均未实质性改变你的基础计划。')}</small></div>
+        <small>{top ? t('在这些测试中，{label}的影响最大{v2}{v3}。', { label: top.label, v2: top.shortfall_delta > 0 ? tt('，退休缺口增加 {v1}', { v1: fmt(top.shortfall_delta) }) : '', v3: top.fi_delay_months ? tt('{v1}财务独立推迟 {v2}', { v1: top.shortfall_delta > 0 ? ' 和' : '，', v2: durationText(top.fi_delay_months) }) : '' }) : t('这些压力测试均未实质性改变你的基础计划。')}</small></div>
       <div><span>{fire ? t('期望月份') : t('退休月份')}</span><strong>{goalMonth}</strong><small>{t('你的目标')}</small></div>
       <div><span>{t('预计余额')}</span><strong>{fmt(o.assets_at_goal)}</strong><small>{t('在 {goalMonth}时', { goalMonth })}</small></div>
       <div><span>{fire ? t('基准财务独立月份') : t('准备就绪月份')}</span><strong>{resultTime(P, o.fi_month)}</strong><small>{o.fi_month !== null && o.fi_month > P.target_months ? t('比期望晚 {v1}', { v1: durationText(o.fi_month - P.target_months) }) : t('不晚于目标')}</small></div>
-      <div><span>{t('缺口/盈余')}</span><strong>{gap > 0 ? fmt(gap) + ' 缺口' : fmt(Math.max(0, o.assets_at_goal - o.required_at_goal)) + ' 盈余'}</strong><small>{t('目标月份时')}</small></div>
+      <div><span>{t('缺口/盈余')}</span><strong>{gap > 0 ? fmt(gap) + tt(' 缺口') : fmt(Math.max(0, o.assets_at_goal - o.required_at_goal)) + tt(' 盈余')}</strong><small>{t('目标月份时')}</small></div>
       <div><span>{t('资金充足')}</span><strong className={`rl-pct ${pctTone}`}>{mc ? `${Math.round(mc.success_rate * 100)}%` : running !== null ? t('计算中…') : t('未完成')}</strong><small>{mc ? t('{v1} 条路径', { v1: mc.n.toLocaleString(numberLocale()) }) : t('见下方市场路径')}</small></div>
     </article>
 
@@ -103,7 +104,7 @@ function Stress({ P, results, fmt }: { P: Plan; results: StressResult[]; fmt: (c
         return <tr key={r.id}><td><b>{r.label}</b><small>{r.description}</small></td>
           <td>{r.stressed.fi_month === null ? <span className="muted">{t('未达成')}</span> : <>{resultTime(P, r.stressed.fi_month)}</>}<small>{r.fi_delay_months ? (r.fi_delay_months < 0 ? t('早 {v1}', { v1: durationText(-r.fi_delay_months) }) : t('晚 {v1}', { v1: durationText(r.fi_delay_months) })) : noChange ? t('无变化') : r.baseline.fi_month === null ? '' : t('未达成')}</small></td>
           <td className="amount">{r.shortfall_delta > 0 ? fmt(r.shortfall_delta) : t('无变化')}{r.stressed.shortfall_month !== null && <small>{t('缺口始于 {v1}', { v1: resultTime(P, r.stressed.shortfall_month) })}</small>}</td>
-          <td className="amount">{fmt(r.stressed.at_horizon)}<small>{r.horizon_delta === 0 ? t('无变化') : `${r.horizon_delta < 0 ? '减少' : '增加'} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{t('{v1}时资金不足', { v1: resultTime(P, r.stressed.failure_month) })}</small>}</td>
+          <td className="amount">{fmt(r.stressed.at_horizon)}<small>{r.horizon_delta === 0 ? t('无变化') : `${r.horizon_delta < 0 ? tt('减少') : tt('增加')} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{t('{v1}时资金不足', { v1: resultTime(P, r.stressed.failure_month) })}</small>}</td>
           <td><span className={`rl-sev ${r.severity}`}>{sevText[r.severity]}</span></td></tr>;
       })}</tbody></table></div>
     <p className="muted small">{t('每个情景只改一件事，其余假设不变，用同一套计算重新推演。期末剩余资金在以不靠工资为目标时可能因推迟退休而更多，所以请和财务独立月份一起看。')}</p>
@@ -114,14 +115,14 @@ type Show = 'money' | 'age';
 function Moves({ P, year, fire }: { P: Plan; year: number; fire: boolean }) {
   const built = useMemo(() => ({ a: contributionReturnMatrix(P, year), b: ageSpendingMatrix(P, year) }), [P, year]);
   const [show, setShow] = useState<Show>('money');
-  const ageLabel = fire ? '财务独立月份' : '准备就绪月份';
+  const ageLabel = fire ? tt('财务独立月份') : tt('准备就绪月份');
   return <details className="ui-card rd-card rd-snapshot" aria-label={t('决策矩阵')} open>
     <summary><strong>{t('哪些因素影响计划？')}</strong><span className="muted small">{t('比较储蓄、收益和预算')}</span></summary>
     <div className="rd-head"><Segments label={t('矩阵数值')} value={show} options={[{ value: 'money', label: t('期末剩余资金') }, { value: 'age', label: ageLabel }]} onChange={setShow}/></div>
     <p className="muted small">{t('比较储蓄、收益率、退休月份和支出。绿色表示比基础计划更好，黄色表示更差。红色表示存在缺口或没有剩余资金；黑框是基础计划。')}</p>
     <div className="rl-matrices">
         <MatrixView P={P} title={t('每月存钱 × 收益率')} sub={show === 'money' ? t('规划终点的余额（按当前购买力）') : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead={t('实际收益率')} colHead={t('每月存入')}/>
-        <MatrixView P={P} title={t('{v1} × 生活预算', { v1: fire ? '期望月份' : '退休月份' })} sub={(show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel) + '；固定事件付款不调整'} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead={t('每月预算分项')} colHead={fire ? t('期望月份') : t('退休月份')} flatHint={fire}/>
+        <MatrixView P={P} title={t('{v1} × 生活预算', { v1: fire ? tt('期望月份') : tt('退休月份') })} sub={(show === 'money' ? tt('规划终点的余额（按当前购买力）') : ageLabel) + tt('；固定事件付款不调整')} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead={t('每月预算分项')} colHead={fire ? t('期望月份') : t('退休月份')} flatHint={fire}/>
       </div>
   </details>;
 }

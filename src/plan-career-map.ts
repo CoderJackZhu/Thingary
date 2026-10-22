@@ -73,15 +73,15 @@ const bad = (status: 'not_applicable' | 'blocked', message: string): MinWindow =
  * Only the earliest feasible candidate is reported; later months are not implied to be feasible. */
 export function minWindow(sources: PlanningSources, draft: CareerDraft): MinWindow {
   const span = careerSpan(sources);
-  if (!span) return bad('blocked', '请先确认通用资料、目标月份和资金截至日。');
-  if (!validCareerAmount(draft.recovery.monthly_cents, true)) return bad('blocked', '请先填关闭后每月能攒多少。');
-  if (draft.gap_months === null || !Number.isInteger(draft.gap_months) || draft.gap_months < 0 || draft.gap_months > 1200) return bad('blocked', '请确认合法的空窗月数。');
+  if (!span) return bad('blocked', t('请先确认通用资料、目标月份和资金截至日。'));
+  if (!validCareerAmount(draft.recovery.monthly_cents, true)) return bad('blocked', t('请先填关闭后每月能攒多少。'));
+  if (draft.gap_months === null || !Number.isInteger(draft.gap_months) || draft.gap_months < 0 || draft.gap_months > 1200) return bad('blocked', t('请确认合法的空窗月数。'));
   const hi = span.target - 1 - draft.gap_months;
-  if (hi < span.now) return bad('blocked', '空窗加恢复超出原目标，没有可比较的关闭月。');
-  if (hi - span.now > 1200) return bad('blocked', '本次逐月搜索最多覆盖 1200 个月，请缩短目标范围。');
+  if (hi < span.now) return bad('blocked', t('空窗加恢复超出原目标，没有可比较的关闭月。'));
+  if (hi - span.now > 1200) return bad('blocked', t('本次逐月搜索最多覆盖 1200 个月，请缩短目标范围。'));
   for (let m = span.now; m <= hi; m++) {
     const j = judge(run(sources, draft, { close: m }));
-    if (j.verdict === 'blocked') return bad('blocked', j.issues.join(' ') || '部分候选条件不完整，不能确定最早月份。');
+    if (j.verdict === 'blocked') return bad('blocked', j.issues.join(' ') || t('部分候选条件不完整，不能确定最早月份。'));
     if (j.verdict === 'meets') return m === span.now ? { status: 'already_met' } : { status: 'found', months: m - span.now, close_month: careerMonth(m) };
   }
   return { status: 'not_reachable', message: t('已检查 {v1} 至 {v2}，没有满足的变化月；未据此判断维持当前工作到目标月的结果。', { v1: careerMonth(span.now), v2: careerMonth(hi) }) };

@@ -23,13 +23,13 @@ export default function ModulesPage() {
   const core = (({ wishlist, timeline, stats, wealth, expenses, recurring, virtual, planning }) => ({ wishlist, timeline, stats, wealth, expenses, recurring, virtual, planning }) as Modules)(modules);
   return <SettingsShell title={t('功能模块')} lead={t('关掉不用的模块，标签栏、总览和时间轴会隐藏它；资料不会删除，重新打开即恢复。')}>
     <ListGroup footer={t('总览和我的物品始终开启。关闭心愿清单会同时暂停心愿提醒。')}>
-      {moduleList.map(([key, name, hint]) => <ListRow key={key} title={name} subtitle={hint} trailing={<Switch label={'启用' + name} checked={modules[key]} disabled={busy} onChange={on => void update({ modules: { ...core, [key]: on } })}/>}/>)}
+      {moduleList.map(([key, name, hint]) => <ListRow key={key} title={name} subtitle={hint} trailing={<Switch label={t('启用') + name} checked={modules[key]} disabled={busy} onChange={on => void update({ modules: { ...core, [key]: on } })}/>}/>)}
     </ListGroup>
     <ListGroup title={t('财务记录')} footer={ready && modules.movements && !modules.wealth ? t('资金流动偏好已保留；开启账户与盘点后恢复使用。') : undefined}>
-      {([['incomes', '收入记录', '记录实际到账，与目标开关独立'], ['movements', '资金流动', '记录资金转入转出；需要开启账户与盘点']] as const).map(([key, name, hint]) =>
-        <ListRow key={key} title={name} subtitle={hint} trailing={<Switch label={'启用' + name} checked={ready && !!modules[key]} disabled={busy || !ready} onChange={on => void update({ modules: core, [key]: on })}/>}/>)}
+      {([['incomes', t('收入记录'), t('记录实际到账，与目标开关独立')], ['movements', t('资金流动'), t('记录资金转入转出；需要开启账户与盘点')]] as const).map(([key, name, hint]) =>
+        <ListRow key={key} title={name} subtitle={hint} trailing={<Switch label={t('启用') + name} checked={ready && !!modules[key]} disabled={busy || !ready} onChange={on => void update({ modules: core, [key]: on })}/>}/>)}
     </ListGroup>
-    {!ready && <FormGroup title={t('财务开关需要处理')} footer={t('财务资料没有删除。{v1}', { v1: modules.finance_status === 'unsupported_version' ? '偏好版本较新，请使用支持该版本的应用。' : '请重新读取，或明确选择修复后的开关状态。' })}>
+    {!ready && <FormGroup title={t('财务开关需要处理')} footer={t('财务资料没有删除。{v1}', { v1: modules.finance_status === 'unsupported_version' ? t('偏好版本较新，请使用支持该版本的应用。') : t('请重新读取，或明确选择修复后的开关状态。') })}>
       <div className="me-pad me-stack">
         <Button disabled={busy} onClick={reload}>{t('重新读取开关')}</Button>
         {modules.finance_status !== 'unsupported_version' && <>

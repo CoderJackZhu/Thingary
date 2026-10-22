@@ -3,11 +3,11 @@ import { useRef } from 'react';
 import { SortButton } from './SortHeader';
 import { t } from './i18n.ts';
 const columns = [
-  ['name', '物品', 'asset-name'],
-  ['date', '购入日期', 'purchase-date'],
-  ['price', '购入金额', 'amount'],
-  ['daily', '日均', 'daily-cost'],
-  ['status', '状态', 'asset-state'],
+  ['name', t('物品'), 'asset-name'],
+  ['date', t('购入日期'), 'purchase-date'],
+  ['price', t('购入金额'), 'amount'],
+  ['daily', t('日均'), 'daily-cost'],
+  ['status', t('状态'), 'asset-state'],
 ] as const;
 export function AssetListHeader({ query, onSort }: { query: Query; onSort: (change: Partial<Query>) => void }) {
   return <div className="list-head" role="group" aria-label={t('物品列表排序')}>
@@ -17,7 +17,7 @@ export function AssetListHeader({ query, onSort }: { query: Query; onSort: (chan
 
 export function AssetMoreSort({ query, onSort }: { query: Query; onSort: (change: Partial<Query>) => void }) {
   const menu = useRef<HTMLDetailsElement>(null);
-  const options = [['created', '添加时间'], ['held', '持有时长']] as const;
+  const options = [['created', t('添加时间')], ['held', t('持有时长')]] as const;
   const active = options.find(([key]) => key === query.sort);
   return <details ref={menu} className="collection-options more-list-sort" data-popover>
     <summary>{active ? `${active[1]} ${query.descending ? '↓' : '↑'}` : t('更多排序')}</summary>

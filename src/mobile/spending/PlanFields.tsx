@@ -11,9 +11,9 @@ import { t } from '../../i18n.ts';
 export function PlanFields({ value: r, onChange, disabled, today, rent }: { value: RentForm; onChange: (v: RentForm) => void; disabled?: boolean; today: string; rent: boolean }) {
   const set = <K extends keyof RentForm>(k: K, v: RentForm[K]) => onChange({ ...r, [k]: v });
   const month = oneMonthBefore(r.start);
-  const advance = [[0, '当天'], [7, '提前 7 天'], [15, '提前 15 天'], [month, '提前一个月']] as [number, string][];
-  if (!advance.some(([d]) => d === r.advance_days)) advance.push([r.advance_days, `提前 ${r.advance_days} 天`]);
-  const preview = rentPreview(r, today), yuan = (c: bigint | null) => (c === null ? '未知' : moneyText(c.toString()));
+  const advance = [[0, t('当天')], [7, t('提前 7 天')], [15, t('提前 15 天')], [month, t('提前一个月')]] as [number, string][];
+  if (!advance.some(([d]) => d === r.advance_days)) advance.push([r.advance_days, t('提前 {advance_days} 天', { advance_days: r.advance_days })]);
+  const preview = rentPreview(r, today), yuan = (c: bigint | null) => (c === null ? t('未知') : moneyText(c.toString()));
   return <>
     <FormGroup footer={rent ? t('合同上的起租日可以是过去的日期。') : t('第一期服务开始的日期，可以是过去的日期。')}>
       <SelectField label={t('付款周期')} value={String(r.interval_months)} onChange={v => set('interval_months', Number(v) as RentForm['interval_months'])} options={rentIntervals.map(([m, l]) => ({ id: String(m), label: l }))} disabled={disabled}/>
@@ -25,7 +25,7 @@ export function PlanFields({ value: r, onChange, disabled, today, rent }: { valu
     </FormGroup>
     <section className="m-card sp-preview" aria-live="polite" aria-label={t('将生成的期次')}>
       {preview ? <>
-        <strong>{preview.open_ended ? t('{v1}，每期 {v2}，月均 {v3}', { v1: rent ? '持续租住' : '持续进行', v2: yuan(BigInt(r.amount_cents || '0')), v3: yuan(preview.monthly_cents) }) : t('共 {v1} 期，合计 {v2}，月均 {v3}', { v1: preview.rows.length + (preview.truncated ? '+' : ''), v2: yuan(preview.total_cents), v3: yuan(preview.monthly_cents) })}</strong>
+        <strong>{preview.open_ended ? t('{v1}，每期 {v2}，月均 {v3}', { v1: rent ? t('持续租住') : t('持续进行'), v2: yuan(BigInt(r.amount_cents || '0')), v3: yuan(preview.monthly_cents) }) : t('共 {v1} 期，合计 {v2}，月均 {v3}', { v1: preview.rows.length + (preview.truncated ? '+' : ''), v2: yuan(preview.total_cents), v3: yuan(preview.monthly_cents) })}</strong>
         <ol className="sp-rows">{preview.rows.slice(0, 6).map(row => <li key={row.due}><span>{t('{v1} 付款', { v1: dayLabel(row.due, today) })}</span><span>{t('覆盖 {v1} 至 {v2}', { v1: dayLabel(row.from, today), v2: dayLabel(row.to, today) })}{row.due <= today ? t('（已过）') : ''}</span></li>)}</ol>
         {preview.rows.length > 6 && <p className="sp-note">{t('只列出前 6 期')}{preview.truncated ? '' : t('，共 {length} 期', { length: preview.rows.length })}。</p>}
         {preview.open_ended && <p className="sp-note">{t('之后每期自动续费，不确定何时结束就不用填到期日。')}</p>}

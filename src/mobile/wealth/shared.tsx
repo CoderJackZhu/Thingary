@@ -25,7 +25,7 @@ export function useGroups() {
   const session = useSession(), generation = session.data?.summary.generation;
   return useRead(`groups:${generation}:${session.data?.summary.points.at(-1)?.snapshot_id}`, async () => {
     const result = await invoke<AccountGroupList>('account_groups_list');
-    if (!generation || result.generation !== generation) throw Error('账户资料已变化，请重新读取。');
+    if (!generation || result.generation !== generation) throw Error(t('账户资料已变化，请重新读取。'));
     return result.groups;
   });
 }
@@ -37,20 +37,20 @@ export function WealthGate({ children }: { children: ReactNode }) {
   return <>{s.notice && <Notice>{s.notice}</Notice>}<ReadState error={s.error} reload={s.reload} loading={s.loading && !s.data}/>{!s.error && s.data && children}</>;
 }
 export function factText(fact: CurrencyFact | null | undefined, account?: Account): string {
-  if (fact?.amount_cents == null) return '未知';
-  const currency = currencyCode(account?.fields.currency), holding = holdingText(fact, account?.fields.holding_mode ? account.fields.holding_unit ?? '份' : null, currency);
-  const amount = currency === 'CNY' ? moneyText(fact.amount_cents) : `${fact.original_minor == null ? '原币未知' : currencyAmount(currency, fact.original_minor)} ≈ ${moneyText(fact.amount_cents)} · 汇率 ${fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知'}`;
+  if (fact?.amount_cents == null) return t('未知');
+  const currency = currencyCode(account?.fields.currency), holding = holdingText(fact, account?.fields.holding_mode ? account.fields.holding_unit ?? t('份') : null, currency);
+  const amount = currency === 'CNY' ? moneyText(fact.amount_cents) : t('{v1} ≈ {v2} · 汇率 {v3}', { v1: fact.original_minor == null ? '原币未知' : currencyAmount(currency, fact.original_minor), v2: moneyText(fact.amount_cents), v3: fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知' });
   return holding ? `${holding} = ${amount}` : amount;
 }
 /** Extra facts behind a CNY amount that is already shown elsewhere (hero title): holding, original currency and rate. */
 export function factDetail(fact: CurrencyFact | null | undefined, account?: Account): string | undefined {
   if (fact?.amount_cents == null) return undefined;
-  const currency = currencyCode(account?.fields.currency), holding = holdingText(fact, account?.fields.holding_mode ? account.fields.holding_unit ?? '份' : null, currency);
+  const currency = currencyCode(account?.fields.currency), holding = holdingText(fact, account?.fields.holding_mode ? account.fields.holding_unit ?? t('份') : null, currency);
   const parts: string[] = [];
   if (holding) parts.push(holding);
   if (currency !== 'CNY') {
-    if (!holding) parts.push(fact.original_minor == null ? '原币未知' : currencyAmount(currency, fact.original_minor));
-    parts.push(`汇率 ${fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知'}`);
+    if (!holding) parts.push(fact.original_minor == null ? t('原币未知') : currencyAmount(currency, fact.original_minor));
+    parts.push(t('汇率 {v1}', { v1: fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知' }));
   }
   return parts.join(' · ') || undefined;
 }

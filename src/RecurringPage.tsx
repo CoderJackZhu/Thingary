@@ -100,7 +100,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
   async function skip(d: Due) {
     if (!data) return;
     const input: PaymentSave = { request_id: crypto.randomUUID(), generation: data.generation, id: null, expected_revision: null, plan_id: d.plan_id, due_date: d.due_date, state: 'skipped', paid_date: null, amount_cents: null, notes: '' };
-    try { await submit({ command: 'recurring_payment_save', input, label: tt('{plan_name} {due_date} 本期不付', { plan_name: d.plan_name, due_date: d.due_date }) }); setNotice(`已标记「${d.plan_name}」${d.due_date} 本期不付。`); reload(); }
+    try { await submit({ command: 'recurring_payment_save', input, label: tt('{plan_name} {due_date} 本期不付', { plan_name: d.plan_name, due_date: d.due_date }) }); setNotice(tt('已标记「{plan_name}」{due_date} 本期不付。', { plan_name: d.plan_name, due_date: d.due_date })); reload(); }
     catch (e) { setPending(storedPending()); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
   }
   // Search narrows the plan list only; due rows and the payment history stay
@@ -108,7 +108,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
   const keyword = search.trim().toLowerCase();
   const matchingPlans = data?.plans.filter(p => !keyword || [p.fields.name, recurringCategoryText(p.fields.category), p.fields.notes].some(t => t.toLowerCase().includes(keyword))) ?? [];
   const shownPlans = sortRecords(matchingPlans, planSort, (p, key) => key === 'name' ? p.fields.name : key === 'category' ? recurringCategoryText(p.fields.category) : key === 'interval' ? p.fields.interval_months : key === 'amount' ? moneySortValue(p.fields.amount_cents) : key === 'status' ? planStatus(p, today) : key === 'spent' ? moneySortValue(p.estimated_cents ?? p.paid_cents ?? null) : p.fields.paused ? null : p.next_due, p => p.id);
-  const shownPayments = sortRecords(data?.payments ?? [], paymentSort, (p, key) => key === 'due' ? p.due_date : key === 'name' ? p.plan_name : key === 'state' ? p.state === 'paid' ? '已付' : '本期不付' : key === 'paid' ? p.paid_date : moneySortValue(p.amount_cents), p => p.id);
+  const shownPayments = sortRecords(data?.payments ?? [], paymentSort, (p, key) => key === 'due' ? p.due_date : key === 'name' ? p.plan_name : key === 'state' ? p.state === 'paid' ? tt('已付') : tt('本期不付') : key === 'paid' ? p.paid_date : moneySortValue(p.amount_cents), p => p.id);
   const currentPaymentPage = Math.min(paymentPage, Math.max(0, Math.ceil(shownPayments.length / pageSize) - 1));
   const shownDues = sortRecords([...(data?.due ?? []).map(d => ({d, overdue:true})), ...(data?.upcoming ?? []).map(d => ({d, overdue:false}))], dueSort, ({d}, key) => key === 'due' ? d.due_date : key === 'name' ? d.plan_name : key === 'category' ? recurringCategoryText(d.category) : moneySortValue(d.amount_cents), ({d}) => d.plan_id + d.due_date);
   return <section className="stats-section wealth-section recurring-section" aria-label={tt('周期费用')}>
@@ -137,7 +137,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
         {tab === 'plans' && <article className="ui-card ui-content"><div className="ui-section-head"><h3>{tt('计划')}</h3><span>{keyword ? tt('找到 {length} 条 · ', { length: shownPlans.length }) : ''}{tt('点名称查看详情；编辑金额或周期只影响尚未记录的期')}</span></div>
           {!shownPlans.length ? <p className="muted">{tt('当前条件下没有找到记录。')}<button onClick={() => onSearch('')}>{tt('清除搜索')}</button></p> : <table className="ui-table recurring-plans"><thead><tr><SortHeader field="name" label={tt('名称')} sort={planSort} onSort={setPlanSort}/><SortHeader field="category" label={tt('分类')} sort={planSort} onSort={setPlanSort}/><SortHeader field="amount" label={tt('每期金额')} sort={planSort} onSort={setPlanSort}/><SortHeader field="next" label={tt('下次付款')} sort={planSort} onSort={setPlanSort}/><SortHeader field="status" label={tt('状态')} sort={planSort} onSort={setPlanSort}/><SortHeader field="spent" label={tt('累计费用')} sort={planSort} onSort={setPlanSort} sortLabel={tt('累计费用（估算或已确认付款）')}/></tr></thead><tbody>
             {shownPlans.map(p => <tr key={p.id} tabIndex={0} aria-selected={detail?.id === p.id} className={p.fields.paused || (p.fields.end_date && p.fields.end_date < today) ? 'closed' : undefined} onClick={() => setDetail(p)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setDetail(p); } }}>
-              <td><button className="link-cell" onClick={e => { e.stopPropagation(); setDetail(p); }} aria-label={'查看 ' + p.fields.name + ' 详情'}>{p.fields.name}</button></td><td>{recurringCategoryText(p.fields.category)}</td>              <td className="amount">{money(p.fields.amount_cents)}<span className="muted">／{intervalUnit(p.fields)}</span>{!pendingSubscriptionStart(p, today) && !p.fields.interval_days && p.fields.interval_months > 1 && p.monthly_cents && <small className="muted">{tt('月均 {v1}', { v1: money(p.monthly_cents) })}</small>}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}{p.current_coverage && <small className="muted">{tt('当前服务：{v1}', { v1: periodLabel(...p.current_coverage) })}</small>}</td><td>{planStatus(p, today)}{p.contract_cents && <small className="muted">{tt('租期／期限预计 {v1}', { v1: money(p.contract_cents) })}</small>}</td><td className="amount">{p.estimated_cents ? <>{money(p.estimated_cents)}<small className="muted">{tt('估算')}</small></> : money(p.paid_cents ?? '0')}</td></tr>)}
+              <td><button className="link-cell" onClick={e => { e.stopPropagation(); setDetail(p); }} aria-label={tt('查看 ') + p.fields.name + tt(' 详情')}>{p.fields.name}</button></td><td>{recurringCategoryText(p.fields.category)}</td>              <td className="amount">{money(p.fields.amount_cents)}<span className="muted">／{intervalUnit(p.fields)}</span>{!pendingSubscriptionStart(p, today) && !p.fields.interval_days && p.fields.interval_months > 1 && p.monthly_cents && <small className="muted">{tt('月均 {v1}', { v1: money(p.monthly_cents) })}</small>}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}{p.current_coverage && <small className="muted">{tt('当前服务：{v1}', { v1: periodLabel(...p.current_coverage) })}</small>}</td><td>{planStatus(p, today)}{p.contract_cents && <small className="muted">{tt('租期／期限预计 {v1}', { v1: money(p.contract_cents) })}</small>}</td><td className="amount">{p.estimated_cents ? <>{money(p.estimated_cents)}<small className="muted">{tt('估算')}</small></> : money(p.paid_cents ?? '0')}</td></tr>)}
           </tbody></table>}</article>}
         {tab === 'payments' && (!data.payments.length ? <p className="muted">{tt('还没有付款记录。到期后点「确认已付」或「本期不付」就会记在这里。')}</p> : <article className="ui-card ui-content"><div className="ui-section-head"><h3>{tt('付款记录')}</h3><span>{tt('点期次更正；实付金额可与计划不同')}</span></div>
           <table className="ui-table recurring-payments"><thead><tr><SortHeader field="due" label={tt('期次')} sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="name" label={tt('计划')} sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="state" label={tt('状态')} sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="paid" label={tt('实付日期')} sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="amount" label={tt('实付金额')} sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/></tr></thead><tbody>
@@ -159,7 +159,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
     {resuming && <ResumeSubscriptionDialog plan={resuming.plan} link={resuming.link} today={today} onClose={closed} />}
     {reviewing && data && <LinkReviewDialog assetId={reviewing.link.asset!.id} planId={reviewing.plan.id} assetName={reviewing.link.asset!.name} assetRevision={reviewing.link.asset!.revision} planRevision={reviewing.plan.revision} stoppedOn={reviewing.link.asset!.stopped_on} today={today} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
     {unifying && data && <UnifyNameDialog assetId={unifying.link.asset!.id} planId={unifying.plan.id} assetName={unifying.link.asset!.name} planName={unifying.plan.fields.name} assetRevision={unifying.link.asset!.revision} planRevision={unifying.plan.revision} fields={unifying.plan.fields} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
-    {groupDelete && data && <LinkDeleteDialog side="plan" id={groupDelete.id.split('|')[0]} name={groupDelete.name} partnerId={groupDelete.id.split('|')[1] ?? null} generation={data.generation} onClose={saved => { setGroupDelete(null); if (saved) reload(); refocusHeading(); }} onDone={(groupId, name) => { offerUndo(`已整组删除「${name}」。`, async () => { await undoLinkDelete(groupId); }); reload(); }} />}
+    {groupDelete && data && <LinkDeleteDialog side="plan" id={groupDelete.id.split('|')[0]} name={groupDelete.name} partnerId={groupDelete.id.split('|')[1] ?? null} generation={data.generation} onClose={saved => { setGroupDelete(null); if (saved) reload(); refocusHeading(); }} onDone={(groupId, name) => { offerUndo(tt('已整组删除「{name}」。', { name }), async () => { await undoLinkDelete(groupId); }); reload(); }} />}
     {candidates && <LinkRepairDialog side="plan" id={candidates.plan.id} onClose={closed} onDone={m => setNotice(m)} />}
   </section>;
 }
@@ -209,9 +209,9 @@ function PlanDialog({ backfillOpen = false, plan, generation, today, onClose, mo
     if (plan && !link) return;
     if (!dialog.current?.querySelector("form")?.reportValidity()) return;
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
-    if (!f.name.trim()) return stop('计划名称', '请填写名称。');
-    if (!effective.amount_cents || effective.amount_cents === '0') return stop('每期金额', '请填写每期金额。');
-    if (rentMode && !rentPreview(rent, today)) return stop(f.category === 'rent' ? '租期到期日' : '结束日期', '请检查开始日期和结束日期：结束日期须晚于开始日期。');
+    if (!f.name.trim()) return stop(tt('计划名称'), tt('请填写名称。'));
+    if (!effective.amount_cents || effective.amount_cents === '0') return stop(tt('每期金额'), tt('请填写每期金额。'));
+    if (rentMode && !rentPreview(rent, today)) return stop(f.category === 'rent' ? tt('租期到期日') : tt('结束日期'), tt('请检查开始日期和结束日期：结束日期须晚于开始日期。'));
     setBusy(true); setNotice('');
     if (linked && link!.asset && plan) {
       // 共享计费编辑：一次提交维护双方与关系（设计 §5.2/§9）。
@@ -230,7 +230,7 @@ function PlanDialog({ backfillOpen = false, plan, generation, today, onClose, mo
         if (dates.length) {
           const range: PaymentRangeSave = { request_id: crypto.randomUUID(), generation, plan_id: saved.id, expected_revision: saved.revision, from_due: dates[0], to_due: dates[dates.length - 1], amount_cents: effective.amount_cents, confirmed: true };
           try { await submit({ command: 'recurring_payment_range_save', input: range, label: tt('{name} 往期付款补记', { name: input.fields.name }) }); }
-          catch (e) { setLate(true); setNotice('计划已保存，但自动补记没有完成：' + (e instanceof Error ? e.message : errorMessage(e)) + ' 请关闭后打开这条计划，用「补记往期实际付款」补上。'); return; }
+          catch (e) { setLate(true); setNotice(tt('计划已保存，但自动补记没有完成：') + (e instanceof Error ? e.message : errorMessage(e)) + tt(' 请关闭后打开这条计划，用「补记往期实际付款」补上。')); return; }
         }
       }
       onClose(true);
@@ -279,7 +279,7 @@ export function PaymentDialog({ target, generation, today, onClose }: { target: 
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   const frozen = busy || stuck;
   async function save() {
-    if (state === 'paid' && (!amount || amount === '0')) { setNotice('请填写实付金额。'); document.querySelector<HTMLElement>('dialog [aria-label="实付金额"]')?.focus(); return; }
+    if (state === 'paid' && (!amount || amount === '0')) { setNotice(tt('请填写实付金额。')); document.querySelector<HTMLElement>('dialog [aria-label="实付金额"]')?.focus(); return; }
     const input: PaymentSave = { request_id: crypto.randomUUID(), generation, id: r?.id ?? null, expected_revision: r?.revision ?? null, plan_id: target.plan_id, due_date: target.due_date, state, paid_date: state === 'paid' ? paid : null, amount_cents: state === 'paid' ? amount : null, notes };
     setBusy(true); setNotice('');
     try { await submit({ command: 'recurring_payment_save', input, label: `${target.plan_name} ${target.due_date}` }); onClose(true); }

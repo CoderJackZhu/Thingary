@@ -6,7 +6,7 @@ import type { EventCoverage } from './plan-coverage.ts';
 import type { PlanningCore } from './plan-core.ts';
 import { monthTextV1, monthIndexV1 } from './plan-simplified.ts';
 import { enginePlan, engineProjection, engineRequest } from './planning-engine.ts';
-
+import { t } from './i18n.ts';
 export type Mode = 'fire' | 'traditional';
 
 export type SpendItem = { id: string; label: string; monthly_cents: number; start_age: number | null; end_age: number | null; inflation_hundredths: number | null; essential: boolean };
@@ -189,16 +189,16 @@ export function retiredMonth(balance: number, growth: number, lump: number, spen
 
 // Scenario input edits and labels; no cash-flow simulation is performed here.
 export function scaleSaving(plan: Plan, factor: number): Plan {
-  if (!Number.isFinite(factor) || factor < 0) throw new RangeError('投入比例必须为非负有限数');
+  if (!Number.isFinite(factor) || factor < 0) throw new RangeError(t('投入比例必须为非负有限数'));
   const change = (value: number) => value > 0 ? value * factor : value;
   return { ...plan, saving_cents: change(plan.saving_cents), saving_phases: plan.saving_phases?.map(p => ({ ...p, cents: change(p.cents) })) };
 }
 export function scaleSpend(plan: Plan, factor: number): Plan {
-  if (!Number.isFinite(factor) || factor < 0) throw new RangeError('预算比例必须为非负有限数');
+  if (!Number.isFinite(factor) || factor < 0) throw new RangeError(t('预算比例必须为非负有限数'));
   return { ...plan, items: plan.items.map(item => ({ ...item, monthly_cents: item.monthly_cents * factor })) };
 }
 export function timeLabel(plan: Plan, month: number): string {
-  return plan.anchor_date ? monthTextV1(monthIndexV1(plan.anchor_date) + month - plan.now_months) : String(Math.floor(month / 12)) + ' 岁';
+  return plan.anchor_date ? monthTextV1(monthIndexV1(plan.anchor_date) + month - plan.now_months) : String(Math.floor(month / 12)) + t(' 岁');
 }
 export function ageAt(plan: Plan, month: number): number | null {
   if (plan.age_reference === undefined) return month;

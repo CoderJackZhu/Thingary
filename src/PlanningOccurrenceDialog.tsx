@@ -13,7 +13,7 @@ import type { Occurrence, OccurrenceIssueKind, Payment } from './plan-core';
 import { t } from './i18n.ts';
 const blankPayment = (date: string): Payment => ({ id: crypto.randomUUID(), date, amount_cents: null, account_id: null, absorbed_snapshot_id: null, absorbed_revision: null, source_kind: null, source_id: null });
 export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, today, busy, stuck, notice, initialIssue, onClose, onSave, completion = false, fundRules = [], saveDisabled = false }: { event: StoredLifeEvent; existing?: Occurrence; snapshot: Snapshot | null | undefined; accounts: Account[]; today: string; busy: boolean; stuck: boolean; notice: string; initialIssue?: OccurrenceIssueKind; onClose: () => void; onSave: (o: Occurrence | null) => void; saveDisabled?: boolean; completion?: boolean; fundRules?: import('./plan-core').FundRule[] }) {
-  const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? `${kindLabel(kind)}（历史账户）`;
+  const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? t('{v1}（历史账户）', { v1: kindLabel(kind) });
   const dialog = useRef<HTMLDialogElement>(null);
   const [o, setO] = useState<Occurrence>(() => structuredClone(existing ?? { id: crypto.randomUUID(), event_id: event.id, status: 'occurred', actual_date: today, payments_complete: false, payments: [blankPayment(today)], loan: null }));
   const [pending, setPending] = useState(!existing);
@@ -22,8 +22,8 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
   useEffect(() => {
     dialog.current?.showModal();
     const absorptionIndex = Math.max(0, o.payments.findIndex(p => snapshot && (p.date <= snapshot.date ? p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision : !!p.absorbed_snapshot_id)));
-    const payment = o.payments[absorptionIndex], absorptionField = `付款${absorptionIndex + 1}${!payment?.account_id ? '账户' : payment.date <= (snapshot?.date ?? '') ? '已计入盘点' : '日期'}`;
-    const labels = { overdue: '是否已经发生', actual_date: '实际发生日期', payments: '付款分项完整', payment_source: '付款1金额', absorption: absorptionField, loan: '贷款账户', unlinked_debt: '贷款账户' };
+    const payment = o.payments[absorptionIndex], absorptionField = t('付款{v1}{v2}', { v1: absorptionIndex + 1, v2: !payment?.account_id ? '账户' : payment.date <= (snapshot?.date ?? '') ? '已计入盘点' : '日期' });
+    const labels = { overdue: t('是否已经发生'), actual_date: t('实际发生日期'), payments: t('付款分项完整'), payment_source: t('付款1金额'), absorption: absorptionField, loan: t('贷款账户'), unlinked_debt: t('贷款账户') };
     if (initialIssue) dialog.current?.querySelector<HTMLElement>(`[aria-label="${labels[initialIssue]}"]:not(:disabled)`)?.focus();
     return () => dialog.current?.close();
   }, [initialIssue]);
@@ -32,8 +32,8 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
   const financed = Number(event.price_cents) > Number(event.down_cents);
   const reject = (label: string) => setIssue(old => ({ label, attempt: (old?.attempt ?? 0) + 1 }));
   function requiredConfirmation() {
-    if (completion && pending && event.date < today.slice(0, 7)) return '是否已经发生';
-    if (completion && !pending && (!o.actual_date || o.actual_date > today)) return '实际发生日期';
+    if (completion && pending && event.date < today.slice(0, 7)) return t('是否已经发生');
+    if (completion && !pending && (!o.actual_date || o.actual_date > today)) return t('实际发生日期');
     if (completion && !pending && o.status === 'occurred') {
       const core = { contract_version: 1 as const, monetary_basis_date: today, occurrences: [o], releases: [], fund_rules: fundRules };
       const coverage = eventCoverage([event], core, snapshot ?? null, today).annotations.filter(a => a.refinement.event_id === event.id);
@@ -41,10 +41,10 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
         for (const [i, p] of o.payments.entries()) {
           const rule = fundRules.find(r => r.account_id === p.account_id);
           const entry = snapshot?.entries.find(e => e.account_id === p.account_id && e.counted && e.side === 'asset' && e.amount_cents !== null);
-          const label = !p.date ? '日期' : p.amount_cents === null ? '金额' : !entry || rule?.availability !== 'available' || rule.share_hundredths !== 10000 ? '账户' : snapshot && p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision) ? '已计入盘点' : p.absorbed_snapshot_id && snapshot && p.date > snapshot.date ? '日期' : null;
-          if (label) return `付款${i + 1}${label}`;
+          const label = !p.date ? t('日期') : p.amount_cents === null ? t('金额') : !entry || rule?.availability !== 'available' || rule.share_hundredths !== 10000 ? t('账户') : snapshot && p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision) ? t('已计入盘点') : p.absorbed_snapshot_id && snapshot && p.date > snapshot.date ? t('日期') : null;
+          if (label) return t('付款{v1}{label}', { v1: i + 1, label });
         }
-        return !o.payments_complete || !o.payments.length ? '付款分项完整' : !o.loan ? '贷款账户' : o.loan.as_of !== snapshot?.date ? '剩余欠款截至日' : snapshot?.entries.find(e => e.account_id === o.loan?.account_id)?.amount_cents !== o.loan.principal_cents ? '剩余本金' : '剩余期数';
+        return !o.payments_complete || !o.payments.length ? t('付款分项完整') : !o.loan ? t('贷款账户') : o.loan.as_of !== snapshot?.date ? t('剩余欠款截至日') : snapshot?.entries.find(e => e.account_id === o.loan?.account_id)?.amount_cents !== o.loan.principal_cents ? t('剩余本金') : t('剩余期数');
       }
     }
     return null;
@@ -56,8 +56,8 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
     if (missing) { reject(missing); return; }
     setIssue(null);
     if (pending) { onSave(null); return; }
-    if (!o.actual_date || o.actual_date > today) return setError('实际日期须不晚于今天。');
-    if (o.payments.some(p => !p.date)) return setError('请填写付款日期。');
+    if (!o.actual_date || o.actual_date > today) return setError(t('实际日期须不晚于今天。'));
+    if (o.payments.some(p => !p.date)) return setError(t('请填写付款日期。'));
     onSave(o.status === 'cancelled' ? { ...o, payments: [], loan: null, payments_complete: false } : o);
   };
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="occurrence-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>

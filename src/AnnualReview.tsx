@@ -43,12 +43,12 @@ export function AnnualReview({ generation, today, modules, onViewTrend }: { gene
     setCopying(true); setNotice('');
     try {
       await navigator.clipboard.writeText(preview);
-      if (active.current === copyIdentity) setNotice('已复制预览中的摘要。');
-    } catch { if (active.current === copyIdentity) setNotice('复制失败，请重试。'); }
+      if (active.current === copyIdentity) setNotice(t('已复制预览中的摘要。'));
+    } catch { if (active.current === copyIdentity) setNotice(t('复制失败，请重试。')); }
     finally { setCopying(false); }
   }
   const years = model?.years ?? [Number(today.slice(0, 4))];
-  const renderAmount = (cents: string | null) => cents === null ? '暂无完整金额' : hidden ? '金额已隐藏' : money(cents);
+  const renderAmount = (cents: string | null) => cents === null ? t('暂无完整金额') : hidden ? t('金额已隐藏') : money(cents);
   const retry = <button type="button" onClick={facts.reload}>{t('重新读取区间记录')}</button>;
   const changedPeriod = (value: FinancePeriod) => { setDisclosure(null); setNotice(''); setPeriod(value); };
   // 入口只带走势所需的范围；金额、端点与口径仍由账户与盘点概览重新读取。
@@ -65,7 +65,7 @@ export function AnnualReview({ generation, today, modules, onViewTrend }: { gene
     {facts.load.status === 'loading' ? <p role="status">{t('正在读取同一区间的记录…')}</p> : facts.load.status === 'error' ? <p role="alert">{t('区间记录读取失败。')}{retry}</p> : !model ? <p role="alert">{t('区间来源与所选期间不一致，请重新读取。')}{retry}</p> : <>
       <p className="muted">{t('回顾窗口 {windowLabel}；仅汇总已记录事实，记录数量不证明覆盖完整。', { windowLabel: model.windowLabel })}</p>
       {model.yearsNote && <p role="alert">{model.yearsNote}{retry}</p>}
-      <article className="ui-card ui-content"><h3>{t('金融净资产')}{model.net.to ? ` · ${model.net.from?.date ?? model.net.to.date}${model.net.from?.date !== model.net.to.date ? ` 至 ${model.net.to.date}` : ''}` : ''}</h3>
+      <article className="ui-card ui-content"><h3>{t('金融净资产')}{model.net.to ? ` · ${model.net.from?.date ?? model.net.to.date}${model.net.from?.date !== model.net.to.date ? t(' 至 {date}', { date: model.net.to.date }) : ''}` : ''}</h3>
         {(model.net.status === 'ready' || model.net.status === 'empty') && <p>{t('区间内完整盘点 {completeCount} 次；另有 {incompleteCount} 次记录不完整。', { completeCount: model.net.completeCount, incompleteCount: model.net.incompleteCount })}</p>}
         <p className="muted">{model.net.note}</p>
         {(model.net.status === 'error' || model.net.comparisonFailed) && retry}
@@ -88,7 +88,7 @@ export function AnnualReview({ generation, today, modules, onViewTrend }: { gene
       <article className="ui-card ui-content"><h3>{t('存钱目标 · 当前进度')}</h3><p className="muted">{model.savings.note}</p>{model.savings.status === 'error' && retry}
         {model.savings.goals.map(goal => <section key={goal.id}><h4>{hidden ? goal.alias : goal.name}</h4><p>{goal.note}</p><p>{t('建立于 {created_on}；', { created_on: goal.created_on })}{goal.basisDate ? t('依据盘点 {basisDate}', { basisDate: goal.basisDate }) : t('尚无完整盘点')}。</p>
           <p>{t('当前关联余额：')}{goal.progress.complete ? renderAmount(goal.progress.known_cents) : t('余额不完整或没有盘点')}。</p>
-          <p>{!goal.progress.complete ? t('有 {missing} 个未知、{unavailable} 个失效关联；不显示完整百分比或差额。', { missing: goal.progress.missing, unavailable: goal.progress.unavailable }) : hidden ? t('进度已隐藏。') : t('当前进度 {v1}% · {v2}', { v1: ((goal.progress.percent_hundredths ?? 0) / 100).toFixed(2), v2: goal.progress.reached ? '关联账户余额达标' : '余额尚未达标' })}</p>
+          <p>{!goal.progress.complete ? t('有 {missing} 个未知、{unavailable} 个失效关联；不显示完整百分比或差额。', { missing: goal.progress.missing, unavailable: goal.progress.unavailable }) : hidden ? t('进度已隐藏。') : t('当前进度 {v1}% · {v2}', { v1: ((goal.progress.percent_hundredths ?? 0) / 100).toFixed(2), v2: goal.progress.reached ? t('关联账户余额达标') : t('余额尚未达标') })}</p>
           {goal.shared && <p className="muted">{t('账户还关联其他目标；余额达标不代表多个目标可以同时兑现。')}</p>}
           {goal.planningOverlap === true && <p className="muted">{t('可能与退休规划重复使用同一笔资金；目标不预留或扣减资金，也不调整规划。')}</p>}
         </section>)}

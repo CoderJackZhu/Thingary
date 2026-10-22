@@ -23,14 +23,14 @@ export function useValueMode(): [ValueMode, (v: ValueMode) => void] {
   return [mode, v => { set(v); try { localStorage.setItem(storeKey, v); } catch { /* 偏好存不下也不影响使用 */ } }];
 }
 
-export const valueModeLabel: Record<ValueMode, string> = { today: '按今天物价', nominal: '未来账面金额' };
+export const valueModeLabel: Record<ValueMode, string> = { today: tt('按今天物价'), nominal: tt('未来账面金额') };
 export function ValueToggle({ value, onChange }: { value: ValueMode; onChange: (v: ValueMode) => void }) {
   return <span className="rd-toggle"><Segments label={tt('金额显示方式')} value={value} options={[{ value: 'today', label: valueModeLabel.today }, { value: 'nominal', label: valueModeLabel.nominal }]} onChange={onChange}/>
     <Info text={value === 'today' ? tt('将未来的金额换算回今天的购买力，使金额与你当前的预算具有可比性。') : tt('显示计入通胀后的金额，也就是未来那一年账面上的数字。')}/></span>;
 }
 
 const text = (segs: Seg[]) => segs.map((s, i) => s.strong ? <strong key={i}>{s.t}</strong> : <span key={i}>{s.t}</span>);
-const milestoneLabels = { coast: '现在停止追加存钱', lean: '生活预算少一些', fi: '按完整预算生活', fat: '生活预算更宽裕' };
+const milestoneLabels = { coast: tt('现在停止追加存钱'), lean: tt('生活预算少一些'), fi: tt('按完整预算生活'), fat: tt('生活预算更宽裕') };
 
 /** What the overview reads. The original plan passes its calc; the basic plan passes the shared prediction value. */
 export type OverviewInput = { plan: Plan; proj: Projection; out: Outcome; assets: number; plan0?: Plan; events: LifeEvent[]; r: RetireInputs };
@@ -92,8 +92,8 @@ function EventWarnings({ calc }: { calc: Ready }) {
     const emergency = calc.r.emergency_months * (calc.plan0.items[0]?.monthly_cents ?? 0), today = calc.plan.anchor_date ?? new Date().toISOString().slice(0, 10);
     return calc.events.filter(e => e.included && !calc.r.core?.occurrences.some(o => o.event_id === e.id)).flatMap(e => {
       const i = eventImpact(calc.plan0!, e, offsetOf(e.date, today), emergency), out: string[] = [];
-      if (i.short > 0) out.push(`「${e.label}」在 ${e.date} 付不起首付：还差 ${yuan(i.short)}（含杂费与应急金线），结论按先借后还算。`);
-      if (i.saving_not_positive) out.push(`「${e.label}」买后每月储蓄约 ${yuan(i.saving_after)}，不为正，要靠当时的收入支撑。`);
+      if (i.short > 0) out.push(tt('「{label}」在 {date} 付不起首付：还差 {v3}（含杂费与应急金线），结论按先借后还算。', { label: e.label, date: e.date, v3: yuan(i.short) }));
+      if (i.saving_not_positive) out.push(tt('「{label}」买后每月储蓄约 {v2}，不为正，要靠当时的收入支撑。', { label: e.label, v2: yuan(i.saving_after) }));
       return out;
     });
   }, [calc]);
@@ -118,7 +118,7 @@ function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: 
       <p className="rd-cov-caption">{tt('{calendar_month} 时的快照：计划', { calendar_month: c.calendar_month })} <strong>{tt('{v1}/月', { v1: fmt(c.spend) })}</strong> {tt('该时点的预算及各项资金贡献。')}</p>
       <label className="rd-slider"><span>{tt('查看月份')}</span><input type="range" aria-label={tt('覆盖快照月份')} min={start} max={end} value={month} onChange={e => setPick(Number(e.target.value))}/><b>{c.calendar_month}</b></label>
       <div className="rd-stack" role="img" aria-label={tt('{calendar_month} 时：收入 {v2}%，从已有资金中取用 {v3}%，无资金支持 {v4}%', { calendar_month: c.calendar_month, v2: Math.round(c.pct.income), v3: Math.round(c.pct.portfolio), v4: Math.round(c.pct.unfunded) })}>
-        {c.segments.map((s, i) => <div key={s.key} className={`rd-seg ${s.kind}`} style={{ width: `${c.spend > 0 ? Math.min(100, (s.monthly / c.spend) * 100) : 0}%`, opacity: s.kind === 'income' ? Math.max(0.45, 1 - i * 0.2) : 1 }} title={`${s.kind === 'portfolio' ? '从已有资金中取用' : s.label}：${Math.round(c.spend > 0 ? (s.monthly / c.spend) * 100 : 0)}%`}/>)}
+        {c.segments.map((s, i) => <div key={s.key} className={`rd-seg ${s.kind}`} style={{ width: `${c.spend > 0 ? Math.min(100, (s.monthly / c.spend) * 100) : 0}%`, opacity: s.kind === 'income' ? Math.max(0.45, 1 - i * 0.2) : 1 }} title={`${s.kind === 'portfolio' ? tt('从已有资金中取用') : s.label}：${Math.round(c.spend > 0 ? (s.monthly / c.spend) * 100 : 0)}%`}/>)}
       </div>
       <p className="rd-stack-legend"><span><i className="income"/>{tt('收入 {v1}%', { v1: Math.round(c.pct.income) })}</span><span><i className="portfolio"/>{tt('从已有资金中取用 {v1}%', { v1: Math.round(c.pct.portfolio) })}</span><span><i className="unfunded"/>{tt('无资金支持 {v1}%', { v1: Math.round(c.pct.unfunded) })}</span>
         {c.draw_rate !== null && <span className="rd-right">{tt('每年从已有资金中取用的比例：{v1}', { v1: rateText(Math.round(c.draw_rate * 10000)) })}<Info text={tt('这一阶段每年取用的金额除以预计资金价值。只是参考比例，不会据此改变你的开销。')}/></span>}</p>

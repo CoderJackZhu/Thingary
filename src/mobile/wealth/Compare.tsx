@@ -10,7 +10,7 @@ import { Card, EmptyState, FormGroup, HeroCard, LargeTitle, NavBar, Notice, Segm
 import { ReadState, useRead } from './shared';
 import { t } from '../../i18n.ts';
 function Comparison({from,to,generation,mode}:{from:string;to:string;generation:string;mode:'impact'|'kind'}) {
-  const nav=useNav(),today=useSession().today,read=useRead(`compare:${generation}:${from}:${to}`,async()=>{const result=await invoke<Compare>('wealth_compare',{from,to});if(result.generation!==generation || result.from.snapshot_id!==from || result.to.snapshot_id!==to)throw Error('比较来源已变化，请重新选择。');return result;});
+  const nav=useNav(),today=useSession().today,read=useRead(`compare:${generation}:${from}:${to}`,async()=>{const result=await invoke<Compare>('wealth_compare',{from,to});if(result.generation!==generation || result.from.snapshot_id!==from || result.to.snapshot_id!==to)throw Error(t('比较来源已变化，请重新选择。'));return result;});
   const value=read.value,rows=sortRows(value?.rows??[],mode);
   const blocks:{title:string;matches:(r:CompareRow)=>boolean}[]=[{title:t('计入的资产'),matches:r=>r.group==='counted'&&r.side==='asset'},{title:t('计入的负债'),matches:r=>r.group==='counted'&&r.side==='liability'},{title:t('计入范围有变化'),matches:r=>r.group==='scope_changed'},{title:t('不进合计'),matches:r=>r.group==='uncounted'}];
   return <><ReadState error={read.error} reload={read.reload} loading={!value}/>{value && <>
@@ -24,7 +24,7 @@ export default function ComparePage({params}:PageProps) {
   const s=useSession(),points=s.data?.summary.points??[],seed=defaultRange(points);
   const [from,setFrom]=useState(String(params.from??seed?.from??'')),[to,setTo]=useState(String(params.to??seed?.to??'')),[mode,setMode]=useState<'impact'|'kind'>('impact');
   const actualFrom=from||seed?.from||'',actualTo=to||seed?.to||'', a=points.find(p=>p.snapshot_id===actualFrom),b=points.find(p=>p.snapshot_id===actualTo);
-  const options=points.map(p=>({id:p.snapshot_id,label:`${p.date}${p.complete?'':' · 有缺项'}`}));
+  const options=points.map(p=>({id:p.snapshot_id,label:`${p.date}${p.complete?'':t(' · 有缺项')}`}));
   return <div className="m-page m-wealth"><NavBar/><LargeTitle title={t('盘点比较')} subtitle={t('选择两次盘点，逐个账户核对变化。')}/>{points.length<2?<EmptyState icon="wallet" title={t('还需要两次盘点')} message={t('完成两次盘点后，可以选择日期比较。')}/>:<>
     <FormGroup><SelectField label={t('起点')} value={actualFrom} onChange={setFrom} options={options}/><SelectField label={t('终点')} value={actualTo} onChange={setTo} options={options}/></FormGroup>
     <SegmentedControl label={t('排序方式')} value={mode} onChange={setMode} items={[{id:'impact',label:t('按影响')},{id:'kind',label:t('按类型')}]}/>

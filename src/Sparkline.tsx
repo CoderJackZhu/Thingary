@@ -40,14 +40,14 @@ export function Sparkline({ points, hero = false, hideAmounts = false }: { point
   const months = spacedLabels(points, labelX, () => 76);
   const tick = (p: Point) => p.date;
   const amount = (p: Point) => hideAmounts ? '******' : signedMoney(p.net_cents);
-  const change = (p: Point) => hideAmounts ? '变化金额已隐藏' : changeLine(p);
+  const change = (p: Point) => hideAmounts ? t('变化金额已隐藏') : changeLine(p);
   const shown = cur === null ? null : full[Math.min(cur, full.length - 1)];
   const move = (clientX: number, boxRect: DOMRect) => {
     const vx = (clientX - boxRect.left) / boxRect.width * W;
     let best = 0; full.forEach((p, i) => { if (Math.abs(x(p.date) - vx) < Math.abs(x(full[best].date) - vx)) best = i; });
     setCur(best);
   };
-  return <><div ref={box} className={'ui-spark' + (hero ? ' hero' : '')} tabIndex={0} role="img" aria-label={t('金融净资产趋势，共 {length} 次完整盘点；左右方向键浏览，虚线为不完整盘点{v2}', { length: full.length, v2: hideAmounts ? "，金额已隐藏" : "" })}
+  return <><div ref={box} className={'ui-spark' + (hero ? ' hero' : '')} tabIndex={0} role="img" aria-label={t('金融净资产趋势，共 {length} 次完整盘点；左右方向键浏览，虚线为不完整盘点{v2}', { length: full.length, v2: hideAmounts ? t('，金额已隐藏') : "" })}
     onFocus={() => setCur(full.length - 1)} onBlur={() => setCur(null)}
     onKeyDown={e => {
       if (e.key === 'ArrowRight') { e.preventDefault(); setCur(c => Math.min(full.length - 1, (c ?? -1) + 1)); }

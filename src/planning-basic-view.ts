@@ -22,8 +22,8 @@ export function amountState(cents: string | null): ContributionState {
 }
 export const contributionState = (b: BasicInputs | undefined): ContributionState => amountState(b?.contribution.monthly_cents ?? null);
 
-export const ownerLabel: Record<PlanningMissing['owner'], string> = { basic: '目标与预算', pension: '养老金事实', funds: '资金范围', events: '大额计划', budget: '预算明细', service: '重新读取' };
-export const ownerAction: Record<PlanningMissing['owner'], string> = { basic: '填写退休年龄和生活费', pension: '填写社保资料', funds: '选择这次用哪些钱', events: '核对买房买车等计划', budget: '确认这些费用怎么算', service: '重新读取' };
+export const ownerLabel: Record<PlanningMissing['owner'], string> = { basic: t('目标与预算'), pension: t('养老金事实'), funds: t('资金范围'), events: t('大额计划'), budget: t('预算明细'), service: t('重新读取') };
+export const ownerAction: Record<PlanningMissing['owner'], string> = { basic: t('填写退休年龄和生活费'), pension: t('填写社保资料'), funds: t('选择这次用哪些钱'), events: t('核对买房买车等计划'), budget: t('确认这些费用怎么算'), service: t('重新读取') };
 
 /** The first thing a person can do about a blocked capability, grouped by owner so each owner gets one action. */
 export function missingOwners(missing: PlanningMissing[]): PlanningMissing['owner'][] {
@@ -34,26 +34,26 @@ export function missingOwners(missing: PlanningMissing[]): PlanningMissing['owne
 export function missingText(m: PlanningMissing): string {
   if (m.kind === 'constraint' || m.kind === 'read_error') return m.message;
   const text: Record<string, string> = {
-    PROFILE_UNKNOWN: '先设置一个退休目标，已有资料会保留。',
-    BIRTH_UNKNOWN: '还需要你的出生年月，才能算出退休前还有多少时间。',
-    TARGET_UNKNOWN: '你想在几岁退休？先选一个年龄，以后可以改。',
-    BUDGET_UNKNOWN: '退休后每月大约花多少钱？按现在的物价填生活费总额。',
-    START_UNKNOWN: '还需要现在可用的金额，以及这笔金额是哪天的。',
-    INCOME_MODE_UNKNOWN: '这次要不要算养老金等退休收入？也可以选择先不算。',
-    CONTRIBUTION_UNKNOWN: '还没估计每月能存多少钱，先看目标需要的钱也可以。',
-    PENSION_FACTS_UNKNOWN: '选择了养老金估算，还需要补齐社保资料。',
-    PENSION_CONTRIBUTIONS_UNKNOWN: '还需要确认以后是否继续交社保，以及公积金每月缴存（没有就填 0）。',
+    PROFILE_UNKNOWN: t('先设置一个退休目标，已有资料会保留。'),
+    BIRTH_UNKNOWN: t('还需要你的出生年月，才能算出退休前还有多少时间。'),
+    TARGET_UNKNOWN: t('你想在几岁退休？先选一个年龄，以后可以改。'),
+    BUDGET_UNKNOWN: t('退休后每月大约花多少钱？按现在的物价填生活费总额。'),
+    START_UNKNOWN: t('还需要现在可用的金额，以及这笔金额是哪天的。'),
+    INCOME_MODE_UNKNOWN: t('这次要不要算养老金等退休收入？也可以选择先不算。'),
+    CONTRIBUTION_UNKNOWN: t('还没估计每月能存多少钱，先看目标需要的钱也可以。'),
+    PENSION_FACTS_UNKNOWN: t('选择了养老金估算，还需要补齐社保资料。'),
+    PENSION_CONTRIBUTIONS_UNKNOWN: t('还需要确认以后是否继续交社保，以及公积金每月缴存（没有就填 0）。'),
   };
   if (m.code === 'COST_SCOPE_UNKNOWN' && m.field.startsWith('basic.')) return m.field.includes('contribution')
-    ? '还有费用没核对：每月存钱的金额是否已经扣除了它？'
-    : '还有费用没核对：上面的生活费是否已经包含了它？';
+    ? t('还有费用没核对：每月存钱的金额是否已经扣除了它？')
+    : t('还有费用没核对：上面的生活费是否已经包含了它？');
   return text[m.code] ?? m.message;
 }
 export function missingAction(m: PlanningMissing): string {
   const actions: Record<string, string> = {
-    birth_month: '填写出生年月', target_age: '选择想退休的年龄', spend_cents: '填写每月生活费',
-    'basic.start': '填写现在可用的钱', 'basic.retirement_income.mode': '选择是否计入养老金',
-    'basic.pension_contributions': '确认社保和公积金',
+    birth_month: t('填写出生年月'), target_age: t('选择想退休的年龄'), spend_cents: t('填写每月生活费'),
+    'basic.start': t('填写现在可用的钱'), 'basic.retirement_income.mode': t('选择是否计入养老金'),
+    'basic.pension_contributions': t('确认社保和公积金'),
   };
   return actions[m.field] ?? ownerAction[m.owner];
 }
@@ -74,7 +74,7 @@ export function requirementLine(r: RequirementResult, fmt: (cents: string) => st
 /** 目标页把「需要存」和「你估计能存」并排：所需额是最小恒定月投入，预计投入不少于它即够用。未知不当零，也不下结论。 */
 export function contributionVerdict(r: RequirementResult, contribution: string | null, fmt: (cents: string) => string, estimate: (cents: string) => string = fmt): { text: string; tone: Tone; unknown: boolean } {
   if (contribution === null) return { text: t('你估计每月能存多少：还没填'), tone: 'plain', unknown: true };
-  const c = BigInt(contribution), own = c < 0n ? `你估计每月要取用 ${fmt(String(-c))}` : `你估计每月能存 ${fmt(String(c))}`;
+  const c = BigInt(contribution), own = c < 0n ? t('你估计每月要取用 {v1}', { v1: fmt(String(-c)) }) : t('你估计每月能存 {v1}', { v1: fmt(String(c)) });
   if (r.status === 'found') {
     const diff = c - BigInt(r.monthly_cents);
     return diff === 0n ? { text: t('{own}，正好够', { own }), tone: 'good', unknown: false } : diff > 0n ? { text: t('{own}，比所需多 {v2}', { own, v2: estimate(String(diff)) }), tone: 'good', unknown: false } : { text: t('{own}，每月还差 {v2}', { own, v2: estimate(String(-diff)) }), tone: 'warn', unknown: false };
@@ -84,20 +84,20 @@ export function contributionVerdict(r: RequirementResult, contribution: string |
 }
 
 /** Whether the money is enough at the target age itself; the end-of-plan outcome alone can read as "fine" when retiring later is what makes it work. */
-export const goalFitText = (o: { funded_at_goal: boolean; shortfall_at_goal: number }, fmt: (cents: string) => string) => o.funded_at_goal ? '到目标年龄时资金已够用' : `到目标年龄时资金还差 ${fmt(String(Math.round(o.shortfall_at_goal)))}，要更晚退休才够`;
+export const goalFitText = (o: { funded_at_goal: boolean; shortfall_at_goal: number }, fmt: (cents: string) => string) => o.funded_at_goal ? t('到目标年龄时资金已够用') : t('到目标年龄时资金还差 {v1}，要更晚退休才够', { v1: fmt(String(Math.round(o.shortfall_at_goal))) });
 
-export const terminalText = { surplus: '规划终点仍有余量', no_margin: '规划终点恰好为 0：只覆盖到所选终点，没有余量', gap: '规划终点前出现缺口' } as const;
+export const terminalText = { surplus: t('规划终点仍有余量'), no_margin: t('规划终点恰好为 0：只覆盖到所选终点，没有余量'), gap: t('规划终点前出现缺口') } as const;
 
 /** Prediction waits on an explicit contribution only when the contract says so. */
 export const needsContribution = (caps: BasicCapabilities) => caps.prediction.status === 'blocked' && caps.prediction.missing.some(m => m.code === 'CONTRIBUTION_UNKNOWN');
 export const predictionReady = (caps: BasicCapabilities) => caps.prediction.status === 'ready';
 /** Outputs that need a saved or temporary explicit contribution: projected age/date, countdown, charts, simulation share, future balances. */
 export const showPredictionOutputs = predictionReady;
-export const SAVE_CONTRIBUTION_HINT = '填好每月能存多少钱后，可查看影响';
+export const SAVE_CONTRIBUTION_HINT = t('填好每月能存多少钱后，可查看影响');
 
-export const returnDropText = (before: number, after: number) => `收益各降 2 个百分点（退休前 ${(before / 100).toFixed(2)}% / 退休后 ${(after / 100).toFixed(2)}%）`;
-export const returnBasisText = (before: number, after: number) => `退休前 ${(before / 100).toFixed(2)}% / 退休后 ${(after / 100).toFixed(2)}%`;
-export const returnRiseText = (before: number, after: number) => `收益各升 2 个百分点（退休前 ${(before / 100).toFixed(2)}% / 退休后 ${(after / 100).toFixed(2)}%）`;
+export const returnDropText = (before: number, after: number) => t('收益各降 2 个百分点（退休前 {v1}% / 退休后 {v2}%）', { v1: (before / 100).toFixed(2), v2: (after / 100).toFixed(2) });
+export const returnBasisText = (before: number, after: number) => t('退休前 {v1}% / 退休后 {v2}%', { v1: (before / 100).toFixed(2), v2: (after / 100).toFixed(2) });
+export const returnRiseText = (before: number, after: number) => t('收益各升 2 个百分点（退休前 {v1}% / 退休后 {v2}%）', { v1: (before / 100).toFixed(2), v2: (after / 100).toFixed(2) });
 
 /** Which setup step owns a missing item: funds, retirement income and future pension payments live in step 2; pre-retirement costs live in confirmation. */
 export const setupStepFor = (owner: PlanningMissing['owner'], field = ''): 0 | 1 | 3 => field.startsWith('basic.contribution_costs') ? 3 : (owner === 'funds' || field.startsWith('basic.start') || field.startsWith('basic.retirement_income') || field.startsWith('basic.pension_contributions') ? 1 : 0);
@@ -107,14 +107,14 @@ export function runwayLines(r: RunwayResult, floor: { set: boolean; cents: strin
   if (r.status === 'invalid') return { main: r.message, floor: null, tone: 'warn' };
   const n = r.status === 'payment_gap' ? r.covered_months : r.checked_months;
   const main = r.status === 'not_reached'
-    ? `按所填收支，检查的 ${n} 个月内可完整支付开销；不保证未来安全。`
-    : n === 0 ? `月初资金不足以支付当月开销，尚余 ${fmt(String(r.remaining_cents))}：月底到账补不上月初的付款。`
-    : `按这个状态持续，可完整支付 ${n} 个月（约 ${durationText(n)}）；第 ${n + 1} 个月月初尚余 ${fmt(String(r.remaining_cents))}，不够支付当月开销。`;
+    ? t('按所填收支，检查的 {n} 个月内可完整支付开销；不保证未来安全。', { n })
+    : n === 0 ? t('月初资金不足以支付当月开销，尚余 {v1}：月底到账补不上月初的付款。', { v1: fmt(String(r.remaining_cents)) })
+    : t('按这个状态持续，可完整支付 {n} 个月（约 {v2}）；第 {v3} 个月月初尚余 {v4}，不够支付当月开销。', { n, v2: durationText(n), v3: n + 1, v4: fmt(String(r.remaining_cents)) });
   const m = r.floor_month;
-  const line = !floor.set ? '没有设置资金底线，只检查支付能力，不代表资金安全。'
-    : m === 0 ? `起点资金已不高于底线 ${fmt(floor.cents)}，差 ${fmt(String(r.floor_gap_cents ?? 0))}。`
-    : m !== null ? `第 ${m} 个月月初付款后触及底线 ${fmt(floor.cents)} 或以下，月底到账不抵消这次触底。`
-    : r.status === 'payment_gap' ? '已完整支付的月份内未触及底线；无法支付之后的余额不再推演。'
-    : `检查的 ${r.checked_months} 个月内未触及底线。`;
+  const line = !floor.set ? t('没有设置资金底线，只检查支付能力，不代表资金安全。')
+    : m === 0 ? t('起点资金已不高于底线 {v1}，差 {v2}。', { v1: fmt(floor.cents), v2: fmt(String(r.floor_gap_cents ?? 0)) })
+    : m !== null ? t('第 {m} 个月月初付款后触及底线 {v2} 或以下，月底到账不抵消这次触底。', { m, v2: fmt(floor.cents) })
+    : r.status === 'payment_gap' ? t('已完整支付的月份内未触及底线；无法支付之后的余额不再推演。')
+    : t('检查的 {checked_months} 个月内未触及底线。', { checked_months: r.checked_months });
   return { main, floor: line, tone: m !== null || (r.status === 'payment_gap' && n < 6) ? 'warn' : 'plain' };
 }

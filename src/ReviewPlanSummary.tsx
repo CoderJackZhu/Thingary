@@ -21,7 +21,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
   const basis = retire.kind === 'ready' ? summaryBasis(retire) : null;
   const basicPlan = !!(data && data.profile.status === 'ready' && data.profile.value.saved?.profile.retire.basic);
   const summaryAnnotations = retire.kind === 'ready' ? retire.calc.annotations : retire.kind === 'blocked' ? retire.capabilities?.annotations : undefined;
-  const estimateInfo = ['按已保存条件估算，不保证未来一定够用；条件、遗漏或待确认事项会影响结果。', ...(basis ?? []), ...(!basicPlan && retire.kind === 'ready' ? ['当前可支配资产与今天退休所需的比例只表示资产覆盖，不是时间进度或成功概率。'] : [])].join(' ');
+  const estimateInfo = [t('按已保存条件估算，不保证未来一定够用；条件、遗漏或待确认事项会影响结果。'), ...(basis ?? []), ...(!basicPlan && retire.kind === 'ready' ? [t('当前可支配资产与今天退休所需的比例只表示资产覆盖，不是时间进度或成功概率。')] : [])].join(' ');
 
   const actions: { label: string; run: () => void }[] = retire.kind === 'ready' ? [
     { label: t('查看目标 →'), run: () => onGotoPlanning('goals') },
@@ -77,7 +77,7 @@ function BasicSummaryBody({ sources, retire, onGotoPlanning }: { sources: PlanSo
   if (!caps) return <p className="review-plan-main muted" role="status">{retire.kind === 'error' ? t('目标结果读取失败：{message}', { message: retire.message }) : t('正在读取目标…')}</p>;
   const pred = caps.prediction.status === 'ready' ? caps.prediction.value : null;
   return <>
-    <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.simplified.time.target_month == null ? t('目标月份还没有设定') : t('目标 {target_month}{v2}', { target_month: r.simplified.time.target_month, v2: r.mode === 'fire' ? ' 财务自由' : ' 退休' })}</p>
+    <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.simplified.time.target_month == null ? t('目标月份还没有设定') : t('目标 {target_month}{v2}', { target_month: r.simplified.time.target_month, v2: r.mode === 'fire' ? t(' 财务自由') : t(' 退休') })}</p>
     {retire.kind === 'ready' && retire.headline.sub && retire.headline.sub !== '估算' && <p className="review-plan-sub">{retire.headline.sub}</p>}
     {caps.requirement.status === 'ready' ? <RequirementLine value={caps.requirement.value} annotations={caps.annotations} showCoverage={false}/> : <p className="review-plan-sub">{t('需求还算不出：{message}', { message: caps.requirement.missing[0]?.message })}</p>}
     {pred ? <p className="review-plan-sub">{t('按你估计每月能存下的钱：{v1}。', { v1: terminalText[pred.terminal] })}</p>

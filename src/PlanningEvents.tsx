@@ -19,9 +19,9 @@ import { yuan } from './RetireOverview';
 import './retire.css';
 import { t } from './i18n.ts';
 type Kind = StoredLifeEvent['kind'];
-const kindText: Record<Kind, string> = { house: '买房', car: '买车', other: '其他' };
+const kindText: Record<Kind, string> = { house: t('买房'), car: t('买车'), other: t('其他') };
 const monthLabel = (today: string, offset: number) => { const i = monthIndex(today) + offset; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`; };
-const delayText = (d: number | null, base: number | null, w: number | null) => base === null ? '本来就达不到' : w === null ? '所选规划终点前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d! >= 12 ? `${Math.floor(d! / 12)} 年${d! % 12 ? ` ${d! % 12} 个月` : ''}` : `${d} 个月`}`;
+const delayText = (d: number | null, base: number | null, w: number | null) => base === null ? t('本来就达不到') : w === null ? t('所选规划终点前达不到') : d === 0 ? t('几乎无影响') : t('推迟约 {v1}', { v1: d! >= 12 ? `${Math.floor(d! / 12)} 年${d! % 12 ? ` ${d! % 12} 个月` : ''}` : `${d} 个月` });
 const cents = (yuanAmount: number) => String(Math.round(yuanAmount * 100));
 
 /** 「其他」类型的预设：一次性支出 + 可选的每月持续支出与每隔几年重复；untilYears 是从计划月份起持续的年数。 */
@@ -35,11 +35,11 @@ const presets: { key: string; label: string; years: number; make: (date: string)
   { key: 'house', label: t('买房'), years: 7, make: date => ({ label: t('买房'), kind: 'house', date, included: true, price_cents: cents(1_500_000), down_cents: cents(450_000), extra_cents: cents(50_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(800), rent_saved_cents: cents(2000), cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }) },
   { key: 'car', label: t('买车'), years: 2, make: date => ({ label: t('买车'), kind: 'car', date, included: true, price_cents: cents(100_000), down_cents: cents(100_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: cents(1200), rent_saved_cents: '0', cycle_years: 8, until_month: null, time_unconfirmed: false, resale_cents: cents(20_000) }) },
   // 常用模板：都是「其他」类型加预设字段（一次性支出、可选分期、每月持续支出、每隔几年重复、持续到哪个月），不另起计算。金额只是占位。
-  { key: 'reno', label: t('装修'), years: 2, make: date => other(date, '装修', { price: 200_000, down: 200_000 }) },
-  { key: 'wedding', label: t('婚礼与彩礼'), years: 2, make: date => other(date, '婚礼与彩礼', { price: 300_000, down: 300_000 }) },
-  { key: 'child', label: t('生育与养孩子'), years: 2, make: date => other(date, '生育与养孩子', { price: 30_000, down: 30_000, holding: 3_000, untilYears: 22 }) },
-  { key: 'edu', label: t('子女教育'), years: 5, make: date => other(date, '子女教育', { price: 40_000, down: 40_000, cycle: 1, untilYears: 11 }) },
-  { key: 'travel', label: t('旅行'), years: 1, make: date => other(date, '旅行', { price: 20_000, down: 20_000, cycle: 1, untilYears: 9 }) },
+  { key: 'reno', label: t('装修'), years: 2, make: date => other(date, t('装修'), { price: 200_000, down: 200_000 }) },
+  { key: 'wedding', label: t('婚礼与彩礼'), years: 2, make: date => other(date, t('婚礼与彩礼'), { price: 300_000, down: 300_000 }) },
+  { key: 'child', label: t('生育与养孩子'), years: 2, make: date => other(date, t('生育与养孩子'), { price: 30_000, down: 30_000, holding: 3_000, untilYears: 22 }) },
+  { key: 'edu', label: t('子女教育'), years: 5, make: date => other(date, t('子女教育'), { price: 40_000, down: 40_000, cycle: 1, untilYears: 11 }) },
+  { key: 'travel', label: t('旅行'), years: 1, make: date => other(date, t('旅行'), { price: 20_000, down: 20_000, cycle: 1, untilYears: 9 }) },
   { key: 'other', label: t('其他大额'), years: 3, make: date => ({ label: t('其他大额支出'), kind: 'other', date, included: true, price_cents: cents(50_000), down_cents: cents(50_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }) },
 ];
 
@@ -84,7 +84,7 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
           <td>{i && i.payment_nominal > 0 ? <>{t('月供 {v1}', { v1: yuan(i.payment_nominal) })}<small className="muted">{t('每月实际还款金额不变')}</small></> : <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0) ? t('剩余欠款按核对过的剩余期数继续还') : t('待测算')}</span>}{Number(s.holding_cents) > 0 && <small className="muted">{s.kind === 'car' ? t('养车') : t('持有')} {money(s.holding_cents)}</small>}
             {i && (i.payment_nominal > 0 || Number(s.holding_cents) > 0) && <small className={i.saving_not_positive ? 'warn' : 'muted'}>{t('买后每月储蓄约 {v1}', { v1: yuan(i.saving_after) })}{i.saving_not_positive ? t('，要靠当时的收入支撑') : ''}</small>}</td>
           <td>{!i ? <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? t('按实际付款继续计算') : store.blocked}{store.onContribution && !retire.core?.occurrences.some(o => o.event_id === s.id) && <button type="button" className="ui-link" onClick={store.onContribution}>{t('估计每月能存多少钱')}</button>}</span> : i.short === 0 ? <>{t('够：{date} 时可支配资产约 {v2}', { date: s.date, v2: yuan(i.assets_at_date) })}<small className="muted">{t('需 {v1}（含应急金线）', { v1: yuan(i.cash_needed) })}</small></> : <><span className="warn">{t('差 {v1}', { v1: yuan(i.short) })}</span><small className="muted">{t('需 {v1}；', { v1: yuan(i.cash_needed) })}{i.earliest_offset === null ? t('按当前储蓄不会够') : t('最早约 {v1} 够', { v1: monthLabel(ready?.plan.anchor_date ?? today, i.earliest_offset) })}</small></>}</td>
-          <td>{i ? <>{delayText(i.delay_months, i.base_fi, i.with_fi)}{s.kind === 'house' && <small className="muted">{i.sweep.map(w => `${w.years} 年后买：${w.delay_months === null ? '达不到' : w.delay_months === 0 ? '无影响' : `+${w.delay_months} 个月`}`).join('；')}</small>}</> : <span className="muted">—</span>}</td>
+          <td>{i ? <>{delayText(i.delay_months, i.base_fi, i.with_fi)}{s.kind === 'house' && <small className="muted">{i.sweep.map(w => t('{years} 年后买：{v2}', { years: w.years, v2: w.delay_months === null ? '达不到' : w.delay_months === 0 ? '无影响' : `+${w.delay_months} 个月` })).join('；')}</small>}</> : <span className="muted">—</span>}</td>
           <td><Switch label={t('计入{label}', { label: s.label })} value={s.included || !!retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred')} disabled={saver.busy || saver.stuck || !!retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred')} onChange={v => void toggle(s.id, v)}/></td>
           <td><div className="rs-actions">{s.time_unconfirmed && <button type="button" className="ui-btn" aria-label={t('{label}按规划终点计算', { label: s.label })} disabled={saver.busy || saver.stuck} onClick={() => void usePlanningHorizon(s.id)}>{t('按规划终点计算')}</button>}<button type="button" className="ui-btn" disabled={saver.busy || saver.stuck} onClick={() => setOccurring(s)}>{retire.core?.occurrences.some(o => o.event_id === s.id) || s.date < today.slice(0, 7) ? t('发生核对') : t('已发生？')}</button><button id={`plan-event-edit-${s.id}`} type="button" className="ui-btn" disabled={saver.busy || saver.stuck} onClick={() => setEditing({ isNew: false, draft: s })}>{s.time_unconfirmed ? t('重设终点') : t('编辑')}</button>
             {confirm === s.id ? <button type="button" className="danger" disabled={saver.busy} onClick={() => void remove(s.id)}>{t('确认删除')}</button> : <button type="button" className="ui-btn" disabled={saver.busy || !!retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred')} onClick={() => setConfirm(s.id)}>{t('删除')}</button>}</div></td></tr>; })}</tbody></table></div>
@@ -109,17 +109,17 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
   const financed = Number(price || 0) > Number(down || 0);
   function save() {
     const stop = (m: string) => setErr(m);
-    if (!label.trim()) return stop('请填写名称。');
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(date)) return stop('计划月份格式须是 YYYY-MM；过去日期需确认是否已经发生。');
-    if (!price || price === '0') return stop('请填写总价。');
-    if (Number(down || 0) > Number(price)) return stop('首付不能高于总价。');
+    if (!label.trim()) return stop(t('请填写名称。'));
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(date)) return stop(t('计划月份格式须是 YYYY-MM；过去日期需确认是否已经发生。'));
+    if (!price || price === '0') return stop(t('请填写总价。'));
+    if (Number(down || 0) > Number(price)) return stop(t('首付不能高于总价。'));
     const r = pctToHundredths(rate), y = Number(years);
-    if (financed && (r === null || r < 0 || r > 2000)) return stop('贷款利率请填 0 到 20 之间的百分数。');
-    if (financed && (!Number.isInteger(y) || y < 1 || y > 40)) return stop('贷款年限须是 1 到 40 的整数。');
+    if (financed && (r === null || r < 0 || r > 2000)) return stop(t('贷款利率请填 0 到 20 之间的百分数。'));
+    if (financed && (!Number.isInteger(y) || y < 1 || y > 40)) return stop(t('贷款年限须是 1 到 40 的整数。'));
     const c = cycle.trim() === '' ? null : Number(cycle), u = until.trim() === '' ? null : until;
-    const repeat = kind === 'car' ? '换车周期' : '重复周期';
-    if (c !== null && (!Number.isInteger(c) || c < 1 || c > 40)) return stop(`${repeat}须是 1 到 40 的整数年，留空表示只发生一次。`);
-    if (u !== null && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(u) || u < date)) return stop('截止月份须不早于计划月份。');
+    const repeat = kind === 'car' ? t('换车周期') : t('重复周期');
+    if (c !== null && (!Number.isInteger(c) || c < 1 || c > 40)) return stop(t('{repeat}须是 1 到 40 的整数年，留空表示只发生一次。', { repeat }));
+    if (u !== null && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(u) || u < date)) return stop(t('截止月份须不早于计划月份。'));
     setErr('');
     onSave({ ...draft, id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'house' ? null : c, until_month: kind === 'house' ? null : u, time_unconfirmed: false, resale_cents: kind === 'car' ? resale || '0' : '0' });
   }

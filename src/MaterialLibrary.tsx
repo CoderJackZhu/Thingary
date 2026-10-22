@@ -19,15 +19,15 @@ export function MaterialThumb({ id, alt, generation, onSelect, disabled = false 
     }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; if (url) URL.revokeObjectURL(url); };
   }, [id, generation, attempt]);
-  const content = src ? <img className="material-thumb-image" src={src} alt={alt} onError={() => { setSrc(''); setError('图片无法显示'); }}/> : <span className="material-thumb-placeholder">{error ? t('读取失败') : t('正在读取…')}</span>;
+  const content = src ? <img className="material-thumb-image" src={src} alt={alt} onError={() => { setSrc(''); setError(t('图片无法显示')); }}/> : <span className="material-thumb-placeholder">{error ? t('读取失败') : t('正在读取…')}</span>;
   return <>{onSelect ? <button type="button" className="material-tile" disabled={disabled || !src} aria-label={alt} onClick={onSelect}>{content}</button> : content}
-    {error && <span className="material-thumb-error" role="alert"><span title={error}>{t('图片读取失败')}</span><button type="button" disabled={disabled} aria-label={'重新读取：' + alt} onClick={() => setAttempt(n => n + 1)}>{t('重试')}</button></span>}</>;
+    {error && <span className="material-thumb-error" role="alert"><span title={error}>{t('图片读取失败')}</span><button type="button" disabled={disabled} aria-label={t('重新读取：') + alt} onClick={() => setAttempt(n => n + 1)}>{t('重试')}</button></span>}</>;
 }
 
 export function MaterialLibrary({ generation, onNotice, onBusyChange, search, onSearch }: { generation: string; onNotice: (message: string) => void; onBusyChange: (busy: boolean) => void; search: string; onSearch: (value: string) => void;  }) {
   const [entries, setEntries] = useState<MaterialEntry[] | null>(null);
   const [source, setSource] = useState<MaterialSource>('icon');
-  const [category, setCategory] = useState('全部');
+  const [category, setCategory] = useState(t('全部'));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -36,7 +36,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
   const [recoveryError, setRecoveryError] = useState('');
   function readRecovery() {
     try { setPending(pendingUpload(localStorage)); setRecoveryReady(true); setRecoveryError(''); }
-    catch { setRecoveryError('上传核对记录无法读取，请恢复本机存储后重试。'); }
+    catch { setRecoveryError(t('上传核对记录无法读取，请恢复本机存储后重试。')); }
   }
   useEffect(readRecovery, []);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -56,8 +56,8 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
   function completed(entry: MaterialEntry | null) {
     localStorage.removeItem(uploadKey);
     setPending(null);
-    if (entry) { setSource('custom'); setCategory('全部'); onSearch(''); }
-    onNotice(entry ? `已上传素材「${entry.name}」。` : '核对完成：没有保存素材，可重新上传。');
+    if (entry) { setSource('custom'); setCategory(t('全部')); onSearch(''); }
+    onNotice(entry ? t('已上传素材「{name}」。', { name: entry.name }) : t('核对完成：没有保存素材，可重新上传。'));
     reload();
   }
   async function resolveUpload() {
@@ -67,10 +67,10 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
       // A restored dataset cannot receive or finish an old upload.
       if (pending.generation !== generation) {
         localStorage.removeItem(uploadKey); setPending(null);
-        onNotice('资料已切换，旧上传不会写入当前资料。'); return;
+        onNotice(t('资料已切换，旧上传不会写入当前资料。')); return;
       }
       completed(await invoke<MaterialEntry | null>('material_upload_result', pending));
-    } catch (e) { onNotice(errorMessage(e) + ' 原操作已保留，请继续核对。'); }
+    } catch (e) { onNotice(errorMessage(e) + t(' 原操作已保留，请继续核对。')); }
     finally { lock.current = false; setBusy(false); }
   }
   async function upload() {
@@ -84,7 +84,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
       completed(await uploadAndResolve(next,
         p => invoke<MaterialEntry>('add_material', p),
         p => invoke<MaterialEntry | null>('material_upload_result', p)));
-    } catch (e) { onNotice(persisted ? errorMessage(e) + ' 上传结果未确认；请先核对，勿重复上传。' : '无法保存上传核对记录，尚未开始上传。'); }
+    } catch (e) { onNotice(persisted ? errorMessage(e) + t(' 上传结果未确认；请先核对，勿重复上传。') : t('无法保存上传核对记录，尚未开始上传。')); }
     finally { lock.current = false; setBusy(false); }
   }
   async function remove(id: string, name: string) {
@@ -93,7 +93,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
     setBusy(true); setConfirming(null);
     try {
       setEntries(await invoke<MaterialEntry[]>('remove_material', { id, generation }));
-      onNotice(`已删除素材「${name}」。已保存物品的图片不受影响。`);
+      onNotice(t('已删除素材「{name}」。已保存物品的图片不受影响。', { name }));
     } catch (e) { onNotice(errorMessage(e)); reload(); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -104,7 +104,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
       <div className="material-library-actions">
         <span className="muted small">{isMac ? 'JPEG、PNG、HEIC、WebP' : 'JPEG、PNG、WebP'} {t('· 每张 20 MiB。上传后随档案保存在本机。')}</span>
       </div>
-      <div className="picker-sources" role="group" aria-label={t('素材类型')}>{([['icon','图标'],['dimensional','立体图标'],['custom','我的图片']] as const).map(([id,label]) => <button type="button" key={id} aria-pressed={source === id} onClick={() => { setSource(id); setCategory('全部'); }}>{label}</button>)}</div>
+      <div className="picker-sources" role="group" aria-label={t('素材类型')}>{([['icon',t('图标')],['dimensional',t('立体图标')],['custom',t('我的图片')]] as const).map(([id,label]) => <button type="button" key={id} aria-pressed={source === id} onClick={() => { setSource(id); setCategory(t('全部')); }}>{label}</button>)}</div>
       <div className="picker-filters">{source !== 'custom' && <div className="picker-categories" role="group" aria-label={t('素材分类')}>{materialCategories.map(name => <button key={name} type="button" aria-pressed={category === name} onClick={() => setCategory(name)}>{name}</button>)}</div>}</div>
       {entries && shownEntries && shownEntries.length > 0 && <p className="muted small" role="status">{search.trim() ? t('找到 {length} 条素材', { length: shownEntries.length }) : t('{length} 个素材', { length: shownEntries.length })}</p>}
       {entries && shownEntries && !shownEntries.length && <p className="picker-empty">{t('当前条件下没有找到记录。')}{search.trim() && <button type="button" onClick={() => onSearch('')}>{t('清除搜索')}</button>}</p>}

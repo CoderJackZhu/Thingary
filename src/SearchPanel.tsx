@@ -53,7 +53,7 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
     setResults(null); setError(''); setLoading(false); setActive(-1);
     if (!keyword || isComposing) return;
     if ([...keyword].length > 200 || keyword.includes('\0')) {
-      setError(keyword.includes('\0') ? '关键词不能包含空字符。' : '关键词最多 200 个字符，请缩短后重新搜索。');
+      setError(keyword.includes('\0') ? t('关键词不能包含空字符。') : t('关键词最多 200 个字符，请缩短后重新搜索。'));
       return;
     }
     const my = ++ticket.current;

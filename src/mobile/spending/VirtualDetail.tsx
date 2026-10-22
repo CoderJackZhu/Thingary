@@ -40,7 +40,7 @@ function Body({ generation, item, reload }: { generation: string; item: VirtualA
   const topups = [...(item.topups ?? [])].sort((a, b) => (b.fields.topup_date ?? '').localeCompare(a.fields.topup_date ?? ''));
   const stop = () => {
     const input = { request_id: '', generation, id: item.id, expected_revision: item.revision, fields: stopFields(f, today) };
-    void saver.run(requestId => submit({ command: 'virtual_save', input: { ...input, request_id: requestId } as VirtualSave, label: '停用 ' + f.name }), { onDone: () => { setNotice(`已${mode === 'single' ? '结束使用' : '停用'}「${f.name}」。`); setSheet(''); reload(); } });
+    void saver.run(requestId => submit({ command: 'virtual_save', input: { ...input, request_id: requestId } as VirtualSave, label: tr('停用 ') + f.name }), { onDone: () => { setNotice(tr('已{v1}「{name}」。', { v1: mode === 'single' ? '结束使用' : '停用', name: f.name })); setSheet(''); reload(); } });
   };
   return <div className="m-page">
     <h1 className="sp-detail-title">{f.name}</h1>
@@ -78,7 +78,7 @@ function Body({ generation, item, reload }: { generation: string; item: VirtualA
       <ListGroup title={tr('充值记录 · {length} 笔', { length: topups.length })} action={<button type="button" className="sp-link" onClick={() => nav.push('spending.topup', { asset: item.id })}>{tr('＋ 记录充值')}</button>}
         footer={item.topup_unknown_paid ? tr('{topup_unknown_paid} 笔实付未知，未计入累计。', { topup_unknown_paid: item.topup_unknown_paid }) : tr('实付计入重要支出；赠送额度不算花费。')}>
         {!topups.length ? <ListRow title={tr('暂无充值记录')}/> : topups.map(t => <ListRow key={t.id} onClick={() => nav.push('spending.topup', { asset: item.id, id: t.id })}
-          title={t.fields.topup_date ? dayLabel(t.fields.topup_date, today) : tr('日期未知')} subtitle={[t.fields.gift_cents ? `赠送 ${moneyText(t.fields.gift_cents)}` : '', t.fields.credit_cents ? `到账 ${moneyText(t.fields.credit_cents)}` : '', t.fields.pay_method].filter(Boolean).join(' · ') || undefined}
+          title={t.fields.topup_date ? dayLabel(t.fields.topup_date, today) : tr('日期未知')} subtitle={[t.fields.gift_cents ? tr('赠送 {v1}', { v1: moneyText(t.fields.gift_cents) }) : '', t.fields.credit_cents ? tr('到账 {v1}', { v1: moneyText(t.fields.credit_cents) }) : '', t.fields.pay_method].filter(Boolean).join(' · ') || undefined}
           value={t.fields.paid_cents != null ? moneyText(t.fields.paid_cents) : tr('实付未知')} unknown={t.fields.paid_cents == null}/>)}
       </ListGroup>
     </>}
@@ -88,7 +88,7 @@ function Body({ generation, item, reload }: { generation: string; item: VirtualA
       {linkedPlan && item.status !== 'stopped' && recurringOn && <ListRow icon="warning" tone="danger" title={tr('结束订阅')} subtitle={tr('在付款计划里确认最后使用日')} onClick={() => nav.push('spending.recurring', { id: item.plan!.id })}/>}
       <ListRow icon="trash" tone="danger" title={linkedPlan ? tr('整组删除') : tr('删除')} subtitle={tr('移入最近删除，可恢复')} onClick={() => { saver.setError(''); setSheet('delete'); }}/>
     </ListGroup>
-    {sheet === 'stop' && <ConfirmSheet title={mode === 'single' ? tr('结束使用？') : tr('停用？')} confirm={tr('确认')} busy={saver.busy} error={saver.error} onClose={() => setSheet('')} onConfirm={stop} message={tr('「{name}」将记为今天（{v2}）{v3}；已有的付款和充值记录保留。', { name: f.name, v2: dayLabel(today, today), v3: mode === 'single' ? '结束使用' : '停用' })}/>}
+    {sheet === 'stop' && <ConfirmSheet title={mode === 'single' ? tr('结束使用？') : tr('停用？')} confirm={tr('确认')} busy={saver.busy} error={saver.error} onClose={() => setSheet('')} onConfirm={stop} message={tr('「{name}」将记为今天（{v2}）{v3}；已有的付款和充值记录保留。', { name: f.name, v2: dayLabel(today, today), v3: mode === 'single' ? tr('结束使用') : tr('停用') })}/>}
     {sheet === 'delete' && (linkedPlan ? <GroupDeleteSheet side="virtual" id={item.id} name={f.name} generation={generation} onClose={() => setSheet('')}/>
       : <DeleteSheet name={f.name} busy={saver.busy} error={saver.error} onClose={() => setSheet('')}
         onConfirm={() => void saver.run(requestId => trash('virtual', item.id, item.revision, generation, f.name, requestId), { close: true })}/>)}

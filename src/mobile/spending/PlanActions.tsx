@@ -18,7 +18,7 @@ export function GroupDeleteSheet({ side, id, name, partnerId, generation, onClos
   function confirm() {
     if (!preview) return;
     const input: LinkTrashInput = { request_id: '', generation, side, id, partner_id: partnerId ?? null, asset_expected_revision: preview.asset_revision, plan_expected_revision: preview.plan_revision, preview: preview.preview };
-    void saver.run(requestId => submit<string>({ command: 'link_trash', input: { ...input, request_id: requestId }, label: '删除 ' + preview.asset_name }), { close: true });
+    void saver.run(requestId => submit<string>({ command: 'link_trash', input: { ...input, request_id: requestId }, label: t('删除 ') + preview.asset_name }), { close: true });
   }
   return <DeleteSheet name={name} busy={saver.busy} error={saver.error || read.error} disabled={!preview} onClose={onClose} onConfirm={confirm}>
     {read.loading && <Loading label={t('正在读取影响范围…')}/>}
@@ -37,9 +37,9 @@ export function EndPlanSheet({ plan, link, generation, today, onClose, onDone }:
     if (!check.ok) { setProblem(check.message); return; }
     const fields = endFields(plan.fields, day);
     void saver.run(requestId => link?.asset
-      ? submit({ command: 'link_save', input: { request_id: requestId, generation: link.generation, asset_id: link.asset.id, asset_expected_revision: link.asset.revision, plan_id: plan.id, plan_expected_revision: plan.revision, fields }, label: '取消续费 ' + name })
-      : submit({ command: 'recurring_plan_save', input: planSave(fields, plan, generation, requestId), label: '取消续费 ' + name }),
-    { onDone: () => { onDone(`「${name}」将使用至 ${dayLabel(day, today)}，后续续费已关闭；历史付款与估算依据保留。`); onClose(); } });
+      ? submit({ command: 'link_save', input: { request_id: requestId, generation: link.generation, asset_id: link.asset.id, asset_expected_revision: link.asset.revision, plan_id: plan.id, plan_expected_revision: plan.revision, fields }, label: t('取消续费 ') + name })
+      : submit({ command: 'recurring_plan_save', input: planSave(fields, plan, generation, requestId), label: t('取消续费 ') + name }),
+    { onDone: () => { onDone(t('「{name}」将使用至 {v2}，后续续费已关闭；历史付款与估算依据保留。', { name, v2: dayLabel(day, today) })); onClose(); } });
   }
   return <ConfirmSheet title={t('结束计划')} confirm={t('确认结束')} danger busy={saver.busy} error={problem || saver.error} onClose={onClose} onConfirm={confirm}
     message={t('「{name}」最后使用到哪一天？确认后不再生成新的付款期，已记录的付款保留。', { name })}>

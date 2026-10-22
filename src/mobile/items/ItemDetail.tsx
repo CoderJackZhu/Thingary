@@ -23,6 +23,7 @@ import { Glyph, type GlyphName } from './glyphs';
 import { PhotoThumbs, PhotoViewer } from './PhotoViewer';
 import './detail.css';
 import { t, numberLocale } from '../../i18n.ts';
+import { t as tr } from '../../i18n.ts';
 type Context = { record: AssetRecord; generation: string };
 type Editor = Context & (
   { kind: 'warranty'; id?: string; fields: WarrantyDraft; photos: Photo[] } |
@@ -54,7 +55,7 @@ export default function ItemDetail({ params }: PageProps) {
     })().catch(cause => { if (live) setError(errorMessage(cause)); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [id, reveal, revision, generation, session.settled]);
-  useEffect(() => { if (session.settled) { setEditor(null); if(session.settled.command.startsWith('change_'))session.setNotice?.('已确认物品记录保存，请核对最新档案。'); } }, [session.settled]);
+  useEffect(() => { if (session.settled) { setEditor(null); if(session.settled.command.startsWith('change_'))session.setNotice?.(tr('已确认物品记录保存，请核对最新档案。')); } }, [session.settled]);
   function closeEditor() { if (!session.navBlocked && !lock.current) { setEditor(null); setNotice(''); setPhotoError(''); } }
   function openWarranty(warranty?: Warranty) {
     if (!context || disabled) return;
@@ -97,7 +98,7 @@ export default function ItemDetail({ params }: PageProps) {
   }
   async function toggleReminder(warranty: Warranty, enabled: boolean) {
     if (!context || disabled) return;
-    if (enabled && !warranty.fields.end_date) { openWarranty(warranty); setNotice('先补充保障结束日期，再启用到期通知。'); return; }
+    if (enabled && !warranty.fields.end_date) { openWarranty(warranty); setNotice(tr('先补充保障结束日期，再启用到期通知。')); return; }
     try {
       if (enabled) {
         lock.current = true; session.setBusy(true);
@@ -115,32 +116,32 @@ export default function ItemDetail({ params }: PageProps) {
   async function addPhoto(files: FileList | null) {
     if (!files?.length || !editor || (editor.kind !== 'warranty' && editor.kind !== 'maintenance') || disabled) return;
     const selectedFiles = Array.from(files);
-    if (selectedFiles.length + editor.fields.photo_ids.length > 20) { setPhotoError('每条记录最多保存 20 张图片。'); return; }
-    if (selectedFiles.some(file => file.size > 20 * 1024 * 1024)) { setPhotoError('每张图片不得超过 20 MiB。'); return; }
+    if (selectedFiles.length + editor.fields.photo_ids.length > 20) { setPhotoError(tr('每条记录最多保存 20 张图片。')); return; }
+    if (selectedFiles.some(file => file.size > 20 * 1024 * 1024)) { setPhotoError(tr('每张图片不得超过 20 MiB。')); return; }
     lock.current = true; session.setBusy(true); setPhotoError('');
     try {
       for (const file of selectedFiles) {
-        const selected = await invoke<Photo>('import_photo_bytes', { generation: editor.generation, name: file.name || '拍摄的凭证.jpg', bytes: Array.from(new Uint8Array(await file.arrayBuffer())) });
+        const selected = await invoke<Photo>('import_photo_bytes', { generation: editor.generation, name: file.name || tr('拍摄的凭证.jpg'), bytes: Array.from(new Uint8Array(await file.arrayBuffer())) });
         setEditor(current => {
           if (current?.kind === 'warranty') return { ...current, photos: [...current.photos, selected], fields: { ...current.fields, photo_ids: [...current.fields.photo_ids, selected.id] } };
           if (current?.kind === 'maintenance') return { ...current, photos: [...current.photos, selected], fields: { ...current.fields, photo_ids: [...current.fields.photo_ids, selected.id] } };
           return current;
         });
       }
-      setNotice('图片已准备好，保存记录后生效。');
-    } catch (cause) { setPhotoError(errorMessage(cause) + ' 已准备好的图片保留，请重试或明确不使用未读取的图片。'); }
+      setNotice(tr('图片已准备好，保存记录后生效。'));
+    } catch (cause) { setPhotoError(errorMessage(cause) + tr(' 已准备好的图片保留，请重试或明确不使用未读取的图片。')); }
     finally { session.setBusy(false); lock.current = false; }
   }
   const record = context?.record, goal = record ? detailGoal(record) : null;
-  const title = editor?.kind === 'warranty' ? `${editor.id ? '更正' : '添加'}保障` : editor?.kind === 'maintenance' ? `${editor.id ? '更正' : '添加'}维护` : editor?.kind === 'sale' ? editor.draft.mode === 'sell' ? '记录售出' : editor.draft.mode === 'correct' ? '更正售出' : '撤销售出' : editor?.kind === 'lifecycle' ? editor.action.type === 'append' ? kindLabel(editor.action.kind) : '更正状态日期' : '';
+  const title = editor?.kind === 'warranty' ? tr('{v1}保障', { v1: editor.id ? '更正' : '添加' }) : editor?.kind === 'maintenance' ? tr('{v1}维护', { v1: editor.id ? '更正' : '添加' }) : editor?.kind === 'sale' ? editor.draft.mode === 'sell' ? tr('记录售出') : editor.draft.mode === 'correct' ? tr('更正售出') : tr('撤销售出') : editor?.kind === 'lifecycle' ? editor.action.type === 'append' ? kindLabel(editor.action.kind) : tr('更正状态日期') : '';
   const deleteName = (current: Extract<Editor, { kind: 'delete' }>) => {
     if (!current.recordId) return current.record.asset.name;
-    if (current.recordKind === 'maintenance') return current.record.maintenances.find(m => m.id === current.recordId)?.fields.title || '维护记录';
+    if (current.recordKind === 'maintenance') return current.record.maintenances.find(m => m.id === current.recordId)?.fields.title || tr('维护记录');
     const kind = current.record.warranties.find(w => w.id === current.recordId)?.fields.kind;
     return `${warrantyKinds.find(([id]) => id === kind)?.[1] ?? ''}保障`;
   };
   const coverPhoto = record?.photos.find(p => p.id === record.cover_id), attachments = record?.photos.filter(p => p.id !== record.cover_id) ?? [];
-  const category = record ? context?.taxonomy.categories.find(c => c.id === record.classification?.category_id)?.name ?? '未分类' : '';
+  const category = record ? context?.taxonomy.categories.find(c => c.id === record.classification?.category_id)?.name ?? tr('未分类') : '';
   const channel = record ? context?.taxonomy.channels.find(c => c.id === record.classification?.channel_id)?.name : undefined;
   const brandModel = record ? [record.details.brand, record.details.model].filter(Boolean).join(' / ') : '';
   const retired = record?.lifecycle?.state === 'retired', sold = record?.lifecycle?.state === 'sold';
@@ -157,15 +158,15 @@ export default function ItemDetail({ params }: PageProps) {
       <header className="mi-head"><span className="mi-head-icon">{coverPhoto ? <PhotoView photo={coverPhoto} generation={context.generation} compact/> : <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt={t('默认物品图标')}/>}</span><div className="mi-head-text"><h1>{record.asset.name}</h1><p className="mi-meta">{category} · {stateLabel(record)} · {warrantySummaryText(record.warranty_summary)}</p></div></header>
       <MetricGrid><Metric label={record.preferences?.cost_mode === 'per_use' ? t('单次使用成本') : record.sale ? t('售出后净日均成本') : t('日均成本')} value={unitMoneyText(record.preferences?.cost_mode === 'per_use' ? record.per_use_cents ?? null : record.costs.daily_cents)} sub={record.preferences?.cost_mode === 'per_use' ? t('已使用 {use_count} 次', { use_count: record.preferences.use_count }) : t('按自然日，含购入当天')}/><Metric label={record.sale ? t('截至售出日持有') : t('已持有')} value={record.costs.held_days === null ? UNKNOWN : t('{v1} 天', { v1: record.costs.held_days.toLocaleString(numberLocale()) })} unknown={record.costs.held_days === null}/></MetricGrid>
       <div className="mi-actions" role="group" aria-label={t('物品操作')}>{actions.map(action => <button key={action.key} type="button" className="mi-action" disabled={disabled} onClick={action.onClick}><Glyph name={action.icon} size={22}/><span>{action.label}</span></button>)}</div>
-      {goal && <Card className="mi-goal" label={t('目标进度')}><strong>{record.preferences?.goal.mode === 'cost' ? t('目标 {v1} / {v2}', { v1: unitMoneyText(record.preferences.goal.cents), v2: record.preferences.cost_mode === 'per_use' ? '次' : '天' }) : record.preferences?.goal.mode === 'date' ? t('目标 {date}', { date: record.preferences.goal.date }) : ''}</strong><p>{goal.progress ? `${(goal.progress.hundredths / 100).toFixed(2)}%` : t('进度未知')}</p>{goal.progress && <progress aria-label={t('目标进度')} max={10000} value={goal.progress.hundredths}/>}<p>{goal.frozen ? t('退役后目标停止，停在 {v1}', { v1: dayLabel(goal.frozen, session.today) }) : record.sale ? t('按售出日结算') : goal.progress ? goal.progress.hundredths === 10000 ? t('目标已达成') : t('还需 {remaining} {unit}{v3}；新增维护会推迟达成。', { remaining: goal.progress.remaining, unit: goal.progress.unit, v3: goal.progress.reached_date ? ` · 预计 ${dayLabel(goal.progress.reached_date, session.today)}` : '' }) : t('补全购入金额、日期及维护费用后计算。')}</p></Card>}
+      {goal && <Card className="mi-goal" label={t('目标进度')}><strong>{record.preferences?.goal.mode === 'cost' ? t('目标 {v1} / {v2}', { v1: unitMoneyText(record.preferences.goal.cents), v2: record.preferences.cost_mode === 'per_use' ? tr('次') : tr('天') }) : record.preferences?.goal.mode === 'date' ? t('目标 {date}', { date: record.preferences.goal.date }) : ''}</strong><p>{goal.progress ? `${(goal.progress.hundredths / 100).toFixed(2)}%` : t('进度未知')}</p>{goal.progress && <progress aria-label={t('目标进度')} max={10000} value={goal.progress.hundredths}/>}<p>{goal.frozen ? t('退役后目标停止，停在 {v1}', { v1: dayLabel(goal.frozen, session.today) }) : record.sale ? t('按售出日结算') : goal.progress ? goal.progress.hundredths === 10000 ? t('目标已达成') : t('还需 {remaining} {unit}{v3}；新增维护会推迟达成。', { remaining: goal.progress.remaining, unit: goal.progress.unit, v3: goal.progress.reached_date ? tr(' · 预计 {v1}', { v1: dayLabel(goal.progress.reached_date, session.today) }) : '' }) : t('补全购入金额、日期及维护费用后计算。')}</p></Card>}
       {incompleteCostReason(record) && <Notice>{incompleteCostReason(record)}</Notice>}
       <ListGroup title={t('详情')}><ListRow title={t('购入价')} value={moneyText(record.asset.price_cents)} unknown={record.asset.price_cents === null}/><ListRow title={t('购入日期')} value={dateText(record.asset.purchase_date)} unknown={!record.asset.purchase_date}/>{channel && <ListRow title={t('购买渠道')} value={channel}/>}{brandModel && <ListRow title={t('品牌 / 型号')} value={brandModel}/>}{record.details.serial_number && <ListRow title={t('序列号')} value={record.details.serial_number}/>}<ListRow title={t('已知维护投入')} value={moneyText(record.costs.known_maintenance_cents)}/><ListRow title={t('总投入')} value={moneyText(record.costs.total_investment_cents)} unknown={record.costs.total_investment_cents === null}/>{record.sale && <ListRow title={t('售出后净成本')} value={moneyText(record.costs.net_cost_cents)} unknown={record.costs.net_cost_cents === null}/>}{record.origin_wishlist && <ListRow title={t('来源心愿')} value={record.origin_wishlist.name} onClick={() => nav.push('wishes.detail', { id: record.origin_wishlist!.id })}/>}<ListRow title={t('置顶')} trailing={<Switch label={t('置顶')} checked={!!record.preferences?.pinned} disabled={disabled} onChange={pinned => void togglePin(pinned)}/>}/></ListGroup>
       <ListGroup title={t('备注')}><p className="mi-note">{optionalText(record.details.notes)}</p><div className="mi-note-photos"><PhotoThumbs photos={attachments} generation={context.generation} onOpen={setPhoto} onAdd={() => nav.push('items.edit', { id })} addDisabled={disabled}/></div></ListGroup>
       <ListGroup title={t('保障')} action={<Button variant="plain" disabled={disabled} onClick={() => openWarranty()}>{t('+ 添加')}</Button>}>
-        {record.warranties.length ? record.warranties.map(w => <div key={w.id}><ListRow title={<>{warrantyKinds.find(([kind]) => kind === w.fields.kind)?.[1]} · {statusLabel[w.status]}</>} subtitle={`${w.fields.provider ? w.fields.provider + ' · ' : ''}${w.fields.start_date ? dayLabel(w.fields.start_date, session.today) : '开始日期未知'} — ${w.fields.end_date ? dayLabel(w.fields.end_date, session.today) : '结束日期未知'}${w.remaining_days !== null ? ` · 剩 ${w.remaining_days} 天` : ''}`} onClick={() => openWarranty(w)}/><ListRow title={t('到期通知')} trailing={<Switch label={`${warrantyKinds.find(([kind]) => kind === w.fields.kind)?.[1]}到期通知`} checked={!!w.reminder} disabled={disabled} onChange={enabled => void toggleReminder(w, enabled)}/>}/>{w.fields.notes && <p className="mi-record-note">{w.fields.notes}</p>}<Attachments photos={w.photos} generation={context.generation} onOpen={setPhoto}/></div>) : <ListRow title={t('暂无保障记录')} subtitle={t('未知日期不会被视为保障中')}/>}
+        {record.warranties.length ? record.warranties.map(w => <div key={w.id}><ListRow title={<>{warrantyKinds.find(([kind]) => kind === w.fields.kind)?.[1]} · {statusLabel[w.status]}</>} subtitle={`${w.fields.provider ? w.fields.provider + ' · ' : ''}${w.fields.start_date ? dayLabel(w.fields.start_date, session.today) : tr('开始日期未知')} — ${w.fields.end_date ? dayLabel(w.fields.end_date, session.today) : tr('结束日期未知')}${w.remaining_days !== null ? tr(' · 剩 {remaining_days} 天', { remaining_days: w.remaining_days }) : ''}`} onClick={() => openWarranty(w)}/><ListRow title={t('到期通知')} trailing={<Switch label={`${warrantyKinds.find(([kind]) => kind === w.fields.kind)?.[1]}到期通知`} checked={!!w.reminder} disabled={disabled} onChange={enabled => void toggleReminder(w, enabled)}/>}/>{w.fields.notes && <p className="mi-record-note">{w.fields.notes}</p>}<Attachments photos={w.photos} generation={context.generation} onOpen={setPhoto}/></div>) : <ListRow title={t('暂无保障记录')} subtitle={t('未知日期不会被视为保障中')}/>}
       </ListGroup>
       <ListGroup title={t('维护记录')} action={<Button variant="plain" disabled={disabled} onClick={() => openMaintenance()}>{t('+ 添加')}</Button>}>
-        {record.maintenances.length ? record.maintenances.map(m => <div key={m.id}><ListRow title={m.fields.title} subtitle={`${m.fields.date ? dayLabel(m.fields.date, session.today) : '日期未知'} · ${maintenanceKinds.find(([kind]) => kind === m.fields.kind)?.[1]}${m.fields.provider ? ' · ' + m.fields.provider : ''}`} value={moneyText(m.fields.cost_cents)} unknown={m.fields.cost_cents === null} onClick={() => openMaintenance(m.id)}/>{m.fields.description && <p className="mi-record-note">{m.fields.description}</p>}<Attachments photos={m.photos} generation={context.generation} onOpen={setPhoto}/></div>) : <ListRow title={t('暂无维护记录')} subtitle={t('维修、保养、换件与配件费用都会计入投入')}/>}
+        {record.maintenances.length ? record.maintenances.map(m => <div key={m.id}><ListRow title={m.fields.title} subtitle={`${m.fields.date ? dayLabel(m.fields.date, session.today) : tr('日期未知')} · ${maintenanceKinds.find(([kind]) => kind === m.fields.kind)?.[1]}${m.fields.provider ? ' · ' + m.fields.provider : ''}`} value={moneyText(m.fields.cost_cents)} unknown={m.fields.cost_cents === null} onClick={() => openMaintenance(m.id)}/>{m.fields.description && <p className="mi-record-note">{m.fields.description}</p>}<Attachments photos={m.photos} generation={context.generation} onOpen={setPhoto}/></div>) : <ListRow title={t('暂无维护记录')} subtitle={t('维修、保养、换件与配件费用都会计入投入')}/>}
       </ListGroup>
       {record.sale && <ListGroup title={t('售出记录')}><ListRow title={t('售价')} value={moneyText(record.sale.fields.price_cents)}/><ListRow title={t('售出日期')} value={record.sale.fields.date}/><ListRow title={t('平台与买家')} value={[record.sale.fields.platform, record.sale.fields.buyer].filter(Boolean).join(' · ') || NOT_SET}/>{record.sale.fields.notes && <p className="mi-note">{record.sale.fields.notes}</p>}<ListRow title={t('更正售出')} onClick={() => openSale('correct')}/><ListRow title={t('撤销误记售出')} onClick={() => openSale('revoke')}/></ListGroup>}
       {!!record.lifecycle?.events.length && <ListGroup title={t('状态记录')}>{record.lifecycle.events.map(event => <ListRow key={event.id} title={kindLabel(event.kind)} subtitle={event.notes} value={dayLabel(event.date, session.today)} onClick={() => setEditor({ ...context, kind: 'lifecycle', action: { type: 'correct_date', event_id: event.id, date: event.date } })}/>)}</ListGroup>}
@@ -189,5 +190,5 @@ export default function ItemDetail({ params }: PageProps) {
   </div>;
 }
 function Attachments({ photos, generation, onOpen }: { photos: Photo[]; generation: string; onOpen: (photo: Photo) => void }) {
-  return photos.length ? <div className="mi-photo-strip" aria-label={t('图片附件')}>{photos.map(p => <button key={p.id} aria-label={'预览 ' + p.name} onClick={() => onOpen(p)}><PhotoView photo={p} generation={generation} compact/></button>)}</div> : null;
+  return photos.length ? <div className="mi-photo-strip" aria-label={t('图片附件')}>{photos.map(p => <button key={p.id} aria-label={tr('预览 ') + p.name} onClick={() => onOpen(p)}><PhotoView photo={p} generation={generation} compact/></button>)}</div> : null;
 }

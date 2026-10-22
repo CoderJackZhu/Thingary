@@ -11,8 +11,8 @@ import { SettingsShell } from './Shell';
 import { t as tr } from '../../../i18n.ts';
 type Kind = 'category' | 'channel' | 'label' | 'sale_channel';
 const tabs: { id: Kind; label: string }[] = [{ id: 'category', label: tr('分类') }, { id: 'channel', label: tr('渠道') }, { id: 'label', label: tr('标签') }, { id: 'sale_channel', label: tr('售出') }];
-const names: Record<Kind, string> = { category: '分类', channel: '购买渠道', label: tr('标签'), sale_channel: '售出渠道' };
-const scopeLabels = { physical: '实物', virtual: '虚拟', both: '通用' } as const;
+const names: Record<Kind, string> = { category: tr('分类'), channel: tr('购买渠道'), label: tr('标签'), sale_channel: tr('售出渠道') };
+const scopeLabels = { physical: tr('实物'), virtual: tr('虚拟'), both: tr('通用') } as const;
 type Scope = keyof typeof scopeLabels;
 
 /** One row of any option list, whichever backend list it comes from. */
@@ -34,17 +34,17 @@ type Adapter = {
 function useTaxonomyAdapter(kind: TaxonomyKind): Adapter & { generation?: string } {
   const t = useTaxonomy(() => undefined);
   const entries: readonly TaxonomyEntry[] = t.snapshot ? t.snapshot[kind === 'category' ? 'categories' : 'channels'] : [];
-  const run = async (command: Parameters<typeof t.command>[0]) => { const result = await t.command(command); return result.status === 'success' ? null : result.message + (result.recovery === 'reload' ? ' 建议重新加载后再操作。' : ''); };
+  const run = async (command: Parameters<typeof t.command>[0]) => { const result = await t.command(command); return result.status === 'success' ? null : result.message + (result.recovery === 'reload' ? tr(' 建议重新加载后再操作。') : ''); };
   return {
     generation: t.snapshot?.generation,
-    rows: t.snapshot ? entries.map(entry => ({ id: entry.id, name: entry.name, sub: `${entry.references.activeAssets} 件物品${entry.references.deletedAssets ? `，最近删除 ${entry.references.deletedAssets}` : ''}`, icon: entry.icon, refs: entry.references.activeAssets + entry.references.deletedAssets + (entry.references.ongoingWishlist ?? 0) + (entry.references.abandonedWishlist ?? 0) })) : null,
-    loadError: t.loadError, busy: t.busy || t.loading, locked: t.busy || t.loading, notice: t.blocked ? '上次操作的结果待核对，请重新加载后再继续。' : '', reload: () => void t.reload().catch(() => undefined),
+    rows: t.snapshot ? entries.map(entry => ({ id: entry.id, name: entry.name, sub: tr('{activeAssets} 件物品{v2}', { activeAssets: entry.references.activeAssets, v2: entry.references.deletedAssets ? `，最近删除 ${entry.references.deletedAssets}` : '' }), icon: entry.icon, refs: entry.references.activeAssets + entry.references.deletedAssets + (entry.references.ongoingWishlist ?? 0) + (entry.references.abandonedWishlist ?? 0) })) : null,
+    loadError: t.loadError, busy: t.busy || t.loading, locked: t.busy || t.loading, notice: t.blocked ? tr('上次操作的结果待核对，请重新加载后再继续。') : '', reload: () => void t.reload().catch(() => undefined),
     create: (name, icon) => run({ type: 'create', kind, name, icon: kind === 'category' ? icon : undefined }),
     rename: (id, name) => run({ type: 'rename', kind, id, name }),
     setIcon: kind === 'category' ? (id, icon) => run({ type: 'set-icon', id, icon }) : undefined,
     move: (id, to) => { const ids = entries.map(entry => entry.id), from = ids.indexOf(id); if (from < 0 || to < 0 || to >= ids.length) return Promise.resolve(null); ids.splice(from, 1); ids.splice(to, 0, id); return run({ type: 'reorder', kind, ids }); },
     remove: (id, target) => run({ type: 'remove', kind, id, targetId: target }),
-    nullLabel: kind === 'category' ? '未分类' : '未记录',
+    nullLabel: kind === 'category' ? tr('未分类') : tr('未记录'),
     nameError: (name, id) => validateTaxonomyName(entries, kind, name, id),
   };
 }
@@ -52,10 +52,10 @@ function useTaxonomyAdapter(kind: TaxonomyKind): Adapter & { generation?: string
 function useChoiceAdapter(kind: 'label' | 'sale_channel', generation: string): Adapter {
   const c = useChoices(kind, generation);
   const items: Entry[] = c.data?.items ?? [];
-  const run = async (action: unknown) => (await c.change(action)) ? null : (c.notice || '操作未完成，请重试。');
+  const run = async (action: unknown) => (await c.change(action)) ? null : (c.notice || tr('操作未完成，请重试。'));
   return {
     rows: c.data ? items.map(entry => ({ id: entry.id, name: entry.name, enabled: entry.enabled, scope: kind === 'label' ? ((entry.scope as Scope) || 'physical') : undefined, refs: entry.references + (entry.virtual_references ?? 0),
-      sub: [entry.enabled ? '' : '已停用', kind === 'label' ? scopeLabels[(entry.scope as Scope) || 'physical'] : '', entry.references + (entry.virtual_references ?? 0) ? `${entry.references + (entry.virtual_references ?? 0)} 条记录` : ''].filter(Boolean).join(' · ') || '未被使用' })) : null,
+      sub: [entry.enabled ? '' : tr('已停用'), kind === 'label' ? scopeLabels[(entry.scope as Scope) || 'physical'] : '', entry.references + (entry.virtual_references ?? 0) ? tr('{v1} 条记录', { v1: entry.references + (entry.virtual_references ?? 0) }) : ''].filter(Boolean).join(' · ') || tr('未被使用') })) : null,
     loadError: c.data ? null : c.notice || null, busy: c.busy, locked: c.locked, notice: c.data ? c.notice : '', reload: () => void c.load(),
     create: (name, _icon, scope) => run({ type: 'create', name, scope: kind === 'label' ? scope : undefined }),
     rename: (id, name) => run({ type: 'rename', id, name }),
@@ -63,12 +63,12 @@ function useChoiceAdapter(kind: 'label' | 'sale_channel', generation: string): A
     remove: (id, target) => run({ type: 'remove', id, replacement: target, expected_references: items.find(entry => entry.id === id)?.references }),
     enable: (id, enabled) => run({ type: 'enable', id, enabled }),
     setScope: kind === 'label' ? (id, scope) => run({ type: 'scope', id, scope }) : undefined,
-    nullLabel: '清空关联（未设置）',
+    nullLabel: tr('清空关联（未设置）'),
     nameError: (name, id) => {
       const value = normalizeName(name);
-      if (!value) return '请填写名称。';
-      if ([...value].length > 80) return '名称最长 80 字。';
-      return items.some(entry => entry.id !== id && normalizeName(entry.name).toLowerCase() === value.toLowerCase()) ? '已有同名项，请更换。' : null;
+      if (!value) return tr('请填写名称。');
+      if ([...value].length > 80) return tr('名称最长 80 字。');
+      return items.some(entry => entry.id !== id && normalizeName(entry.name).toLowerCase() === value.toLowerCase()) ? tr('已有同名项，请更换。') : null;
     },
   };
 }
@@ -114,7 +114,7 @@ function OptionList({ kind, a }: { kind: Kind; a: Adapter }) {
               return null;
             })}>{a.busy ? tr('正在保存…') : tr('保存')}</Button>
             {kind === 'label' && row.scope && a.setScope && <section className="m-form-group"><h2 className="m-group-title">{tr('适用范围')}</h2><ChipRow label={tr('适用范围')} items={Object.entries(scopeLabels).map(([id, label]) => ({ id, label }))} value={row.scope} onChange={value => void apply(() => a.setScope!(row.id, value as Scope), false)}/></section>}
-            {a.enable && <ListGroup><ListRow title={tr('启用')} subtitle={tr('停用后不再出现在选择里')} trailing={<Switch label={'启用' + row.name} checked={!!row.enabled} disabled={a.locked} onChange={on => void apply(() => a.enable!(row.id, on), false)}/>}/></ListGroup>}
+            {a.enable && <ListGroup><ListRow title={tr('启用')} subtitle={tr('停用后不再出现在选择里')} trailing={<Switch label={tr('启用') + row.name} checked={!!row.enabled} disabled={a.locked} onChange={on => void apply(() => a.enable!(row.id, on), false)}/>}/></ListGroup>}
             <ListGroup title={tr('顺序')}>
               <ListRow icon={<MeIcon name="arrowUp"/>} title={tr('上移')} disabled={a.locked || index <= 0} onClick={() => void apply(() => a.move(row.id, index - 1), false)}/>
               <ListRow icon={<MeIcon name="arrowDown"/>} title={tr('下移')} disabled={a.locked || index >= rows.length - 1} onClick={() => void apply(() => a.move(row.id, index + 1), false)}/>

@@ -51,13 +51,13 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
     setWealthBusy(true); setWealthNotice(''); setArmed(null);
     try {
       const result = await invoke<{ removed: number; kept: number }>('purge_trash', { input: { request_id: crypto.randomUUID(), generation, kind: entry?.kind ?? null, id: entry?.id ?? '' } });
-      setWealthNotice(entry ? `已永久删除「${entryDisplay(entry).title}」。` : `已永久删除 ${result.removed} 项${result.kept ? `；${result.kept} 件由心愿实现的物品保留，需先永久删除对应心愿` : ''}。`);
+      setWealthNotice(entry ? t('已永久删除「{title}」。', { title: entryDisplay(entry).title }) : t('已永久删除 {removed} 项{v2}。', { removed: result.removed, v2: result.kept ? `；${result.kept} 件由心愿实现的物品保留，需先永久删除对应心愿` : '' }));
     } catch (e) { setWealthNotice(errorMessage(e)); }
     finally { setWealthBusy(false); setRetry(n => n + 1); }
   }
   async function restoreWealth(entry: TrashEntry, generation: string) {
     if (entry.kind === 'asset' || entry.kind === 'maintenance' || entry.kind === 'warranty' || entry.kind === 'link_group') return;
-    if (storedPending()) { setWealthNotice('上次保存结果待核对，请使用页面上方的核对入口后再恢复。'); return; }
+    if (storedPending()) { setWealthNotice(t('上次保存结果待核对，请使用页面上方的核对入口后再恢复。')); return; }
     setWealthBusy(true); setWealthNotice('');
     try {
       if (entry.kind === 'virtual' || entry.kind === 'plan') {
@@ -65,8 +65,8 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
         if (link.group) { setGroupRestore({ id: link.group.id, name: entryDisplay(entry).title, generation }); return; }
         if ((link.asset && link.plan) || link.candidates.length) { setRepairing({ side: entry.kind, id: entry.id }); return; }
       }
-      if (entry.kind === 'savings_goal') await writeSavingsGoal('savings_goals_trash', { request_id: crypto.randomUUID(), generation, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, '恢复存钱目标');
-      else await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: '恢复' + entryDisplay(entry).title }); setWealthNotice(`已恢复「${entryDisplay(entry).title}」。`); setRetry(n => n + 1); }
+      if (entry.kind === 'savings_goal') await writeSavingsGoal('savings_goals_trash', { request_id: crypto.randomUUID(), generation, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, t('恢复存钱目标'));
+      else await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: t('恢复') + entryDisplay(entry).title }); setWealthNotice(t('已恢复「{title}」。', { title: entryDisplay(entry).title })); setRetry(n => n + 1); }
     catch (e) { setWealthNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setWealthBusy(false); }
   }
@@ -96,25 +96,25 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
         return <tr key={entry.kind + entry.id}>
           <td><span className="ui-avatar" aria-hidden="true">{display.title.slice(0,1)}</span><div>
             <h2>{display.title}</h2>
-            <p className="muted small">{display.typeLabel}{entry.kind !== 'asset' && entry.asset_name ? t(' · 所属：{asset_name}', { asset_name: entry.asset_name }) : ''}{entry.asset_id ? t(' · 状态：{v1}', { v1: stateText[entry.asset_state ?? 'active'] ?? '使用中' }) : ''}</p>
+            <p className="muted small">{display.typeLabel}{entry.kind !== 'asset' && entry.asset_name ? t(' · 所属：{asset_name}', { asset_name: entry.asset_name }) : ''}{entry.asset_id ? t(' · 状态：{v1}', { v1: stateText[entry.asset_state ?? 'active'] ?? t('使用中') }) : ''}</p>
             {display.facts.map(fact => <p className="small" key={fact}>{fact}</p>)}
             {contentsText(entry.contents) && <p className="small">{t('{v1}，恢复时一起回来', { v1: contentsText(entry.contents) })}</p>}
             {display.parentBlocked && <p className="small" role="note">{t('所属物品仍在最近删除中，请先恢复所属物品。')}</p>}
             </div></td><td><span className="ui-tag">{display.typeLabel}</span></td><td className="trash-date">{entry.deleted_at ? deletedDay(entry.deleted_at) : t('时间待补充')}</td>
           <td><div className="trash-actions">{display.parentBlocked
-            ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={'恢复所属物品 ' + (entry.asset_name ?? '')}>{t('先恢复所属物品')}</button>
+            ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={t('恢复所属物品 ') + (entry.asset_name ?? '')}>{t('先恢复所属物品')}</button>
             : restoresAsGroup(entry.kind)
-              ? <button disabled={wealthBusy} onClick={() => setGroupRestore({ id: entry.id, name: display.title, generation: page.generation })} aria-label={'整组恢复 ' + display.title}>{t('整组恢复')}</button>
+              ? <button disabled={wealthBusy} onClick={() => setGroupRestore({ id: entry.id, name: display.title, generation: page.generation })} aria-label={t('整组恢复 ') + display.title}>{t('整组恢复')}</button>
             : restoresViaWealth(entry.kind)
-              ? <button disabled={wealthBusy} onClick={() => void restoreWealth(entry, page.generation)} aria-label={'恢复 ' + display.title}>{t('恢复{typeLabel}', { typeLabel: display.typeLabel })}</button>
+              ? <button disabled={wealthBusy} onClick={() => void restoreWealth(entry, page.generation)} aria-label={t('恢复 ') + display.title}>{t('恢复{typeLabel}', { typeLabel: display.typeLabel })}</button>
             : entry.kind === 'asset'
-              ? <button onClick={() => onRestoreAsset(entry.id, page.generation)} aria-label={'恢复 ' + entry.title}>{t('恢复物品')}</button>
-              : <button onClick={() => onRestoreRecord(entry, page.generation)} aria-label={'恢复 ' + display.title}>{t('恢复记录')}</button>}
+              ? <button onClick={() => onRestoreAsset(entry.id, page.generation)} aria-label={t('恢复 ') + entry.title}>{t('恢复物品')}</button>
+              : <button onClick={() => onRestoreRecord(entry, page.generation)} aria-label={t('恢复 ') + display.title}>{t('恢复记录')}</button>}
             {restoresAsGroup(entry.kind)
-              ? (armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => { setArmed(null); setGroupPurge({ id: entry.id, name: display.title }); }}>{t('读取影响并确认…')}</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={'永久删除 ' + display.title}>{t('永久删除…')}</button>)
-              : armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(entry, page.generation)}>{t('确认永久删除')}</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={'永久删除 ' + display.title}>{t('永久删除…')}</button>}</div></td>
+              ? (armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => { setArmed(null); setGroupPurge({ id: entry.id, name: display.title }); }}>{t('读取影响并确认…')}</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={t('永久删除 ') + display.title}>{t('永久删除…')}</button>)
+              : armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(entry, page.generation)}>{t('确认永久删除')}</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={t('永久删除 ') + display.title}>{t('永久删除…')}</button>}</div></td>
         </tr>; })}
-      </tbody></table></div>{groupRestore && <LinkRestoreDialog groupId={groupRestore.id} name={groupRestore.name} onClose={saved => { if (saved) setRetry(n => n + 1); setGroupRestore(null); }} onDone={() => setWealthNotice('已整组恢复这组关联订阅，双方恢复原 ID。')} />}
+      </tbody></table></div>{groupRestore && <LinkRestoreDialog groupId={groupRestore.id} name={groupRestore.name} onClose={saved => { if (saved) setRetry(n => n + 1); setGroupRestore(null); }} onDone={() => setWealthNotice(t('已整组恢复这组关联订阅，双方恢复原 ID。'))} />}
 {repairing && <LinkRepairDialog side={repairing.side} id={repairing.id} onClose={saved => { setRepairing(null); if (saved) setRetry(n => n + 1); }} onDone={setWealthNotice} />}{clearing && <PurgeAllDialog onClose={saved => { setClearing(false); if (saved) setRetry(n => n + 1); }} onDone={setWealthNotice} />}{groupPurge && <LinkPurgeDialog groupId={groupPurge.id} name={groupPurge.name} onClose={saved => { if (saved) setRetry(n => n + 1); setGroupPurge(null); }} onDone={m => setWealthNotice(m)} />}<div className="pagination"><button disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - 100))}>{t('上一页')}</button><span>{t('第')} {Math.floor(offset / 100) + 1} {t('页')}</span><button disabled={offset + 100 >= total} onClick={() => setOffset(n => n + 100)}>{t('下一页')}</button></div>
     </>}
   </section>;
@@ -127,22 +127,22 @@ export function TrashDialog({ initial, closeIntent, onKeep, onClose, onDone }: {
   const [action, setAction] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
-  const [notice, setNotice] = useState(initial.pending ? '上次操作结果待确认。请先核对，避免重复操作。' : '');
+  const [notice, setNotice] = useState(initial.pending ? t('上次操作结果待确认。请先核对，避免重复操作。') : '');
   useEffect(() => { dialog.current?.showModal(); cancel.current?.focus(); return () => dialog.current?.close(); }, []);
   useEffect(() => { if (closeIntent) close(closeIntent); }, [closeIntent]);
   function close(intent: CloseIntent) {
-    if (lock.current || action.pending) { setNotice('请先核对这次操作结果，确认后再关闭。'); onKeep(); return; }
+    if (lock.current || action.pending) { setNotice(t('请先核对这次操作结果，确认后再关闭。')); onKeep(); return; }
     onClose(intent);
   }
   function complete(record: AssetRecord) { localStorage.removeItem(pendingKey); onDone(record); }
   async function resolve() {
     const result = await invoke<AssetRecord | null>('saved_request', { request: action.input.request_id, generation: action.input.generation });
     if (result) complete(result);
-    else { localStorage.removeItem(pendingKey); setAction(a => ({ ...a, pending: false })); setNotice('确认本次操作尚未提交，资料未因本次操作改变。可以重试或取消。'); }
+    else { localStorage.removeItem(pendingKey); setAction(a => ({ ...a, pending: false })); setNotice(t('确认本次操作尚未提交，资料未因本次操作改变。可以重试或取消。')); }
   }
   async function check() {
     if (lock.current) return; lock.current = true; setBusy(true);
-    try { await resolve(); } catch (e) { setNotice(errorMessage(e) + ' 请求已保留，请稍后再核对。'); }
+    try { await resolve(); } catch (e) { setNotice(errorMessage(e) + t(' 请求已保留，请稍后再核对。')); }
     finally { lock.current = false; setBusy(false); }
   }
   async function submit() {
@@ -150,7 +150,7 @@ export function TrashDialog({ initial, closeIntent, onKeep, onClose, onDone }: {
     lock.current = true; setBusy(true);
     const next = { ...action, pending: true };
     try { localStorage.setItem(pendingKey, JSON.stringify(next)); }
-    catch { setNotice('无法暂存操作请求，尚未提交。请检查可用空间后重试。'); lock.current = false; setBusy(false); return; }
+    catch { setNotice(t('无法暂存操作请求，尚未提交。请检查可用空间后重试。')); lock.current = false; setBusy(false); return; }
     setAction(next);
     try { complete(await invoke<AssetRecord>('change_trash', { input: action.input })); }
     catch (e) {
@@ -160,19 +160,19 @@ export function TrashDialog({ initial, closeIntent, onKeep, onClose, onDone }: {
         else {
           localStorage.removeItem(pendingKey); setAction(a => ({ ...a, pending: false }));
           setConflict(typeof e === 'object' && e !== null && 'code' in e && e.code === 'REVISION_CONFLICT');
-          setNotice(errorMessage(e) + ' 本次操作未提交。');
+          setNotice(errorMessage(e) + t(' 本次操作未提交。'));
         }
-      } catch { setNotice('暂时无法确认结果。请核对本次操作，原请求已保留。'); }
+      } catch { setNotice(t('暂时无法确认结果。请核对本次操作，原请求已保留。')); }
     } finally { lock.current = false; setBusy(false); }
   }
   async function reload() {
     if (lock.current) return; lock.current = true; setBusy(true);
     try {
       const record = await invoke<AssetRecord | null>('read_asset', { id: action.input.asset_id });
-      if (!record) { setNotice('找不到这件物品，请取消并重新读取列表。'); return; }
-      if (record.deleted === action.input.deleted) { setNotice('物品已处于目标状态，但无法确认是本次请求完成。请取消并重新读取最近删除。'); setConflict(true); return; }
+      if (!record) { setNotice(t('找不到这件物品，请取消并重新读取列表。')); return; }
+      if (record.deleted === action.input.deleted) { setNotice(t('物品已处于目标状态，但无法确认是本次请求完成。请取消并重新读取最近删除。')); setConflict(true); return; }
       setAction(a => ({ record, pending: false, input: { ...a.input, request_id: crypto.randomUUID(), expected_revision: record.asset.revision } }));
-      setConflict(false); setNotice('已读取最新资料，请核对物品名称后重新确认。');
+      setConflict(false); setNotice(t('已读取最新资料，请核对物品名称后重新确认。'));
     } catch (e) { setNotice(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -194,23 +194,23 @@ export function RecordTrashDialog({ initial, closeIntent, onKeep, onClose, onDon
   const [action, setAction] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
-  const [notice, setNotice] = useState(initial.pending ? '上次操作结果待确认。请先核对，避免重复操作。' : '');
+  const [notice, setNotice] = useState(initial.pending ? t('上次操作结果待确认。请先核对，避免重复操作。') : '');
   useEffect(() => { dialog.current?.showModal(); cancel.current?.focus(); return () => dialog.current?.close(); }, []);
   useEffect(() => { if (closeIntent) close(closeIntent); }, [closeIntent]);
   function close(intent: CloseIntent) {
-    if (lock.current || action.pending) { setNotice('请先核对这次操作结果，确认后再关闭。'); onKeep(); return; }
+    if (lock.current || action.pending) { setNotice(t('请先核对这次操作结果，确认后再关闭。')); onKeep(); return; }
     onClose(intent);
   }
   function complete(record: AssetRecord) { localStorage.removeItem(recordPendingKey); onDone(record, action.input); }
   async function resolve() {
     const result = await invoke<AssetRecord | null>('saved_record_trash_request', { input: action.input });
     if (result && result.asset.id === action.input.asset_id) complete(result);
-    else if (result) { setNotice('回执中的资料与本次操作不一致，请取消后重新读取。'); }
-    else { localStorage.removeItem(recordPendingKey); setAction(a => ({ ...a, pending: false })); setNotice('确认本次操作尚未提交，资料未因本次操作改变。可以重试或取消。'); }
+    else if (result) { setNotice(t('回执中的资料与本次操作不一致，请取消后重新读取。')); }
+    else { localStorage.removeItem(recordPendingKey); setAction(a => ({ ...a, pending: false })); setNotice(t('确认本次操作尚未提交，资料未因本次操作改变。可以重试或取消。')); }
   }
   async function check() {
     if (lock.current) return; lock.current = true; setBusy(true);
-    try { await resolve(); } catch (e) { setNotice(errorMessage(e) + ' 请求已保留，请稍后再核对。'); }
+    try { await resolve(); } catch (e) { setNotice(errorMessage(e) + t(' 请求已保留，请稍后再核对。')); }
     finally { lock.current = false; setBusy(false); }
   }
   async function submit() {
@@ -218,34 +218,34 @@ export function RecordTrashDialog({ initial, closeIntent, onKeep, onClose, onDon
     lock.current = true; setBusy(true);
     const next = { ...action, pending: true };
     try { localStorage.setItem(recordPendingKey, JSON.stringify(next)); }
-    catch { setNotice('无法暂存操作请求，尚未提交。请检查可用空间后重试。'); lock.current = false; setBusy(false); return; }
+    catch { setNotice(t('无法暂存操作请求，尚未提交。请检查可用空间后重试。')); lock.current = false; setBusy(false); return; }
     setAction(next);
     try { complete(await invoke<AssetRecord>('change_record_trash', { input: action.input })); }
     catch (e) {
       try {
         const result = await invoke<AssetRecord | null>('saved_record_trash_request', { input: action.input });
         if (result && result.asset.id === action.input.asset_id) complete(result);
-        else if (result) { setNotice('回执中的资料与本次操作不一致，请取消后重新读取。'); }
+        else if (result) { setNotice(t('回执中的资料与本次操作不一致，请取消后重新读取。')); }
         else {
           localStorage.removeItem(recordPendingKey); setAction(a => ({ ...a, pending: false }));
           setConflict(typeof e === 'object' && e !== null && 'code' in e && (e.code === 'REVISION_CONFLICT' || e.code === 'PARENT_DELETED'));
-          setNotice(errorMessage(e) + ' 本次操作未提交。');
+          setNotice(errorMessage(e) + t(' 本次操作未提交。'));
         }
-      } catch { setNotice('暂时无法确认结果。请核对本次操作，原请求已保留。'); }
+      } catch { setNotice(t('暂时无法确认结果。请核对本次操作，原请求已保留。')); }
     } finally { lock.current = false; setBusy(false); }
   }
   async function reload() {
     if (lock.current) return; lock.current = true; setBusy(true);
     try {
       const record = await invoke<AssetRecord | null>('read_asset', { id: action.input.asset_id });
-      if (!record) { setNotice('找不到所属物品，请取消并重新读取。'); return; }
-      if (record.deleted) { setNotice('所属物品已在最近删除中。请先恢复所属物品，再处理这条记录。'); return; }
+      if (!record) { setNotice(t('找不到所属物品，请取消并重新读取。')); return; }
+      if (record.deleted) { setNotice(t('所属物品已在最近删除中。请先恢复所属物品，再处理这条记录。')); return; }
       const visible = action.input.kind === 'maintenance'
         ? record.maintenances.some(item => item.id === action.input.record_id)
         : (record.warranties ?? []).some(item => item.id === action.input.record_id);
-      if (visible === !action.input.deleted) { setNotice('记录已处于目标状态，但无法确认是本次请求完成。请取消并重新读取最近删除。'); setConflict(true); return; }
+      if (visible === !action.input.deleted) { setNotice(t('记录已处于目标状态，但无法确认是本次请求完成。请取消并重新读取最近删除。')); setConflict(true); return; }
       setAction(a => ({ ...a, pending: false, input: { ...a.input, request_id: crypto.randomUUID(), expected_revision: record.asset.revision } }));
-      setConflict(false); setNotice('已读取最新资料，请核对记录后重新确认。');
+      setConflict(false); setNotice(t('已读取最新资料，请核对记录后重新确认。'));
     } catch (e) { setNotice(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
   }

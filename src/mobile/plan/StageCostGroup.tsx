@@ -20,7 +20,7 @@ import { childEndMonth, stageCost } from "./events-model";
 import "./events.css";
 import { t } from '../../i18n.ts';
 const MAX_ITEMS = 20;
-const TEMPLATES = ["子女教育", "赡养父母", "医疗与护理"];
+const TEMPLATES = [t('子女教育'), t('赡养父母'), t('医疗与护理')];
 type Form = {
   /** Set while editing an existing row; null for a new one. */
   editId: string | null;
@@ -55,7 +55,7 @@ const formOf = (i: StoredSpendItem): Form => ({
 
 /** One row's period: unset ends read as the target month / planning end, never as a blank. */
 export const stagePeriod = (i: StoredSpendItem) =>
-  `${i.start_month ?? "目标月份起"} → ${i.end_month ?? "规划终点"}`;
+  `${i.start_month ?? t('目标月份起')} → ${i.end_month ?? t('规划终点')}`;
 
 /**
  * 退休后的阶段性支出, inside the budget step as on desktop. It edits the setup draft only: items are written by the same
@@ -205,7 +205,7 @@ export function StageCostGroup({
                   label={t('支出模板')}
                   value={TEMPLATES.includes(form.label) ? form.label : t('其他')}
                   disabled={frozen}
-                  options={[...TEMPLATES, "其他"].map((label) => ({
+                  options={[...TEMPLATES, t('其他')].map((label) => ({
                     id: label,
                     label,
                   }))}

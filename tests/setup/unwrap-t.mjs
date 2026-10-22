@@ -14,6 +14,11 @@ function paramMap(params) {
   return map;
 }
 export function unwrapT(text) {
+  // Calls nest (a t() inside another's parameters): unwrap the innermost first and repeat until nothing changes.
+  for (let i = 0; i < 6; i++) { const next = unwrapOnce(text); if (next === text) break; text = next; }
+  return text;
+}
+function unwrapOnce(text) {
   const fn = '(?:t|tr|tt)';
   return text
     .replace(/numberLocale\(\)/g, "'zh-CN'")

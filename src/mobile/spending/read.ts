@@ -4,7 +4,7 @@ import { errorMessage } from '../../asset';
 import { storedPending, submit, Unresolved } from '../../wealth';
 import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
-
+import { t } from '../../i18n.ts';
 export type Read<T> = { data: T | null; error: string; loading: boolean; reload: () => void };
 /**
  * Reads on mount, when `key` changes, when a covering page (an editor) is dismissed, and on `reload()`.
@@ -67,5 +67,5 @@ export function useSaver(): Saver {
 
 /** Soft delete into 最近删除, same command as the desktop 删除 buttons. */
 export function trash(kind: 'expense' | 'income' | 'plan' | 'payment' | 'virtual' | 'topup', id: string, revision: number, generation: string, name: string, requestId: string) {
-  return submit<void>({ command: 'wealth_trash', input: { request_id: requestId, generation, kind, id, expected_revision: revision, deleted: true }, label: '删除' + name });
+  return submit<void>({ command: 'wealth_trash', input: { request_id: requestId, generation, kind, id, expected_revision: revision, deleted: true }, label: t('删除') + name });
 }

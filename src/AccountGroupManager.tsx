@@ -40,7 +40,7 @@ export function AccountGroupManager({ generation, onClose, onChanged }: { genera
   async function verify() {
     if (!pending || locked.current) return;
     locked.current = true; setBusy(true);
-    try { const outcome = await resolvePending(pending); setPending(null); if (outcome === 'saved') { setEditing(null); setRemoving(null); setName(''); } setError(outcome === 'saved' ? '已确认上次分组操作保存成功。' : '已确认上次操作未保存，可以重新操作。'); onChanged(); await load(); }
+    try { const outcome = await resolvePending(pending); setPending(null); if (outcome === 'saved') { setEditing(null); setRemoving(null); setName(''); } setError(outcome === 'saved' ? t('已确认上次分组操作保存成功。') : t('已确认上次操作未保存，可以重新操作。')); onChanged(); await load(); }
     catch (e) { setError(errorMessage(e)); }
     finally { locked.current = false; setBusy(false); }
   }

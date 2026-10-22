@@ -29,11 +29,11 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
   useEffect(() => { setPair({ from: fromSnapshotId, to: toSnapshotId }); }, [generation, fromSnapshotId, toSnapshotId]);
   useEffect(() => {
     let live = true; onPreviewChange?.(null); setPreview(null); setRecords(null); setListError(''); setOuter(pair.from ? { status: 'loading' } : { status: 'empty' });
-    port.listReviews(generation).then(v => { if (!live) return; if (v.status !== 'ready') throw Error(v.message); if (v.value.generation !== generation) throw Error('资料库已变化，请重新读取。'); setRecords(v.value.records); }).catch(e => { if (live) setListError(String(e)); });
+    port.listReviews(generation).then(v => { if (!live) return; if (v.status !== 'ready') throw Error(v.message); if (v.value.generation !== generation) throw Error(t('资料库已变化，请重新读取。')); setRecords(v.value.records); }).catch(e => { if (live) setListError(String(e)); });
     if (pair.from) port.readReview({ from_snapshot_id: pair.from, to_snapshot_id: pair.to }, generation).then(v => {
       if (!live) return;
       if (v.status !== 'ready') throw Error(v.message);
-      if (v.value.preview.generation !== generation) throw Error('资料库已变化，请重新读取。');
+      if (v.value.preview.generation !== generation) throw Error(t('资料库已变化，请重新读取。'));
       const p = v.value.preview; onPreviewChange?.({ fromSnapshotId: pair.from!, toSnapshotId: pair.to, result: p.result }); setPreview(p); setOuter({ status: 'ready', input: p.input, result: p.result });
     }).catch(e => { if (live) setOuter({ status: 'error', code: 'READ_ERROR', message: String(e) }); });
     return () => { live = false; };
@@ -50,16 +50,16 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
       const result = await port.setReviewDeleted(r.id, !r.deleted, { generation, request_id: crypto.randomUUID(), expected_revision: r.revision });
       if (!mounted.current) return;
       if (result.status === 'rejected') setNotice(result.issues.map(i => i.message).join('；'));
-      else if (result.status === 'unresolved') { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); onPending(); setNotice('提交结果未知，原请求已保留；请通过页面顶部核对结果。'); }
+      else if (result.status === 'unresolved') { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); onPending(); setNotice(t('提交结果未知，原请求已保留；请通过页面顶部核对结果。')); }
       else { setDeleting(null); saved(); }
     } catch (e) { if (mounted.current) setNotice(String(e)); }
     finally { lock.current = false; if (mounted.current) setBusy(false); }
   }
   const hints = preview && incomes?.filter(i => i.fields.date > preview.input.from.date && i.fields.date <= preview.input.to.date && ['interest', 'cash_dividend', 'other_investment'].includes(i.fields.category ?? ''));
   const disclosure = reviewDisclosureState(outer);
-  const disclosureLabel = preview && preview.confirmation !== 'confirmed' ? { unconfirmed: '尚未确认', needs_review: '待重新确认', unavailable: '暂不可用' }[preview.confirmation] : disclosure.label;
+  const disclosureLabel = preview && preview.confirmation !== 'confirmed' ? { unconfirmed: t('尚未确认'), needs_review: t('待重新确认'), unavailable: t('暂不可用') }[preview.confirmation] : disclosure.label;
   const historyPending = records?.filter(r => !r.deleted && r.confirmation !== 'confirmed').length ?? 0;
-  const messages = [disclosure.attention, ...new Set(preview?.reasons.map(reason => followupReasonText[reason.code] ?? reason.message) ?? []), preview?.confirmation === 'needs_review' ? '需重新确认本区间资金流动，原有确认已失效。' : '', preview?.confirmation === 'unavailable' ? '本区间核对暂不可用，原核对方式保留。' : '', preview?.saved_mode && preview.confirmation === 'unconfirmed' ? '已保存的本区间资金流动尚未确认完整。' : '', listError && `已保存投资核对区间读取失败：${listError}`, historyPending ? `有 ${historyPending} 个已保存投资核对区间还需确认资金流动，请查看已保存区间。` : '', preview && incomes === null ? '投资现金收入明细读取失败，请展开查看。' : '', notice, pendingReceipt || uncertain ? '存在未确认的保存结果，请通过页面顶部“核对结果”确认。' : ''].filter((m): m is string => !!m);
+  const messages = [disclosure.attention, ...new Set(preview?.reasons.map(reason => followupReasonText[reason.code] ?? reason.message) ?? []), preview?.confirmation === 'needs_review' ? t('需重新确认本区间资金流动，原有确认已失效。') : '', preview?.confirmation === 'unavailable' ? t('本区间核对暂不可用，原核对方式保留。') : '', preview?.saved_mode && preview.confirmation === 'unconfirmed' ? t('已保存的本区间资金流动尚未确认完整。') : '', listError && t('已保存投资核对区间读取失败：{listError}', { listError }), historyPending ? t('有 {historyPending} 个已保存投资核对区间还需确认资金流动，请查看已保存区间。', { historyPending }) : '', preview && incomes === null ? t('投资现金收入明细读取失败，请展开查看。') : '', notice, pendingReceipt || uncertain ? t('存在未确认的保存结果，请通过页面顶部“核对结果”确认。') : ''].filter((m): m is string => !!m);
   return <section aria-label={t('投资区间复盘')}><InvestmentReviewDisclosure label={disclosureLabel} messages={messages} editing={editing || busy || deleting !== null}>
     <InvestmentReviewCard accountNames={accountNames} outer={outer} disabled={frozen}/>
     {preview && <p className="muted small">{t('核对方式：')}{preview.saved_mode === 'movements' ? t('资金流动明细汇总') : preview.saved_mode === 'manual' ? t('手填合计') : t('尚未保存')}。{preview.confirmation === 'confirmed' ? t('已核对') : preview.confirmation === 'needs_review' ? t('需重新确认本区间资金流动') : preview.confirmation === 'unavailable' ? t('暂不可用') : t('还未确认本区间资金流动')}。</p>}

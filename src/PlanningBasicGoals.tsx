@@ -86,7 +86,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     return () => { live = false; };
   }, [progressKey]);
   const state = goalState(saved, caps);
-  const debtLabels = Object.fromEntries((snapshot?.entries ?? []).filter(e => e.side === 'liability').map(e => [`debt:${e.account_id}`, { name: accounts.find(a => a.id === e.account_id)?.fields.name ?? '负债账户', balance: e.amount_cents === null ? '未知' : money(e.amount_cents) }]));
+  const debtLabels = Object.fromEntries((snapshot?.entries ?? []).filter(e => e.side === 'liability').map(e => [`debt:${e.account_id}`, { name: accounts.find(a => a.id === e.account_id)?.fields.name ?? t('负债账户'), balance: e.amount_cents === null ? t('未知') : money(e.amount_cents) }]));
   const cards = saved && caps ? refinementCards(saved, caps, today, debtLabels) : [];
   const goEvents = (eventId?: string) => { onViewChange?.('goals'); requestAnimationFrame(() => { const el = eventId ? document.getElementById(`plan-event-edit-${eventId}`) : document.getElementById('plan-events-section'); const disclosure = el?.closest('details'); if (disclosure) disclosure.open = true; el?.scrollIntoView({ block: 'center' }); el?.focus(); }); };
   useEffect(() => { if (focus && view === 'goals') { const entry = document.getElementById('plan-budget-entry'); if (entry) { entry.focus(); onFocusDone(); } } }, [focus, view, onFocusDone, saved]);
@@ -94,7 +94,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     ? retireCalcFromCapabilities(saved, caps, today)
     : null, [saved, caps, pred, today]);
   const events: EventsStore | null = saved && caps ? { retire: saved.profile.retire, snapshot, accounts, busy: saver.busy, stuck: saver.stuck, notice: saver.notice,
-    ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
+    ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : t('资料待补齐'),
     onContribution: needsContribution(caps) ? () => openSetup(4, null, true) : undefined,
     write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
   const purchasePlans = <div className="planning-purchase-plans">
@@ -170,7 +170,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   if (view === 'detail' && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={setDetailEditing} advancedOpen={advancedOpen} onAdvancedOpenChange={onAdvancedOpenChange} openSetup={(step, from) => { onViewChange?.('goals'); openSetup(step, from, true); }} onEvents={() => goEvents()} onBack={() => { onViewChange?.('goals'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} assumptionsPort={assumptionsPort}/>;
   return <div className="plan-goals" data-goal-state={state}>
     {saved && assumptionsPort && <AssumptionsSummary embedded readEpoch={assumptionReadEpoch} port={assumptionsPort} generation={sources.generation} writeVersion={sources.write_version} blocked={saver.busy || saver.stuck} reload={reload} onPending={onPending} open={assumptionEditing} onOpenChange={value => { setAssumptionEditing(value); if (!value) requestAnimationFrame(() => opener.current?.focus()); }} onReadChange={setAssumptionRead}/>}
-    {!!caps?.reset_reasons?.length && <article className="ui-card ui-content" role="status"><h3>{t('规划条件需要重新确认')}</h3><p>{t('规划已改为通用时间、资金和预计收入。请核对')}{caps.reset_reasons.map(r => ({ time_unconfirmed: '目标与终点月份', income_unconfirmed: '未来收入', funds_unconfirmed: '可用资金' })[r]).join('、')}{t('；账户、盘点和实际记录不受影响。')}</p><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget, true)}>{t('核对规划条件')}</button></article>}
+    {!!caps?.reset_reasons?.length && <article className="ui-card ui-content" role="status"><h3>{t('规划条件需要重新确认')}</h3><p>{t('规划已改为通用时间、资金和预计收入。请核对')}{caps.reset_reasons.map(r => ({ time_unconfirmed: t('目标与终点月份'), income_unconfirmed: t('未来收入'), funds_unconfirmed: t('可用资金') })[r]).join('、')}{t('；账户、盘点和实际记录不受影响。')}</p><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget, true)}>{t('核对规划条件')}</button></article>}
     {dialog?.kind === 'debt' && saved && <PlanningDebtDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'funds' && saved && <FundsDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'costs' && saved && <CostsDialog completion={dialog.completion} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}

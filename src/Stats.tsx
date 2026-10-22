@@ -23,9 +23,9 @@ function StatsDashboard(){
  const rows=data?.categories??[],total=data?.total??0;
  const purchased=Number(data?.sold_purchase_cents??0),returned=Number(data?.sale_proceeds_cents??0);
  return <div className="stats-dashboard">
-  <HeaderSlot><div className="stats-filter-row"><div className="segmented stats-period" role="group" aria-label={tt('统计时间范围')}>{([['all','全部'],['week','周'],['month','月'],['quarter','季'],['year','年']] as const).map(([key,label])=><button type="button" key={key} aria-pressed={period===key} onClick={()=>setPeriod(key)}>{label}</button>)}</div><Info text={(data?.start?`${data.start} 至 ${data.end} 购入的物品，按当前状态统计`:"所有未删除物品，按当前状态统计")+"；已设置不计入统计的物品不参与。"}/></div></HeaderSlot>
+  <HeaderSlot><div className="stats-filter-row"><div className="segmented stats-period" role="group" aria-label={tt('统计时间范围')}>{([['all',tt('全部')],['week',tt('周')],['month',tt('月')],['quarter',tt('季')],['year',tt('年')]] as const).map(([key,label])=><button type="button" key={key} aria-pressed={period===key} onClick={()=>setPeriod(key)}>{label}</button>)}</div><Info text={(data?.start?tt('{start} 至 {end} 购入的物品，按当前状态统计', { start: data.start, end: data.end }):tt('所有未删除物品，按当前状态统计'))+tt('；已设置不计入统计的物品不参与。')}/></div></HeaderSlot>
   {error?<article className="ui-card ui-content" role="alert"><p>{tt('统计读取失败：{error}', { error })}</p><button onClick={()=>setRetry(n=>n+1)}>{tt('重新读取')}</button></article>:!data?<p role="status" className="muted">{tt('正在读取统计…')}</p>:<>
-   <div className="ui-metrics ui-card">{([['全部物品',data.total],['使用中',data.active],['已退役',data.retired],['已售出',data.sold]] as const).map(([label,value])=><article key={label}><span>{label}</span><strong>{value}<small> {tt('件')}</small></strong><em>{share(value,data.total)}</em></article>)}</div>
+   <div className="ui-metrics ui-card">{([[tt('全部物品'),data.total],[tt('使用中'),data.active],[tt('已退役'),data.retired],[tt('已售出'),data.sold]] as const).map(([label,value])=><article key={label}><span>{label}</span><strong>{value}<small> {tt('件')}</small></strong><em>{share(value,data.total)}</em></article>)}</div>
    <div className="stats-pair">
     <article className="ui-card ui-content"><div className="ui-section-head"><h3>{tt('分类占比')}</h3><span>{tt('按物品数量')}</span></div>{!rows.length?<p className="muted">{tt('这个时间范围里没有物品。')}</p>:<ul className="stats-category-bars">{rows.map((row,i)=><li key={row.id??'none'}><span><i style={{background:series(i)}}/>{row.name}</span><div className="stats-bar"><span style={{width:share(row.count,total),background:series(i)}}/></div><strong>{share(row.count,total)}</strong><small>{tt('{count} 件', { count: row.count })}</small></li>)}</ul>}</article>
 
@@ -41,7 +41,7 @@ function ticks(max: number) {
   // The top gridline must sit at or above the largest value so no mark overflows.
   return Array.from({ length: Math.ceil(max / unit) + 1 }, (_, i) => i * unit);
 }
-const yuan = (cents: number) => cents >= 1_000_000 ? `¥${(cents / 1_000_000).toFixed(cents % 1_000_000 ? 1 : 0)}万` : `¥${Math.round(cents / 100)}`;
+const yuan = (cents: number) => cents >= 1_000_000 ? tt('¥{v1}万', { v1: (cents / 1_000_000).toFixed(cents % 1_000_000 ? 1 : 0) }) : `¥${Math.round(cents / 100)}`;
 
 /** One series, one axis: the chart title names it, the table below is the exact view. */
 function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: Bucket) => number; kind: 'bar' | 'line'; label: string }) {
@@ -87,7 +87,7 @@ function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: 
     {shown && <div id={detailId} className="ui-tip purchase-trend-tip" role="status" aria-live="polite" aria-atomic="true" style={{ left: `clamp(min(130px, 50%), ${(L + step * (current! + 0.5)) / W * 100}%, max(calc(100% - 130px), 50%))` }}>
       <span>{tt('{start} 至 {end}', { start: shown.start, end: shown.end })}</span>
       <b>{kind === 'bar' ? tt('本期购入') : tt('累计购入')} {unitMoney(kind === 'bar' ? shown.known_cents : shown.cumulative_cents)}</b>
-      <span>{tt('本期购入 {count} 件', { count: shown.count })}{unknown ? tt(' · {v1}{unknown} 件金额未知，未计入', { v1: kind === 'line' ? '累计 ' : '', unknown }) : ''}</span>
+      <span>{tt('本期购入 {count} 件', { count: shown.count })}{unknown ? tt(' · {v1}{unknown} 件金额未知，未计入', { v1: kind === 'line' ? tt('累计 ') : '', unknown }) : ''}</span>
       {fixed && <small>{tt('已固定 · 再点取消，Esc 关闭')}</small>}
     </div>}
   </div>;
@@ -105,7 +105,7 @@ export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }
     <StatsDashboard/>
     <article className="ui-card ui-content">
       <div className="ui-section-head"><h3>{tt('购买趋势')}</h3><Info text={tt('历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含。')}/></div>
-      <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('期间粒度')}>{([['month', '按月'], ['quarter', '按季'], ['year', '按年']] as const).map(([k, l]) => <button key={k} aria-pressed={granularity === k} onClick={() => setGranularity(k)}>{l}</button>)}</div><span className="muted small">{tt('悬浮查看详情 · 点击固定 · 方向键切换期间')}</span></div>
+      <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('期间粒度')}>{([['month', tt('按月')], ['quarter', tt('按季')], ['year', tt('按年')]] as const).map(([k, l]) => <button key={k} aria-pressed={granularity === k} onClick={() => setGranularity(k)}>{l}</button>)}</div><span className="muted small">{tt('悬浮查看详情 · 点击固定 · 方向键切换期间')}</span></div>
       {error ? <div role="alert"><p>{tt('趋势读取失败：{error}', { error })}</p><button onClick={() => setRetry(n => n + 1)}>{tt('重新读取')}</button></div> : !trend ? <p role="status" className="muted">{tt('正在读取趋势…')}</p> : <>
         <p className="trend-summary">{tt('已知购入合计')} <strong>{money(trend.known_cents)}</strong>{trend.unknown_price_count > 0 && tt(' · {unknown_price_count} 件有日期但金额未知，未计入', { unknown_price_count: trend.unknown_price_count })}{trend.unknown_date_count > 0 && tt(' · {unknown_date_count} 件购入日期未知，不归入任何期间（其中已知金额 {v2}）', { unknown_date_count: trend.unknown_date_count, v2: money(trend.unknown_date_known_cents) })}</p>
         {!trend.buckets.length ? <p className="muted">{tt('还没有带购入日期的物品。')}</p> : <>
@@ -122,7 +122,7 @@ export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }
 
 type Ranked = { id: string; name: string; state: string; held_days: number; cost_cents: string; daily_cents: string };
 type Holding = { scope: 'held' | 'history'; groups: { key: string; label: string; count: number }[]; dated_count: number; unknown_date_count: number; average_days: number | null; median_days: number | null; longest: Ranked | null; held_ranking: Ranked[]; sold_ranking: Ranked[]; excluded: { id: string; name: string; reason: string }[] };
-const days = (d: number | null) => d === null ? '—' : `${Number.isInteger(d) ? d : d.toFixed(1)} 天`;
+const days = (d: number | null) => d === null ? '—' : tt('{v1} 天', { v1: Number.isInteger(d) ? d : d.toFixed(1) });
 
 function Ranking({ title, note, rows, costLabel, descending, onOpen }: { title: string; note: string; rows: Ranked[]; costLabel: string; descending: boolean; onOpen: (id: string) => void }) {
   const list = descending ? rows : rows.slice().reverse();
@@ -143,15 +143,15 @@ export function HoldingCards({ onOpenAsset }: { onOpenAsset: (id: string) => voi
   const most = Math.max(1, ...data.groups.map(g => g.count));
   return <>
     <article className="ui-card ui-content">
-      <div className="ui-section-head"><h3>{tt('持有周期')}</h3><Info text={(scope === 'held' ? '当前持有：截至今天' : '历史全部：已售出截至售出日')+'；按购入日起的自然月／年纪念日分组，左闭右开。'}/></div>
-      <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('持有范围')}>{([['held', '当前持有'], ['history', '历史全部']] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div></div>
+      <div className="ui-section-head"><h3>{tt('持有周期')}</h3><Info text={(scope === 'held' ? tt('当前持有：截至今天') : tt('历史全部：已售出截至售出日'))+tt('；按购入日起的自然月／年纪念日分组，左闭右开。')}/></div>
+      <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('持有范围')}>{([['held', tt('当前持有')], ['history', tt('历史全部')]] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div></div>
       <div className="holding-stats"><div><span>{tt('平均')}</span><strong>{days(data.average_days)}</strong></div><div><span>{tt('中位数')}</span><strong>{days(data.median_days)}</strong></div><div><span>{tt('最长')}</span><strong>{data.longest ? <button className="link-cell" onClick={() => onOpenAsset(data.longest!.id)}>{tt('{name} · {held_days} 天', { name: data.longest.name, held_days: data.longest.held_days })}</button> : '—'}</strong></div></div>
       <ul className="holding-groups">{data.groups.map(g => <li key={g.key}><span>{g.label}</span><span className="holding-bar"><span style={{ width: `${g.count / most * 100}%` }}/></span><span>{tt('{count} 件', { count: g.count })}</span></li>)}</ul>
       <p className="muted small">{tt('共 {dated_count} 件参与计算', { dated_count: data.dated_count })}{data.unknown_date_count > 0 && tt('；{unknown_date_count} 件购入日期未知，未计入分组与平均', { unknown_date_count: data.unknown_date_count })}。</p>
     </article>
     <article className="ui-card ui-content">
       <div className="ui-section-head"><h3>{tt('日均成本排行')}</h3><Info text={tt('按未舍入的精确值排序，显示值四舍五入到分。')}/></div>
-      <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('排序方向')}>{([[true, '从高到低'], [false, '从低到高']] as const).map(([k, l]) => <button key={l} aria-pressed={descending === k} onClick={() => setDescending(k)}>{l}</button>)}</div></div>
+      <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('排序方向')}>{([[true, tt('从高到低')], [false, tt('从低到高')]] as const).map(([k, l]) => <button key={l} aria-pressed={descending === k} onClick={() => setDescending(k)}>{l}</button>)}</div></div>
       <Ranking title={tt('当前持有 · 毛日均')} note={tt('总投入（购入＋维护）÷ 持有天数')} rows={data.held_ranking} costLabel={tt('总投入')} descending={descending} onOpen={onOpenAsset}/>
       <Ranking title={tt('已售出 · 净日均')} note={tt('（总投入 − 售出回收）÷ 截至售出日天数，可为负')} rows={data.sold_ranking} costLabel={tt('净成本')} descending={descending} onOpen={onOpenAsset}/>
       {data.excluded.length > 0 && <details className="trend-table"><summary>{tt('{length} 件资料不完整，未参与排行', { length: data.excluded.length })}</summary><ul className="excluded-list">{data.excluded.map(x => <li key={x.id}><button className="link-cell" onClick={() => onOpenAsset(x.id)}>{x.name}</button><span className="muted">{x.reason}</span></li>)}</ul></details>}
@@ -182,7 +182,7 @@ export function ResaleCard({ onOpenAsset }: { onOpenAsset: (id: string) => void 
       </div>
       <p className="muted small">{rated ? tt('{included_count} 件参与 · 总购入 {v2} · 总售出 {v3}', { included_count: data.included_count, v2: money(data.total_purchase_cents), v3: money(data.total_sale_cents) }) : tt('没有可计算保值率的售出物品。')}</p>
       {rated && <>
-        <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('保值率排序方向')}>{([[true, '从高到低'], [false, '从低到高']] as const).map(([k, l]) => <button key={l} aria-pressed={descending === k} onClick={() => setDescending(k)}>{l}</button>)}</div></div>
+        <div className="overview-controls"><div className="segmented" role="group" aria-label={tt('保值率排序方向')}>{([[true, tt('从高到低')], [false, tt('从低到高')]] as const).map(([k, l]) => <button key={l} aria-pressed={descending === k} onClick={() => setDescending(k)}>{l}</button>)}</div></div>
         <table className="ui-table"><thead><tr><th>#</th><th>{tt('物品')}</th><th>{tt('购入价')}</th><th>{tt('售出价')}</th><th>{tt('差额')}</th><th>{tt('保值率')}</th></tr></thead><tbody>{list.map((r, i) => <tr key={r.id}><td>{i + 1}</td><td><button className="link-cell" title={r.name} onClick={() => onOpenAsset(r.id)}>{r.name}</button></td><td>{money(r.purchase_cents)}</td><td>{money(r.sale_cents)}</td><td>{changeText(r.gain_cents)}</td><td>{percentText(r.rate_hundredths)}</td></tr>)}</tbody></table>
       </>}
       {data.excluded.length > 0 && <details className="trend-table"><summary>{tt('{length} 件未参与保值率', { length: data.excluded.length })}</summary><ul className="excluded-list">{data.excluded.map(x => <li key={x.id}><button className="link-cell" onClick={() => onOpenAsset(x.id)}>{x.name}</button><span className="muted">{x.reason}</span></li>)}</ul></details>}

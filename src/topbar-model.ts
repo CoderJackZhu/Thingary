@@ -23,14 +23,14 @@ export type NewTarget = 'asset' | 'wishlist' | 'wealth' | 'income' | 'expenses' 
 /** Fixed order per 产品设计 3.5.1; each target appears only if its module is on. */
 export function buildNewMenu(modules: { physical?: boolean; wishlist: boolean; wealth: boolean; expenses: boolean; recurring: boolean; virtual: boolean; incomes?: boolean; movements?: boolean }, run: (target: NewTarget) => void): BarMenu {
   const defs: [NewTarget, string, boolean][] = [
-    ['asset', '新增物品', modules.physical !== false],
-    ['wishlist', '新增心愿', modules.wishlist],
-    ['wealth', '新增账户', modules.wealth],
-    ['income', '记一笔收入', modules.incomes === true],
-    ['expenses', '记一笔支出', modules.expenses],
-    ['movement', '记一笔资金流动', modules.wealth && modules.movements === true],
-    ['recurring', '新增计划', modules.recurring],
-    ['virtual', '新增虚拟资产', modules.virtual],
+    ['asset', t('新增物品'), modules.physical !== false],
+    ['wishlist', t('新增心愿'), modules.wishlist],
+    ['wealth', t('新增账户'), modules.wealth],
+    ['income', t('记一笔收入'), modules.incomes === true],
+    ['expenses', t('记一笔支出'), modules.expenses],
+    ['movement', t('记一笔资金流动'), modules.wealth && modules.movements === true],
+    ['recurring', t('新增计划'), modules.recurring],
+    ['virtual', t('新增虚拟资产'), modules.virtual],
   ];
   return { label: t('新增记录'), items: defs.filter(([, , on]) => on).map(([key, label]) => ({ key, label, run: () => run(key) })) };
 }

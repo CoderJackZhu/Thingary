@@ -39,7 +39,7 @@ export default function Goal() {
     [report, setReport] = useState(false),
     [progress, setProgress] = useState<GoalProgressEntry[]>([]),
     [progressError, setProgressError] = useState(""),
-    [assumptionStatus, setAssumptionStatus] = useState("正在读取假设状态");
+    [assumptionStatus, setAssumptionStatus] = useState(t('正在读取假设状态'));
   useEffect(() => {
     let live = true;
     if (!p.sources) return;
@@ -74,7 +74,7 @@ export default function Goal() {
           setProgressError("");
         }
       } catch {
-        if (live) setProgressError("盘点以来的变化读取失败，请重新读取。");
+        if (live) setProgressError(t('盘点以来的变化读取失败，请重新读取。'));
       }
     })();
     return () => {
@@ -85,21 +85,21 @@ export default function Goal() {
     let live = true;
     if (!p.sources) return;
     const generation = p.sources.generation;
-    setAssumptionStatus("正在读取假设状态");
+    setAssumptionStatus(t('正在读取假设状态'));
     void nativePlanningFollowupPortV1()
       .readAssumptions(generation)
       .then((read) => {
         if (!live) return;
         setAssumptionStatus(
           read.status !== "ready"
-            ? "假设核对状态读取失败，请打开重试"
+            ? t('假设核对状态读取失败，请打开重试')
             : read.value.generation !== generation
-              ? "资料库已变化，请重新读取"
+              ? t('资料库已变化，请重新读取')
               : read.value.confirmation === "confirmed"
-                ? "已核对"
+                ? t('已核对')
                 : read.value.confirmation === "needs_review"
-                  ? "条件已变化，请重新核对"
-                  : "程序试算值，尚未核对",
+                  ? t('条件已变化，请重新核对')
+                  : t('程序试算值，尚未核对'),
         );
       });
     return () => {
@@ -160,7 +160,7 @@ export default function Goal() {
     <div className="m-page mp-page">
       <LargeTitle title={t('规划')} />
       <HeroCard
-        eyebrow={`${v.kind}${v.uncertain ? " · 暂算结果" : ""}`}
+        eyebrow={`${v.kind}${v.uncertain ? t(' · 暂算结果') : ""}`}
         action={t('测算详情')}
         onClick={() => nav.setSegment("plan.detail")}
         title={v.headline}
@@ -188,7 +188,7 @@ export default function Goal() {
             height={112}
             {...fundsChart(pred).chart}
             shade={undefined}
-            summary={t('预计资金变化预览。{headline}{v2}。点按查看测算详情。', { headline: v.headline, v2: v.stop ? `，预计停工月份 ${v.stop}` : "" })}
+            summary={t('预计资金变化预览。{headline}{v2}。点按查看测算详情。', { headline: v.headline, v2: v.stop ? t('，预计停工月份 {stop}', { stop: v.stop }) : "" })}
           />
         )}
         <span className="mp-result-verdict">{v.verdict}</span>

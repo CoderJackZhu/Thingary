@@ -171,7 +171,7 @@ export function DebtEditor({
       {inactive.map((d) => (
         <FormRow
           key={d.account_id}
-          label={`移除旧安排：${accounts.find((a) => a.id === d.account_id)?.fields.name ?? "负债账户"}`}
+          label={`移除旧安排：${accounts.find((a) => a.id === d.account_id)?.fields.name ?? t('负债账户')}`}
           stacked
         >
           <Switch
@@ -215,7 +215,7 @@ export function DebtEditor({
                 {(["before", "after"] as const).map((phase) => (
                   <SelectField
                     key={phase}
-                    label={t('{name}{v2}还款方式', { name: row.name, v2: phase === "before" ? "退休前" : "退休后" })}
+                    label={t('{name}{v2}还款方式', { name: row.name, v2: phase === "before" ? t('退休前') : t('退休后') })}
                     value={d[phase] ?? ""}
                     disabled={frozen || row.entry.amount_cents === null}
                     options={[

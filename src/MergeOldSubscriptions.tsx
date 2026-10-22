@@ -39,12 +39,12 @@ function MergeDialog({ generation, pairs, onClose, onDone }: { generation: strin
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   async function run() {
     const chosen = pairs.filter(p => picked.includes(pairKey(p)));
-    if (!chosen.length) { setNotice('请至少勾选一对。'); return; }
+    if (!chosen.length) { setNotice(t('请至少勾选一对。')); return; }
     setBusy(true); setNotice('');
     const input: MergeInput = { request_id: crypto.randomUUID(), generation, pairs: chosen.map(p => ({ asset_id: p.asset_id, asset_expected_revision: p.asset_revision, plan_id: p.plan_id, plan_expected_revision: p.plan_revision })) };
     try {
       await submit({ command: 'link_merge', input, label: t('合并 {length} 个旧订阅', { length: chosen.length }) });
-      onDone(`已合并 ${chosen.length} 个订阅；付款记录保持原样，没有新增或删除任何付款。`);
+      onDone(t('已合并 {length} 个订阅；付款记录保持原样，没有新增或删除任何付款。', { length: chosen.length }));
       onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }

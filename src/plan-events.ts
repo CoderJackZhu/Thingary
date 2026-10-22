@@ -56,9 +56,9 @@ export function eventParts(c: Ctx, e: LifeEvent, offset: number): EventParts {
   const principal = occurrence ? knownLoan ? Number(knownLoan.principal_cents) : needsLoan ? null : 0 : real * nominalFactor(c, c.now_months + offset);
   const n = occurrence ? knownLoan ? knownLoan.remaining_months : needsLoan ? null : 0 : Math.round(e.loan_years * 12);
   const pay = principal === null || n === null ? null : monthlyPayment(principal, e.loan_rate_hundredths, n);
-  if (pay !== null && n !== null && pay > 0) both(`event:${e.id}:loan`, `${e.label}月供`, loanFrom, loanFrom + n, pay, true, true);
+  if (pay !== null && n !== null && pay > 0) both(`event:${e.id}:loan`, tr('{label}月供', { label: e.label }), loanFrom, loanFrom + n, pay, true, true);
   const until = e.until_month && c.anchor_date ? c.now_months + offsetOf(e.until_month, c.anchor_date) + 1 : null;
-  if (!e.time_unconfirmed && (!coverage || coverage.holding) && e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? '养车' : e.kind === 'other' ? '持续支出' : '持有成本'}`, m0, e.kind === 'house' ? null : until, e.holding_cents, false, e.kind === 'house');
+  if (!e.time_unconfirmed && (!coverage || coverage.holding) && e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? tr('养车') : e.kind === 'other' ? tr('持续支出') : tr('持有成本')}`, m0, e.kind === 'house' ? null : until, e.holding_cents, false, e.kind === 'house');
   // 退休后的房租在计划里是一条持续的必需支出；买房之后不再付，取消额不超过房租本身。
   if ((!coverage || coverage.holding) && e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: tr('{label}后不再付房租', { label: e.label }), from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
   if (!occurrence && e.rent_saved_cents > 0) saving_flows.push({ label: tr('{label}省下的房租', { label: e.label }), from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });

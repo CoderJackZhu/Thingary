@@ -59,10 +59,10 @@ function AssumptionsEditorContent({ port, generation, onClose, onPending }: {
         const next = await port.readAssumptions(generation);
         if (!mounted.current) return;
         if (next.status === 'ready' && next.value.generation === generation) { setRead(next); setPhase('idle'); onClose(true, next); return; }
-        setPhase('saved'); setNotice('已保存，刷新失败：请关闭后重新打开核对，不要重复提交。');
+        setPhase('saved'); setNotice(t('已保存，刷新失败：请关闭后重新打开核对，不要重复提交。'));
       } catch (e) {
         if (!mounted.current) return;
-        setPhase('saved'); setNotice(`已保存，刷新失败：${e instanceof Error ? e.message : String(e)}。请关闭后重新打开核对，不要重复提交。`);
+        setPhase('saved'); setNotice(t('已保存，刷新失败：{v1}。请关闭后重新打开核对，不要重复提交。', { v1: e instanceof Error ? e.message : String(e) }));
       }
     } catch (e) { if (mounted.current) setIssues([{ path: '', code: 'SAVE_ERROR', message: e instanceof Error ? e.message : String(e) }]); } finally { lock.current = false; if (mounted.current) setPhase(p => p === 'saving' ? 'idle' : p); }
   }

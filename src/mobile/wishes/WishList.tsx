@@ -52,7 +52,7 @@ export default function WishList(_: PageProps) {
     setDecideBusy(true); setBusy(true); setDecideError('');
     try {
       const outcome = await submitOp({ kind: 'decision', label: kind === 'drop' ? t('不再考虑') : t('重新考虑'), input: change });
-      if (outcome.status === 'saved') { setDeciding(null); setNotice(kind === 'drop' ? `已记录「${item.fields.name}」为不再考虑；档案与图片都保留着。` : `「${item.fields.name}」已回到考虑中。`); setTick(n => n + 1); }
+      if (outcome.status === 'saved') { setDeciding(null); setNotice(kind === 'drop' ? t('已记录「{name}」为不再考虑；档案与图片都保留着。', { name: item.fields.name }) : t('「{name}」已回到考虑中。', { name: item.fields.name })); setTick(n => n + 1); }
       else { setDecideError(outcome.message); if (outcome.status === 'unknown') { setDeciding(null); receipts.refresh(); } }
     } finally { setDecideBusy(false); setBusy(false); }
   }

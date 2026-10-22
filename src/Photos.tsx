@@ -28,7 +28,7 @@ export function PhotoPreview({ photo, generation, onClose }: { photo: Photo; gen
   useEffect(() => { ref.current?.showModal(); return () => ref.current?.close(); }, []);
   async function repair() {
     if (busy) return; setBusy(true); setNotice('');
-    try { const selected = await invoke<Photo | null>('pick_photo', { generation, repair: photo.id }); if (selected) { setVersion(v => v + 1); window.dispatchEvent(new Event('thingary-photo-repaired')); setNotice('原图已修复。'); } }
+    try { const selected = await invoke<Photo | null>('pick_photo', { generation, repair: photo.id }); if (selected) { setVersion(v => v + 1); window.dispatchEvent(new Event('thingary-photo-repaired')); setNotice(t('原图已修复。')); } }
     catch (e) { setNotice(errorMessage(e)); }
     finally { setBusy(false); }
   }
@@ -37,5 +37,5 @@ export function PhotoPreview({ photo, generation, onClose }: { photo: Photo; gen
 export function Gallery({ record, generation, showHeading = true }: { record: AssetRecord; generation: string; showHeading?: boolean }) {
   const [preview, setPreview] = useState<Photo | null>(null), [version, setVersion] = useState(0);
   if (!record.photos.length) return <p className="muted small">{t('还没有图片，可在“编辑资料”中添加。')}</p>;
-  return <section className="photo-section" aria-label={t('物品图片')}>{showHeading && <h3>{t('图片')} <small>{record.photos.length}</small></h3>}<div className="photo-strip">{record.photos.map(photo => <button className="photo-tile" key={photo.id} aria-label={'预览 ' + photo.name} onClick={() => setPreview(photo)}><PhotoView photo={photo} generation={generation} version={version}/><span className="photo-name">{record.cover_id === photo.id ? t('封面 · ') : ''}{photo.name}</span></button>)}</div>{preview && <PhotoPreview photo={preview} generation={generation} onClose={() => { setPreview(null); setVersion(v => v + 1); }}/>}</section>;
+  return <section className="photo-section" aria-label={t('物品图片')}>{showHeading && <h3>{t('图片')} <small>{record.photos.length}</small></h3>}<div className="photo-strip">{record.photos.map(photo => <button className="photo-tile" key={photo.id} aria-label={t('预览 ') + photo.name} onClick={() => setPreview(photo)}><PhotoView photo={photo} generation={generation} version={version}/><span className="photo-name">{record.cover_id === photo.id ? t('封面 · ') : ''}{photo.name}</span></button>)}</div>{preview && <PhotoPreview photo={preview} generation={generation} onClose={() => { setPreview(null); setVersion(v => v + 1); }}/>}</section>;
 }

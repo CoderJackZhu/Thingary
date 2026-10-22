@@ -31,7 +31,7 @@ export const steps = flowSteps.map((s) => s.title);
 export const stepIndex = (section: string) =>
   flowSteps.findIndex((s) => s.id === section);
 export const progressText = (index: number) =>
-  `第 ${index + 1} / ${flowSteps.length} 步`;
+  t('第 {v1} / {length} 步', { v1: index + 1, length: flowSteps.length });
 export function editorInput(
   d: Draft,
   saved: ProfileState["saved"],
@@ -83,7 +83,7 @@ export function editorInput(
 
 /** A problem the person can fix: which step it belongs to and which field shows it (`""` = the step as a whole). */
 export type StepIssue = { step: number; field: string; message: string };
-const SHARE_MESSAGE = "账户计入比例请填写 0 到 100 的百分数；留空不会按 0 保存。";
+const SHARE_MESSAGE = t('账户计入比例请填写 0 到 100 的百分数；留空不会按 0 保存。');
 const at = (id: string) => flowSteps.findIndex((s) => s.id === id);
 
 /** The field a simplified-plan path belongs to (`future_incomes.<id>.x` points at the whole income). */

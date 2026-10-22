@@ -1,5 +1,5 @@
 import type { Plan, PlanFields, ScheduleRule } from './recurring';
-
+import { t } from './i18n.ts';
 /** 固定天数周期按自然日计数：闰年与时区不改变天数（设计 §4.2）。 */
 export function shiftDays(day: string, days: number): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day + 'T12:00:00Z'))) return day;
@@ -41,7 +41,7 @@ export function firstSubscriptionPeriod(f: PlanFields): [string, string] | null 
   const end = previousDay(shiftPeriod(billing, f, 1));
   return [billing, f.end_date && f.end_date >= billing && f.end_date < end ? f.end_date : end];
 }
-export function periodLabel(from?: string | null, to?: string | null) { return from && to ? `${from} 至 ${to}` : '覆盖期未记录'; }
+export function periodLabel(from?: string | null, to?: string | null) { return from && to ? t('{from} 至 {to}', { from, to }) : t('覆盖期未记录'); }
 export function scheduleDates(f: PlanFields, from: string, to: string): string[] {
   const a = f.first_due.split('-').map(Number), b = from.split('-').map(Number);
   const step = f.interval_days ?? f.interval_months;

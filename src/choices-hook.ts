@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
+import { t } from './i18n.ts';
 // Choice-list state shared by the desktop settings tab and the iPhone settings page; contains no UI.
 export type Entry={id:string;name:string;enabled:boolean;references:number;scope?:string|null;virtual_references?:number|null};export type Snapshot={revision:number;items:Entry[]};
 export type ChoiceKind='category'|'channel'|'label'|'sale_channel';
@@ -17,7 +18,7 @@ export function useChoices(kind:ChoiceKind,generation:string){
     pending.current=stored;
     const result=await invoke<string|null>('wealth_request_result',{request:stored.request_id,generation:stored.generation});
     localStorage.removeItem(key);pending.current=null;
-    setNotice(result?'已核对：上次操作已保存。':'已核对：上次操作未保存，可以重新操作。');notify();
+    setNotice(result?t('已核对：上次操作已保存。'):t('已核对：上次操作未保存，可以重新操作。'));notify();
    }
    setData(await invoke<Snapshot>('choice_list',{kind}));
   }catch(e){setNotice(errorMessage(e));}
@@ -38,8 +39,8 @@ export function useChoices(kind:ChoiceKind,generation:string){
      const result=await invoke<string|null>('wealth_request_result',{request:input.request_id,generation});
      localStorage.removeItem(key);pending.current=null;
      setData(await invoke<Snapshot>('choice_list',{kind}));
-     if(result){setNotice('已核对：操作已保存。');notify();return true;}
-    }catch{setNotice('暂时无法确认操作结果，原请求已保留，请核对后继续。');}
+     if(result){setNotice(t('已核对：操作已保存。'));notify();return true;}
+    }catch{setNotice(t('暂时无法确认操作结果，原请求已保留，请核对后继续。'));}
    }
    return false;
   }finally{lock.current=false;setBusy(false);}

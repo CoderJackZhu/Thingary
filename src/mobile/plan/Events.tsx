@@ -670,18 +670,18 @@ function OccurrenceEditor({
       payments: x.payments.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }));
   const accountName = (id: string) =>
-    accounts.find((a) => a.id === id)?.fields.name ?? "历史账户";
+    accounts.find((a) => a.id === id)?.fields.name ?? tr('历史账户');
   function save() {
     if (busy || unavailable) return;
     if (pending) {
       if (existing && !canRetractOccurrence(existing))
-        return setError("已有实际事实，请核对更正，不能撤回。");
+        return setError(tr('已有实际事实，请核对更正，不能撤回。'));
       onSave(null);
       return;
     }
     if (!o.actual_date || o.actual_date > today)
-      return setError("实际日期须不晚于今天。");
-    if (o.payments.some((p) => !p.date)) return setError("请填写付款日期。");
+      return setError(tr('实际日期须不晚于今天。'));
+    if (o.payments.some((p) => !p.date)) return setError(tr('请填写付款日期。'));
     setError("");
     onSave(
       o.status === "cancelled"

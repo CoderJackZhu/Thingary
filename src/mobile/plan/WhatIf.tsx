@@ -40,6 +40,7 @@ import {
 import { CoverageSummary } from "./CoverageSummary";
 import "./risk.css";
 import { t, numberLocale } from '../../i18n.ts';
+import { t as tr } from '../../i18n.ts';
 export default function WhatIf() {
   const { capabilities, loading, error, reload, today } = usePlan();
   const nav = useNav();
@@ -134,7 +135,7 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
         .catch((error) => {
           if (!controller.signal.aborted)
             setFailure(
-              error instanceof Error ? error.message : "请重试市场路径。",
+              error instanceof Error ? error.message : tr('请重试市场路径。'),
             );
         })
         .finally(() => {
@@ -148,10 +149,10 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
   }, [plan, count, run]);
   const fan = useMemo(() => (mc ? fanChart(mc) : null), [mc]);
   const marketText = mc
-    ? `${mc.n.toLocaleString(numberLocale())} 条路径中，${Math.round(mc.success_rate * 100)}% 按完整预算覆盖到 ${timeLabel(plan, plan.horizon_months - 1)}${plan.mode === "fire" ? "并实现财务独立" : ""}。`
+    ? tr('{v1} 条路径中，{v2}% 按完整预算覆盖到 {v3}{v4}。', { v1: mc.n.toLocaleString(numberLocale()), v2: Math.round(mc.success_rate * 100), v3: timeLabel(plan, plan.horizon_months - 1), v4: plan.mode === "fire" ? "并实现财务独立" : "" })
     : running
-      ? `正在计算 ${done.toLocaleString(numberLocale())} / ${Number(count).toLocaleString(numberLocale())} 条路径。`
-      : "暂无本次市场路径结果。";
+      ? tr('正在计算 {v1} / {v2} 条路径。', { v1: done.toLocaleString(numberLocale()), v2: Number(count).toLocaleString(numberLocale()) })
+      : tr('暂无本次市场路径结果。');
   return (
     <>
       <p className="mp-risk-intro">
@@ -177,14 +178,14 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
               display: showShortfall
                 ? result.shortfall_delta > 0
                   ? `+${riskMoney(result.shortfall_delta)}`
-                  : "缺口未增加"
+                  : tr('缺口未增加')
                 : result.fi_delay_months === null
-                  ? "没有可比时间"
+                  ? tr('没有可比时间')
                   : result.fi_delay_months > 0
-                    ? `${result.fi_delay_months} 个月`
-                    : "未推迟",
+                    ? tr('{fi_delay_months} 个月', { fi_delay_months: result.fi_delay_months })
+                    : tr('未推迟'),
             }))}
-            summary={`${stressText}${showShortfall ? "图中比较目标缺口增加金额。" : "图中比较准备就绪推迟月数。"}`}
+            summary={`${stressText}${showShortfall ? tr('图中比较目标缺口增加金额。') : tr('图中比较准备就绪推迟月数。')}`}
           />
           <details>
             <summary>{t('查看 {length} 个情景', { length: stress.length })}</summary>
@@ -192,7 +193,7 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
               {stress.map((result) => (
                 <div key={result.id}>
                   <strong>
-                    {t('{label} · 影响{v2}', { label: result.label, v2: { high: "高", medium: "中", low: "低" }[result.severity] })}
+                    {t('{label} · 影响{v2}', { label: result.label, v2: { high: tr('高'), medium: tr('中'), low: tr('低') }[result.severity] })}
                   </strong>
                   <p>{result.description}</p>
                   <p>
@@ -418,7 +419,7 @@ function MatrixGrid({
             const label =
               metric === "date"
                 ? cell.fi_month === null
-                  ? "未达成"
+                  ? tr('未达成')
                   : timeLabel(plan, cell.fi_month)
                 : riskMoney(cell.at_horizon);
             const better =

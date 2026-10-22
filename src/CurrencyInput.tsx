@@ -29,7 +29,7 @@ export function CurrencyInput({ label, value, onChange, places, disabled, signed
   function edit(text: string) {
     setRaw(text);
     try { const normalized = inputValue(text, places, signed); setError(''); onChange(normalized); }
-    catch (e) { setError(e instanceof Error ? e.message : '请检查数字。'); onChange(''); }
+    catch (e) { setError(e instanceof Error ? e.message : t('请检查数字。')); onChange(''); }
   }
   return <span className={`holding-input currency-input${signed && signToggle ? ' currency-signed' : ''}`}><input aria-label={label} aria-invalid={!!error} inputMode={places ? 'decimal' : 'numeric'} enterKeyHint={enterKeyHint} disabled={disabled} value={raw} placeholder={places ? '0.' + '0'.repeat(places) : '0'} onChange={event => edit(event.target.value)} onKeyDown={onEnter ? event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onEnter(); } } : undefined}/>
     {signed && signToggle && <button type="button" className="currency-sign" aria-label={t('{label}：切换正负', { label })} aria-pressed={raw.trim().startsWith('-')} disabled={disabled} onClick={() => edit(flipSign(raw))}>±</button>}

@@ -47,7 +47,7 @@ export function CheckinReminderAsk({ savedComplete, completeCount, wealthOn, tod
       setAnswer({ line: checkinReminderSummary(saved, wealthOn, today), warning });
     } catch (e) {
       // A failed save leaves the ask unanswered so it can be retried.
-      setError('盘点提醒未保存：' + errorMessage(e));
+      setError(t('盘点提醒未保存：') + errorMessage(e));
     } finally { setBusy(false); }
   }
   return <section className="ui-card ui-content checkin-reminder-ask" aria-labelledby="checkin-reminder-ask-heading">

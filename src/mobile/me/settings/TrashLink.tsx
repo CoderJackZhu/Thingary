@@ -29,7 +29,7 @@ export function GroupRestoreSheet({ groupId, name, onClose, onDone }: { groupId:
     if (!p || busy) return;
     setBusy(true);
     const input: LinkRestoreInput = { request_id: crypto.randomUUID(), generation: p.generation, group_id: groupId, preview: p.preview };
-    try { await submit({ command: 'link_restore', input, label: '恢复 ' + p.asset_name }); onDone('已整组恢复这组关联订阅，双方恢复原 ID。'); onClose(true); }
+    try { await submit({ command: 'link_restore', input, label: t('恢复 ') + p.asset_name }); onDone(t('已整组恢复这组关联订阅，双方恢复原 ID。')); onClose(true); }
     catch (e) {
       if (e instanceof Unresolved) setStuck(true);
       else if (reread(e)) void read.load().then(() => read.setError(e instanceof Error ? e.message : ''));
@@ -54,8 +54,8 @@ export function GroupPurgeSheet({ groupId, name, onClose, onDone }: { groupId: s
     if (!p || busy) return;
     setBusy(true);
     try {
-      await submit({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: p.generation, kind: 'link_group', id: groupId, preview: p.preview }, label: '永久清除 ' + p.asset_name });
-      onDone(`已永久清除「${p.asset_name}」的关联订阅组。`); onClose(true);
+      await submit({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: p.generation, kind: 'link_group', id: groupId, preview: p.preview }, label: t('永久清除 ') + p.asset_name });
+      onDone(t('已永久清除「{asset_name}」的关联订阅组。', { asset_name: p.asset_name })); onClose(true);
     } catch (e) {
       if (e instanceof Unresolved) { setStuck(true); read.setError(e.message); }
       else if (reread(e)) void read.load().then(() => read.setError(e instanceof Error ? e.message : ''));
@@ -96,8 +96,8 @@ export function RepairSheet({ side, id, onClose, onDone }: { side: 'virtual' | '
     if (!preview || busy || stuck || preview.blockers.length) return;
     setBusy(true);
     try {
-      await submit({ command: 'link_reconcile', input: { request_id: crypto.randomUUID(), generation: preview.generation, action, asset_id: preview.asset_id, plan_id: preview.plan_id, asset_expected_revision: preview.asset_revision, plan_expected_revision: preview.plan_revision, preview: preview.preview }, label: '核对历史关联 ' + preview.asset_name });
-      onDone(action === 'restore_pair' ? '已恢复关联双方；此前单独删除的付款保持删除。' : '已登记为一组，之后可整组恢复或清除。'); onClose(true);
+      await submit({ command: 'link_reconcile', input: { request_id: crypto.randomUUID(), generation: preview.generation, action, asset_id: preview.asset_id, plan_id: preview.plan_id, asset_expected_revision: preview.asset_revision, plan_expected_revision: preview.plan_revision, preview: preview.preview }, label: t('核对历史关联 ') + preview.asset_name });
+      onDone(action === 'restore_pair' ? t('已恢复关联双方；此前单独删除的付款保持删除。') : t('已登记为一组，之后可整组恢复或清除。')); onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); } finally { setBusy(false); }
   }
   return <ConfirmSheet title={t('核对历史关联记录')} confirm={action === 'restore_pair' ? t('确认恢复关联双方') : t('确认归为删除组')} busyLabel={t('正在处理…')} busy={busy} disabled={stuck || !preview || preview.blockers.length > 0} error={notice} onConfirm={() => void confirm()} onClose={() => onClose(false)}

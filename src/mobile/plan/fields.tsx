@@ -33,7 +33,7 @@ export function MonthField({
   );
 }
 
-const statusWord = { done: "已填", attention: "需要确认", todo: "未填" } as const;
+const statusWord = { done: t('已填'), attention: t('需要确认'), todo: t('未填') } as const;
 
 /**
  * Where the setup flow is: one tappable dot per step on a line, then the current step's name and position.

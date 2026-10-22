@@ -24,7 +24,7 @@ export type GroupTotal = { id: string; name: string; assets_cents: string; liabi
  * A missing account ID is kept in the ungrouped bucket, never silently omitted. */
 export function accountGroupTotals(accounts: Account[], groups: import('./account-groups').AccountGroup[], entries: import('./wealth').Entry[], markUncovered = false): GroupTotal[] {
   const ordered = [...groups].sort((a, b) => a.position - b.position || a.id.localeCompare(b.id));
-  const rows = [...ordered.map(g => ({ id: g.id, name: g.name })), { id: '', name: '未分组' }].map(g => ({ ...g, assets: 0n, liabilities: 0n, partial: false, known: 0, accounts: [] as Account[] }));
+  const rows = [...ordered.map(g => ({ id: g.id, name: g.name })), { id: '', name: t('未分组') }].map(g => ({ ...g, assets: 0n, liabilities: 0n, partial: false, known: 0, accounts: [] as Account[] }));
   const byGroup = new Map(rows.map(r => [r.id, r]));
   const byAccount = new Map(accounts.map(a => [a.id, a]));
   const bucket = (a: Account | undefined) => byGroup.get(a?.fields.group_id ?? '') ?? byGroup.get('')!;
@@ -46,7 +46,7 @@ export function accountBalanceView(account: Account, date?: string | null, entri
   if (entry) {
     if (entry.amount_cents === null || entry.state === 'missing') return { fact: { ...entry, amount_cents: null }, date: date!, state: 'unknown' as const, label: t('这次金额待填写') };
     return { fact: entry, date: date!, state: entry.state === 'unchanged' ? 'carried' as const : 'entered' as const,
-      label: entry.state === 'unchanged' ? t('沿用旧金额 · {v1}', { v1: account.last_entered_on ? `最近填写 ${account.last_entered_on}` : '原填写日期待核对' }) : t('这次填写') };
+      label: entry.state === 'unchanged' ? t('沿用旧金额 · {v1}', { v1: account.last_entered_on ? t('最近填写 {last_entered_on}', { last_entered_on: account.last_entered_on }) : t('原填写日期待核对') }) : t('这次填写') };
   }
   return { fact: account.latest, date: account.latest?.date, state: account.latest ? 'other' as const : 'unknown' as const,
     label: account.latest ? date && entries ? t('其他日期记录 · 未列入这次小计') : t('最近已知记录') : ['property', 'vehicle'].includes(account.fields.kind) ? t('尚未估值') : t('尚未填写金额') };

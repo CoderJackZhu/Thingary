@@ -34,9 +34,9 @@ function Form({ generation, item, record }: { generation: string; item: VirtualA
   function save() {
     const check = validateTopup(f, credit);
     if (!check.ok) { setProblem(check.message); return; }
-    void saver.run(requestId => submit({ command: 'virtual_topup_save', input: topupSave(f, credit, item, record, generation, requestId), label: '充值 ' + item.fields.name }), { close: true });
+    void saver.run(requestId => submit({ command: 'virtual_topup_save', input: topupSave(f, credit, item, record, generation, requestId), label: tr('充值 ') + item.fields.name }), { close: true });
   }
-  const remove = () => record && void saver.run(requestId => trash('topup', record.id, record.revision, generation, '充值', requestId), { close: true });
+  const remove = () => record && void saver.run(requestId => trash('topup', record.id, record.revision, generation, tr('充值'), requestId), { close: true });
   return <EditorFrame title={record ? tr('更正充值') : tr('记录充值')} onSave={save} busy={saver.busy} error={problem || (asking ? '' : saver.error)}>
     <p className="sp-note sp-note-pad">{tr('{name}。实付计入重要支出；赠送额度不算花费。', { name: item.fields.name })}</p>
     <FormGroup footer={tr('实付未知就留空，不会记成 0；到账额度默认为实付加赠送。')}>

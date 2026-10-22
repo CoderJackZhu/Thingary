@@ -94,34 +94,34 @@ export const REVIEW_REASONS = [
 ] as const;
 
 export const reasonLabel: Record<string, string> = {
-  movements_disabled: '资金流动记录已关闭，明细核对暂不可用；已保存的核对方式保留',
-  missing_flow: '未记录这一期间的投入与转出',
-  incomplete_flow: '还需确认资金流动金额或是否记全',
-  stale_movements: '相关资金流动已被更正，原确认失效，请重新核对',
-  source_mismatch: '关联来源的日期或金额与流动不一致，请复核',
-  source_deleted: '关联来源已被删除，关联失效，请复核',
-  stale_endpoints: '起止盘点被更正，原有确认失效，需要重新核对',
-  scope_changed: '两次盘点的投资范围（账户、类型或计入状态）不一致',
-  missing_balance: '投资范围内有账户缺少有效余额',
-  overlapping_flow: '与同一投资范围内其他活动汇总的区间重叠',
-  unsupported_movement: '存在证券实物转入转出、杠杆借款或未解释的余额调整',
-  empty_scope: '本期没有计入的投资账户；空范围不等于零收益',
+  movements_disabled: t('资金流动记录已关闭，明细核对暂不可用；已保存的核对方式保留'),
+  missing_flow: t('未记录这一期间的投入与转出'),
+  incomplete_flow: t('还需确认资金流动金额或是否记全'),
+  stale_movements: t('相关资金流动已被更正，原确认失效，请重新核对'),
+  source_mismatch: t('关联来源的日期或金额与流动不一致，请复核'),
+  source_deleted: t('关联来源已被删除，关联失效，请复核'),
+  stale_endpoints: t('起止盘点被更正，原有确认失效，需要重新核对'),
+  scope_changed: t('两次盘点的投资范围（账户、类型或计入状态）不一致'),
+  missing_balance: t('投资范围内有账户缺少有效余额'),
+  overlapping_flow: t('与同一投资范围内其他活动汇总的区间重叠'),
+  unsupported_movement: t('存在证券实物转入转出、杠杆借款或未解释的余额调整'),
+  empty_scope: t('本期没有计入的投资账户；空范围不等于零收益'),
 };
 
 export const statusLabel: Record<InvestmentReviewResultV1['status'], string> = {
-  ready: '区间投资损益',
-  not_recorded: '未记录',
-  needs_review: '待复核',
-  not_comparable: '不可比较',
-  invalid: '输入无效',
-  unavailable: '暂不可用',
+  ready: t('区间投资损益'),
+  not_recorded: t('未记录'),
+  needs_review: t('待复核'),
+  not_comparable: t('不可比较'),
+  invalid: t('输入无效'),
+  unavailable: t('暂不可用'),
 };
 
 export const kindLabel: Record<AccountKind, string> = {
-  investment: '投资账户',
-  mixed: '混合账户',
-  fund: '基金账户',
-  bond: '债券账户',
+  investment: t('投资账户'),
+  mixed: t('混合账户'),
+  fund: t('基金账户'),
+  bond: t('债券账户'),
 };
 
 /** 区间写作 (期初, 期末]：含期末、不含期初，与流动合计的口径一致。 */

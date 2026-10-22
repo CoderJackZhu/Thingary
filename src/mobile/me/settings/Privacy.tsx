@@ -5,7 +5,7 @@ import { authName, probePrivacy, privacySnapshot, setCover, setLock, subscribePr
 import { errorMessage } from '../../../asset';
 import { SettingsShell } from './Shell';
 import { t } from '../../../i18n.ts';
-const idleLabels: Record<number, string> = { 0: '从不', 5: '5 分钟', 15: '15 分钟', 60: '1 小时' };
+const idleLabels: Record<number, string> = { 0: t('从不'), 5: t('5 分钟'), 15: t('15 分钟'), 60: t('1 小时') };
 
 /** 隐私: 切到后台时遮住内容, 面容 ID 锁和闲置后重新验证. Same preferences and state machine as the desktop 屏幕隐私. */
 export default function PrivacyPage() {
@@ -14,13 +14,13 @@ export default function PrivacyPage() {
   useEffect(() => { if (privacy.available === null) void probePrivacy(); }, []);
   async function changeLock(next: { enabled: boolean; idleMinutes: number }) {
     setError('');
-    try { if (!(await setLock(next))) setError(next.enabled ? `需要先通过${name}验证才能开启；也可能无法保存设置，请重试。` : '无法保存隐私设置，请重试。'); }
+    try { if (!(await setLock(next))) setError(next.enabled ? t('需要先通过{name}验证才能开启；也可能无法保存设置，请重试。', { name }) : t('无法保存隐私设置，请重试。')); }
     catch (cause) { setError(errorMessage(cause)); }
   }
   const unsupported = privacy.available === false;
   return <SettingsShell title={t('隐私')} lead={t('防止旁人看到屏幕。这只是屏幕保护，不会加密资料库文件。')}>
     <ListGroup footer={t('切换应用或回到桌面时，任务切换器里只会看到遮罩。')}>
-      <ListRow title={t('切到后台时遮住内容')} subtitle={t('系统截屏的任务预览里看不到资料')} trailing={<Switch label={t('切到后台时遮住内容')} checked={privacy.cover} onChange={on => setError(setCover(on) ? '' : '无法保存隐私设置，请重试。')}/>}/>
+      <ListRow title={t('切到后台时遮住内容')} subtitle={t('系统截屏的任务预览里看不到资料')} trailing={<Switch label={t('切到后台时遮住内容')} checked={privacy.cover} onChange={on => setError(setCover(on) ? '' : t('无法保存隐私设置，请重试。'))}/>}/>
     </ListGroup>
     <ListGroup title={name} footer={unsupported ? t('这台设备没有设置{name}或设备密码，无法启用。', { name }) : privacy.available === null ? t('暂未确认这台设备是否支持验证身份。') : t('每次打开物谱需要{name}验证。', { name })}>
       <ListRow title={t('启用{name}', { name })} subtitle={t('打开物谱时先验证身份')} trailing={<Switch label={t('启用{name}', { name })} checked={privacy.lock.enabled} disabled={privacy.available !== true || privacy.checking} onChange={on => void changeLock({ ...privacy.lock, enabled: on })}/>}/>

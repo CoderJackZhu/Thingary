@@ -9,7 +9,7 @@ type Props = {
   intent?: YearIntent; min?: number; max?: number; recorded?: readonly number[]; disabled?: boolean;
 };
 /** Short native menu, with a bounded-size grid for every other valid year. */
-export function YearSelect({ label = '年份', value, todayYear, onChange, intent = 'near', min = 1, max = 9999, recorded, disabled = false }: Props) {
+export function YearSelect({ label = t('年份'), value, todayYear, onChange, intent = 'near', min = 1, max = 9999, recorded, disabled = false }: Props) {
   const help = useFormHint();
   const initial = () => Math.max(min, Math.min(max, value ?? todayYear));
   const [open, setOpen] = useState(false), [cursor, setCursor] = useState(initial);

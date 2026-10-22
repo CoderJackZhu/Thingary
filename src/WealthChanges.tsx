@@ -12,8 +12,8 @@ import type { Account, AccountHistory, Compare, CompareRow, Point, Summary } fro
 import { t as tt } from './i18n.ts';
 export type WealthCompareRange = { from: string; to: string };
 type HistoryState = { status: 'loading' } | { status: 'ok'; data: AccountHistory } | { status: 'error'; message: string };
-const NOTE = '变化含存取、转账、消费与估值，不等于投资收益；按盘点当时的类型和计入设置计算';
-const stateLabel = (state: string) => state === 'entered' ? '录入' : state === 'unchanged' ? '未变' : state === 'missing' ? '未知' : state;
+const NOTE = tt('变化含存取、转账、消费与估值，不等于投资收益；按盘点当时的类型和计入设置计算');
+const stateLabel = (state: string) => state === 'entered' ? tt('录入') : state === 'unchanged' ? tt('未变') : state === 'missing' ? tt('未知') : state;
 
 export function WealthChanges({ summary, accounts, accountView, initial, today, onNewAccount, onCheckIn, controlledRange, onRangeChange, hideControls = false, initialSort = 'impact', initialExpanded = [], onBrowseStateChange }: {
   summary: Summary; accounts: Account[]; accountView: AccountView; initial?: WealthCompareRange | null; controlledRange?: WealthCompareRange | null; onRangeChange?: (range: WealthCompareRange) => void; hideControls?: boolean; initialSort?: 'impact' | 'kind'; initialExpanded?: string[]; onBrowseStateChange?: (state: {sort: 'impact' | 'kind'; expandedIds: string[]}) => void; today: string; onNewAccount: () => void; onCheckIn: (date: string) => void;
@@ -37,10 +37,10 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
   useEffect(() => {
     if (!range) return;
     setLoaded(null);
-    if (!validRange) { setError('所选盘点已删除或失效，请重新选择区间。'); return; }
+    if (!validRange) { setError(tt('所选盘点已删除或失效，请重新选择区间。')); return; }
     let live = true; setError('');
     invoke<Compare>('wealth_compare', { from: range.from, to: range.to })
-      .then(c => { if (c.generation !== summary.generation) throw Error('资料库已变化，请重新读取。'); if (live) setLoaded({ generation: summary.generation, points, range, data: c }); })
+      .then(c => { if (c.generation !== summary.generation) throw Error(tt('资料库已变化，请重新读取。')); if (live) setLoaded({ generation: summary.generation, points, range, data: c }); })
       .catch(e => {
         if (!live) return;
         setError(errorMessage(e));
@@ -91,15 +91,15 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
     <select aria-label={label} value={value} onChange={e => onChange(e.target.value)}>{points.map(p => <option key={p.snapshot_id} value={p.snapshot_id}>{p.date}{!p.complete && tt('（不完整）')}</option>)}</select>;
   const counted = sortRows(compare ? compare.rows.filter(r => r.group !== 'uncounted' && changeVisible(r, accounts, accountView)) : [], sort);
   const uncounted = compare ? sortRows(compare.rows.filter(r => r.group === 'uncounted' && changeVisible(r, accounts, accountView)), sort) : [];
-  const reason = compare ? [compare.from.missing ? `起点盘点缺 ${compare.from.missing} 个账户` : '', compare.to.missing ? `终点盘点缺 ${compare.to.missing} 个账户` : '', compare.rows.some(r => r.group === 'scope_changed') ? '有账户改变了计入设置' : ''].filter(Boolean).join('；') : '';
+  const reason = compare ? [compare.from.missing ? tt('起点盘点缺 {missing} 个账户', { missing: compare.from.missing }) : '', compare.to.missing ? tt('终点盘点缺 {missing} 个账户', { missing: compare.to.missing }) : '', compare.rows.some(r => r.group === 'scope_changed') ? tt('有账户改变了计入设置') : ''].filter(Boolean).join('；') : '';
   return <>
     {!hideControls && <article className="ui-card ui-content changes-controls">
-      <label>{tt('从')} {dateSelect('起点盘点', range.from, setFrom)}</label>
-      <label>{tt('到')} {dateSelect('终点盘点', range.to, setTo)}</label>
+      <label>{tt('从')} {dateSelect(tt('起点盘点'), range.from, setFrom)}</label>
+      <label>{tt('到')} {dateSelect(tt('终点盘点'), range.to, setTo)}</label>
       <button onClick={() => { const fresh = defaultRange(points); if (fresh) setRange(fresh); }}>{tt('与上次')}</button>
       <Info text={NOTE}/>
       {compare && <div className="compare-endpoint-notes">
-        {([['起点', compare.from], ['终点', compare.to]] as const).map(([label, end]) => <details key={label} className="endpoint-note"><summary>{tt('{label} {date} 的备注', { label, date: end.date })}{noteSummary(end.notes) ? '' : tt('（未填写）')}</summary><p className="notes" style={{whiteSpace:'pre-wrap'}}>{end.notes.trim() || tt('未填写备注')}</p></details>)}
+        {([[tt('起点'), compare.from], [tt('终点'), compare.to]] as const).map(([label, end]) => <details key={label} className="endpoint-note"><summary>{tt('{label} {date} 的备注', { label, date: end.date })}{noteSummary(end.notes) ? '' : tt('（未填写）')}</summary><p className="notes" style={{whiteSpace:'pre-wrap'}}>{end.notes.trim() || tt('未填写备注')}</p></details>)}
       </div>}
     </article>}
     {hideControls && compare && <p className="muted small">{tt('{NOTE}。{reason} · 起点备注：', { NOTE, reason })}{compare.from.notes || tt('未填写')} {tt('· 终点备注：')}{compare.to.notes || tt('未填写')}</p>}
@@ -157,7 +157,7 @@ function HistoryTable({ accounts, expanded, toggle, history, retry }: {
       <tr>
         <td><strong>{a.fields.name}</strong>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}{a.fields.closed_on && <small className="muted"> {tt('· 已停用')}</small>}</td>
         <td>{a.latest ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??tt('份')):null} code={a.fields.currency} fact={a.latest} date={a.latest.date}/> : <span className="muted">{tt('尚未盘点')}</span>}</td>
-        <td><button className="row-expand" aria-expanded={expanded.has(a.id)} aria-label={tt('{v1}「{name}」的盘点历史', { v1: expanded.has(a.id) ? '收起' : '展开', name: a.fields.name })} onClick={() => toggle(a.id)}>{expanded.has(a.id) ? '▾' : '▸'}</button></td>
+        <td><button className="row-expand" aria-expanded={expanded.has(a.id)} aria-label={tt('{v1}「{name}」的盘点历史', { v1: expanded.has(a.id) ? tt('收起') : tt('展开'), name: a.fields.name })} onClick={() => toggle(a.id)}>{expanded.has(a.id) ? '▾' : '▸'}</button></td>
       </tr>
       {expanded.has(a.id) && <tr className="history-row"><td colSpan={3}><HistoryBlock id={a.id} name={a.fields.name} side={a.fields.side} history={history.get(a.id)} onRetry={retry}/></td></tr>}
     </Fragment>)}</tbody></table>;
@@ -179,7 +179,7 @@ function ChangesRow({ r, open, onToggle, history, onRetry }: {
       <td>{r.change_cents === null ? <span className="muted">{tt('未知')}</span> : r.side === 'liability' ? tt('欠款 {v1}', { v1: changeText(r.change_cents) }) : changeText(r.change_cents)}</td>
       <td>{r.group === 'uncounted' ? <span className="muted">{tt('不计入')}</span> : r.effect_cents === null ? <span className="muted">{tt('未知')}</span> : changeText(r.effect_cents)}</td>
       <td className="col-rate">{r.rate_hundredths === null ? '—' : rateText(r.rate_hundredths)}</td>
-      <td><button className="row-expand" aria-expanded={open} aria-label={tt('{v1}「{name}」的盘点历史', { v1: open ? '收起' : '展开', name: r.name })} onClick={() => onToggle(r.account_id)}>{open ? '▾' : '▸'}</button></td>
+      <td><button className="row-expand" aria-expanded={open} aria-label={tt('{v1}「{name}」的盘点历史', { v1: open ? tt('收起') : tt('展开'), name: r.name })} onClick={() => onToggle(r.account_id)}>{open ? '▾' : '▸'}</button></td>
     </tr>
     {open && <tr className="history-row"><td colSpan={8}><HistoryBlock id={r.account_id} name={r.name} side={r.side} history={history} onRetry={onRetry}/></td></tr>}
   </>;

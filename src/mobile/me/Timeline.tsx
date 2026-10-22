@@ -46,7 +46,7 @@ export default function Timeline(_props: PageProps) {
     const props = {
       icon: <MeIcon name={event.kind.startsWith('wish_') ? 'heart' : event.kind.startsWith('warranty_') ? 'shield' : event.kind === 'snapshot' ? 'doc' : event.kind === 'purchase' ? 'box' : event.kind === 'payment' ? 'refresh' : event.kind === 'expense' || event.kind === 'refund' ? 'wallet' : event.kind === 'virtual' ? 'database' : 'clock'}/>,
       tone: tones[event.kind] ?? 'neutral', title: snapshot ? eventLabel(event) : `${eventLabel(event)} ${event.title}`,
-      subtitle: [event.date ? dayLabel(event.date, today) : '日期未知', detail].filter(Boolean).join(' · '),
+      subtitle: [event.date ? dayLabel(event.date, today) : t('日期未知'), detail].filter(Boolean).join(' · '),
       value: !snapshot && event.amount_cents !== null ? moneyText(event.amount_cents) : undefined,
     };
     return target ? <ListRow key={event.id} {...props} onClick={() => openRoute(nav, target.route, target.params)}/> : <ListRow key={event.id} {...props}/>;

@@ -22,7 +22,7 @@ export default function ItemFilter() {
   return <div className="mi-filter">
     <FormGroup title={tr('筛选')}>
       <SelectField label={tr('分类')} value={categoryId} onChange={id=>setDraft({...draft,category:id==='all'?{mode:'all'}:id==='none'?{mode:'uncategorized'}:{mode:'category',id}})} options={[{id:'all',label:tr('全部')},...categories.map(c=>({id:c.id,label:c.name})),{id:'none',label:tr('未分类')}]}/>
-      <SelectField label={tr('保障')} value={draft.warranty??'all'} onChange={warranty=>setDraft({...draft,warranty})} options={[['all','全部'],['covered','有有效保障'],['expiring','即将到期'],['lapsed','有记录，当前无有效保障'],['none','无保障记录']].map(([id,label])=>({id,label}))}/>
+      <SelectField label={tr('保障')} value={draft.warranty??'all'} onChange={warranty=>setDraft({...draft,warranty})} options={[['all',tr('全部')],['covered',tr('有有效保障')],['expiring',tr('即将到期')],['lapsed',tr('有记录，当前无有效保障')],['none',tr('无保障记录')]].map(([id,label])=>({id,label}))}/>
       <SelectField label={tr('缺失资料')} value={['missing_price','missing_date'].includes(draft.filter)?draft.filter:'all'} onChange={filter=>setDraft({...draft,filter:filter==='all' ? (['missing_price','missing_date'].includes(query.filter)?'all':query.filter) : filter})} options={[{id:'all',label:tr('不限')},{id:'missing_price',label:tr('金额未知')},{id:'missing_date',label:tr('日期未知')}]}/>
       <SelectField label={tr('标签')} value={draft.label??''} onChange={label=>setDraft({...draft,label:label||null})} options={[{id:'',label:tr('全部')},{id:'none',label:tr('无标签')},...labelFilterOptions(tags).map(t=>({id:t.id,label:t.text}))]}/>
     </FormGroup>

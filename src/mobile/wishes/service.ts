@@ -113,7 +113,7 @@ export async function submitOp(op: Op): Promise<Outcome> {
       const value = await check(op);
       clearOp(op);
       return value ? { status: 'saved', value } : { status: 'failed', message: errorMessage(cause) };
-    } catch { return { status: 'unknown', message: errorMessage(cause) + ' 暂时无法确认是否已保存，原请求已保留，请核对后再继续。' }; }
+    } catch { return { status: 'unknown', message: errorMessage(cause) + t(' 暂时无法确认是否已保存，原请求已保留，请核对后再继续。') }; }
   }
 }
 
@@ -125,7 +125,7 @@ export async function resolveOp(op: Op, generation: string | null): Promise<Sett
     const value = await check(op);
     clearOp(op);
     return value ? { status: 'saved', value } : { status: 'unsaved' };
-  } catch (cause) { return { status: 'unknown', message: errorMessage(cause) + ' 原请求仍保留，请稍后再核对。' }; }
+  } catch (cause) { return { status: 'unknown', message: errorMessage(cause) + t(' 原请求仍保留，请稍后再核对。') }; }
 }
 /** 升级前的旧攒钱回执：只核对、不重放，结果按历史数据显示。 */
 export async function resolveSaving(wishId: string, generation: string): Promise<'saved' | 'unsaved'> {

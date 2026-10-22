@@ -98,7 +98,7 @@ export function PlanFieldsForm({ fields: f, onChange, disabled, today, editing =
     <FormRow label={t('付款周期')} hint={t('自然月／季／半年／年；固定天数在高级订阅设置中')}>{mode === 'days'
       ? <p className="muted small" style={{ margin: 0 }}>{intervalDaysText(f.interval_days ?? 30)} · <button type="button" className="ui-link" disabled={disabled} onClick={() => { const details = document.getElementById('plan-advanced-details') as HTMLDetailsElement | null; if (details) details.open = true; }}>{t('调整')}</button></p>
       : <Segments label={t('付款周期')} value={mode} disabled={disabled} options={intervals.map(([k, l]) => ({ value: String(k), label: l }))} onChange={setMode}/>}</FormRow>
-    <FormRow label={`${f.interval_days ? intervalDaysText(f.interval_days) : intervalText(f.interval_months)}${(f.interval_days ? 1 : f.interval_months) === 1 ? '金额' : '总额'}`} hint={t('填一次付款的总金额；不自动记为已付')}><CentInput label={t('每期金额')} value={f.amount_cents} disabled={disabled} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>
+    <FormRow label={`${f.interval_days ? intervalDaysText(f.interval_days) : intervalText(f.interval_months)}${(f.interval_days ? 1 : f.interval_months) === 1 ? t('金额') : t('总额')}`} hint={t('填一次付款的总金额；不自动记为已付')}><CentInput label={t('每期金额')} value={f.amount_cents} disabled={disabled} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>
     {modern && <FormRow label={f.category === 'rent' ? t('租住开始日期') : t('开始使用日期')} hint={t('可填历史日期；未手改的付款锚点随之联动')}><DateInput id="plan-service-start" label={f.category === 'rent' ? t('租住开始日期') : t('开始使用日期')} value={f.service_start!} disabled={disabled} onChange={v => updateSchedule({ ...f, service_start: v })}/></FormRow>}
     <FormRow label={t('自动续费')} hint={fixed ? t('按周期续费至最后使用日期') : t('开启则按周期持续续费；关闭需确认最后使用日期')}><div className="form-inline"><Switch label={t('自动续费')} value={f.auto_renew !== false} disabled={disabled} onChange={on => {
       if (!on && f.end_date === null) finalDayLinked.current = true;
@@ -108,10 +108,10 @@ export function PlanFieldsForm({ fields: f, onChange, disabled, today, editing =
     }}/>{!fixed && <button type="button" className="ui-link" disabled={disabled} onClick={setSuggestedEnd}>{t('设定最后使用日期…')}</button>}</div></FormRow>
     {fixed && <FormRow label={t('最后使用日期')} hint={t('含当天；之后不再续费，按日期自动结束')}><DateInput id="plan-end" label={t('最后使用日期')} value={f.end_date ?? ''} disabled={disabled} min={f.service_start ?? f.first_due} allowClear={f.auto_renew !== false} onChange={v => set('end_date', v || null)}/>{endError && <small className="error" role="alert">{t('结束日期不能早于开始使用日期')}</small>}</FormRow>}
     {(firstPeriod || draftNextDue || ended) && <p className="muted small" aria-live="polite">{[
-      f.trial_days && f.service_start ? `试用至 ${shiftDays(f.service_start, f.trial_days - 1)}，计费开始 ${shiftDays(f.service_start, f.trial_days)}` : null,
-      firstPeriod ? `首期 ${periodLabel(...firstPeriod)}` : null,
-      ended ? '已结束，无后续付款' : draftNextDue ? `下次付款 ${draftNextDue}（按草稿推算）` : null,
-      fixed ? `使用至 ${f.end_date}` : '持续续费',
+      f.trial_days && f.service_start ? t('试用至 {v1}，计费开始 {v2}', { v1: shiftDays(f.service_start, f.trial_days - 1), v2: shiftDays(f.service_start, f.trial_days) }) : null,
+      firstPeriod ? t('首期 {v1}', { v1: periodLabel(...firstPeriod) }) : null,
+      ended ? t('已结束，无后续付款') : draftNextDue ? t('下次付款 {draftNextDue}（按草稿推算）', { draftNextDue }) : null,
+      fixed ? t('使用至 {end_date}', { end_date: f.end_date }) : t('持续续费'),
     ].filter(Boolean).join('；')}。</p>}
     <details className="plan-advanced" id="plan-advanced-details"><summary>{t('高级订阅设置')}</summary>
       {isSubscription && modern && <><FormRow label={t('免费试用')} hint={t('默认关闭；打开后默认 7 天，从开始日计入第一天')}><Switch label={t('免费试用')} value={!!f.trial_days} disabled={disabled} onChange={setTrial}/></FormRow>

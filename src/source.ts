@@ -1,5 +1,6 @@
 import type { Section } from './library-mode';
 import { errorMessage } from './asset.ts';
+import { t } from './i18n.ts';
 export type SourceTarget = { kind: 'asset' | 'wish' | 'snapshot' | 'expense' | 'virtual' | 'plan' | 'account' | 'income' | 'movement'; id: string } | { kind: 'payment'; id: string; plan_id: string } | { kind: 'topup'; id: string; asset_id: string };
 export type SourceFocus = { target: SourceTarget; generation: string; token: number };
 export type SourceProps = { source?: SourceFocus | null; onSourceDone?: (message?: string) => void };
@@ -10,7 +11,7 @@ export const defaultTimeline: TimelineSelection = { filter: 'all', domain: 'all'
 export const sourcePage = (target: SourceTarget): Section => ({ asset: 'assets', wish: 'wishlist', snapshot: 'wealth', expense: 'finance-records', payment: 'recurring', plan: 'recurring', virtual: 'virtual', topup: 'virtual', account: 'wealth', income: 'finance-records', movement: 'finance-records' } as const)[target.kind];
 export type ReturnContext = { section: Section; generation: string; scroll: number; reviewYear: number | null; timeline: TimelineSelection; finance?: import('./finance-navigation').FinanceReturnContext };
 export const validReturn = (context: ReturnContext | null, generation: string) => context?.generation === generation ? context : null;
-export const missingSource = '这条来源记录已删除或失效，请返回后重新读取。';
+export const missingSource = t('这条来源记录已删除或失效，请返回后重新读取。');
 
 export type SourceOutcome = { state: 'applied' } | { state: 'late' } | { state: 'failed'; message: string };
 /**

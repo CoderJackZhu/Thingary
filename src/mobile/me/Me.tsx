@@ -52,7 +52,7 @@ export default function Me(_props: PageProps) {
   const last = readLastBackup(browserStorage());
   const reminder = backupReminder(last, new Date(), (extra.counts?.all ?? 0) > 0 || (accounts ?? 0) > 0);
   const interval = extra.checkin ? checkinIntervals.find(item => item.value === String(extra.checkin!.months))?.label : undefined;
-  const lockText = privacy.lock.enabled ? '已开启' : '未开启';
+  const lockText = privacy.lock.enabled ? t('已开启') : t('未开启');
   return <div className="m-page">
     <LargeTitle title={t('我的')}/>
     <Card label={t('资料概况')} className="me-summary">

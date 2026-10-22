@@ -32,10 +32,10 @@ export function IncomeDialog({ income, generation, today, hpfDefault, hpfDefault
   async function save() {
     if (saving.current || frozen) return;
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
-    if (!f.date) return stop('到账日期', '请填写到账日期。');
+    if (!f.date) return stop(t('到账日期'), t('请填写到账日期。'));
     if (incomeClassificationIssue(f)) { setNotice(incomeClassificationIssue(f)!); return; }
-    if (changedToInvestment && !depositConfirmed) { setNotice('请确认保留这笔收入已有的公积金缴存事实，或更正该金额。'); return; }
-    if (f.net_cents === '') return stop('税后到账', '请填写税后到账金额；没有到账就填 0。');
+    if (changedToInvestment && !depositConfirmed) { setNotice(t('请确认保留这笔收入已有的公积金缴存事实，或更正该金额。')); return; }
+    if (f.net_cents === '') return stop(t('税后到账'), t('请填写税后到账金额；没有到账就填 0。'));
     const input: IncomeSave = { request_id: crypto.randomUUID(), generation, id: income?.id ?? null, expected_revision: income?.revision ?? null, fields: f };
     saving.current = true; setBusy(true); setNotice('');
     try { const saved = await submit<Income>({ command: 'plan_income_save', input, label: t('收入 {date}', { date: f.date }) }); if (alive.current) { onSavedIncome?.(saved); onClose(true); } }
@@ -49,7 +49,7 @@ export function IncomeDialog({ income, generation, today, hpfDefault, hpfDefault
       <FormRow label={t('到账日期')} hint={t('同一天可以有多行，例如工资与奖金分开发放')}><DateInput yearIntent="past" id="income-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>
       <FormRow label={t('来源分类')} hint={t('旧记录保留未分类，不自动判断为工资')}><select aria-label={t('来源分类')} value={f.category ?? 'unclassified'} disabled={frozen} onChange={e => {
         const category = e.target.value as NonNullable<IncomeFields['category']>;
-        if (!accountsEnabled && f.destination && !isInvestmentIncome({ category })) { setNotice('账户模块已关闭；此分类变更会移除已有账户去向，请先启用账户模块后更正。'); return; }
+        if (!accountsEnabled && f.destination && !isInvestmentIncome({ category })) { setNotice(t('账户模块已关闭；此分类变更会移除已有账户去向，请先启用账户模块后更正。')); return; }
         const next = classifyIncome(f, category);
         if (!accountsEnabled) { next.source_account_id = f.source_account_id; next.receiving_account_id = f.receiving_account_id; next.destination = f.destination; }
         // A suggested deposit is not a user-entered fact; investment income does not inherit it.

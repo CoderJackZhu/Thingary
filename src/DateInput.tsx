@@ -104,7 +104,7 @@ function CalendarInput({ id, label: suppliedLabel, value, onChange, disabled = f
       <button type="button" aria-label={precision === 'day' ? t('下个月') : t('下一年')} disabled={year === 9999 && (precision === 'month' || month === 11) || !!max && next > max} onClick={() => changeMonth(precision === 'day' ? year : year + 1, precision === 'day' ? month + 1 : month)}><Chevron direction="right"/></button>
     </div>
     <div className="date-calendar-grid" role="group" aria-label={precision === 'day' ? t('{year} 年 {v2} 月', { year, v2: month + 1 }) : t('{year} 年', { year })} onKeyDown={gridKeys}>
-      {precision === 'day' && <>{['一','二','三','四','五','六','日'].map(day => <span className="weekday" key={day}>{day}</span>)}{Array.from({length: blanks}, (_, i) => <span aria-hidden="true" key={'blank'+i}/>)}</>}
+      {precision === 'day' && <>{[t('一'),t('二'),t('三'),t('四'),t('五'),t('六'),t('日')].map(day => <span className="weekday" key={day}>{day}</span>)}{Array.from({length: blanks}, (_, i) => <span aria-hidden="true" key={'blank'+i}/>)}</>}
       {Array.from({length: count}, (_, i) => {
         const v = calendarValue(calendarDate(year, precision === 'day' ? month : i, precision === 'day' ? i + 1 : 1), precision);
         return <button type="button" key={v} data-value={v} aria-label={v} aria-pressed={value === v} aria-current={v === today ? 'date' : undefined} tabIndex={cursor === v ? 0 : -1} disabled={!inRange(v)} onFocus={() => setCursor(v)} onClick={() => choose(v)}>{precision === 'day' ? i + 1 : t('{v1} 月', { v1: i + 1 })}</button>;

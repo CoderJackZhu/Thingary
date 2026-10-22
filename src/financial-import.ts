@@ -1,5 +1,6 @@
 import type { Account, Pending } from './wealth.ts';
 import { t as tr, numberLocale } from './i18n.ts';
+import { t as tt } from './i18n.ts';
 export type FileKind = 'accounts' | 'snapshots' | 'incomes';
 export type ImportFile = { kind:FileKind; name:string; csv_text:string; column_mapping:Record<string,string>; row_numbers?:number[] };
 export type ImportAction = { action:'keep'|'correct'|'exclude'; expected_revision:number|null };
@@ -11,9 +12,9 @@ export type ImportReceipt = { unavailable_objects?:number;request_id:string;batc
 export type ImportPreview = { generation:string;context_digest:string;normalized_digest:string;file_fingerprints:Record<string,string>;objects:ImportObject[];total:number;page:number;issues:ImportIssue[];counts:ImportCounts;can_commit:boolean;new_groups?:string[];accounts:Account[];external_keys:Record<string,string>;referenced_keys:string[];account_names:Record<string,string>;origin_before:string|null;prior_receipt:ImportReceipt|null };
 export type ImportCommit = { request_id:string;batch:ImportBatch;context_digest:string;normalized_digest:string;file_fingerprints:Record<string,string> };
 export const columns:Record<FileKind,string[]> = {
- accounts:['account_key','name','kind','enabled_from','disabled_from','counted','platform','note','购入价','购入日期','分组','币种','按持仓记录','持仓单位'],
+ accounts:['account_key','name','kind','enabled_from','disabled_from','counted','platform','note',tt('购入价'),tt('购入日期'),tt('分组'),tt('币种'),tt('按持仓记录'),tt('持仓单位')],
  incomes:['income_key','date','net_income','hpf_deposit','note','category','source_account_key','destination','receiving_account_key','legacy_estimate_unavailable'],
- snapshots:['snapshot_key','date','account_key','amount','note','kind_at_date','counted_at_date','币种','原币金额','汇率','份额','单价'],
+ snapshots:['snapshot_key','date','account_key','amount','note','kind_at_date','counted_at_date',tt('币种'),tt('原币金额'),tt('汇率'),tt('份额'),tt('单价')],
 };
 /** Read only the first logical record for the mapping UI; all data validation remains Rust-owned. */
 export function csvHeaders(text:string):string[] {
@@ -38,7 +39,7 @@ export function selectAction(actions:Record<string,ImportAction>,object:Pick<Imp
 export const previewPageCount=(total:number)=>Math.max(1,Math.ceil(total/50));
 /** Integer formatting avoids binary floating point even at the maximum supported cents. */
 export function importMoney(cents:string|null):string {
- if(cents===null)return '金额未知';
+ if(cents===null)return tt('金额未知');
  const value=BigInt(cents),abs=value<0n?-value:value;
  return `${value<0n?'−':''}¥${(abs/100n).toLocaleString(numberLocale())}.${(abs%100n).toString().padStart(2,'0')}`;
 }
@@ -58,7 +59,7 @@ export function receiptPage<T>(objects:T[],page:number):T[] {return objects.slic
 export function sourceRowsLabel(rows:number[]):string {
  const ranges:string[]=[];
  for(let i=0;i<rows.length;i++){const start=rows[i];let end=start;while(i+1<rows.length&&rows[i+1]===end+1)end=rows[++i];ranges.push(start===end?String(start):`${start}–${end}`);}
- return ranges.slice(0,8).join('、')+(ranges.length>8?`等 ${rows.length} 行`:'');
+ return ranges.slice(0,8).join('、')+(ranges.length>8?tt('等 {length} 行', { length: rows.length }):'');
 }
 
 /** Restore invalidates a preview, but must not erase an unknown submitted result. */
@@ -69,5 +70,5 @@ export function preserveImportReceipt(raw:string|null):boolean {
 /** The counts describe the original transaction; availability describes the current library. */
 export function receiptAvailability(receipt:Pick<ImportReceipt,'created_at'|'unavailable_objects'>):string {
  const count=receipt.unavailable_objects??0;
- return count>0?`这个文件已于 ${receipt.created_at.slice(0,10)} 导入，其中 ${count} 个对象已被删除或清除。可从最近删除恢复尚未清除的对象；或修改文件内容并重新核对外部编号／更换映射集合后重新导入。已清除对象的原外部编号不能在原映射集合重新绑定。同批指纹相同不会再次写入。`:'';
+ return count>0?tt('这个文件已于 {v1} 导入，其中 {count} 个对象已被删除或清除。可从最近删除恢复尚未清除的对象；或修改文件内容并重新核对外部编号／更换映射集合后重新导入。已清除对象的原外部编号不能在原映射集合重新绑定。同批指纹相同不会再次写入。', { v1: receipt.created_at.slice(0,10), count }):'';
 }

@@ -96,10 +96,10 @@ export function TrajectoryChart({ points, rows, goalMonth, fiMonth, retireMonth,
       {hover && <g><line x1={s.x(hover.month)} x2={s.x(hover.month)} y1={T} y2={H - B} className="rc-cursor"/><circle cx={s.x(hover.month)} cy={s.y(hover.projected)} r="4" style={{ fill: hover.phase === 'retired' ? 'var(--warn)' : 'var(--chart)' }}/></g>}
     </svg>
     {hover && <Tip s={s} age={hover.month} lines={[
-      ['期初资金', fmt(hover.projected)], ...(hover.required > 0 ? [['所需金额', fmt(hover.required)] as [string, string]] : []),
-      ...(row && row.phase === 'accumulation' ? [['每年投入', fmt(row.contribution)] as [string, string]] : []),
-      ...(row && row.phase === 'retired' ? [['收入/年', fmt(row.income)], ['每年从已有资金中取用', fmt(row.withdrawal)]] as [string, string][] : []),
-      ...(row ? [['期末资金', fmt(row.end)] as [string, string]] : []),
+      [t('期初资金'), fmt(hover.projected)], ...(hover.required > 0 ? [[t('所需金额'), fmt(hover.required)] as [string, string]] : []),
+      ...(row && row.phase === 'accumulation' ? [[t('每年投入'), fmt(row.contribution)] as [string, string]] : []),
+      ...(row && row.phase === 'retired' ? [[t('收入/年'), fmt(row.income)], [t('每年从已有资金中取用'), fmt(row.withdrawal)]] as [string, string][] : []),
+      ...(row ? [[t('期末资金'), fmt(row.end)] as [string, string]] : []),
     ]}>{hover.label} · {hover.phase === 'retired' ? t('退休阶段') : t('存钱阶段')} · {valueLabel}</Tip>}
     <ul className="rc-legend"><li><i style={{ background: 'var(--chart)' }}/>{t('预计 · 存钱阶段')}</li><li><i style={{ background: 'var(--warn)' }}/>{t('预计 · 退休阶段')}</li><li><i className="rc-dash"/>{t('所需')}</li></ul>
   </div>;
@@ -126,7 +126,7 @@ export function CoverageChart({ series, fmt, valueLabel }: { series: CoverageSer
       <path className="rc-spend" d={pts.map((p, i) => `${i ? 'L' : 'M'}${step(i).toFixed(1)} ${(T + (1 - p.spend / top) * (H - 40 - T - B)).toFixed(1)}L${end(i).toFixed(1)} ${(T + (1 - p.spend / top) * (H - 40 - T - B)).toFixed(1)}`).join('')}/>
       {hover && <line x1={s.x(hover.month)} x2={s.x(hover.month)} y1={T} y2={H - 40 - B} className="rc-cursor"/>}
     </svg>
-    {hover && <Tip s={s} age={hover.month} lines={[['计划支出/年', fmt(hover.spend)], ...layers.filter(l => (hover.values[l.k.key] ?? 0) > 0).map(l => [(l.k.kind === 'portfolio' ? '从已有资金中取用' : l.k.label) + '/年', fmt(hover.values[l.k.key])] as [string, string])]}>{hover.label} · {valueLabel}</Tip>}
+    {hover && <Tip s={s} age={hover.month} lines={[[t('计划支出/年'), fmt(hover.spend)], ...layers.filter(l => (hover.values[l.k.key] ?? 0) > 0).map(l => [(l.k.kind === 'portfolio' ? t('从已有资金中取用') : l.k.label) + t('/年'), fmt(hover.values[l.k.key])] as [string, string])]}>{hover.label} · {valueLabel}</Tip>}
     <ul className="rc-legend">{layers.map(l => <li key={l.k.key}><i style={{ background: l.fill }}/>{l.k.kind === 'portfolio' ? t('从已有资金中取用') : l.k.kind === 'unfunded' ? t('无资金支持') : l.k.label}</li>)}<li><i className="rc-dash"/>{t('计划支出')}</li></ul>
   </div>;
 }
@@ -151,7 +151,7 @@ export function FanChart({ months, bands, goalMonth, retireMonth, fiMonth, fmt, 
       {fiMonth !== null && <><line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/><text x={s.x(fiMonth) + 5} y={T + 12} className="rc-label rc-fi-text">{t('预计不靠工资（中位数） · {v1}', { v1: timeLabel(fiMonth) })}</text></>}
       {i !== null && <line x1={s.x(months[i])} x2={s.x(months[i])} y1={T} y2={H - B} className="rc-cursor"/>}
     </svg>
-    {i !== null && <Tip s={s} age={months[i]} lines={[['第 90 百分位', fmt(bands.p90[i])], ['第 75 百分位', fmt(bands.p75[i])], ['中位数', fmt(bands.p50[i])], ['第 25 百分位', fmt(bands.p25[i])], ['第 10 百分位', fmt(bands.p10[i])]]}>{timeLabel(months[i])}</Tip>}
+    {i !== null && <Tip s={s} age={months[i]} lines={[[t('第 90 百分位'), fmt(bands.p90[i])], [t('第 75 百分位'), fmt(bands.p75[i])], [t('中位数'), fmt(bands.p50[i])], [t('第 25 百分位'), fmt(bands.p25[i])], [t('第 10 百分位'), fmt(bands.p10[i])]]}>{timeLabel(months[i])}</Tip>}
     <ul className="rc-legend"><li><i className="rc-swatch-wide"/>{t('第 10 至第 90 百分位区间')}</li><li><i className="rc-swatch-mid"/>{t('第 25 至第 75')}</li><li><i style={{ background: 'var(--text)' }}/>{t('中位数')}</li></ul>
   </div>;
 }

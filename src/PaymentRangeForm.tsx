@@ -17,7 +17,7 @@ export function PaymentRangeForm({ plan, generation, today, disabled, onBusyChan
   const [amount, setAmount] = useState(plan.fields.amount_cents), [confirmed, setConfirmed] = useState(false), [saving, setSaving] = useState(false);
   const count = dates.filter(d => d >= from && d <= to).length;
   async function saveRange() {
-    if (!confirmed || !count || !amount || amount === '0') {onError('请选择有效范围、填写每期实付，并明确确认已付。',false);return;}
+    if (!confirmed || !count || !amount || amount === '0') {onError(t('请选择有效范围、填写每期实付，并明确确认已付。'),false);return;}
     const input: PaymentRangeSave = {request_id:crypto.randomUUID(),generation,plan_id:plan.id,expected_revision:plan.revision,from_due:from,to_due:to,amount_cents:amount,confirmed};
     setSaving(true); onBusyChange(true);
     try { await submit({command:'recurring_payment_range_save',input,label:t('{name} 往期付款补记', { name: plan.fields.name })}); onSaved(); }

@@ -126,9 +126,9 @@ export function UpdateDiscoveryProvider({ children, invoke: call = invoke, idle,
     try {
       const result = await call<UpdateRequestResult>('update_check_request', { mode: 'manual' });
       acceptState(result.state);
-      if (result.task?.cancelled) setManualNote('自动检查已取消，可点击手动检查。');
+      if (result.task?.cancelled) setManualNote(t('自动检查已取消，可点击手动检查。'));
       else if (result.task?.error) setManualError(result.task.error);
-      else if (result.state.cache_unsaved) setManualNote('本次检查完成，但结果暂时无法保存在本机，下次启动可能不记得。');
+      else if (result.state.cache_unsaved) setManualNote(t('本次检查完成，但结果暂时无法保存在本机，下次启动可能不记得。'));
     } catch (e) {
       setManualError(errorMessage(e));
     } finally {
@@ -137,7 +137,7 @@ export function UpdateDiscoveryProvider({ children, invoke: call = invoke, idle,
   }, [call, manualBusy, acceptState]);
   const setConsent = useCallback(async (enabled: boolean) => {
     const current = latest.current;
-    if (!current) return '更新设置暂不可用，请稍后再试。';
+    if (!current) return t('更新设置暂不可用，请稍后再试。');
     try {
       acceptState(await call<UpdateDiscoveryState>('update_consent_set', { enabled, expectedRevision: current.preference_revision }));
       return null;
@@ -154,7 +154,7 @@ export function UpdateDiscoveryProvider({ children, invoke: call = invoke, idle,
       // The card is on screen right now; stop the duplicate hint for this
       // session but say plainly that it could not be saved.
       if (latest.current?.candidate?.version === version) acceptState({ ...latest.current, unread: false });
-      setManualNote('已读状态暂时无法保存，下次启动可能再次提示。');
+      setManualNote(t('已读状态暂时无法保存，下次启动可能再次提示。'));
     }
   }, [call, acceptState]);
   const ignoreVersion = useCallback(async (version: string) => {
@@ -219,7 +219,7 @@ export function SettingsEntry({ active, disabled, onOpen }: { active: boolean; d
   return <button className={active ? 'nav-active' : ''} aria-current={active ? 'page' : undefined} aria-label={unread ? t('设置 · 有新版本') : undefined} disabled={disabled} onClick={onOpen}><Icon name="settings"/><span>{t('设置')}</span>{unread && <span className="update-dot" aria-hidden="true"/>}</button>;
 }
 
-const downloadLabel = (platform: string) => platform.startsWith('Mac') ? '下载 Mac 安装包' : platform.startsWith('Windows') ? '下载 Windows 安装包' : '下载安装包';
+const downloadLabel = (platform: string) => platform.startsWith('Mac') ? t('下载 Mac 安装包') : platform.startsWith('Windows') ? t('下载 Windows 安装包') : t('下载安装包');
 const mirror = (source: string): string => sourceLabel[source as UpdateSource] ?? source;
 
 /** Manual check button + auto toggle + dated discovery, one shared state. */
@@ -266,7 +266,7 @@ export function UpdateCheck({ showVersion = true, compact = false, versionLabel 
     try { await invoke('update_open_download', { version: pageVersion, source, name }); }
     catch (e) { setToggleError(errorMessage(e)); }
   }
-  const currentLabel = versionLabel || (version ? `版本 ${version}` : '版本暂不可用');
+  const currentLabel = versionLabel || (version ? t('版本 {version}', { version }) : t('版本暂不可用'));
   const consentValue = state ? state.consent === 'enabled' : false;
   const lastAttempt = state?.last_attempt_at ? stampLabel(state.last_attempt_at) : '';
   const lastSuccess = state?.last_success_at ? stampLabel(state.last_success_at) : '';

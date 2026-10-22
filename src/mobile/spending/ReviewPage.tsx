@@ -85,7 +85,7 @@ function Period({ sources, chosen }: { sources: FinanceSources; chosen: NonNulla
         <Metric label={t('投资损益（只读）')} value={result?.status === 'ready' ? changeText(result.value.profit_cents) : t('未知')} unknown={result?.status !== 'ready'}
           sub={result?.status === 'ready' ? t('来自电脑端核对结果；现金收入不重复计入') : result ? `${investmentStatusLabel(result.status)}${'reasons' in result && result.reasons.length ? '：' + result.reasons.map(reasonText).join('；') : ''}` : t('读取失败或未核对')}/>
       </MetricGrid>
-      <Card><h2 className="sp-h2">{t('本期结论')}</h2><p className="sp-sheet-text">{t('{v1} 至 {v2}：', { v1: dayLabel(from, today), v2: dayLabel(to, today) })}{scope ? t('参与比较的账户有变化，净资产变化不可比') : delta !== null ? t('金融净资产{v1} {v2}', { v1: delta.startsWith('-') ? '减少' : '增加', v2: moneyText(delta.replace('-', '')) }) : t('净资产变化未知')}{t('。已记录收入与重要支出只说明到账和花费的构成，不能推算真实结余；转账不作为收入或消费。')}{result?.status === 'ready' ? '' : t('投资损益需要在电脑上完成资金流动核对后才会显示。')}</p></Card>
+      <Card><h2 className="sp-h2">{t('本期结论')}</h2><p className="sp-sheet-text">{t('{v1} 至 {v2}：', { v1: dayLabel(from, today), v2: dayLabel(to, today) })}{scope ? t('参与比较的账户有变化，净资产变化不可比') : delta !== null ? t('金融净资产{v1} {v2}', { v1: delta.startsWith('-') ? t('减少') : t('增加'), v2: moneyText(delta.replace('-', '')) }) : t('净资产变化未知')}{t('。已记录收入与重要支出只说明到账和花费的构成，不能推算真实结余；转账不作为收入或消费。')}{result?.status === 'ready' ? '' : t('投资损益需要在电脑上完成资金流动核对后才会显示。')}</p></Card>
       {facts.expenses.status === 'ready' && <p className="sp-note sp-note-pad">{t('退款 {v1} · 售出回收 {v2}（单列，不抵扣支出）。', { v1: moneyText(facts.expenses.value.refund_cents), v2: moneyText(facts.expenses.value.sale_cents) })}</p>}
     </>;
   }}</Loaded>;
@@ -118,7 +118,7 @@ function IncomeList({ period, keyword, setKeyword, onOpen, onNew }: { period: Fi
     return <>
       <MetricGrid>
         <Metric label={t('已记录到账')} value={view.net !== null ? moneyText(view.net) : t('尚未记录')} sub={t('{count} 笔 · 同日可多笔', { count: view.count })}/>
-        <Metric label={t('公积金缴存')} value={hpfSummary(view.hpf.total, view.hpf.known, view.hpf.unknown, v => v === null ? '未知' : moneyText(v))}/>
+        <Metric label={t('公积金缴存')} value={hpfSummary(view.hpf.total, view.hpf.known, view.hpf.unknown, v => v === null ? t('未知') : moneyText(v))}/>
       </MetricGrid>
       <ListGroup title={t('按来源分类')} footer={t('已记录收入仅说明到账构成，不再加到资产余额或投资损益；搜索只筛选明细，合计不变。')}>
         {view.categories.map(c => <ListRow key={c.label} title={c.label} subtitle={t('{count} 笔', { count: c.count })} value={moneyText(c.cents)}/>)}
@@ -126,7 +126,7 @@ function IncomeList({ period, keyword, setKeyword, onOpen, onNew }: { period: Fi
       <SearchField subject={t('收入明细')} value={keyword} onChange={setKeyword}/>
       {!view.shown.length ? <EmptyState icon="wallet" title={t('没有匹配的收入记录')} message={t('期间合计不受搜索影响。')} action={<Button onClick={() => setKeyword('')}>{t('清除搜索')}</Button>}/>
         : <ListGroup title={t('明细 · {length} 条', { length: view.shown.length })}>
-          {view.shown.map(r => <ListRow key={r.id} onClick={() => onOpen(r.id)} title={dayLabel(r.fields.date, today)} subtitle={[incomeCategories[r.fields.category ?? 'unclassified'], r.fields.hpf_cents === null ? '公积金未知' : `公积金 ${moneyText(r.fields.hpf_cents)}`, r.fields.notes].filter(Boolean).join(' · ')} value={moneyText(r.fields.net_cents)}/>)}
+          {view.shown.map(r => <ListRow key={r.id} onClick={() => onOpen(r.id)} title={dayLabel(r.fields.date, today)} subtitle={[incomeCategories[r.fields.category ?? 'unclassified'], r.fields.hpf_cents === null ? t('公积金未知') : t('公积金 {v1}', { v1: moneyText(r.fields.hpf_cents) }), r.fields.notes].filter(Boolean).join(' · ')} value={moneyText(r.fields.net_cents)}/>)}
         </ListGroup>}
     </>;
   }}</Loaded>;
@@ -146,19 +146,19 @@ function Annual() {
     return model;
   }, id);
   const toggle = () => { const next = !hidden; setHidden(next); try { localStorage.setItem('thingary.hide-financial-amounts.v1', next ? '1' : '0'); } catch { /* visual preference only */ } };
-  const show = (cents: string | null) => cents === null ? '暂无完整金额' : hidden ? '金额已隐藏' : moneyText(cents);
+  const show = (cents: string | null) => cents === null ? t('暂无完整金额') : hidden ? t('金额已隐藏') : moneyText(cents);
   return <>
     <ChipRow label={t('回顾窗口')} items={presets.map(p => ({ id: p.id, label: p.label }))} value={id} onChange={setId}/>
     <Loaded read={read} what={t('区间回顾')}>{model => {
       const pts = model.net.points.filter(p => p.complete);
       const compare = !!model.net.from && !!model.net.to && model.net.from.date !== model.net.to.date;
-      const summary = compare && !model.net.scopeChanged ? `金融净资产从 ${dayLabel(model.net.from!.date, today)} 到 ${dayLabel(model.net.to!.date, today)}：${hidden ? '金额已隐藏' : `${moneyText(model.net.from!.net_cents)} 到 ${moneyText(model.net.to!.net_cents)}`}，共 ${pts.length} 次完整盘点。` : '区间内可比较的完整盘点不足两次，不画走势。';
+      const summary = compare && !model.net.scopeChanged ? t('金融净资产从 {v1} 到 {v2}：{v3}，共 {length} 次完整盘点。', { v1: dayLabel(model.net.from!.date, today), v2: dayLabel(model.net.to!.date, today), v3: hidden ? '金额已隐藏' : `${moneyText(model.net.from!.net_cents)} 到 ${moneyText(model.net.to!.net_cents)}`, length: pts.length }) : t('区间内可比较的完整盘点不足两次，不画走势。');
       return <>
         <p className="sp-note sp-note-pad">{t('回顾窗口 {v1}；仅汇总已记录事实，记录数量不证明覆盖完整。', { v1: localizeDates(model.windowLabel, today) })}</p>
         <Card><h2 className="sp-h2">{t('金融净资产')}</h2>
           <p className="sp-sheet-text">{t('区间内完整盘点 {completeCount} 次，另有 {incompleteCount} 次不完整。{note}', { completeCount: model.net.completeCount, incompleteCount: model.net.incompleteCount, note: model.net.note })}</p>
           {model.net.to && <MetricGrid>
-            <Metric label={`${compare ? '实际起点' : '实际盘点'} ${model.net.from ? dayLabel(model.net.from.date, today) : ''}`} value={show(model.net.from?.net_cents ?? null)}/>
+            <Metric label={`${compare ? t('实际起点') : t('实际盘点')} ${model.net.from ? dayLabel(model.net.from.date, today) : ''}`} value={show(model.net.from?.net_cents ?? null)}/>
             {compare && <Metric label={t('实际终点 {v1}', { v1: dayLabel(model.net.to.date, today) })} value={show(model.net.to.net_cents)}/>}
             {compare && <Metric label={model.net.label} value={show(model.net.delta_cents)}/>}
           </MetricGrid>}
@@ -166,12 +166,12 @@ function Annual() {
           <p className="sp-note">{model.net.scopeChanged ? t('期间范围发生变化，不直接比较。') : summary}</p>
         </Card>
         <MetricGrid>
-          <Metric label={t('已记录税后收入')} value={model.income.count === 0 ? t('暂无记录') : show(model.income.cents)} unknown={model.income.count > 0 && model.income.cents === null} sub={`${model.income.note}${model.income.count ? ` · ${model.income.count} 条；公积金已知小计 ${show(model.income.hpf_known_cents)}${model.income.hpf_unknown_count ? `，${model.income.hpf_unknown_count} 条未知` : ''}` : ''}`}/>
-          <Metric label={t('已记录重要支出（退款前）')} value={model.expenses.count === 0 && model.expenses.undatedCount === 0 ? t('暂无记录') : show(model.expenses.cents)} sub={`${model.expenses.note}${model.expenses.count ? ` · ${model.expenses.count} 条${model.expenses.unknownCount ? `，${model.expenses.unknownCount} 条金额未知` : ''}` : ''}`}/>
+          <Metric label={t('已记录税后收入')} value={model.income.count === 0 ? t('暂无记录') : show(model.income.cents)} unknown={model.income.count > 0 && model.income.cents === null} sub={`${model.income.note}${model.income.count ? t(' · {count} 条；公积金已知小计 {v2}{v3}', { count: model.income.count, v2: show(model.income.hpf_known_cents), v3: model.income.hpf_unknown_count ? `，${model.income.hpf_unknown_count} 条未知` : '' }) : ''}`}/>
+          <Metric label={t('已记录重要支出（退款前）')} value={model.expenses.count === 0 && model.expenses.undatedCount === 0 ? t('暂无记录') : show(model.expenses.cents)} sub={`${model.expenses.note}${model.expenses.count ? t(' · {count} 条{v2}', { count: model.expenses.count, v2: model.expenses.unknownCount ? `，${model.expenses.unknownCount} 条金额未知` : '' }) : ''}`}/>
         </MetricGrid>
         <Card><h2 className="sp-h2">{t('存钱目标 · 当前进度')}</h2><p className="sp-note">{model.savings.note}</p>
           {model.savings.goals.map(g => <div key={g.id} className="sp-goal"><strong>{hidden ? g.alias : g.name}</strong><p>{g.note}</p>
-            <p>{!g.progress.complete ? t('有 {missing} 个未知、{unavailable} 个失效关联；不显示完整百分比。', { missing: g.progress.missing, unavailable: g.progress.unavailable }) : hidden ? t('进度已隐藏。') : t('当前进度 {v1}% · {v2}', { v1: ((g.progress.percent_hundredths ?? 0) / 100).toFixed(2), v2: g.progress.reached ? '关联账户余额达标' : '余额尚未达标' })}</p></div>)}
+            <p>{!g.progress.complete ? t('有 {missing} 个未知、{unavailable} 个失效关联；不显示完整百分比。', { missing: g.progress.missing, unavailable: g.progress.unavailable }) : hidden ? t('进度已隐藏。') : t('当前进度 {v1}% · {v2}', { v1: ((g.progress.percent_hundredths ?? 0) / 100).toFixed(2), v2: g.progress.reached ? t('关联账户余额达标') : t('余额尚未达标') })}</p></div>)}
         </Card>
         <Card><h2 className="sp-h2">{t('当时记录的退休规划结论')}</h2><p className="sp-note">{model.planning.note}</p>
           {(model.planning.conditionsChanged || model.planning.openItems) && <p className="sp-note">{t('规划模式、目标月份或待确认条件可能不同；并列显示原结论，不计算归因变化。')}</p>}</Card>

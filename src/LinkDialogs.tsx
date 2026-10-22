@@ -22,13 +22,13 @@ type Close = (saved: boolean) => void;
 /** 删除预览文案（设计 §7.1）：同一组影响，从任一入口读数一致。 */
 export function previewText(p: LinkPreview): string[] {
   const facts = [
-    `将「${p.asset_name}」的服务档案与关联付款计划「${p.plan_name}」一起移入最近删除。`,
+    tr('将「{asset_name}」的服务档案与关联付款计划「{plan_name}」一起移入最近删除。', { asset_name: p.asset_name, plan_name: p.plan_name }),
     p.paid_count > 0
-      ? `${p.paid_count} 笔已记录付款（${money(p.paid_cents)}）将暂不参与重要支出，可整组恢复。不再使用时可选择结束订阅，以保留历史支出。`
-      : '还没有已记录付款；恢复时一起回来。',
+      ? tr('{paid_count} 笔已记录付款（{v2}）将暂不参与重要支出，可整组恢复。不再使用时可选择结束订阅，以保留历史支出。', { paid_count: p.paid_count, v2: money(p.paid_cents) })
+      : tr('还没有已记录付款；恢复时一起回来。'),
   ];
-  if (p.skipped_count > 0) facts.push(`另有 ${p.skipped_count} 笔“本期不付”记录一同隐藏。`);
-  for (const b of p.blockers) facts.push(`注意：${b}`);
+  if (p.skipped_count > 0) facts.push(tr('另有 {skipped_count} 笔“本期不付”记录一同隐藏。', { skipped_count: p.skipped_count }));
+  for (const b of p.blockers) facts.push(tr('注意：{b}', { b }));
   return facts;
 }
 
@@ -55,7 +55,7 @@ export function LinkDeleteDialog({ side, id, name, partnerId, generation, onClos
       side, id, partner_id: partnerId ?? null, asset_expected_revision: preview.asset_revision, plan_expected_revision: preview.plan_revision, preview: preview.preview,
     };
     try {
-      const groupId = await submit<string>({ command: 'link_trash', input, label: '删除 ' + preview.asset_name });
+      const groupId = await submit<string>({ command: 'link_trash', input, label: tr('删除 ') + preview.asset_name });
       onDone(groupId, preview.asset_name); onClose(true);
     }
     catch (e) {
@@ -100,7 +100,7 @@ export function LinkRestoreDialog({ groupId, name, onClose, onDone }: { groupId:
     setBusy(true);
     const input: LinkRestoreInput = { request_id: crypto.randomUUID(), generation: preview.generation, group_id: groupId, preview: preview.preview };
     try {
-      await submit({ command: 'link_restore', input, label: '恢复 ' + preview.asset_name });
+      await submit({ command: 'link_restore', input, label: tr('恢复 ') + preview.asset_name });
       onDone(preview); onClose(true);
     } catch (e) {
       if (e instanceof Unresolved) setStuck(true);
@@ -138,8 +138,8 @@ export function LinkReviewDialog({ assetId, planId, assetName, assetRevision, pl
     setBusy(true); setNotice('');
     const input: ReconcileInput = { request_id: crypto.randomUUID(), generation, action, asset_id: assetId, plan_id: planId, asset_expected_revision: assetRevision, plan_expected_revision: planRevision, last_used: action === 'confirm_ended' ? lastUsed : null };
     try {
-      await submit({ command: 'link_reconcile', input, label: (action === 'confirm_ended' ? '确认已结束 ' : '撤回误记停用 ') + assetName });
-      onDone(action === 'confirm_ended' ? `已确认「${assetName}」于 ${lastUsed} 结束，续费已关闭。` : `已撤回「${assetName}」的停用标记，原排期保持。`);
+      await submit({ command: 'link_reconcile', input, label: (action === 'confirm_ended' ? tr('确认已结束 ') : tr('撤回误记停用 ')) + assetName });
+      onDone(action === 'confirm_ended' ? tr('已确认「{assetName}」于 {lastUsed} 结束，续费已关闭。', { assetName, lastUsed }) : tr('已撤回「{assetName}」的停用标记，原排期保持。', { assetName }));
       onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
@@ -173,9 +173,9 @@ export function EndSubscriptionDialog({ assetId, planId, assetName, assetRevisio
     setBusy(true); setNotice('');
     const input = { request_id: crypto.randomUUID(), generation, asset_id: assetId, asset_expected_revision: assetRevision, plan_id: planId, plan_expected_revision: planRevision, fields: { ...fields, end_date: lastUsed, auto_renew: false } };
     try {
-      if (assetId && assetRevision !== null) await submit({ command: 'link_save', input: { ...input, asset_id: assetId, asset_expected_revision: assetRevision }, label: '取消续费 ' + assetName });
-      else await submit({ command: 'recurring_plan_save', input: { request_id: input.request_id, generation, id: planId, expected_revision: planRevision, fields: input.fields }, label: '取消续费 ' + assetName });
-      onDone(`「${assetName}」将使用至 ${lastUsed}，后续续费已关闭；历史付款与估算依据保留。`);
+      if (assetId && assetRevision !== null) await submit({ command: 'link_save', input: { ...input, asset_id: assetId, asset_expected_revision: assetRevision }, label: tr('取消续费 ') + assetName });
+      else await submit({ command: 'recurring_plan_save', input: { request_id: input.request_id, generation, id: planId, expected_revision: planRevision, fields: input.fields }, label: tr('取消续费 ') + assetName });
+      onDone(tr('「{assetName}」将使用至 {lastUsed}，后续续费已关闭；历史付款与估算依据保留。', { assetName, lastUsed }));
       onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
@@ -202,12 +202,12 @@ export function UnifyNameDialog({ assetId, planId, assetName, planName, assetRev
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   const target = mode === 'asset' ? assetName : mode === 'plan' ? planName : custom.trim();
   async function run() {
-    if (!target) { setNotice('请输入要统一使用的名称。'); return; }
+    if (!target) { setNotice(tr('请输入要统一使用的名称。')); return; }
     setBusy(true); setNotice('');
     const input: LinkSaveInput = { request_id: crypto.randomUUID(), generation, asset_id: assetId, asset_expected_revision: assetRevision, plan_id: planId, plan_expected_revision: planRevision, fields: { ...fields, name: target }, unify_name_to: target };
     try {
-      await submit({ command: 'link_save', input, label: '统一名称 ' + target });
-      onDone(`两页的显示名称已统一为「${target}」。`);
+      await submit({ command: 'link_save', input, label: tr('统一名称 ') + target });
+      onDone(tr('两页的显示名称已统一为「{target}」。', { target }));
       onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
@@ -240,13 +240,13 @@ export function LinkCreateDialog({ planId, planName, planRevision, generation, o
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   async function run() {
-    if (!name.trim()) { setNotice('请填写服务名称。'); return; }
+    if (!name.trim()) { setNotice(tr('请填写服务名称。')); return; }
     setBusy(true); setNotice('');
     const fields = { name: name.trim(), kind, billing: 'subscription', label_id: null, pay_method: null, perpetual: false, provider, purchase_date: null, price_cents: null, expires: null, plan_id: null, url, notes: '', stopped_on: null } as VirtualFields;
     const input: LinkCreateInput = { request_id: crypto.randomUUID(), generation, plan_id: planId, plan_expected_revision: planRevision, fields };
     try {
-      await submit({ command: 'link_create', input, label: '建立关联服务档案 ' + name });
-      onDone(`已为「${planName}」建立服务档案「${name.trim()}」；已有付款保持原样，未补记任何新付款。`);
+      await submit({ command: 'link_create', input, label: tr('建立关联服务档案 ') + name });
+      onDone(tr('已为「{planName}」建立服务档案「{v2}」；已有付款保持原样，未补记任何新付款。', { planName, v2: name.trim() }));
       onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
@@ -288,8 +288,8 @@ export function LinkRepairDialog({ side, id, onClose, onDone }: { side: 'virtual
     if (!preview || busy || stuck || preview.blockers.length) return;
     setBusy(true);
     try {
-      await submit({ command: 'link_reconcile', input: { request_id: crypto.randomUUID(), generation: preview.generation, action, asset_id: preview.asset_id, plan_id: preview.plan_id, asset_expected_revision: preview.asset_revision, plan_expected_revision: preview.plan_revision, preview: preview.preview }, label: '核对历史关联 ' + preview.asset_name });
-      onDone(action === 'restore_pair' ? '已恢复关联双方；此前单独删除的付款保持删除。' : '已登记为一组，之后可整组恢复或清除。'); onClose(true);
+      await submit({ command: 'link_reconcile', input: { request_id: crypto.randomUUID(), generation: preview.generation, action, asset_id: preview.asset_id, plan_id: preview.plan_id, asset_expected_revision: preview.asset_revision, plan_expected_revision: preview.plan_revision, preview: preview.preview }, label: tr('核对历史关联 ') + preview.asset_name });
+      onDone(action === 'restore_pair' ? tr('已恢复关联双方；此前单独删除的付款保持删除。') : tr('已登记为一组，之后可整组恢复或清除。')); onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
@@ -309,16 +309,16 @@ export function LinkRepairDialog({ side, id, onClose, onDone }: { side: 'virtual
 export async function undoLinkDelete(groupId: string) {
   const p = await linkRestorePreview(groupId);
   if (p.blockers.length) throw new Error(p.blockers[0]);
-  await submit({ command: 'link_restore', input: { request_id: crypto.randomUUID(), generation: p.generation, group_id: groupId, preview: p.preview }, label: '撤销删除 ' + p.asset_name });
+  await submit({ command: 'link_restore', input: { request_id: crypto.randomUUID(), generation: p.generation, group_id: groupId, preview: p.preview }, label: tr('撤销删除 ') + p.asset_name });
 }
 
 /** 关联异常的统一提示行；relation 来自 link_view。 */
 export function relationNotice(relation: string, extra: { occupied_by?: { name: string } | null }): string | null {
   switch (relation) {
-    case 'plan_trashed': return '关联的付款计划在最近删除中：可恢复计划形成有效组，或整组删除。';
-    case 'asset_trashed': return '关联的服务档案在最近删除中：可恢复档案形成有效组，或删除剩余计划并归成一组。';
-    case 'both_trashed': return '双方分别删除过：可在最近删除中整组恢复，或登记为一组。';
-    case 'plan_occupied': return `这项计划已改由「${extra.occupied_by?.name ?? '其他档案'}」使用，不能恢复后抢占；可明确删除本档案。`;
+    case 'plan_trashed': return tr('关联的付款计划在最近删除中：可恢复计划形成有效组，或整组删除。');
+    case 'asset_trashed': return tr('关联的服务档案在最近删除中：可恢复档案形成有效组，或删除剩余计划并归成一组。');
+    case 'both_trashed': return tr('双方分别删除过：可在最近删除中整组恢复，或登记为一组。');
+    case 'plan_occupied': return tr('这项计划已改由「{v1}」使用，不能恢复后抢占；可明确删除本档案。', { v1: extra.occupied_by?.name ?? '其他档案' });
     default: return null;
   }
 }
@@ -384,8 +384,8 @@ export function LinkPurgeDialog({ groupId, name, onClose, onDone }: { groupId: s
     if (!preview || busy) return;
     setBusy(true);
     try {
-      await submit({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: preview.generation, kind: 'link_group', id: groupId, preview: preview.preview }, label: '永久清除 ' + preview.asset_name });
-      onDone(`已永久清除「${preview.asset_name}」的关联订阅组。`);
+      await submit({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: preview.generation, kind: 'link_group', id: groupId, preview: preview.preview }, label: tr('永久清除 ') + preview.asset_name });
+      onDone(tr('已永久清除「{asset_name}」的关联订阅组。', { asset_name: preview.asset_name }));
       onClose(true);
     } catch (e) {
       if (e instanceof Unresolved) { setStuck(true); setError(e.message); }
@@ -429,7 +429,7 @@ export function PurgeAllDialog({ onClose, onDone }: { onClose: Close; onDone: (m
     setBusy(true);
     try {
       const result = await submit<Purged>({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: preview.generation, kind: null, id: '', preview: preview.preview }, label: tr('清空最近删除') });
-      onDone(`已永久清除 ${result.removed} 项${result.kept ? `，保留 ${result.kept} 项。${result.kept_reasons.join('；')}` : '。'}`); onClose(true);
+      onDone(tr('已永久清除 {removed} 项{v2}', { removed: result.removed, v2: result.kept ? `，保留 ${result.kept} 项。${result.kept_reasons.join('；')}` : '。' })); onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }

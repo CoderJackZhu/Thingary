@@ -32,7 +32,7 @@ export function VerifySheet({ item, busy, error, onSubmit, onClose }: { item: Wi
     let live = true; setReady(false); setLoadError('');
     readAsset(original.id).then(record => {
       if (!live) return;
-      if (!record) { setLoadError('找不到原关联物品，请重新读取。'); return; }
+      if (!record) { setLoadError(t('找不到原关联物品，请重新读取。')); return; }
       base.current = record.asset; setPrice(record.asset.price_cents === null ? '' : String(Number(record.asset.price_cents) / 100)); setDate(record.asset.purchase_date ?? ''); setReady(true);
     }).catch(cause => { if (live) setLoadError(errorMessage(cause)); });
     return () => { live = false; };
@@ -41,7 +41,7 @@ export function VerifySheet({ item, busy, error, onSubmit, onClose }: { item: Wi
     setLocalError('');
     let patch: WishVerify['asset_patch'] = null;
     if (outcome === 'purchased' && original) {
-      if (!base.current) { setLocalError('请先重新读取原物品。'); return; }
+      if (!base.current) { setLocalError(t('请先重新读取原物品。')); return; }
       try { patch = verifyAssetPatch(base.current, price, date); } catch (cause) { setLocalError(errorMessage(cause)); return; }
     }
     onSubmit(outcome, note, patch);

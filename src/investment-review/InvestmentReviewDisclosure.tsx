@@ -7,11 +7,11 @@ import { t } from '../i18n.ts';
 export function reviewDisclosureState(outer: ReviewOuter): { label: string; attention: string } {
   if (outer.status === 'loading') return { label: t('正在读取'), attention: '' };
   if (outer.status === 'empty') return { label: t('暂无可比较盘点'), attention: '' };
-  if (outer.status === 'error') return { label: t('读取失败'), attention: `投资区间核对读取失败：${outer.message}` };
+  if (outer.status === 'error') return { label: t('读取失败'), attention: t('投资区间核对读取失败：{message}', { message: outer.message }) };
   const input = parseReviewInput(outer.input), result = parseReviewResult(outer.result);
-  if (!input.ok || !result.ok) return { label: t('资料无法识别'), attention: '投资核对资料无法识别，请展开查看错误。' };
+  if (!input.ok || !result.ok) return { label: t('资料无法识别'), attention: t('投资核对资料无法识别，请展开查看错误。') };
   const status = result.value.status;
-  return { label: status === 'ready' ? t('已核对') : statusLabel[status], attention: status === 'ready' || status === 'not_recorded' ? '' : `投资区间核对${statusLabel[status]}，请展开查看原因与处理入口。` };
+  return { label: status === 'ready' ? t('已核对') : statusLabel[status], attention: status === 'ready' || status === 'not_recorded' ? '' : t('投资区间核对{v1}，请展开查看原因与处理入口。', { v1: statusLabel[status] }) };
 }
 
 /** Children stay mounted so results, reads, dialogs and unresolved-request locks survive folding. */

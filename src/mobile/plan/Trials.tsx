@@ -636,7 +636,7 @@ export function MobileCareer({
               {draft[stage].costs?.map((cost, i) => (
                 <SelectField
                   key={cost.source_id}
-                  label={`${stage === "gap" ? "空窗" : "复工"}：${costNames.get(cost.source_id) ?? `费用 ${i + 1}`}`}
+                  label={`${stage === "gap" ? t('空窗') : t('复工')}：${costNames.get(cost.source_id) ?? t('费用 {v1}', { v1: i + 1 })}`}
                   value={cost.treatment}
                   onChange={(treatment) =>
                     patch({
@@ -690,7 +690,7 @@ export function MobileCareer({
               rows={result.rows.map((r) => ({
                 label: yuan(r.level),
                 value: Number(r.level),
-                display: r.say.tone === "good" ? "可行" : "待调整",
+                display: r.say.tone === "good" ? t('可行') : t('待调整'),
               }))}
             />
             {result.rows.map((r) => (

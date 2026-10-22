@@ -24,14 +24,14 @@ export function FutureIncomeFields({ value, reference, partnerReference = null, 
   const own = issuesFor(issues, `future_incomes.${value.id}`);
   const convertStart = () => {
     const age = ageMonthsOf(ageStart, '');
-    if (age === null) { setErr('年龄请填 0—120 的整数。'); return; }
-    if (!basisRef) { setErr('先在时间安排里确认年龄参考，或直接填写开始年月。'); return; }
-    try { setErr(''); patch({ start_month: ageToMonthV1(basisRef, age) }); } catch { setErr('换算月份超出范围，请直接填写开始年月。'); }
+    if (age === null) { setErr(t('年龄请填 0—120 的整数。')); return; }
+    if (!basisRef) { setErr(t('先在时间安排里确认年龄参考，或直接填写开始年月。')); return; }
+    try { setErr(''); patch({ start_month: ageToMonthV1(basisRef, age) }); } catch { setErr(t('换算月份超出范围，请直接填写开始年月。')); }
   };
   function done() {
-    if (!d.name.trim()) { setErr('请填写名称。'); return; }
-    if (d.monthly_cents !== null && (!/^(0|[1-9]\d*)$/.test(d.monthly_cents) || BigInt(d.monthly_cents) > 99999999999n)) { setErr('每月预计净到账金额须为非负金额，最多两位小数。未知请留空。'); return; }
-    if (d.basis === 'reference_month' && !validMonthV1(d.basis_month ?? '')) { setErr('请确认购买力基准月，或改用「领取时的金额」。'); return; }
+    if (!d.name.trim()) { setErr(t('请填写名称。')); return; }
+    if (d.monthly_cents !== null && (!/^(0|[1-9]\d*)$/.test(d.monthly_cents) || BigInt(d.monthly_cents) > 99999999999n)) { setErr(t('每月预计净到账金额须为非负金额，最多两位小数。未知请留空。')); return; }
+    if (d.basis === 'reference_month' && !validMonthV1(d.basis_month ?? '')) { setErr(t('请确认购买力基准月，或改用「领取时的金额」。')); return; }
     setErr('');
     onMerge({ ...d, name: d.name.trim() });
   }

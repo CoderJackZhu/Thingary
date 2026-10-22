@@ -1,11 +1,12 @@
+import { t } from './i18n.ts';
 // Optional modules (settings › 功能模块). Off hides the entry and its events and
 // pauses its reminders; data is never touched and returns when switched on.
 export type Modules = { physical: boolean; wishlist: boolean; timeline: boolean; stats: boolean; wealth: boolean; expenses: boolean; recurring: boolean; virtual: boolean; planning: boolean };
 export const allModules: Modules = { physical: true, wishlist: true, timeline: true, stats: true, wealth: true, expenses: true, recurring: true, virtual: true, planning: true };
 export const moduleList: [keyof Modules, string, string][] = [
-  ['physical', '物品档案', '记录物品、照片与购买信息；关闭保留已有资料'],
-  ['wishlist', '心愿清单', '记录想买的东西、倒计时和攒钱'], ['timeline', '时间轴', '所有记录按日期排成一条线'], ['stats', '物品统计', '分类占比、持有周期与回收分析'],
-  ['wealth', '账户与盘点', '定期盘点账户余额与负债，并查看财务复盘'], ['expenses', '重要支出', '旅行、学费等非物品的大额支出'], ['recurring', '周期费用', '房租、订阅、保险等固定支出'], ['virtual', '虚拟资产', '软件、域名与订阅服务的档案'], ['planning', '目标', '设置未来目标、安排与测算条件'],
+  ['physical', t('物品档案'), t('记录物品、照片与购买信息；关闭保留已有资料')],
+  ['wishlist', t('心愿清单'), t('记录想买的东西、倒计时和攒钱')], ['timeline', t('时间轴'), t('所有记录按日期排成一条线')], ['stats', t('物品统计'), t('分类占比、持有周期与回收分析')],
+  ['wealth', t('账户与盘点'), t('定期盘点账户余额与负债，并查看财务复盘')], ['expenses', t('重要支出'), t('旅行、学费等非物品的大额支出')], ['recurring', t('周期费用'), t('房租、订阅、保险等固定支出')], ['virtual', t('虚拟资产'), t('软件、域名与订阅服务的档案')], ['planning', t('目标'), t('设置未来目标、安排与测算条件')],
 ];
 const kindsOf: Record<keyof Modules, string[]> = { physical: ['purchase', 'maintenance', 'warranty_start', 'warranty_end', 'retire', 'activate', 'sale'], wishlist: ['wish_added', 'wish_abandoned', 'wish_achieved'], timeline: [], stats: [], wealth: ['snapshot'], expenses: ['expense', 'refund'], recurring: ['payment'], virtual: ['virtual'], planning: [] };
 /** Timeline and recent-record event kinds that belong to switched-off modules. */

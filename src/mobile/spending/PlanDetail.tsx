@@ -20,7 +20,7 @@ import { trash, useRead, useSaver } from './read';
 import { ReminderGroup } from './Reminder';
 import { t } from '../../i18n.ts';
 type Data = { overview: Overview; detail: SubscriptionDetailData; link: LinkView };
-const stateText = { pending: '待确认', paid: '已确认', skipped: '已跳过', upcoming: '未到' } as const;
+const stateText = { pending: t('待确认'), paid: t('已确认'), skipped: t('已跳过'), upcoming: t('未到') } as const;
 const stateTone = { pending: 'warn', paid: 'positive', skipped: 'neutral', upcoming: 'neutral' } as const;
 
 /** spending.recurring: one plan (design 15): amount, term and cost, reminder, payment periods, edit / pause / end. */
@@ -57,11 +57,11 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
   const done = (message: string) => { setNotice(message); setSheet(''); setSkipping(null); reload(); };
   const togglePause = () => {
     const fields = pausedFields(f, !f.paused);
-    void saver.run(requestId => linked ? submit({ command: 'link_save', input: { request_id: requestId, generation: link.generation, asset_id: link.asset!.id, asset_expected_revision: link.asset!.revision, plan_id: plan.id, plan_expected_revision: plan.revision, fields }, label: `${f.paused ? '恢复' : '暂停'} ${f.name}` })
-      : submit({ command: 'recurring_plan_save', input: planSave(fields, plan, detail.generation, requestId), label: `${f.paused ? '恢复' : '暂停'} ${f.name}` }), { onDone: () => done(f.paused ? `已恢复「${f.name}」的续费。` : `已暂停「${f.name}」；暂停期间不再提醒，已记录的付款保留。`) });
+    void saver.run(requestId => linked ? submit({ command: 'link_save', input: { request_id: requestId, generation: link.generation, asset_id: link.asset!.id, asset_expected_revision: link.asset!.revision, plan_id: plan.id, plan_expected_revision: plan.revision, fields }, label: `${f.paused ? t('恢复') : t('暂停')} ${f.name}` })
+      : submit({ command: 'recurring_plan_save', input: planSave(fields, plan, detail.generation, requestId), label: `${f.paused ? t('恢复') : t('暂停')} ${f.name}` }), { onDone: () => done(f.paused ? t('已恢复「{name}」的续费。', { name: f.name }) : t('已暂停「{name}」；暂停期间不再提醒，已记录的付款保留。', { name: f.name })) });
   };
-  const skip = () => skipping && void saver.run(requestId => submit({ command: 'recurring_payment_save', input: skipSave({ plan_id: plan.id, due_date: skipping.due }, detail.generation, requestId), label: t('{name} {due} 本期不付', { name: f.name, due: skipping.due }) }), { onDone: () => done(`已标记 ${dayLabel(skipping.due, today)} 本期不付。`) });
-  const cancelResume = () => void saver.run(requestId => submit({ command: 'recurring_cancel_resumption', input: { request_id: requestId, generation: link.generation, plan_id: plan.id, expected_revision: plan.revision, asset_id: link.asset?.id ?? null, asset_expected_revision: link.asset?.revision ?? null }, label: t('撤销待生效安排') }), { onDone: () => done('已撤销待生效的安排，恢复为上段已结束的订阅。') });
+  const skip = () => skipping && void saver.run(requestId => submit({ command: 'recurring_payment_save', input: skipSave({ plan_id: plan.id, due_date: skipping.due }, detail.generation, requestId), label: t('{name} {due} 本期不付', { name: f.name, due: skipping.due }) }), { onDone: () => done(t('已标记 {v1} 本期不付。', { v1: dayLabel(skipping.due, today) })) });
+  const cancelResume = () => void saver.run(requestId => submit({ command: 'recurring_cancel_resumption', input: { request_id: requestId, generation: link.generation, plan_id: plan.id, expected_revision: plan.revision, asset_id: link.asset?.id ?? null, asset_expected_revision: link.asset?.revision ?? null }, label: t('撤销待生效安排') }), { onDone: () => done(t('已撤销待生效的安排，恢复为上段已结束的订阅。')) });
   return <div className="m-page">
     <h1 className="sp-detail-title">{f.name}</h1>
     <p className="sp-detail-sub"><Tag tone={status.tone}>{status.text}</Tag> {recurringCategoryText(f.category)}{link.asset ? t(' · 关联服务档案「{name}」', { name: link.asset.name }) : ''}</p>
@@ -102,7 +102,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
     {sheet === 'end' && <EndPlanSheet plan={plan} link={link} generation={detail.generation} today={today} onClose={() => setSheet('')} onDone={done}/>}
     {sheet === 'delete' && (linked ? <GroupDeleteSheet side="plan" id={plan.id} name={f.name} generation={link.generation} onClose={() => setSheet('')}/>
       : <DeleteSheet name={f.name} busy={saver.busy} error={saver.error} onClose={() => setSheet('')}
-        onConfirm={() => void saver.run(requestId => trash('plan', plan.id, plan.revision, detail.generation, `计划 ${f.name}`, requestId), { close: true })}>
+        onConfirm={() => void saver.run(requestId => trash('plan', plan.id, plan.revision, detail.generation, t('计划 {name}', { name: f.name }), requestId), { close: true })}>
         <p className="m-confirm-text">{t('付款记录会一起移入；其中已确认的付款暂不参与重要支出。')}</p>
       </DeleteSheet>)}
     {sheet === 'cancelResume' && <ConfirmSheet title={t('撤销待生效安排？')} confirm={t('撤销安排')} busy={saver.busy} error={saver.error} onClose={() => setSheet('')} onConfirm={cancelResume}
@@ -115,8 +115,8 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
 
 function PeriodItem({ row, today, onOpen, onSkip }: { row: PeriodRow; today: string; onOpen: () => void; onSkip: () => void }) {
   const coverage = row.coverage ? localizeDates(periodLabel(row.coverage[0], row.coverage[1]), today) : '';
-  const amount = row.state === 'skipped' ? '本期不付' : row.amount !== null ? moneyText(row.amount) : '金额未知';
-  const sub = row.state === 'paid' ? `${row.paidDate ? dayLabel(row.paidDate, today) : '日期未知'} 实付${row.offSchedule ? ' · 原排期已更正' : ''}` : row.state === 'skipped' ? '不计入重要支出' : `${dayLabel(row.due, today)} 付款 · ${dueBadge(row.due, today).text}`;
+  const amount = row.state === 'skipped' ? t('本期不付') : row.amount !== null ? moneyText(row.amount) : t('金额未知');
+  const sub = row.state === 'paid' ? t('{v1} 实付{v2}', { v1: row.paidDate ? dayLabel(row.paidDate, today) : '日期未知', v2: row.offSchedule ? ' · 原排期已更正' : '' }) : row.state === 'skipped' ? t('不计入重要支出') : t('{v1} 付款 · {text}', { v1: dayLabel(row.due, today), text: dueBadge(row.due, today).text });
   return <div className="sp-period-row">
     <button type="button" className="sp-period-main" onClick={onOpen} aria-label={`${periodLabelText(row)} ${dayLabel(row.due, today)} ${stateText[row.state]}，${amount}`}>
       <span className="sp-period-line"><strong>{periodLabelText(row)} · {dayLabel(row.due, today)}</strong><em className={row.amount === null && row.state === 'paid' ? 'm-unknown' : undefined}>{amount}</em></span>

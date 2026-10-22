@@ -27,7 +27,7 @@ export function IconButton({ label, children, onClick, pressed, disabled }: { la
  * `取消` on modals (override with `back` / `cancel`). `primary` is the right-hand action such as 保存.
  * Leave `title` empty when a LargeTitle follows.
  */
-export function NavBar({ title, primary, back, cancelLabel = '取消', onCancel, right }: {
+export function NavBar({ title, primary, back, cancelLabel = t('取消'), onCancel, right }: {
   title?: string;
   primary?: { label: string; onClick: () => void; disabled?: boolean; busy?: boolean };
   back?: { label: string; onClick: () => void };

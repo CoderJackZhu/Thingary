@@ -35,7 +35,7 @@ export default function Report({
       );
       return parsed.ok
         ? { report: parsed.report, error: "" }
-        : { report: null, error: "报告数据无法识别，请返回重新生成。" };
+        : { report: null, error: t('报告数据无法识别，请返回重新生成。') };
     } catch (e) {
       return {
         report: null,
@@ -57,9 +57,9 @@ export default function Report({
   async function copy() {
     try {
       await navigator.clipboard.writeText(copyText(report, privacy));
-      setNotice("已复制当前摘要。");
+      setNotice(t('已复制当前摘要。'));
     } catch {
-      setNotice("复制失败，请重试。");
+      setNotice(t('复制失败，请重试。'));
     }
   }
   async function download() {
@@ -68,7 +68,7 @@ export default function Report({
     try {
       setNotice(await shareReport(exportFileName(report, privacy), printableHtml(report, { privacy })));
     } catch {
-      setNotice("导出失败，请重试。");
+      setNotice(t('导出失败，请重试。'));
     } finally { setExporting(false); }
   }
   return (

@@ -3,7 +3,7 @@ import { t as tr } from './i18n.ts';
 /** 九类结果，顺序即后端固定类型顺序（§6.2）。 */
 export type SearchKind = 'asset' | 'wish' | 'account' | 'snapshot' | 'expense' | 'plan' | 'payment' | 'virtual' | 'topup';
 export const searchKindOrder: SearchKind[] = ['asset', 'wish', 'account', 'snapshot', 'expense', 'plan', 'payment', 'virtual', 'topup'];
-export const searchKindLabel = (kind: string): string => ({ asset: '物品', wish: '心愿', account: '账户', snapshot: '盘点', expense: '重要支出', plan: '周期计划', payment: '周期付款记录', virtual: '虚拟资产', topup: '储值充值' } as Record<string, string>)[kind] ?? kind;
+export const searchKindLabel = (kind: string): string => ({ asset: tr('物品'), wish: tr('心愿'), account: tr('账户'), snapshot: tr('盘点'), expense: tr('重要支出'), plan: tr('周期计划'), payment: tr('周期付款记录'), virtual: tr('虚拟资产'), topup: tr('储值充值') } as Record<string, string>)[kind] ?? kind;
 /** 类型 → 所属模块开关；关闭的功能不出现在筛选中。 */
 const kindModuleMap: Partial<Record<SearchKind, 'physical' | 'wishlist' | 'wealth' | 'expenses' | 'recurring' | 'virtual'>> = { asset: 'physical', wish: 'wishlist', account: 'wealth', snapshot: 'wealth', expense: 'expenses', plan: 'recurring', payment: 'recurring', virtual: 'virtual', topup: 'virtual' };
 export const searchKindModule = (kind: SearchKind) => kindModuleMap[kind] ?? null;
@@ -29,7 +29,7 @@ export function searchFilterList(typeCounts: [string, number][] | null, modulesO
 }
 
 /** 空面板的搜索范围说明（§6.2）：覆盖字段与明确不覆盖的内容。 */
-export const searchScopeText = '可搜索：物品（名称、品牌、型号、分类、标签、备注）；心愿（名称、分类、考虑理由、决定备注、相关链接）；账户（名称、类型、平台、备注）；盘点（日期、备注）；独立重要支出（名称、分类、备注、日期）；周期计划（名称、类别、备注）；周期付款记录（计划名、应付／实付日期、付款备注）；虚拟资产（名称、类型、标签、备注）；储值充值（档案名、充值日期、备注）。不搜索：附件内容、OCR、序列号、保障／维护子记录、退款子记录、储值余额核对历史、未确认付款候选、自动费用估算，也不做模糊或拼音检索。';
+export const searchScopeText = tr('可搜索：物品（名称、品牌、型号、分类、标签、备注）；心愿（名称、分类、考虑理由、决定备注、相关链接）；账户（名称、类型、平台、备注）；盘点（日期、备注）；独立重要支出（名称、分类、备注、日期）；周期计划（名称、类别、备注）；周期付款记录（计划名、应付／实付日期、付款备注）；虚拟资产（名称、类型、标签、备注）；储值充值（档案名、充值日期、备注）。不搜索：附件内容、OCR、序列号、保障／维护子记录、退款子记录、储值余额核对历史、未确认付款候选、自动费用估算，也不做模糊或拼音检索。');
 
 /** 输入停止约 200ms 后查询；中文组合输入结束后再查询（§6.1）。 */
 export const searchDebounceMs = 200;

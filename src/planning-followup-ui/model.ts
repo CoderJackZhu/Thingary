@@ -50,50 +50,50 @@ export function assumptionValuesOf(draft: Record<AssumptionKey, string>): Assump
 }
 
 export const confirmationText: Record<AssumptionReadV1['confirmation'], string> = {
-  unconfirmed: '试算值，未确认：这些值只是试算假设，还没有经你确认。',
-  confirmed: '已核对：当前保存的值与你确认过的假设一致。',
-  needs_review: '条件已变，请确认：之前确认的值后来被修改。',
+  unconfirmed: t('试算值，未确认：这些值只是试算假设，还没有经你确认。'),
+  confirmed: t('已核对：当前保存的值与你确认过的假设一致。'),
+  needs_review: t('条件已变，请确认：之前确认的值后来被修改。'),
 };
 
 /** 未核对／待核对不阻断试算，但界面不得把它们说成用户已确认的配置。 */
 export function assumptionSummary(read: AssumptionReadV1): string {
   const v = read.values;
-  return `退休前 ${hundredthsToPctText(v.real_return_before_hundredths)}% · 退休后 ${hundredthsToPctText(v.real_return_after_hundredths)}% · 通胀 ${hundredthsToPctText(v.inflation_hundredths)}% · 波动率 ${hundredthsToPctText(v.volatility_hundredths)}%`;
+  return t('退休前 {v1}% · 退休后 {v2}% · 通胀 {v3}% · 波动率 {v4}%', { v1: hundredthsToPctText(v.real_return_before_hundredths), v2: hundredthsToPctText(v.real_return_after_hundredths), v3: hundredthsToPctText(v.inflation_hundredths), v4: hundredthsToPctText(v.volatility_hundredths) });
 }
 
 // ---------------------------------------------------------------- 资金流动
 
 export const purposeLabel: Record<MovementPurposeV1, string> = {
-  own_transfer: '本人账户转账',
-  external_funding: '外部投入／取回',
-  living_payment: '生活支付',
-  income_distribution: '投资现金收入分配',
-  investment_cost: '投资费用／税费',
+  own_transfer: t('本人账户转账'),
+  external_funding: t('外部投入／取回'),
+  living_payment: t('生活支付'),
+  income_distribution: t('投资现金收入分配'),
+  investment_cost: t('投资费用／税费'),
 };
 export const purposeHint: Record<MovementPurposeV1, string> = {
-  own_transfer: '两个本人账户之间的转账；同一条记录维护两端，不需要各记一次。',
-  external_funding: '账户与外部之间的非投资收益本金移动：外部投入为 外部→账户，取回本金为 账户→外部。',
-  living_payment: '从账户（含投资账户）对外支付的生活费；直接用投资账户付款也属于投资范围流出。',
-  income_distribution: '已归属投资账户的现金收益（如分红转出）向其他账户或外部分配；留存投资账户内的分红无需记录。',
-  investment_cost: '账户向外部支付的投资费用／税费；已扣在投资余额内的费用属于净损益，不要另记取回。',
+  own_transfer: t('两个本人账户之间的转账；同一条记录维护两端，不需要各记一次。'),
+  external_funding: t('账户与外部之间的非投资收益本金移动：外部投入为 外部→账户，取回本金为 账户→外部。'),
+  living_payment: t('从账户（含投资账户）对外支付的生活费；直接用投资账户付款也属于投资范围流出。'),
+  income_distribution: t('已归属投资账户的现金收益（如分红转出）向其他账户或外部分配；留存投资账户内的分红无需记录。'),
+  investment_cost: t('账户向外部支付的投资费用／税费；已扣在投资余额内的费用属于净损益，不要另记取回。'),
 };
 export const sourceStatusText: Record<MovementRecordV1['source_status'], string> = {
-  disabled: '来源模块已关闭',
-  unlinked: '未关联来源',
-  matched: '已关联来源',
-  needs_review: '来源待复核',
-  deleted: '来源已删除',
+  disabled: t('来源模块已关闭'),
+  unlinked: t('未关联来源'),
+  matched: t('已关联来源'),
+  needs_review: t('来源待复核'),
+  deleted: t('来源已删除'),
 };
 /** 契约 §4 在 FollowupIssue 上扩展的失效码；旧投资核对理由沿用 investment-review 的文案。 */
 export const followupReasonText: Record<string, string> = {
-  movements_disabled: '资金流动记录已关闭，明细核对暂不可用；手填合计仍可使用',
-  stale_movements: '相关资金流动已被更正，原确认失效，请重新核对',
-  source_mismatch: '关联来源的日期或金额与流动不一致，请复核',
-  source_deleted: '关联来源已被删除，关联失效，请复核',
+  movements_disabled: t('资金流动记录已关闭，明细核对暂不可用；手填合计仍可使用'),
+  stale_movements: t('相关资金流动已被更正，原确认失效，请重新核对'),
+  source_mismatch: t('关联来源的日期或金额与流动不一致，请复核'),
+  source_deleted: t('关联来源已被删除，关联失效，请复核'),
 };
 
 export const endpointText = (endpoint: MovementFieldsV1['from'], accountNames: Record<string, string>): string =>
-  endpoint.kind === 'account' ? accountNames[endpoint.account_id] ?? `历史账户 ${endpoint.account_id}` : `外部：${endpoint.label}`;
+  endpoint.kind === 'account' ? accountNames[endpoint.account_id] ?? t('历史账户 {account_id}', { account_id: endpoint.account_id }) : t('外部：{label}', { label: endpoint.label });
 
 /** 表单草稿：金额为元文本对应的规范分字符串（'' = 未填）；关闭即丢弃，不存草稿。 */
 export type MovementFormDraft = {

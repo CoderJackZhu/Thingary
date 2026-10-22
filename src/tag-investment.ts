@@ -113,20 +113,20 @@ export function restoredShown(saved: number, matched: number): number {
  *  全部为空时不显示。 */
 export function missingNotice(totals: TagInvestmentTotals, excluded: number): string | null {
   const parts: string[] = [];
-  if (totals.missing_purchase_count > 0) parts.push(`购入金额未知 ${totals.missing_purchase_count} 件`);
-  if (totals.missing_maintenance_count > 0) parts.push(`维护费用未知 ${totals.missing_maintenance_count} 条`);
-  if (excluded > 0) parts.push(`${excluded} 件已设为不计入统计`);
+  if (totals.missing_purchase_count > 0) parts.push(tr('购入金额未知 {missing_purchase_count} 件', { missing_purchase_count: totals.missing_purchase_count }));
+  if (totals.missing_maintenance_count > 0) parts.push(tr('维护费用未知 {missing_maintenance_count} 条', { missing_maintenance_count: totals.missing_maintenance_count }));
+  if (excluded > 0) parts.push(tr('{excluded} 件已设为不计入统计', { excluded }));
   if (!parts.length) return null;
-  if (totals.complete_investment_cents === null) parts.push('补全金额后可查看占比');
+  if (totals.complete_investment_cents === null) parts.push(tr('补全金额后可查看占比'));
   return parts.join(' · ') + '。';
 }
 
 /** 摘要行购入分项（R1 语义）：无已知购入 → 待补录；有缺失 → 标「已知」；
  *  完整 → 金额本身。空集合由空态分支处理，不进入这里。 */
 export function purchaseSummaryText(totals: TagInvestmentTotals): string {
-  if (!totals.has_known_purchase) return '待补录';
+  if (!totals.has_known_purchase) return tr('待补录');
   const text = money(totals.known_purchase_cents);
-  return totals.missing_purchase_count > 0 ? `已知 ${text}` : text;
+  return totals.missing_purchase_count > 0 ? tr('已知 {text}', { text }) : text;
 }
 
 /** 摘要行维护分项（R1 语义）：没有任何维护记录 → 确定的 ¥0；
@@ -135,9 +135,9 @@ export function purchaseSummaryText(totals: TagInvestmentTotals): string {
 export function maintenanceSummaryText(totals: TagInvestmentTotals): string {
   if (totals.has_known_maintenance_record) {
     const text = money(totals.known_maintenance_cents);
-    return totals.missing_maintenance_count > 0 ? `已知 ${text}` : text;
+    return totals.missing_maintenance_count > 0 ? tr('已知 {text}', { text }) : text;
   }
-  return totals.missing_maintenance_count > 0 ? '待补录' : '¥0';
+  return totals.missing_maintenance_count > 0 ? tr('待补录') : '¥0';
 }
 
 /** 明细维护单元格（宽表与窄窗副行共用，R1 三处一致）：
@@ -147,8 +147,8 @@ export function maintenanceCellText(item: TagInvestmentItem): string {
   const known = item.known_maintenance_record_count > 0;
   const missing = item.missing_maintenance_count > 0;
   if (!known && !missing) return '¥0';
-  if (!known) return '待补录';
-  if (missing) return `已知 ${money(item.known_maintenance_cents)} · 待补录`;
+  if (!known) return tr('待补录');
+  if (missing) return tr('已知 {v1} · 待补录', { v1: money(item.known_maintenance_cents) });
   return money(item.known_maintenance_cents);
 }
 

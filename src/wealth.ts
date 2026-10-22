@@ -58,20 +58,20 @@ export function snapshotEntryInput(accountId: string, row: CheckInRow): Snapshot
   return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null, ...(row.state !== 'missing' && row.quantity_e8 != null ? {quantity_e8:row.quantity_e8,unit_price_e6:row.unit_price_e6} : {}), ...(row.state !== 'missing' && row.original_minor != null ? { original_minor: row.original_minor, fx_rate_micro: row.fx_rate_micro } : {}) };
 }
 
-export const assetKinds = [['cash', '现金与存款'], ['investment', '投资账户'], ['mixed', '混合投资'], ['fund', '基金'], ['bond', '债券'], ['housing_fund', '公积金'], ['property', '房产'], ['pension', '个人养老金'], ['insurance', '保险现金价值'], ['precious_metal', '黄金与贵金属'], ['receivable', '应收款'], ['vehicle', '车辆'], ['other_asset', '其他资产']] as const;
-export const liabilityKinds = [['credit_card', '信用卡'], ['loan', '贷款'], ['other_liability', '其他负债']] as const;
+export const assetKinds = [['cash', t('现金与存款')], ['investment', t('投资账户')], ['mixed', t('混合投资')], ['fund', t('基金')], ['bond', t('债券')], ['housing_fund', t('公积金')], ['property', t('房产')], ['pension', t('个人养老金')], ['insurance', t('保险现金价值')], ['precious_metal', t('黄金与贵金属')], ['receivable', t('应收款')], ['vehicle', t('车辆')], ['other_asset', t('其他资产')]] as const;
+export const liabilityKinds = [['credit_card', t('信用卡')], ['loan', t('贷款')], ['other_liability', t('其他负债')]] as const;
 /** New accounts use the category suggestion until the user chooses a scope explicitly. */
 export const defaultAccountCounted = (kind: string): boolean => kind !== 'property' && kind !== 'insurance' && kind !== 'vehicle';
 export function selectAccountKind(fields: AccountFields, kind: string, explicitCounted: boolean | null): AccountFields {
   return { ...fields, kind, side: liabilityKinds.some(([k]) => k === kind) ? 'liability' : 'asset', counted: kind === 'property' ? false : explicitCounted ?? defaultAccountCounted(kind) };
 }
 export function accountKindHint(kind: string): string | undefined {
-  if (kind === 'property') return '房产仅单独记录当前估值，不计入金融净资产；有效期间仍需在每次完整盘点确认金额。房贷仍独立记录，金融净资产不代表包含房产的家庭总资产。';
-  if (kind === 'insurance') return '记录当前现金价值，不是累计保费或保额。默认不计入；开启后仍不代表可用于退休规划。';
-  if (kind === 'pension') return '记录个人养老金账户当前余额，不推算未来领取额。默认计入不代表已确认可用于规划。';
-  if (kind === 'precious_metal') return '记录用户确认的人民币估值，不自动查询行情。默认计入不代表已确认可用于规划。';
-  if (kind === 'receivable') return '借给别人、还没收回的钱。对方还钱后把余额改小，全部收回后可以停用这个账户。默认计入不代表可用于规划。';
-  if (kind === 'vehicle') return '记录车辆当前估值。车辆不是金融资产，默认不计入金融净资产，可以手动开启。';
+  if (kind === 'property') return t('房产仅单独记录当前估值，不计入金融净资产；有效期间仍需在每次完整盘点确认金额。房贷仍独立记录，金融净资产不代表包含房产的家庭总资产。');
+  if (kind === 'insurance') return t('记录当前现金价值，不是累计保费或保额。默认不计入；开启后仍不代表可用于退休规划。');
+  if (kind === 'pension') return t('记录个人养老金账户当前余额，不推算未来领取额。默认计入不代表已确认可用于规划。');
+  if (kind === 'precious_metal') return t('记录用户确认的人民币估值，不自动查询行情。默认计入不代表已确认可用于规划。');
+  if (kind === 'receivable') return t('借给别人、还没收回的钱。对方还钱后把余额改小，全部收回后可以停用这个账户。默认计入不代表可用于规划。');
+  if (kind === 'vehicle') return t('记录车辆当前估值。车辆不是金融资产，默认不计入金融净资产，可以手动开启。');
   return undefined;
 }
 export const kindLabel = (kind: string) => [...assetKinds, ...liabilityKinds].find(([k]) => k === kind)?.[1] ?? kind;
@@ -82,7 +82,7 @@ export function changeText(cents: string) { return cents.startsWith('-') ? money
 /** 与上次比较的显示值：明确的零是持平，区别于未知与没有上期数据。 */
 export function comparisonText(changeCents: string | null | undefined, comparedTo: string | null | undefined): string {
   if (!comparedTo) return '—';
-  if (changeCents === '0') return '持平';
+  if (changeCents === '0') return t('持平');
   return changeCents ? changeText(changeCents) : '—';
 }
 /** Enter 跳到下一金额字段：输入法组合期间保持原始行为，Tab 等其他键不处理。 */
@@ -157,10 +157,10 @@ export function sortRows(rows: CompareRow[], mode: 'impact' | 'kind'): CompareRo
 
 /** 端点金额格文案：未启用／已停用／未知是文字，负债写「欠」前缀（17.14.4.2）。 */
 export function cellText(cell: CompareCell, side: Side): string {
-  if (cell.state === 'not_open') return '未启用';
-  if (cell.state === 'closed') return '已停用';
-  if (cell.state === 'missing' || cell.amount_cents === null) return '未知';
-  return side === 'liability' ? `欠 ${money(cell.amount_cents)}` : money(cell.amount_cents);
+  if (cell.state === 'not_open') return t('未启用');
+  if (cell.state === 'closed') return t('已停用');
+  if (cell.state === 'missing' || cell.amount_cents === null) return t('未知');
+  return side === 'liability' ? t('欠 {v1}', { v1: money(cell.amount_cents) }) : money(cell.amount_cents);
 }
 
 // Only a submitted request whose reply was lost is kept; unsubmitted input is not.
@@ -206,7 +206,7 @@ export async function submit<T>(request: Pending | AssetSavePending): Promise<T>
   }
   const existing = storedPending();
   if (existing && JSON.stringify(existing) !== JSON.stringify(pending)) {
-    throw new Unresolved('还有一个提交结果待核对，原请求已保留；请先核对后再保存。');
+    throw new Unresolved(t('还有一个提交结果待核对，原请求已保留；请先核对后再保存。'));
   }
   try { localStorage.setItem(pendingKey, JSON.stringify(pending)); }
   catch { throw new Error(t('无法记录本次请求，尚未提交，请检查可用空间后重试。')); }
@@ -217,9 +217,9 @@ export async function submit<T>(request: Pending | AssetSavePending): Promise<T>
       // Keep the exact receipt until the replay reply is obtained as well.
       localStorage.setItem(pendingKey, JSON.stringify(pending));
       try { const result = await invoke<T>(pending.command, { input: submittedInput(pending) }); clearPending(); return result; }
-      catch { throw new Unresolved('已确认保存，但暂时无法读取回执；原请求已保留，请继续核对。'); }
+      catch { throw new Unresolved(t('已确认保存，但暂时无法读取回执；原请求已保留，请继续核对。')); }
     }
-    if (outcome === 'unknown') throw new Unresolved(errorMessage(e) + ' 暂时无法确认是否已保存，原请求已保留，请在当前页面核对。');
+    if (outcome === 'unknown') throw new Unresolved(errorMessage(e) + t(' 暂时无法确认是否已保存，原请求已保留，请在当前页面核对。'));
     throw e;
   }
 }
@@ -235,19 +235,19 @@ export async function resolvePending(pending: Pending): Promise<'saved' | 'unsav
         : await invoke<string | null>('wealth_request_result', identity);
     if (id) {
       if (pending.command === 'plan_assumptions_save' || pending.command === 'plan_profile_save' || pending.command === 'plan_profile_update') {
-        if (id !== 'profile') throw new Unresolved('规划回执结果不匹配；原请求已保留。');
+        if (id !== 'profile') throw new Unresolved(t('规划回执结果不匹配；原请求已保留。'));
         // A receipt confirms a commit, but the current profile may still be
         // unreadable or belong to a newly selected library. Never replay legacy input.
         const state = await invoke<import('./plan.ts').ProfileState>('plan_profile');
         if (state.generation !== pending.input.generation || !state.saved) {
-          throw new Unresolved('已保存但当前规划资料无法核对；原请求已保留。');
+          throw new Unresolved(t('已保存但当前规划资料无法核对；原请求已保留。'));
         }
       }
       clearPending(); return 'saved';
     }
     clearPending(); return 'unsaved';
   } catch (e) {
-    if (code(e) === 'STALE_DATASET') { if (catalogCommands.includes(pending.command) || pending.command === 'batch_change' || ['account_group_save', 'account_group_delete', 'account_groups_reorder', 'savings_goals_save', 'savings_goals_trash', 'movement_save', 'movement_trash', 'followup_review_save', 'followup_review_trash'].includes(pending.command) || pending.command === 'plan_assumptions_save' || pending.command === 'plan_income_save' || pending.command === 'investment_review_save' || pending.command === 'investment_review_trash' || pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
+    if (code(e) === 'STALE_DATASET') { if (catalogCommands.includes(pending.command) || pending.command === 'batch_change' || ['account_group_save', 'account_group_delete', 'account_groups_reorder', 'savings_goals_save', 'savings_goals_trash', 'movement_save', 'movement_trash', 'followup_review_save', 'followup_review_trash'].includes(pending.command) || pending.command === 'plan_assumptions_save' || pending.command === 'plan_income_save' || pending.command === 'investment_review_save' || pending.command === 'investment_review_trash' || pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved(t('资料库已切换；原请求元数据仍保留，请回到原资料库核对。')); clearPending(); return 'stale'; }
     throw e;
   }
 }
@@ -317,7 +317,7 @@ export function quickBalance(previous: string | null, delta: string): string {
   return quickAmount(next.toString()).toString();
 }
 export function quickDeltaLabel(side: Side): string {
-  return side === 'liability' ? '增加欠款／减少欠款' : '增减金额';
+  return side === 'liability' ? t('增加欠款／减少欠款') : t('增减金额');
 }
 export function quickTransferPairs(draft: Draft): { from: string; to: string }[] {
   const known = draft.rows.filter(r => !r.account.fields.holding_mode && quickPrevious(draft, r.account.id) !== null);

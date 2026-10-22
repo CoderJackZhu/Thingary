@@ -68,8 +68,8 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
   const r = saved?.profile.retire ?? defaultRetire;
   const fields: BasicFields = {
     spend_cents: d.budget === '' ? null : d.budget,
-    mode: d.mode, real_return_before_hundredths: rate(d.before, '退休前实际收益'), real_return_after_hundredths: rate(d.after, '退休后实际收益'), volatility_hundredths: d.volatility === undefined ? r.volatility_hundredths : rate(d.volatility, '市场模拟年波动率'),
-    emergency_months: int(d.emergency, '应急金月数', 0, 36) ?? fail(tr('请填写应急金月数。')), inflation_hundredths: rate(d.infl, '通胀'),
+    mode: d.mode, real_return_before_hundredths: rate(d.before, tr('退休前实际收益')), real_return_after_hundredths: rate(d.after, tr('退休后实际收益')), volatility_hundredths: d.volatility === undefined ? r.volatility_hundredths : rate(d.volatility, tr('市场模拟年波动率')),
+    emergency_months: int(d.emergency, tr('应急金月数'), 0, 36) ?? fail(tr('请填写应急金月数。')), inflation_hundredths: rate(d.infl, tr('通胀')),
     monetary_basis_date: r.core?.monetary_basis_date ?? today,
     basic: {
       contract_version: 1,

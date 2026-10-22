@@ -1,5 +1,6 @@
 import { t, numberLocale } from './i18n.ts';
 import { convertCurrency, currencyAmount, currencyCode, currencyDecimals, decimalUnits, parseDecimal, rateLabel } from './currency.ts';
+import { t as tr } from './i18n.ts';
 export type Asset = { id: string; name: string; price_cents: string | null; purchase_date: string | null; revision: number };
 export type Details = { brand: string; model: string; serial_number: string; notes: string };
 export type Photo = { id: string; name: string };
@@ -16,8 +17,8 @@ export type Fields = Details & { name: string; price: string; date: string; curr
 export const emptyFields: Fields = { name: '', price: '', date: '', brand: '', model: '', serial_number: '', notes: '' };
 // U16-D2：整数元不显示角分；单位成本（日均、每次）用 unitMoney，始终两位。只改显示。
 export function yuan(cents: string, always = false) { const n = Number(cents); return `${n < 0 ? '−\u2060' : ''}¥${(Math.abs(n) / 100).toLocaleString(numberLocale(), { minimumFractionDigits: always || n % 100 !== 0 ? 2 : 0, maximumFractionDigits: 2 })}`; }
-export function money(cents: string | null) { return cents === null ? '待补充' : yuan(cents); }
-export function unitMoney(cents: string | null) { return cents === null ? '待补充' : yuan(cents, true); }
+export function money(cents: string | null) { return cents === null ? tr('待补充') : yuan(cents); }
+export function unitMoney(cents: string | null) { return cents === null ? tr('待补充') : yuan(cents, true); }
 export function inputMoney(value: string): string | null {
   if (!value.trim()) return null;
   if (!/^\d{1,9}(\.\d{1,2})?$/.test(value.trim())) throw new Error(t('请输入非负金额，最多两位小数，最高 999,999,999.99 元。'));
@@ -52,14 +53,14 @@ export function originText(record: Pick<AssetRecord, 'price_origin'>): string | 
 export function localDay(now = new Date()) { return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
 export function validate(fields: Fields, today: string): Partial<Record<keyof Fields, string>> {
   const errors: Partial<Record<keyof Fields, string>> = {};
-  if (!fields.name.trim() || [...fields.name.trim()].length > 200) errors.name = '请填写名称，最多 200 字。';
+  if (!fields.name.trim() || [...fields.name.trim()].length > 200) errors.name = tr('请填写名称，最多 200 字。');
   try { priceCents(fields); } catch (e) { errors.price = (e as Error).message; }
   if (fields.date) {
     const parsed = new Date(fields.date + 'T00:00:00Z');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fields.date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== fields.date || fields.date < '1900-01-01') errors.date = '请输入有效日期，格式为 YYYY-MM-DD。';
-    else if (fields.date > today) errors.date = '购入日期不能晚于今天；计划购买的物品请后续记入心愿。';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fields.date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== fields.date || fields.date < '1900-01-01') errors.date = tr('请输入有效日期，格式为 YYYY-MM-DD。');
+    else if (fields.date > today) errors.date = tr('购入日期不能晚于今天；计划购买的物品请后续记入心愿。');
   }
-  for (const key of ['brand', 'model', 'serial_number', 'notes'] as const) if ([...fields[key]].length > (key === 'notes' ? 10000 : 200) || fields[key].includes('\0')) errors[key] = key === 'notes' ? '备注最多 10000 字，且不能含空字符。' : '最多 200 字，且不能含空字符。';
+  for (const key of ['brand', 'model', 'serial_number', 'notes'] as const) if ([...fields[key]].length > (key === 'notes' ? 10000 : 200) || fields[key].includes('\0')) errors[key] = key === 'notes' ? tr('备注最多 10000 字，且不能含空字符。') : tr('最多 200 字，且不能含空字符。');
   return errors;
 }
 export function fieldsOf(record: AssetRecord): Fields {
@@ -77,5 +78,5 @@ export function errorMessage(e: unknown) { return typeof e === 'object' && e !==
 /** 攒钱保存失败的提示：样例里这笔会让心愿达到目标而自动实现，但样例不能新增物品，单独说明原因与出路。 */
 export function savingsErrorNotice(e: unknown) {
   const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code?: unknown }).code) : '';
-  return code === 'SAMPLE_NO_NEW_ASSET' ? '这笔金额会让心愿达到目标并自动实现，但样例里不能新增物品，所以没有保存。想体验实现心愿，请先点顶部「开始记录我的资料」。' : errorMessage(e);
+  return code === 'SAMPLE_NO_NEW_ASSET' ? tr('这笔金额会让心愿达到目标并自动实现，但样例里不能新增物品，所以没有保存。想体验实现心愿，请先点顶部「开始记录我的资料」。') : errorMessage(e);
 }

@@ -22,7 +22,8 @@ import { Info } from './FormControls';
 import { DailyCostMetric } from './DailyCostMetric';
 import './review.css';
 import { t, numberLocale } from './i18n.ts';
-const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴', wishlist: '心愿清单' };
+import { t as tt } from './i18n.ts';
+const labels: Record<ReviewPage, string> = { wealth: tt('账户与盘点'), assets: tt('全部物品'), expenses: tt('重要支出'), recurring: tt('周期费用'), virtual: tt('虚拟资产'), timeline: tt('时间轴'), wishlist: tt('心愿清单') };
 
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 const tone = (cents: string | null) => cents?.startsWith('-') ? ' neg' : cents && cents !== '0' ? ' pos' : '';
@@ -45,11 +46,11 @@ function StructureCard({ summary, onBrowse }: { summary: Summary; onBrowse: () =
   }, [key, retry]);
   const settled = span && pairs?.key === key ? pairs : null;
   const rows = structureRows(summary.structure, settled?.value ?? null);
-  const note = !latest?.compared_to ? '第一份完整盘点，暂无可比变化。'
-    : latest.scope_changed ? `较 ${latest.compared_to}：参与比较的账户有变化，暂不能逐类比较。`
-    : !settled ? '正在读取变化…'
-    : settled.value === null ? '变化暂时无法读取。'
-    : `变化为较 ${latest.compared_to} 完整盘点；含存取与估值，不等于投资收益。`;
+  const note = !latest?.compared_to ? tt('第一份完整盘点，暂无可比变化。')
+    : latest.scope_changed ? tt('较 {compared_to}：参与比较的账户有变化，暂不能逐类比较。', { compared_to: latest.compared_to })
+    : !settled ? tt('正在读取变化…')
+    : settled.value === null ? tt('变化暂时无法读取。')
+    : tt('变化为较 {compared_to} 完整盘点；含存取与估值，不等于投资收益。', { compared_to: latest.compared_to });
   const known = rows.reduce((sum, r) => sum + Math.max(0, Number(r.amount_cents)), 0);
   return <article className="ui-card review-structure">
     <div className="ui-section-head"><h3>{t('资产结构')}</h3><span className="ui-aside">{t('{structure_date} 完整盘点 · 计入净资产的账户', { structure_date: summary.structure_date })}</span></div>
@@ -91,7 +92,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     setUpdating(true); setError('');
     invoke<Review>('review_overview', { year, planning: modules.planning && modules.wealth }).then(result => {
       if (gate.current.accepts(ticket, generation, result.generation)) { setData(result); setUpdating(false); }
-      else if (gate.current.accepts(ticket, generation, generation)) { setError('资料库已变化，请重新读取。'); setUpdating(false); }
+      else if (gate.current.accepts(ticket, generation, generation)) { setError(tt('资料库已变化，请重新读取。')); setUpdating(false); }
     }).catch(e => { if (gate.current.accepts(ticket, generation, generation)) { setError(errorMessage(e)); setUpdating(false); } });
     return () => gate.current.invalidate();
   }, [generation, today, version, year, retry, moduleKey]);
@@ -106,8 +107,8 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   const availability = ready(data.account_availability);
   const availabilityKnown = availability && Number.isSafeInteger(availability.total) && Number.isSafeInteger(availability.due_today) && availability.total >= 0 && availability.due_today >= 0 && availability.due_today <= availability.total;
   const balanceAction = updating ? 'waiting' : error || !availabilityKnown ? 'retry' : availability.total === 0 ? 'new' : availability.due_today > 0 ? 'update' : 'accounts';
-  const balanceLabel = { waiting: '正在确认账户…', retry: '重新读取账户', new: '添加第一个账户', update: '更新今天的余额', accounts: '查看已有账户' }[balanceAction];
-  const balanceHint = { waiting: '读取完成后再继续。', retry: '暂时无法确认账户情况，请重新读取；已有资料未修改。', new: '先记下一个账户，再填写今天的余额。', update: '更新后看账户变化，需要时再调整计划。', accounts: '今天没有需要填写余额的账户，可查看停用状态或启用日期。' }[balanceAction];
+  const balanceLabel = { waiting: tt('正在确认账户…'), retry: tt('重新读取账户'), new: tt('添加第一个账户'), update: tt('更新今天的余额'), accounts: tt('查看已有账户') }[balanceAction];
+  const balanceHint = { waiting: tt('读取完成后再继续。'), retry: tt('暂时无法确认账户情况，请重新读取；已有资料未修改。'), new: tt('先记下一个账户，再填写今天的余额。'), update: tt('更新后看账户变化，需要时再调整计划。'), accounts: tt('今天没有需要填写余额的账户，可查看停用状态或启用日期。') }[balanceAction];
   const startBalanceAction = () => {
     if (updating) return;
     if (balanceAction === 'retry') reload();
@@ -122,15 +123,15 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   // One backend projection already blends snapshot facts with every other
   // event; merging wealth points here again would duplicate 盘点 rows.
   const hidden = hiddenKinds(modules);
-  const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, icon: eventIcon(ev.kind), date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: amountsHidden && ev.kind === 'snapshot' ? '金融金额已隐藏' : eventDetail(ev), target: ev.target ?? null }));
+  const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, icon: eventIcon(ev.kind), date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: amountsHidden && ev.kind === 'snapshot' ? tt('金融金额已隐藏') : eventDetail(ev), target: ev.target ?? null }));
   const daysSince = latest ? Math.max(0, Math.round((Date.parse(data.today) - Date.parse(latest.date)) / 86400000)) : 0;
   // 分类色条：金额未知的类别不占宽度；图例最多 4 行，其余合并（规范 4.6）。
   const cats = (p?.categories ?? []).filter(c => c.count > 0);
   const known = cats.reduce((sum, c) => sum + Number(c.known_cents), 0);
   const color = (slot: number | null) => slot === null ? 'var(--series-rest)' : `var(--series-${slot + 1})`;
-  const legend = cats.length > 4 ? [...cats.slice(0, 3), { id: 'rest', name: `其他 ${cats.length - 3} 类`, slot: null, count: 0, known_cents: String(cats.slice(3).reduce((s, c) => s + Number(c.known_cents), 0)), unknown_price_count: cats.slice(3).reduce((s, c) => s + c.unknown_price_count, 0) }] : cats;
+  const legend = cats.length > 4 ? [...cats.slice(0, 3), { id: 'rest', name: tt('其他 {v1} 类', { v1: cats.length - 3 }), slot: null, count: 0, known_cents: String(cats.slice(3).reduce((s, c) => s + Number(c.known_cents), 0)), unknown_price_count: cats.slice(3).reduce((s, c) => s + c.unknown_price_count, 0) }] : cats;
   const metrics = [
-    modules.expenses && e && { label: t('{v1}{v2}重要支出', { v1: year ?? '全部期间', v2: year === null ? '' : ' 年' }), value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? t('{unknown_amount_count} 笔金额未知', { unknown_amount_count: e.unknown_amount_count }) : '', page: 'expenses' as ReviewPage, big: true },
+    modules.expenses && e && { label: t('{v1}{v2}重要支出', { v1: year ?? tt('全部期间'), v2: year === null ? '' : tt(' 年') }), value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? t('{unknown_amount_count} 笔金额未知', { unknown_amount_count: e.unknown_amount_count }) : '', page: 'expenses' as ReviewPage, big: true },
     modules.recurring && r && { label: t('固定负担'), value: <>{money(r.monthly_cents)}<small>{t('/月')}</small></>, note: t('当前计划'), page: 'recurring' as ReviewPage, big: true },
     p && { label: t('平均持有'), value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString(numberLocale())}<small>{t('天')}</small></>, note: '', page: 'assets' as ReviewPage },
     modules.wishlist && p && { label: t('考虑中心愿'), value: <>{p.considering_wishes}<small>{t('条')}</small></>, note: p.legacy_wishes > 0 ? t('另有 {legacy_wishes} 条历史待核实', { legacy_wishes: p.legacy_wishes }) : '', page: 'wishlist' as ReviewPage },
@@ -149,7 +150,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
           <div className="review-nw-big">{amountsHidden ? '******' : latest ? signedMoney(latest.net_cents) : '—'}</div>
           {latest ? <>
             <p className="ui-sub">{t('截至 {date} 完整盘点 · 距今 {daysSince} 天', { date: latest.date, daysSince })}{latest.has_unchanged ? t(' · 含沿用金额，并非全部当日核对') : ""}</p>
-            <p className={'ui-sub' + (amountsHidden ? '' : tone(latest.change_cents))}>{amountsHidden ? t('变化金额已隐藏') : latest.compared_to ? latest.change_cents !== null ? t('较 {compared_to} {v2}{v3}', { compared_to: latest.compared_to, v2: changeText(latest.change_cents), v3: latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）` }) : t('较 {compared_to}：账户范围变化，暂不可比', { compared_to: latest.compared_to }) : t('第一份完整盘点，暂无可比变化')}</p>
+            <p className={'ui-sub' + (amountsHidden ? '' : tone(latest.change_cents))}>{amountsHidden ? t('变化金额已隐藏') : latest.compared_to ? latest.change_cents !== null ? t('较 {compared_to} {v2}{v3}', { compared_to: latest.compared_to, v2: changeText(latest.change_cents), v3: latest.change_rate_hundredths === null ? tt(' · 基期非正，不显示变化率') : `（${rateText(latest.change_rate_hundredths)}）` }) : t('较 {compared_to}：账户范围变化，暂不可比', { compared_to: latest.compared_to }) : t('第一份完整盘点，暂无可比变化')}</p>
             <p className="ui-sub">{t('资产')} {amountsHidden ? '******' : money(latest.assets_cents)} {t('· 负债')} {amountsHidden ? '******' : money(latest.liabilities_cents)}</p>
             <Sparkline hero points={trend.points} generation={generation} hideAmounts={amountsHidden}/>
             <div className="review-nw-bar">

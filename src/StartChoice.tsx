@@ -4,9 +4,9 @@ import { usageCount, type UsageSelection } from './start-choice';
 import './start-choice.css';
 import { t } from './i18n.ts';
 const purposes = [
-  { key: 'money', title: t('盘一盘我的钱'), hint: t('我现在一共有多少钱？这几个月变了多少？'), example: '银行卡、支付宝、基金、信用卡…', icon: 'wallet' },
-  { key: 'physical', title: t('整理我的物品'), hint: t('这件东西花了多少、保修还有没有？'), example: '电脑、相机、家电、日常用品…', icon: 'items' },
-  { key: 'planning', title: t('为以后做计划'), hint: t('每月要存多少，什么时候能不靠工资？'), example: '攒钱、退休、大额购买…', icon: 'plan' },
+  { key: 'money', title: t('盘一盘我的钱'), hint: t('我现在一共有多少钱？这几个月变了多少？'), example: t('银行卡、支付宝、基金、信用卡…'), icon: 'wallet' },
+  { key: 'physical', title: t('整理我的物品'), hint: t('这件东西花了多少、保修还有没有？'), example: t('电脑、相机、家电、日常用品…'), icon: 'items' },
+  { key: 'planning', title: t('为以后做计划'), hint: t('每月要存多少，什么时候能不靠工资？'), example: t('攒钱、退休、大额购买…'), icon: 'plan' },
 ] as const;
 
 export function StartChoice({ initial, ready, loading = false, error = '', onApply, onSkip, onReload, onBusyChange }: {
@@ -22,7 +22,7 @@ export function StartChoice({ initial, ready, loading = false, error = '', onApp
     if (lock.current || !ready || !usageCount(selection)) return;
     lock.current = true; setBusy(true); setFailure('');
     try { await onApply(selection); }
-    catch (e) { if (alive.current) setFailure(e instanceof Error ? e.message : '设置没有完成，请重试。'); }
+    catch (e) { if (alive.current) setFailure(e instanceof Error ? e.message : t('设置没有完成，请重试。')); }
     finally { lock.current = false; if (alive.current) setBusy(false); }
   }
   return <section className="usage-choice usage-choice-settings" aria-labelledby="start-choice-title">

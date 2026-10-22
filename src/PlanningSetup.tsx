@@ -27,17 +27,17 @@ import { hundredthsToPctText } from './planning-followup-ui/model';
 import type { PlanningFollowupPortV1 } from './planning-followup-contract';
 import './planning-followup-ui/planning-followup-ui.css';
 import { t } from './i18n.ts';
-const setupQuestions = [...questions, '每月大约能存下多少钱？'];
-const stepLabels = ['什么时候退休', '每月花多少', '已经攒了多少', '退休后收入', '每月能存多少'];
-const hints = ['填写出生年月和年龄，软件自动换算退休月份及规划终点。', '按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。', '确认可动用的现金和投资账户，保存后用于规划，不改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
+const setupQuestions = [...questions, t('每月大约能存下多少钱？')];
+const stepLabels = [t('什么时候退休'), t('每月花多少'), t('已经攒了多少'), t('退休后收入'), t('每月能存多少')];
+const hints = [t('填写出生年月和年龄，软件自动换算退休月份及规划终点。'), t('按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。'), t('确认可动用的现金和投资账户，保存后用于规划，不改变实际余额。'), t('先看只靠自己准备需要多少，之后可以随时加上。'), t('这是你自己的估计；没想好可以留空。'), t('这些是假设，随时可以修改。')];
 /** 第三问没有可用完整盘点（手填金额）时的副标题。 */
-const manualStartHint = '还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。';
+const manualStartHint = t('还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。');
 
 /** Five visible steps and one existing setup transaction. Net contribution remains optional. */
 export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload, onPending, onClose, initialStep = 0, editMode = false, completionId, assumptionsPort }: { sources: PlanningSources; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; initialStep?: number; editMode?: boolean; completionId?: string; assumptionsPort?: PlanningFollowupPortV1 }) {
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const dialog = useRef<HTMLDialogElement>(null), heading = useRef<HTMLHeadingElement>(null);
-  const steps = editMode ? [...setupQuestions, '收益与其他假设'] : [...setupQuestions];
+  const steps = editMode ? [...setupQuestions, t('收益与其他假设')] : [...setupQuestions];
   const [step, setStep] = useState(Math.min(initialStep, steps.length - 1));
   const [d, setD] = useState(() => setupDraft(saved, snapshot, sources.modules.wealth));
   const [incomeEditing, setIncomeEditing] = useState(false);
@@ -84,7 +84,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
       const remaining = nextSaved && refinementCards(nextSaved, buildBasicCapabilities(after), today).some(c => c.id === completionId);
       if (remaining || completionId === 'income' && d.simplified.income_mode === 'unconfirmed') {
         const target = completionId === 'contribution' ? { step: 4, label: t('每月大约能存下多少钱') } : completionId === 'income' ? { step: 3, label: t('未来收入计入方式') } : completionId === 'funds' ? { step: 2, label: d.start === 'live' ? t('资金起点') : !d.simAmount ? t('模拟起点可用资金') : t('模拟起点截至日期') } : { step: 0, label: t('出生年月') };
-        setNotice('这一项还没确认，请补充后再保存。'); setStep(target.step); setConfirmationIssue(old => ({ label: target.label, attempt: (old?.attempt ?? 0) + 1 })); return;
+        setNotice(t('这一项还没确认，请补充后再保存。')); setStep(target.step); setConfirmationIssue(old => ({ label: target.label, attempt: (old?.attempt ?? 0) + 1 })); return;
       }
     }
     setConfirmationIssue(null); setNotice(''); if (await saver.save({ section: 'setup', fields })) { onClose(true); } }
@@ -98,7 +98,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   const live = d.start === 'live' && wealthOn;
   const available = live && !snapshot!.entries.some(e => e.counted && e.side === 'asset' && e.amount_cents === null) ? snapshot!.entries.filter(e => e.counted && e.side === 'asset').reduce((sum, e) => { const f = d.funds.find(f => f.account_id === e.account_id); return e.amount_cents !== null && f?.availability === 'available' ? sum + (BigInt(e.amount_cents) * BigInt(f.share_hundredths) ) / 10000n : sum; }, 0n) : null;
   return <><dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 4 || step === 5 || (editMode && step === 3)) void save(); else next(); }}>
-    <header><div><p className="eyebrow">{editMode ? t('修改规划') : t('开始规划')} · {step < 5 ? t('步骤 {v1} / 5{v2}', { v1: step + 1, v2: step === 4 ? ' · 可暂不填写' : '' }) : t('计算假设')}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 2 && !live ? manualStartHint : hints[step]}</p></div><CloseButton type="button" aria-label={t('关闭规划设置')} disabled={saver.busy} onClick={() => onClose(false)}/></header>
+    <header><div><p className="eyebrow">{editMode ? t('修改规划') : t('开始规划')} · {step < 5 ? t('步骤 {v1} / 5{v2}', { v1: step + 1, v2: step === 4 ? t(' · 可暂不填写') : '' }) : t('计算假设')}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 2 && !live ? manualStartHint : hints[step]}</p></div><CloseButton type="button" aria-label={t('关闭规划设置')} disabled={saver.busy} onClick={() => onClose(false)}/></header>
     <nav className="planning-question-progress" aria-label={t('规划主要条件')}>{setupQuestions.map((q, i) => <button type="button" key={q} aria-label={`${i + 1}. ${q}`} aria-current={i === step ? 'step' : undefined} disabled={frozen || incomeEditing} onClick={() => setStep(i)}>{i + 1}. {stepLabels[i]}</button>)}</nav>
     {editMode && <nav className="planning-edit-extras" aria-label={t('计算假设')}><button type="button" className="ui-btn" disabled={frozen || incomeEditing} onClick={() => setStep(5)}>{t('收益与波动假设')}</button></nav>}
     <div className="planning-setup-body">
@@ -118,7 +118,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
         </details>
       </section>}
       {step === 3 && <IncomeQuestion today={today} d={d} patch={patch} frozen={frozen} onEditingChange={setIncomeEditing}/>}
-      {step === 4 && <section className="form-block"><p>{t('填上你的估计，就能看看照这样存钱，计划能不能实现。还没想好也可以先跳过，仍能算出每月需要存多少。')}</p><ConfirmationField label={t('每月大约能存下多少钱')} issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label={couple ? t('两人每月一共能存多少钱？') : t('每月大约能存下多少钱？')} hint={(couple ? '两个人加起来，' : '') + "每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"}><span className="plan-contribution"><CentInput label={t('每月大约能存下多少钱')} signed value={d.contribution} disabled={frozen} placeholder={t('暂不填写')} onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>{t('按每月存 0 元试算')}</button></span></FormRow></ConfirmationField><PartnerShareField value={household} issues={householdShown ? householdProblems : []} busy={frozen} onChange={household => patch({ simplified: { ...d.simplified, household } })}/><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
+      {step === 4 && <section className="form-block"><p>{t('填上你的估计，就能看看照这样存钱，计划能不能实现。还没想好也可以先跳过，仍能算出每月需要存多少。')}</p><ConfirmationField label={t('每月大约能存下多少钱')} issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label={couple ? t('两人每月一共能存多少钱？') : t('每月大约能存下多少钱？')} hint={(couple ? t('两个人加起来，') : '') + t('每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填')}><span className="plan-contribution"><CentInput label={t('每月大约能存下多少钱')} signed value={d.contribution} disabled={frozen} placeholder={t('暂不填写')} onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>{t('按每月存 0 元试算')}</button></span></FormRow></ConfirmationField><PartnerShareField value={household} issues={householdShown ? householdProblems : []} busy={frozen} onChange={household => patch({ simplified: { ...d.simplified, household } })}/><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
       {editMode && step === 5 && <section className="form-block">
       <div className="plan-assumption-summary">
         <p className="muted small">{t('实际收益默认 0%，表示钱只跑平通胀；默认波动率 5% 是程序试算值，不是资产配置的风险估计。收益、通胀和波动率在独立的「假设核对」编辑器里修改和确认；编辑预算、投入等其他分区只会原样携带这些值，不会顺带确认。')}</p>
@@ -139,7 +139,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
     if (savedNow) {
       // 编辑器保存的是独立分区；这里只把草稿携带的试算值对齐，避免下一次四问保存用旧值覆盖。
       if (read?.status === 'ready') patch({ before: hundredthsToPctText(read.value.values.real_return_before_hundredths), after: hundredthsToPctText(read.value.values.real_return_after_hundredths), infl: hundredthsToPctText(read.value.values.inflation_hundredths), volatility: hundredthsToPctText(read.value.values.volatility_hundredths) });
-      else { setAssumptionsStale(true); setNotice('假设已保存，但刷新失败。请关闭后重新打开，避免用旧值继续保存。'); }
+      else { setAssumptionsStale(true); setNotice(t('假设已保存，但刷新失败。请关闭后重新打开，避免用旧值继续保存。')); }
       reload();
     }
   }}/>}

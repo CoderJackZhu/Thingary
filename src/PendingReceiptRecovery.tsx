@@ -14,7 +14,7 @@ export function PendingReceiptRecovery({ pending, disabled, onResolved, onImport
     try {
       const outcome = await resolvePending(pending);
       onResolved(outcome);
-    } catch (cause) { setError(errorMessage(cause) + ' 原请求已保留，可稍后重试核对。'); }
+    } catch (cause) { setError(errorMessage(cause) + t(' 原请求已保留，可稍后重试核对。')); }
     finally { checking.current = false; setBusy(false); }
   }
   return <section className="notice pending-receipt-recovery" aria-label={t('保存结果核对')}>

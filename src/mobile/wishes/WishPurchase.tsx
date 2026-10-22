@@ -34,11 +34,11 @@ export default function WishPurchase({ params }: PageProps) {
     (async () => {
       const wish: WishlistItem | null = await readWish(id);
       if (!live) return;
-      if (!wish) { setLoadError('找不到这条心愿，可能已被删除。'); return; }
-      if (!detailActions(wish).record) { setLoadError('这条心愿当前不能记录购入，可能已经处理过，请返回重新读取。'); return; }
+      if (!wish) { setLoadError(t('找不到这条心愿，可能已被删除。')); return; }
+      if (!detailActions(wish).record) { setLoadError(t('这条心愿当前不能记录购入，可能已经处理过，请返回重新读取。')); return; }
       // 心愿封面带入新物品：失败时可不带封面继续。
       let staged: Photo | null = null, notice = '';
-      if (wish.cover) { try { staged = await invoke<Photo>('stage_wishlist_cover', { wishlistId: wish.id, generation }); } catch (cause) { notice = '心愿封面暂无法带入（' + errorMessage(cause) + '），可不带封面继续，之后再补图。'; } }
+      if (wish.cover) { try { staged = await invoke<Photo>('stage_wishlist_cover', { wishlistId: wish.id, generation }); } catch (cause) { notice = t('心愿封面暂无法带入（') + errorMessage(cause) + t('），可不带封面继续，之后再补图。'); } }
       if (live) setDraft({ ...newPurchaseDraft(wish, generation, today, staged, notice), wishRevision: wish.revision });
     })().catch(cause => { if (live) setLoadError(errorMessage(cause)); });
     return () => { live = false; };
@@ -47,7 +47,7 @@ export default function WishPurchase({ params }: PageProps) {
   useEffect(() => { session.setBusy(busy || receipts.busy || pending); }, [busy, receipts.busy, pending]);
   useEffect(() => () => session.setBusy(false), []);
   // 保存成功后直接进入新建的物品详情，并带一条简短提示。
-  useEffect(() => { if (done && !nav.blocked) nav.replace('items.detail', { id: done.asset.id, notice: `已记录购入「${done.asset.name}」，心愿已标为已购入。` }); }, [done, nav.blocked]);
+  useEffect(() => { if (done && !nav.blocked) nav.replace('items.detail', { id: done.asset.id, notice: t('已记录购入「{name}」，心愿已标为已购入。', { name: done.asset.name }) }); }, [done, nav.blocked]);
   const errorBox = useRef<HTMLDivElement>(null);
   useEffect(() => { if (errors.length) errorBox.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [errors]);
 
@@ -55,7 +55,7 @@ export default function WishPurchase({ params }: PageProps) {
   if (!draft) return <div className="m-page"><NavBar title={t('记录购入')}/><Loading label={t('正在读取心愿…')}/></div>;
 
   const field = (key: keyof PurchaseDraft['fields'], value: string) => setDraft(old => old && { ...old, fields: { ...old.fields, [key]: value } });
-  const cancel = () => { if (disabled) { setErrors(['请先完成当前操作或核对保存结果。']); return; } nav.close(); };
+  const cancel = () => { if (disabled) { setErrors([t('请先完成当前操作或核对保存结果。')]); return; } nav.close(); };
   async function save() {
     if (lock.current || disabled || !draft) return;
     const built = purchaseSave(draft, localDay(), crypto.randomUUID());
@@ -64,7 +64,7 @@ export default function WishPurchase({ params }: PageProps) {
     try {
       const outcome = await submitOp({ kind: 'purchase', label: t('记录购入'), input: built.input, wishlistId: draft.wishId, expectedRevision: draft.wishRevision, draft: purchaseDraft(draft, built.input) });
       if (outcome.status === 'saved') setDone(outcome.value as AssetRecord);
-      else if (outcome.status === 'failed') setErrors([outcome.message + ' 心愿未被转换，输入已保留；如心愿已变化，请返回重新读取。']);
+      else if (outcome.status === 'failed') setErrors([outcome.message + t(' 心愿未被转换，输入已保留；如心愿已变化，请返回重新读取。')]);
       else receipts.refresh();
     } finally { lock.current = false; setBusy(false); }
   }

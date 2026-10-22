@@ -58,7 +58,7 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
       while (v.value.next_cursor) {
         if (!mounted.current || request !== loadId.current) return v;
         const next = v.value.next_cursor;
-        if (seen.has(next)) throw Error('明细分页游标重复，请重新读取。');
+        if (seen.has(next)) throw Error(t('明细分页游标重复，请重新读取。'));
         seen.add(next);
         v = await port.listMovements(query(next), generation);
         if (v.status !== 'ready') return v;
@@ -70,7 +70,7 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
     })().then(v => {
       if (!mounted.current || request !== loadId.current) return;
       if (v.status === 'ready') {
-        if (v.value.generation !== generation) { setListError('资料库已变化，请重新读取。'); return; }
+        if (v.value.generation !== generation) { setListError(t('资料库已变化，请重新读取。')); return; }
         setPage(v.value); setRecords(prev => cursor === null ? v.value.records : [...(prev ?? []), ...v.value.records]); setListError('');
       } else if (v.status === 'error') { setListError(v.message); }
       else setListError(v.message);
@@ -86,8 +86,8 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
       const context = { generation, request_id: crypto.randomUUID(), expected_revision: record.revision };
       const result = unlink ? await port.saveMovement(record.id, { ...record.fields, source: null }, context) : await port.setMovementDeleted(record.id, !record.deleted, context);
       if (!mounted.current) return;
-      if (result.status === 'rejected') { setWriteError(result.issues.map(i => i.message).join(' ') || '操作被拒绝。'); return; }
-      if (result.status === 'unresolved') { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); onPending(); setWriteError('提交结果未知，原请求已保留；请稍后在页面顶部核对结果。'); return; }
+      if (result.status === 'rejected') { setWriteError(result.issues.map(i => i.message).join(' ') || t('操作被拒绝。')); return; }
+      if (result.status === 'unresolved') { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); onPending(); setWriteError(t('提交结果未知，原请求已保留；请稍后在页面顶部核对结果。')); return; }
       setDeleting(null); setSavedNotice(true); load(null); onSaved?.();
     } catch (e) { if (mounted.current) setWriteError(e instanceof Error ? e.message : String(e)); } finally { lock.current = false; if (mounted.current) setBusy(false); }
   }
@@ -152,7 +152,7 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
             <option value="active">{t('有效记录')}</option><option value="all">{t('含已删除')}</option>
           </select></label>
         </div>
-        {accountIds !== undefined && <p className="pfu-muted small">{t('账户范围：')}{accountIds.length ? accountIds.map(id => names[id] ?? `历史账户 ${id}`).join("、") : t('未选择账户')}{t('；按任一端属于所选账户筛选。')}</p>}
+        {accountIds !== undefined && <p className="pfu-muted small">{t('账户范围：')}{accountIds.length ? accountIds.map(id => names[id] ?? t('历史账户 {id}', { id })).join("、") : t('未选择账户')}{t('；按任一端属于所选账户筛选。')}</p>}
         {records !== null && <p className="pfu-muted small">{scoped ? t('所选范围') : t('已加载范围')} {t('{length} 笔', { length: records.length })}{text && t(' · 搜索匹配 {v1} 笔（搜索仅筛明细）', { v1: visible?.length ?? 0 })}{page?.next_cursor && t(' · 还有未加载记录')}</p>}
         {listLoading && records === null ? <p className="pfu-muted" role="status">{t('正在读取明细…')}</p>
           : listError && records === null ? <p className="pfu-notice" role="alert">{t('明细读取失败：{listError}', { listError })}<button type="button" className="pfu-btn" onClick={() => load(null)}>{t('重试')}</button></p>

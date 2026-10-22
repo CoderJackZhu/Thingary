@@ -19,12 +19,12 @@ export function WishPlanLine({ item, today }: { item: WishlistItem; today: strin
       const [spend] = classifyWishes([wishLike(item)], today);
       if (!spend || spend.status === 'no_price') return;
       if (spend.status === 'expired') {
-        if (live) setText('计划日期已过，规划没有计入这笔支出；更新计划日期后会重新估算。');
+        if (live) setText(t('计划日期已过，规划没有计入这笔支出；更新计划日期后会重新估算。'));
         return;
       }
       const calc = buildRetireCalc(ctx.profile.saved, ctx.snapshot, ctx.review, ctx.incomes, today, ctx.sources);
       if (ctx.profile.saved.profile.retire.basic && calc.capabilities && needsContribution(calc.capabilities)) {
-        if (live) setText(SAVE_CONTRIBUTION_HINT + '：在目标详情里填写预计每月投入。');
+        if (live) setText(SAVE_CONTRIBUTION_HINT + t('：在目标详情里填写预计每月投入。'));
         return;
       }
       if (!isReady(calc)) return;
