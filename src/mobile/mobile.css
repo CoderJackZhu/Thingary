@@ -2,9 +2,9 @@
 :root{
   --m-gutter:20px;--m-gap:14px;--m-touch:44px;
   --m-radius-card:22px;--m-radius-control:12px;--m-radius-pill:999px;
-  /* Floating glass tab bar: 64px capsule, 24px above the bottom safe area. --m-tabbar-h is the space it occupies from the screen edge. */
-  --m-tabbar-size:64px;--m-tabbar-gap:24px;
-  --m-tabbar-h:calc(var(--m-tabbar-size) + var(--m-tabbar-gap) + env(safe-area-inset-bottom,0px));
+  /* Floating glass tab bar: 64px capsule that dips into the home-indicator area like the system bar. --m-tabbar-h is the space it occupies from the screen edge. */
+  --m-tabbar-size:64px;--m-tabbar-bottom:max(16px,calc(env(safe-area-inset-bottom,0px) - 8px));
+  --m-tabbar-h:calc(var(--m-tabbar-size) + var(--m-tabbar-bottom));
   --m-fill:var(--soft);--m-fill-active:var(--card);--m-scrim:rgba(0,0,0,.4);--m-nav-bg:color-mix(in srgb,var(--bg) 82%,transparent);
   --m-danger-solid:#c80013;--m-danger-text:#fff;--m-warn-text:var(--warn);
   --m-sheet-radius:24px;
@@ -57,7 +57,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* The existing full-inventory toolbar uses fixed positioning instead of ActionBar. */
 :root[data-keyboard] .mw-fixed{bottom:var(--m-viewport-bottom,0px);padding-bottom:12px}
 @keyframes m-rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
-.m-tabbar{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:calc(var(--m-tabbar-gap) + env(safe-area-inset-bottom,0px));max-width:608px;margin:0 auto;height:var(--m-tabbar-size);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px;border-radius:calc(var(--m-tabbar-size)/2);background:var(--m-glass);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:var(--m-glass-ring),var(--m-float)}
+.m-tabbar{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:var(--m-tabbar-bottom);max-width:608px;margin:0 auto;height:var(--m-tabbar-size);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px;border-radius:calc(var(--m-tabbar-size)/2);background:var(--m-glass);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:var(--m-glass-ring),var(--m-float)}
 .m-tabbar:has(button:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
 .m-tabbar:has(button:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
 .m-tabbar button{min-height:44px;min-width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:26px;background:transparent;color:var(--muted);padding:0 2px;font-size:10px;font-weight:500;line-height:1.2;width:100%;transition:background .18s}
