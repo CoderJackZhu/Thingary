@@ -8,6 +8,9 @@ export const supportUrls = {
   update: 'https://thingary.jackzhu.top/guide/update/',
   sources: 'https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md',
 } as const;
+/** 手机端「写邮件反馈」的收件地址与主题。 */
+export const feedbackEmail = 'feedback@jackzhu.top';
+export const feedbackSubject = '物谱反馈';
 export type SupportTarget = keyof typeof supportUrls;
 export type DataHelpTarget = 'backup';
 

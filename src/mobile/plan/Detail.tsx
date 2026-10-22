@@ -17,6 +17,7 @@ import {
   Section,
   SegmentedControl,
   HBarChart,
+  LineChart,
 } from "../ui";
 import { usePlan } from "./data";
 import { budgetComparisons } from "./detail-model";
@@ -107,16 +108,7 @@ function Ready({
     pred.projection.retire_month ?? pred.plan.target_months,
   );
   const cover = coverage(pred.plan, pred.projection, selected, mode);
-  const max = Math.max(1, ...points.flatMap((p) => [p.projected, p.required])),
-    min = Math.min(0, ...points.map((p) => p.projected)),
-    span = max - min || 1;
-  const xy = (key: "projected" | "required") =>
-    points
-      .map(
-        (p, i) =>
-          `${10 + (i / Math.max(1, points.length - 1)) * 280},${170 - ((p[key] - min) / span) * 150}`,
-      )
-      .join(" ");
+  const retireMonth = pred.projection.retire_month, retireAt = retireMonth === null ? null : points.findIndex((p) => p.month >= retireMonth);
   const conclusion = `${terminalText[pred.terminal]}；${timeLabel(pred.plan, pred.plan.horizon_months - 1)} 时预计资金（按今天购买力）${forecastMoneyText(pred.outcome.at_horizon)}。`;
   return (
     <div className="m-page mp-page">
@@ -140,37 +132,19 @@ function Ready({
       <Card label="预计资金变化">
         <h2>预计资金变化</h2>
         <p>{conclusion}</p>
-        <svg
-          role="img"
-          aria-label={`预计资金实线，所需资金虚线。${conclusion}`}
-          viewBox="0 0 300 190"
-          width="100%"
-        >
-          <line
-            x1="10"
-            x2="290"
-            y1={170 - ((0 - min) / span) * 150}
-            y2={170 - ((0 - min) / span) * 150}
-            stroke="var(--line)"
-          />
-          <polyline
-            points={xy("projected")}
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth="3"
-          />
-          <polyline
-            points={xy("required")}
-            fill="none"
-            stroke="var(--muted)"
-            strokeDasharray="5 4"
-            strokeWidth="2"
-          />
-        </svg>
-        <div className="mp-chart-labels">
-          <span>{points[0]?.label}</span>
-          <span>{points.at(-1)?.label}</span>
-        </div>
+        <LineChart
+          height={210}
+          summary={`预计资金实线，所需资金虚线。${conclusion}`}
+          labels={points.map((p) => p.label)}
+          xs={points.map((p) => p.month)}
+          series={[
+            { name: "预计资金", values: points.map((p) => p.projected) },
+            { name: "所需资金", values: points.map((p) => p.required), color: "var(--muted)", dashed: true, area: false },
+          ]}
+          marker={retireAt === null ? undefined : { at: retireAt, label: "预计停工" }}
+          shade={pred.projection.failure_month === null ? undefined : { from: pred.projection.failure_month, to: pred.plan.horizon_months, label: "资金耗尽" }}
+          tip={(i) => ({ title: points[i].label, rows: [{ name: "预计资金", value: forecastMoneyText(points[i].projected), color: "var(--accent)" }, { name: "所需资金", value: forecastMoneyText(points[i].required), color: "var(--muted)" }] })}
+        />
         <p className="mp-muted">
           实线：预计资金 ·
           虚线：此时停止工作所需资金。假设推演，不是证券行情或历史收益。

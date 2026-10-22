@@ -79,7 +79,7 @@ button.m-hero,button.m-metric{display:flex}
 .m-hero-top{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--muted)}
 .m-hero-action{display:inline-flex;align-items:center;color:var(--accent);font-size:13px}
 .m-hero-title{font:700 clamp(24px,7.4vw,30px)/1.25 var(--head);color:var(--accent);letter-spacing:-.5px;margin-top:2px}
-.m-hero-sub{font-size:15px}
+.m-hero-sub{font-size:15px}.m-hero-sub.m-positive{color:var(--positive)}.m-hero-sub.m-danger{color:var(--error)}.m-hero .m-linechart{margin-top:6px}
 .m-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .m-tag{font-size:13px;padding:4px 10px;border-radius:12px;background:var(--soft);color:var(--text)}
 .m-tag-positive{background:var(--pos-bg);color:var(--positive)}
@@ -173,3 +173,17 @@ button.m-hero,button.m-metric{display:flex}
 .m-hbar-track{height:8px;border-radius:4px;background:var(--m-fill);overflow:hidden}
 .m-hbar-track span{display:block;height:100%;border-radius:4px}
 .m-hbar-value{font-variant-numeric:tabular-nums;font-family:var(--num)}
+
+/* LineChart: pixel-true line chart (measured width). */
+.m-linechart{position:relative;width:100%;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.m-linechart svg{display:block;overflow:visible}
+.m-lc-grid{stroke:var(--line-soft);stroke-width:1}.m-lc-axis{stroke:var(--line);stroke-width:1}
+.m-lc-text{fill:var(--muted);font:11px/1 var(--num)}.m-lc-last{fill:var(--text);font-weight:600}
+.m-lc-bad{fill:var(--error)}.m-lc-mark{fill:var(--accent);font-family:inherit}
+.m-lc-shade{fill:var(--error);opacity:.09}.m-lc-marker{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3}
+.m-lc-guide{stroke:var(--muted);stroke-width:1}.m-lc-dot{fill:var(--card);stroke-width:2}
+.m-lc-tip{position:absolute;top:0;z-index:2;transform:translateX(12px);min-width:132px;white-space:nowrap;padding:8px 10px;border-radius:10px;background:var(--card);border:1px solid var(--line);box-shadow:0 4px 16px #0000002e;font-size:12px;pointer-events:none;display:flex;flex-direction:column;gap:3px}
+.m-lc-tip-left{transform:translateX(calc(-100% - 12px))}
+.m-lc-tip strong{font-size:12px;color:var(--muted);font-weight:600}
+.m-lc-tip span{display:flex;align-items:center;gap:5px;justify-content:space-between;color:var(--muted)}.m-lc-tip span i{width:8px;height:8px;border-radius:50%;flex:none}.m-lc-tip span b{margin-left:auto;padding-left:10px;color:var(--text);font:600 13px var(--num)}
+.m-lc-tip small{color:var(--muted);font-size:11px}

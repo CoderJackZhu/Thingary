@@ -10,4 +10,6 @@ export { Sheet } from './Sheet';
 export { ConfirmSheet, DeleteSheet } from './ConfirmSheet';
 export { SearchField } from './SearchField';
 export { EmptyState, UnknownState, ErrorState, Loading, Notice } from './States';
+export { LineChart } from './LineChart';
+export type { LineSeries, ScrubTip } from './LineChart';
 export { LineAreaChart, BarChart, HBarChart, DonutChart } from './Charts';

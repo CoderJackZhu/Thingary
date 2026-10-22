@@ -4,7 +4,7 @@ import { hiddenKinds } from '../../modules.ts';
 import type { Modules } from '../../modules.ts';
 import { paymentReminders } from '../../recurring.ts';
 import { deriveStatus } from '../../warranty.ts';
-import { monthsLeftText } from '../../plan-fire.ts';
+import { timeLabel } from '../../plan-ledger.ts';
 import { dayLabel, moneyText, signedMoneyText, unitMoneyText } from '../format.ts';
 import type { Review } from '../../review.ts';
 import { latestComplete, ready } from '../../review.ts';
@@ -17,29 +17,33 @@ import { dayText, daysBetween, eventTarget, mask } from '../me/shared.ts';
 
 export type Hero = { state: 'ready' | 'setup' | 'blocked' | 'error'; eyebrow: string; title: string; subtitle: string | null; tags: string[]; warn: string | null };
 
+/** `2046-03` to `2046 年 3 月`; age labels such as `55 岁` pass through. */
+const monthWords = (label: string) => { const m = /^(\d{4})-(\d{2})$/.exec(label); return m ? `${m[1]} 年 ${Number(m[2])} 月` : label; };
+
 /**
- * 「还要上几年班」。FIRE counts the months until financial independence; 传统 counts the months until the target
- * retirement month. Same ready/blocked/error split as the desktop 规划 summary (plan-summary.summaryRetire).
+ * 规划结果卡：说「哪天可以停工」，不倒数还要上几年班。FIRE 用 fi_month 的日历月；传统退休用目标退休月。
+ * Same ready/blocked/error split as the desktop 规划 summary (plan-summary.summaryRetire).
  */
-export function heroView(retire: SummaryRetire): Hero {
+export function planView(retire: SummaryRetire): Hero {
   if (retire.kind === 'loading') return { state: 'blocked', eyebrow: '规划', title: '正在读取…', subtitle: null, tags: [], warn: null };
   if (retire.kind === 'error') return { state: 'error', eyebrow: '规划', title: '退休估算暂时读不出来', subtitle: retire.message, tags: [], warn: null };
   if (retire.kind === 'blocked') {
-    if (retire.step === 'profile') return { state: 'setup', eyebrow: '规划', title: retire.main, subtitle: '填几项条件，就能算出还要上几年班。', tags: [], warn: null };
+    if (retire.step === 'profile') return { state: 'setup', eyebrow: '规划', title: retire.main, subtitle: '填几项条件，就能估算哪一年可以停工。', tags: [], warn: null };
     return { state: 'blocked', eyebrow: '规划', title: retire.main, subtitle: retire.note, tags: [], warn: null };
   }
   const calc = retire.calc, plan = calc.plan, fire = retire.mode === 'fire';
   const eyebrow = fire ? '规划 · 财务自由' : '规划 · 传统退休';
-  const months = fire ? (calc.proj.fi_month === null ? null : Math.max(0, calc.proj.fi_month - plan.now_months)) : Math.max(0, plan.target_months - plan.now_months);
-  const title = months === null ? retire.headline.main : months === 0 ? (fire ? '当前资产已覆盖退休所需' : '已到目标退休时间') : `还要上 ${monthsLeftText(months)}班`;
-  const sub = retire.headline.sub && retire.headline.sub !== '估算' ? retire.headline.sub : null;
+  const month = fire ? calc.proj.fi_month : plan.target_months;
+  const done = month !== null && month <= plan.now_months;
+  const title = month === null ? retire.headline.main : done ? (fire ? '当前资产已覆盖退休所需' : '已到目标退休时间') : fire ? `预计 ${monthWords(timeLabel(plan, month))}可以停工` : `计划 ${monthWords(timeLabel(plan, month))}退休`;
+  const sub = fire && month !== null && !done && month > plan.target_months ? `晚于期望的 ${monthWords(timeLabel(plan, plan.target_months))}` : null;
   const tags = [`资产覆盖今天退休所需的 ${(retire.coverage.percent / 100).toFixed(0)}%`];
   return { state: 'ready', eyebrow, title, subtitle: sub, tags, warn: retire.headline.warn };
 }
 
 export type NetWorthView =
   | { state: 'unknown' }
-  | { state: 'known'; net: string; date: string; incomplete: string | null; change: string | null; changeTone: 'positive' | 'danger' | null; values: (number | null)[]; summary: string };
+  | { state: 'known'; net: string; date: string; incomplete: string | null; change: string | null; changeTone: 'positive' | 'danger' | null; values: (number | null)[]; dates: string[]; summary: string };
 /** 金融净资产：最近一次完整盘点；最新盘点不完整时沿用它并提示缺几个账户。没有完整盘点时净资产未知，不当作零。 */
 export function netWorthView(summary: Summary, hidden: boolean): NetWorthView {
   const latest = latestComplete(summary.points), last = summary.points.at(-1);
@@ -57,7 +61,7 @@ export function netWorthView(summary: Summary, hidden: boolean): NetWorthView {
   return {
     state: 'known', net: mask(moneyText(net), hidden), date: latest.date,
     incomplete: last && !last.complete ? `${dayText(last.date)} 的盘点缺 ${last.missing} 个账户，当前显示 ${dayText(latest.date)} 的完整盘点` : null,
-    change, changeTone: tone, values: complete.map(point => Number(point.net_cents)), summary: text,
+    change, changeTone: tone, values: complete.map(point => Number(point.net_cents)), dates: complete.map(point => point.date), summary: text,
   };
 }
 

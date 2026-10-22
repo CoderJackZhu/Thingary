@@ -5,27 +5,21 @@ import type { AccountView } from '../../wealth-display';
 import { changeText, comparisonText, defaultRange, kindLabel } from '../../wealth';
 import type { Point } from '../../wealth';
 import { monthsBefore, periodChange } from '../../review';
-import { dualLineAxis, trendPaths } from '../../dual-line-chart';
 import { useNav } from '../nav-context';
 import { useSession } from '../session';
 import { useModules } from '../modules-context';
-import { Button, Card, DonutChart, EmptyState, HeroCard, Icon, IconButton, LargeTitle, ListGroup, ListRow, Notice, SegmentedControl, SelectField } from '../ui';
+import { Button, Card, DonutChart, EmptyState, HeroCard, Icon, IconButton, LargeTitle, ListGroup, ListRow, LineChart, Notice, SegmentedControl, SelectField } from '../ui';
+import { browserStorage, readHideAmounts } from '../me/shared';
+import { trendKinds, trendSummary, trendTip, trendValues } from './trend-model';
+import type { TrendKind } from './trend-model';
 import { ReadState, useGroups, WealthGate } from './shared';
 
 function Trend({ points, today }: { points: Point[]; today: string }) {
-  const [liabilities, setLiabilities] = useState(false);
-  const series = [points.map(p => p.complete ? p.net_cents : null), points.map(p => p.complete ? p.liabilities_cents : null)];
-  const axis = dualLineAxis(series, [true, liabilities]);
-  const start = Date.parse(points[0]?.date ?? ''), span = Date.parse(points.at(-1)?.date ?? '') - start || 1;
-  const x = (date: string) => 48 + (Date.parse(date) - start) / span * 244;
-  const y = (value: number) => 112 - (value - axis.bottom) / (axis.top - axis.bottom) * 100;
-  const paths = series.map(line => trendPaths(line.map((v, i) => v == null ? null : { x: x(points[i].date), y: y(Number(v)) }), 112));
-  return <><div className="mw-chart"><svg viewBox="0 0 300 140" role="img" aria-label={`金融净资产${liabilities ? '与负债同轴' : ''}趋势，${points.filter(p => p.complete).length}次完整盘点；缺项不连线`}>
-    {axis.grid.map(v => <g key={v}><line x1="48" x2="292" y1={y(v)} y2={y(v)} stroke="var(--line-soft)"/><text x="44" y={y(v) + 4} textAnchor="end">{Math.round(v / 10000) / 10}千</text></g>)}
-    {paths.map((path, i) => (!i || liabilities) && <g key={i}>{!i && <path d={path.area} fill="var(--accent)" opacity=".1"/>}<path d={path.line} fill="none" stroke={i ? 'var(--error)' : 'var(--accent)'} strokeWidth="2" strokeDasharray={i ? '4 3' : undefined}/></g>)}
-    {points.map(p=>p.complete && <circle key={p.snapshot_id} cx={x(p.date)} cy={y(Number(p.net_cents))} r="2.8" fill="var(--accent)"/>)}
-    {points.length > 0 && <><text x="48" y="136">{dayLabel(points[0].date, today)}</text><text x="292" y="136" textAnchor="end">{dayLabel(points.at(-1)!.date, today)}</text></>}
-  </svg></div><div className="mw-toolbar"><span className="mw-muted">金融净资产</span><Button variant="plain" ariaLabel="负债图例" onClick={() => setLiabilities(!liabilities)}>{liabilities ? '✓ ' : ''}负债</Button></div></>;
+  const [kind, setKind] = useState<TrendKind>('net'), hidden = readHideAmounts(browserStorage());
+  const tone = kind === 'liabilities' ? 'var(--error)' : 'var(--accent)';
+  return <><SegmentedControl label="趋势指标" items={trendKinds} value={kind} onChange={setKind}/>
+    <LineChart className="mw-trend" height={190} hidden={hidden} series={[{ name: trendKinds.find(k => k.id === kind)!.label, values: trendValues(points, kind), color: tone }]}
+      labels={points.map(p => dayLabel(p.date, today))} xs={points.map(p => Date.parse(p.date))} summary={trendSummary(points, kind, hidden)} tip={i => trendTip(points[i], hidden)}/></>;
 }
 export function AccountList() {
   const s = useSession(), nav = useNav(), groups = useGroups(), [view, setView] = useState<AccountView>('active');
