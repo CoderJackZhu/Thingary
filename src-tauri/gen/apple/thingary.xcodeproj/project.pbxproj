@@ -16,17 +16,16 @@
 		2F01B5A6913ABF1A3CCCC995 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 708D9860D6D1F131E0C74EAA /* PhotosUI.framework */; };
 		39B7D7BA6D0A00B809A53CCE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E143214984CBF43EFFD632D4 /* Assets.xcassets */; };
 		47493B5CE2815AACCA2ED864 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0D76208C2BBBCAC091A31D56 /* main.mm */; };
+		53CD20A9BAE78C5D7BAF99A2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66FBA6FF54B081B527B4DC06 /* PrivacyInfo.xcprivacy */; };
 		6D6B15ECE343FA366583CE9A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9E174767E16EF2D76F83E0EA /* LaunchScreen.storyboard */; };
 		6F1CF18C622B42F784A61301 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E77B1E73AA598062C8F263D0 /* Foundation.framework */; };
 		8AE9D2F6D981E4DDB1B875FA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 648D89C4BC29BF6AE7673224 /* Metal.framework */; };
 		8B446DB356EB0E519CE192EF /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2841E69C46F0A42C15585C41 /* UserNotifications.framework */; };
-		8F21F3C53457BC4B0880AEA6 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 97D0B465FFC2956802844CFA /* libapp.a */; };
 		9CE8B7074309220232FCE503 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B95DE7E464EC619199757A9 /* Security.framework */; };
 		AF5A29808C61190D18A7C13C /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 99270AAC5FDD1A6532C23C1B /* assets */; };
 		BEE6A0AB07341D58A1FBAD1C /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9CC99A1F0F4C7716028D6791 /* UIKit.framework */; };
 		CB05877F971D8DF31BFA855B /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 090485D925B2D8B87E7772AF /* UniformTypeIdentifiers.framework */; };
 		EC0276EF5C1F88D06A94CF6D /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83F2AC9B5968A38249263444 /* WebKit.framework */; };
-		A1B2C3D4E5F60718293A4B5C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -86,6 +85,7 @@
 		601490350F7734F2FE4CAFA0 /* x08.sql */ = {isa = PBXFileReference; path = x08.sql; sourceTree = "<group>"; };
 		63282C0DEED9F2BC198D90FB /* wishlist_replacement.sql */ = {isa = PBXFileReference; path = wishlist_replacement.sql; sourceTree = "<group>"; };
 		648D89C4BC29BF6AE7673224 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		66FBA6FF54B081B527B4DC06 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		69C0B52A9B98BA44285CF792 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		6A5B5D2E02E77E5562911621 /* preferences.rs */ = {isa = PBXFileReference; path = preferences.rs; sourceTree = "<group>"; };
 		6E01B61B81BFBF0302C7C81A /* accessories.sql */ = {isa = PBXFileReference; path = accessories.sql; sourceTree = "<group>"; };
@@ -120,7 +120,6 @@
 		96CF5E4FC37741CD33462BB6 /* trash.rs */ = {isa = PBXFileReference; path = trash.rs; sourceTree = "<group>"; };
 		971860007FFBF606398E9B53 /* planning_flow_review.rs */ = {isa = PBXFileReference; path = planning_flow_review.rs; sourceTree = "<group>"; };
 		97259E99701C6B22B00ECF72 /* LocalAuthentication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LocalAuthentication.framework; path = System/Library/Frameworks/LocalAuthentication.framework; sourceTree = SDKROOT; };
-		97D0B465FFC2956802844CFA /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		983383553036B573043F227F /* plan_simplified.rs */ = {isa = PBXFileReference; path = plan_simplified.rs; sourceTree = "<group>"; };
 		988E64C3A26E7B968819EF0D /* wealth.rs */ = {isa = PBXFileReference; path = wealth.rs; sourceTree = "<group>"; };
 		99270AAC5FDD1A6532C23C1B /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
@@ -176,7 +175,6 @@
 		F608F515D292117CAE5E2C02 /* window_size.rs */ = {isa = PBXFileReference; path = window_size.rs; sourceTree = "<group>"; };
 		F6D54E1B0B334FACE4C0016B /* savings_goals.rs */ = {isa = PBXFileReference; path = savings_goals.rs; sourceTree = "<group>"; };
 		F752B047DC999ECB303698D4 /* maintenance.rs */ = {isa = PBXFileReference; path = maintenance.rs; sourceTree = "<group>"; };
-		B1C2D3E4F5061728394A5B6C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -262,7 +260,6 @@
 				99270AAC5FDD1A6532C23C1B /* assets */,
 				E143214984CBF43EFFD632D4 /* Assets.xcassets */,
 				9E174767E16EF2D76F83E0EA /* LaunchScreen.storyboard */,
-				728117ED0C17BF60E4C9396C /* Externals */,
 				30FCABF36A6FBAEB70F88BB3 /* Sources */,
 				5FB2BAECF32D01F86108BCB0 /* src */,
 				501EAB628C98D2B9538000FF /* thingary_iOS */,
@@ -275,7 +272,7 @@
 			isa = PBXGroup;
 			children = (
 				69C0B52A9B98BA44285CF792 /* Info.plist */,
-				B1C2D3E4F5061728394A5B6C /* PrivacyInfo.xcprivacy */,
+				66FBA6FF54B081B527B4DC06 /* PrivacyInfo.xcprivacy */,
 				CD5ECAA75A4499B8CB6A8525 /* thingary_iOS.entitlements */,
 			);
 			path = thingary_iOS;
@@ -403,28 +400,12 @@
 			path = ../../src;
 			sourceTree = "<group>";
 		};
-		629448EF3AAC9EA3353E5F06 /* arm64 */ = {
-			isa = PBXGroup;
-			children = (
-				9772D7CBA13ECE8449454C6F /* debug */,
-			);
-			path = arm64;
-			sourceTree = "<group>";
-		};
 		6E88A880DEAEA4671D810730 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				48C19BEB1101B558787539AE /* thingary_iOS.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		728117ED0C17BF60E4C9396C /* Externals */ = {
-			isa = PBXGroup;
-			children = (
-				629448EF3AAC9EA3353E5F06 /* arm64 */,
-			);
-			path = Externals;
 			sourceTree = "<group>";
 		};
 		93761F8BF65613781B5F6C76 /* thingary */ = {
@@ -434,14 +415,6 @@
 				E7E7CFF3B9A3ED27857C6EE1 /* bindings */,
 			);
 			path = thingary;
-			sourceTree = "<group>";
-		};
-		9772D7CBA13ECE8449454C6F /* debug */ = {
-			isa = PBXGroup;
-			children = (
-				97D0B465FFC2956802844CFA /* libapp.a */,
-			);
-			path = debug;
 			sourceTree = "<group>";
 		};
 		AAB9C08BB3BA7FE173693ABD /* backup_security */ = {
@@ -468,13 +441,6 @@
 				0A09B1475D5F297241E03EA5 /* bindings.h */,
 			);
 			path = bindings;
-			sourceTree = "<group>";
-		};
-		"TEMP_56652551-8921-454F-BFAC-45766F9CB278" /* x86_64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = x86_64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -509,6 +475,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					14E5D75BC8DF8EE6213E6B75 = {
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 361539E594265C4B36BFA5B1 /* Build configuration list for PBXProject "thingary" */;
@@ -537,9 +506,8 @@
 			files = (
 				39B7D7BA6D0A00B809A53CCE /* Assets.xcassets in Resources */,
 				6D6B15ECE343FA366583CE9A /* LaunchScreen.storyboard in Resources */,
+				53CD20A9BAE78C5D7BAF99A2 /* PrivacyInfo.xcprivacy in Resources */,
 				AF5A29808C61190D18A7C13C /* assets in Resources */,
-				A1B2C3D4E5F60718293A4B5C /* PrivacyInfo.xcprivacy in Resources */,
-				8F21F3C53457BC4B0880AEA6 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -647,6 +615,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = thingary_iOS/thingary_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -663,7 +632,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = local.thingary.preview;
 				PRODUCT_NAME = "Thingary Preview";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
 			};
 			name = release;
@@ -678,6 +647,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = thingary_iOS/thingary_iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -694,7 +664,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = local.thingary.preview;
 				PRODUCT_NAME = "Thingary Preview";
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
 			};
 			name = debug;
