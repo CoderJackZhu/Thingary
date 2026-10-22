@@ -51,6 +51,7 @@ export default function About({ page }: { page: Extract<SettingsPage, 'about' | 
       <p className="me-prose-p">版本 {version === null ? '读取中…' : version || '暂不可用'}</p>
       <p className="me-prose-p">开发与维护：<SupportLink target="author">CoderJackZhu</SupportLink></p>
     </Card>
+    <aside className="star-card" aria-label="支持物谱"><span className="star-card-mark" aria-hidden="true">⭐</span><p>物谱是个人开源项目，每颗 ⭐ 都是继续做下去的动力。</p><SupportLink target="project">去 GitHub 点个 Star</SupportLink></aside>
     <ListGroup title="帮助与项目" footer="网页链接在浏览器中打开，需要联网。">
       {([['site', '产品主页'], ['guide', '使用指南'], ['feedback', '问题反馈'], ['project', '项目源码']] as const).map(([target, label]) => <p key={target} className="me-link-row"><SupportLink target={target}>{label}</SupportLink></p>)}
     </ListGroup>
@@ -58,6 +59,5 @@ export default function About({ page }: { page: Extract<SettingsPage, 'about' | 
       <p>没有账号，资料保存在这台手机，应用不上传资料，使用完全离线。</p>
       <p>可用恢复密钥加密备份，应用只保存公钥，恢复密钥由你保管；主资料库、图片与恢复保护副本未加密。首次使用须在数据管理选择启用加密或继续明文，选择前自动备份暂停。建议另存一份完整备份到手机以外的地方。</p>
     </Block>
-    <p className="m-group-footer">如果物谱对你有帮助，欢迎<SupportLink target="project">在 GitHub 点个 Star</SupportLink>。</p>
   </SettingsShell>;
 }

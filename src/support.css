@@ -22,7 +22,9 @@
 .support-links{align-items:center}
 .support-links .ui-btn{font:inherit;color:var(--accent);padding:0;border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;min-height:0}
 .support-links .ui-btn:disabled{color:var(--muted)}
-.support-star{margin:20px 0 0}
+.star-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0;padding:14px 16px;border-radius:var(--ctl-radius);background:var(--soft);border:1px solid var(--line)}
+.star-card p{flex:1 1 200px;margin:0}
+.star-card .support-link a{display:inline-block;padding:8px 16px;border-radius:var(--ctl-radius);background:var(--accent);color:#fff;font-weight:600;text-decoration:none}
 
 /* D5 update discovery: unread dot, auto-toggle block, one-time invite. */
 .update-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;margin-left:8px}

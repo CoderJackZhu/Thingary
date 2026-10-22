@@ -20,6 +20,7 @@ export function SupportPanel(props: SupportPanelProps) {
   }, []);
   return <section className="ui-card ui-content support-panel" aria-labelledby={heading}>
     <header className="support-identity"><span className="support-mark"><LogoMark maskId={`${heading}-logo-holes`}/></span><div><h2 id={heading}>物谱 Thingary</h2><p className="muted">物品档案与净资产盘点</p></div></header>
+    <aside className="star-card" aria-label="支持物谱"><span className="star-card-mark" aria-hidden="true">⭐</span><p>物谱是个人开源项目，每颗 ⭐ 都是继续做下去的动力。</p><SupportLink target="project">去 GitHub 点个 Star</SupportLink></aside>
     <p className="muted small support-maintainer">开发与维护：<SupportLink target="author">CoderJackZhu</SupportLink></p>
     <UpdateCheck showVersion={false} compact versionLabel={version === null ? '正在读取版本…' : version ? `版本 ${version}` : '版本暂不可用'}/>
     <nav className="support-links" aria-label="帮助与项目"><SupportLink target="site">产品主页</SupportLink><SupportLink target="guide">使用指南</SupportLink><SupportLink target="feedback">问题反馈</SupportLink><SupportLink target="project">项目源码</SupportLink><button type="button" className="ui-btn" disabled={props.blocked} onClick={() => props.onData('backup')}>备份与恢复</button></nav>
@@ -29,6 +30,5 @@ export function SupportPanel(props: SupportPanelProps) {
       <details><summary>反馈时提供什么</summary><p>请写明物谱版本、系统版本、芯片／架构、安装包来源、操作步骤和错误文字。截图请遮住真实资料，不要上传数据库、备份、发票或序列号。资料损坏时先保留现有资料和备份，再反馈问题。</p></details>
       <details><summary>开源许可与致谢</summary><p>代码按 AGPL-3.0-or-later 授权。<SupportLink target="sources">第三方声明与致谢</SupportLink></p><details><summary>查看 AGPL 许可全文</summary><pre className="support-license" tabIndex={0}>{license}</pre></details><details><summary>查看第三方依赖许可清单</summary><pre className="support-license" tabIndex={0}>{thirdParty}</pre></details></details>
     </div>
-    <p className="muted small support-star">如果物谱对你有帮助，欢迎<SupportLink target="project">在 GitHub 点个 Star</SupportLink>。</p>
   </section>;
 }
