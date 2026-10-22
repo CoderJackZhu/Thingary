@@ -51,3 +51,9 @@ test('可选字段未设置，列表为空为暂无', () => {
   assert.equal(optionalText('索尼'), '索尼');
   assert.equal(NONE, '暂无');
 });
+test('电脑端句子里的日期改成列表写法，其余文字不变', async () => {
+  const { localizeDates } = await import('../src/mobile/format.ts');
+  assert.equal(localizeDates('已于 2026-10-01 结束', today), '已于 10月1日 结束');
+  assert.equal(localizeDates('进行中，至 2027-03-04', today), '进行中，至 2027年3月4日');
+  assert.equal(localizeDates('持续续费', today), '持续续费');
+});

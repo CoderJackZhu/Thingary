@@ -1,6 +1,7 @@
 // Display formatting shared by every phone page, so dates, money and "unknown" read the same everywhere.
 // Pure functions; business values still come from src/asset.ts (`yuan` is reused, not reimplemented).
 import { localDay, unitMoney as unitMoneyShared, yuan } from '../asset.ts';
+import { forecastMoney } from '../plan-format.ts';
 
 /** 事实未知（金额、日期）。 */
 export const UNKNOWN = '未知';
@@ -56,4 +57,17 @@ export function signedMoneyText(cents: string | number): string {
 /** 可选文本字段：没填显示「未设置」。 */
 export function optionalText(value: string | null | undefined): string {
   return value && value.trim() ? value : NOT_SET;
+}
+
+/**
+ * 电脑端函数拼好的句子里的 `YYYY-MM-DD` 改成列表写法（「10月21日」），其余文字不动。
+ * 只用在列表、标题、提示句；详情字段和表单里的日期保持原样。
+ */
+export function localizeDates(text: string, today: string = localDay()): string {
+  return text.replace(/\d{4}-\d{2}-\d{2}/g, day => dayLabel(day, today));
+}
+
+/** 规划预测金额（电脑端 forecastMoney 会取整）：未填写显示「未知」，其余沿用电脑端取整规则。 */
+export function forecastMoneyText(cents: string | number | null): string {
+  return cents === null || (typeof cents === 'string' && cents.trim() === '') ? UNKNOWN : forecastMoney(cents);
 }
