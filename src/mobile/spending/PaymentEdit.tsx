@@ -39,7 +39,7 @@ function Form({ overview, detail, due }: { overview: Overview; detail: Subscript
     <p className="sp-note sp-note-pad">{plan.fields.name} · {due} 这一期。{record ? '按这笔记录的实际情况更正。' : `计划金额 ${money(item?.amount_cents ?? plan.fields.amount_cents)}。`}{coverage ? ` 对应服务：${periodLabel(coverage[0], coverage[1])}。` : ''}实付日期填真正扣款的那一天；确认付款不会改变账户余额。</p>
     <div className="sp-pad-x"><SegmentedControl label="这一期" value={d.state} items={[{ id: 'paid', label: '已付' }, { id: 'skipped', label: '本期不付' }]} onChange={state => set({ state })}/></div>
     {d.state === 'paid' && <FormGroup>
-      <DateField label="实付日期" value={d.paid} max={today} onChange={v => { if (v) set({ paid: v }); }} disabled={saver.busy}/>
+      <DateField label="实付日期" value={d.paid} max={today} onChange={v => set({ paid: v })} disabled={saver.busy}/>
       <MoneyField label="实付金额" value={d.amount} onChange={amount => set({ amount })} disabled={saver.busy}/>
     </FormGroup>}
     {d.state === 'skipped' && <FormGroup><FormRow label="说明"><span className="sp-note">不计入重要支出，也不再出现在待确认里。</span></FormRow></FormGroup>}

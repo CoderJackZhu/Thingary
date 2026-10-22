@@ -42,6 +42,19 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
   const tabs = visibleTabs(modules);
   useEffect(() => { if (!tabs.some(tab => tab.id === state.tab)) nav.switchTab('overview'); }, [tabs.length, state.tab]);
   useEffect(() => { session.setNotice(''); }, [state.tab]);
+  // An amount that cannot be read reports '' (unknown) to its form, so an optional amount would be saved as unknown
+  // without a word. Primary save buttons stay inert while a visible amount field on the same page shows its error.
+  useEffect(() => {
+    const guard = (event: MouseEvent) => {
+      const button = (event.target as Element | null)?.closest?.('.m-navbar-primary, .m-button-primary');
+      const invalid = button?.closest('.m-modal, .m-page, .m-sheet')?.querySelector<HTMLInputElement>('.currency-input input[aria-invalid="true"]');
+      if (!invalid) return;
+      event.preventDefault(); event.stopPropagation();
+      invalid.scrollIntoView({ block: 'center' }); invalid.focus({ preventScroll: true });
+    };
+    document.addEventListener('click', guard, true);
+    return () => document.removeEventListener('click', guard, true);
+  }, []);
 
   // Scroll position is remembered per page entry; focus moves to the new page for VoiceOver.
   const scrolls = useRef(new Map<number, number>()), current = useRef(baseEntry.id), first = useRef(true), main = useRef<HTMLElement>(null);
@@ -60,14 +73,14 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
   return <div className="m-app">
     <main id="mobile-content" className="m-main" tabIndex={-1} ref={main} inert={covered || locked} data-tab={state.tab}>
       {baseEntry.id === stack[0].id && segments.length > 1 && <div className="m-segment-bar"><SegmentedControl label="分段" items={segments.map(segment => ({ id: segment.route, label: segment.label }))} value={segments.some(segment => segment.route === baseEntry.route) ? baseEntry.route : segments[0].route} onChange={route => nav.setSegment(route)}/></div>}
-      <Page stack={stack} index={base}/>
+      <Page key={baseEntry.id} stack={stack} index={base}/>
     </main>
     {overlays.map((entry, i) => {
       const index = base + 1 + i, last = i === overlays.length - 1, def = routeDef(entry.route);
       const title = entry.title ?? def?.title ?? '';
       return routeKind(entry.route) === 'sheet'
-        ? <div key={entry.id} inert={!last || locked}><Sheet title={title} onClose={() => nav.pop()}><Page stack={stack} index={index}/></Sheet></div>
-        : <div key={entry.id} className="m-modal" role="dialog" aria-modal="true" aria-label={title} inert={!last || locked}><Page stack={stack} index={index}/></div>;
+        ? <div key={entry.id} inert={!last || locked}><Sheet title={title} onClose={() => nav.pop()}><Page key={entry.id} stack={stack} index={index}/></Sheet></div>
+        : <div key={entry.id} className="m-modal" role="dialog" aria-modal="true" aria-label={title} inert={!last || locked}><Page key={entry.id} stack={stack} index={index}/></div>;
     })}
     {!fullscreen && <div inert={covered || locked}><TabBar tab={state.tab} modules={modules} disabled={nav.blocked} onSelect={nav.switchTab}/></div>}
     {session.pending && <div className="m-recovery-layer"><section className="m-card m-recovery" role="alertdialog" aria-modal="true" aria-label="保存结果核对" tabIndex={-1} ref={recovery}>

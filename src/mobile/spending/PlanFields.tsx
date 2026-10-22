@@ -18,7 +18,7 @@ export function PlanFields({ value: r, onChange, disabled, today, rent }: { valu
     <FormGroup footer={rent ? '合同上的起租日可以是过去的日期。' : '第一期服务开始的日期，可以是过去的日期。'}>
       <SelectField label="付款周期" value={String(r.interval_months)} onChange={v => set('interval_months', Number(v) as RentForm['interval_months'])} options={rentIntervals.map(([m, l]) => ({ id: String(m), label: l }))} disabled={disabled}/>
       <MoneyField label="每期金额" value={r.amount_cents} onChange={v => set('amount_cents', v)} hint="每次付款的总额：按季付就填一整季的钱" disabled={disabled}/>
-      <DateField label={rent ? '租住开始日期' : '开始日期'} value={r.start} onChange={v => { if (v) set('start', v); }} disabled={disabled}/>
+      <DateField label={rent ? '租住开始日期' : '开始日期'} value={r.start} onChange={v => set('start', v)} disabled={disabled}/>
       <SelectField label="提前几天付款" value={String(r.advance_days)} onChange={v => set('advance_days', Number(v))} options={advance.map(([d, l]) => ({ id: String(d), label: l }))} disabled={disabled}/>
       <DateField label={rent ? '租期到期日' : '结束日期'} value={r.end} onChange={v => set('end', v)} allowClear disabled={disabled} min={r.start}
         hint={rent ? '合同到期日，不含当天（到期日就是下一期的第一天，不再付款）；不确定租到何时就留空，会一直续费' : '不再付款的日期，不含当天（这一天就是下一期的第一天）；不确定何时结束就留空，会一直续费'}/>

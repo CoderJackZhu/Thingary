@@ -56,6 +56,8 @@ iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打�
 
 `mobile.html` → `src/mobile/main.tsx` 是独立的手机前端入口，和 `index.html` 一起由 Vite 多页面构建；iOS 宿主约定打开 `mobile.html`。手机布局只加载 `theme.css`、`mobile.css` 与 `ui/ui.css`，使用安全区和至少 44px 的触控区域，外观跟随系统明暗。业务逻辑、IPC 命令与 `src/*.ts` 数据层与桌面共用，只有界面另写；桌面入口、样式与后端保持原有行为。设计稿在 [docs/design/mobile](design/mobile/README.md)，开发约定（目录归属、路由注册、页面栈、组件、预览与截图）见 [src/mobile/README.md](../src/mobile/README.md)。
 
+键盘布局由手机入口安装的 `ui/keyboard-viewport.ts` 管理。弹出层和 Sheet 使用 `visualViewport` 的可见高度及顶部偏移，继续在内部滚动，让 sticky 导航栏留在可见顶部；共用焦点避让同时考虑导航栏和底部操作条。固定原点用于统一 WKWebView 原生平移后的元素坐标。键盘显示时隐藏标签栏，既有完整盘点固定底栏移到键盘上方，收起后恢复；不改变原生键盘设置、保存协议或各业务页。无 API 或用户缩放时保留浏览器回退。
+
 底部五个标签：总览、物品、财富、规划、我的。物品、总览、我的始终显示；财富在财富、支出、周期费用、虚拟资产、收入模块全关时隐藏，规划在规划模块关闭时隐藏，关闭的模块同样隐藏其分段和入口，数据不受影响。
 
 - 总览：物品日均成本、金融净资产、「还要上几年班」、待处理事项与近期记录。

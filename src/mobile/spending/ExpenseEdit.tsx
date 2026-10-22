@@ -39,7 +39,7 @@ function Form({ generation, expense }: { generation: string; expense: Expense | 
   return <EditorFrame title={expense ? '编辑支出' : '记一笔支出'} onSave={save} busy={saver.busy} error={problem || (asking ? '' : saver.error)}>
     <p className="sp-note sp-note-pad">记录没有对应物品的大额花费。买了物品请直接新增物品，购入会自动计入。</p>
     <FormGroup>
-      <TextField label="名称" value={f.title} onChange={v => set('title', v)} placeholder="例如：东京旅行" maxLength={200} disabled={saver.busy}/>
+      <TextField label="名称" value={f.title} onChange={v => set('title', v)} placeholder="例如：东京旅行" maxLength={80} disabled={saver.busy}/>
       <MoneyField label="金额" value={f.amount_cents} onChange={v => set('amount_cents', v)} disabled={saver.busy}/>
       <DateField label="日期" value={f.date} onChange={v => set('date', v)} disabled={saver.busy}/>
       <SelectField label="分类" value={f.category} onChange={v => set('category', v)} options={expenseCategories.map(([id, label]) => ({ id, label }))} disabled={saver.busy}/>

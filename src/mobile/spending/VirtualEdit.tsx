@@ -47,7 +47,7 @@ function Form({ generation, item, labels }: { generation: string; item: VirtualA
   const off = saver.busy;
   return <EditorFrame title={item ? '编辑虚拟资产' : '新增虚拟资产'} onSave={save} busy={saver.busy} error={problem || saver.error}>
     <FormGroup>
-      <TextField label="名称" value={f.name} onChange={name => setF({ name })} placeholder="例如：Notion、域名、咖啡储值卡" maxLength={120} disabled={off}/>
+      <TextField label="名称" value={f.name} onChange={name => setF({ name })} placeholder="例如：Notion、域名、咖啡储值卡" maxLength={80} disabled={off}/>
       <div className="m-form-row m-stacked"><SegmentedControl label="计费方式" value={mode} items={billingModes.map(([id, label]) => ({ id, label }))} onChange={switchBilling}/></div>
       <SelectField label="类型" value={f.kind} onChange={kind => setF({ kind: kind as typeof f.kind })} options={virtualKinds.map(([id, label]) => ({ id, label }))} disabled={off}/>
       <SelectField label="标签" value={f.label_id ?? ''} onChange={v => setF({ label_id: v || null })} options={labelOptions} disabled={off} hint="与实物标签同一套；新建标签请在电脑上操作"/>
