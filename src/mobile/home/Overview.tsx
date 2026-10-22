@@ -10,6 +10,7 @@ import { startChoiceDismissed, choiceStorage } from '../../start-choice';
 import { useModules } from '../modules-context';
 import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
+import { dayLabel } from '../format';
 import { Button, Card, EmptyState, ErrorState, HeroCard, Icon, IconButton, ListGroup, ListRow, LargeTitle, Loading, Metric, MetricGrid, LineAreaChart, Notice } from '../ui';
 import type { PageProps } from '../routes';
 import { browserStorage, openRoute, readHideAmounts, writeHideAmounts } from '../me/shared';
@@ -26,6 +27,8 @@ installMobileRuntime();
 type Loaded = { gate: Gate; review: Review; warranty: WarrantyAlert | null; wishes: WishDue[] | null; warrantyFailed: boolean; wishesFailed: boolean };
 
 /** 总览 (design 01): 还要上几年班, 金融净资产, 物品日均成本, 待处理, 近期记录. */
+const recentIcon = (kind: string) => kind.startsWith('wish_') ? 'heart' as const : kind.startsWith('warranty_') ? 'shield' as const : kind === 'snapshot' ? 'doc' as const : kind === 'purchase' ? 'box' as const : kind === 'payment' ? 'refresh' as const : kind === 'expense' || kind === 'refund' ? 'wallet' as const : 'clock' as const;
+
 export default function Overview(_props: PageProps) {
   const nav = useNav(), { modules: runtime } = useModules(), session = useSession(), reveal = useReveal();
   const modules = runtime ?? allModules, today = session.today;
@@ -107,8 +110,8 @@ export default function Overview(_props: PageProps) {
       <div className="h-start-actions"><Button variant="primary" onClick={() => nav.push('items.edit')}>记录第一件物品</Button>{modules.wealth && <Button onClick={() => nav.push('wealth.accountEdit')}>建立账户并盘点</Button>}</div></div></Card>}
     {(net || daily || view.wealthError || view.physicalError) && <MetricGrid>
       {modules.wealth && (net?.state === 'known'
-        ? <Metric label="金融净资产" value={net.net} sub={net.change ?? `截至 ${net.date}`} subTone={net.changeTone ?? undefined} onClick={() => openRoute(nav, 'wealth.overview')}>
-            <LineAreaChart values={net.values} summary={net.summary}/><span className="h-asof">{net.incomplete ?? `截至 ${net.date.slice(5, 7)} 月 ${net.date.slice(8)} 日盘点`}</span></Metric>
+        ? <Metric label="金融净资产" value={net.net} sub={net.change ?? `截至 ${dayLabel(net.date, today)}`} subTone={net.changeTone ?? undefined} onClick={() => openRoute(nav, 'wealth.overview')}>
+            <LineAreaChart values={net.values} summary={net.summary}/><span className="h-asof">{net.incomplete ?? `截至 ${dayLabel(net.date, today)}盘点`}</span></Metric>
         : <Metric label="金融净资产" value="未知" unknown sub={view.wealthError || '还没有完整盘点，净资产不会按零计算'} onClick={() => openRoute(nav, 'wealth.overview')}/>)}
       {daily ? <Metric label="物品日均成本" value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
         : <Metric label="物品日均成本" value="未知" unknown sub={view.physicalError || '暂时读不出来'}/>}
@@ -120,9 +123,9 @@ export default function Overview(_props: PageProps) {
         : <ListRow key={entry.id} icon={entry.icon} tone={entry.tone} title={entry.title} subtitle={entry.subtitle} onClick={() => openRoute(nav, entry.route, entry.params)}/>)}
     </ListGroup>
     <ListGroup title="近期记录" action={<button type="button" onClick={() => nav.push('me.timeline')}>查看时间轴 ›</button>}>
-      {view.recent.length === 0 && <EmptyState icon="clock" title="还没有带日期的记录" message="新增物品、盘点或付款后会出现在这里。"/>}
+      {view.recent.length === 0 && <EmptyState icon="home" title="还没有带日期的记录" message="新增物品、盘点或付款后会出现在这里。"/>}
       {view.recent.map(row => {
-        const props = { icon: <span className="h-date">{row.date}</span>, tone: 'neutral' as const, title: row.title, subtitle: row.detail || undefined, value: row.amount ?? undefined };
+        const props = { icon: <Icon name={recentIcon(row.kind)} size={20}/>, tone: 'neutral' as const, title: row.title, subtitle: [row.date, row.detail].filter(Boolean).join(' · '), value: row.amount ?? undefined };
         return row.target ? <ListRow key={row.id} {...props} onClick={() => openRoute(nav, row.target!.route, row.target!.params)}/> : <ListRow key={row.id} {...props}/>;
       })}
     </ListGroup>

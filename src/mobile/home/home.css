@@ -3,7 +3,6 @@
 .h-banner .m-button{min-height:44px;padding:8px 14px;font-size:14px}
 .h-count{font-size:13px;color:var(--muted)}
 .h-asof{font-size:12px;color:var(--muted);line-height:1.5}
-.h-date{font:500 12px/1 var(--num);font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .h-start h2{margin:0 0 6px;font-size:17px}
 .h-start p{margin:0 0 12px;font-size:14px;color:var(--muted)}
 .h-start-actions{display:flex;flex-direction:column;gap:10px}

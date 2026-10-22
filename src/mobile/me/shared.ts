@@ -3,6 +3,7 @@ import { isRootRoute, routeDef } from '../routes.ts';
 import type { Params, RouteName } from '../routes.ts';
 import type { SourceTarget } from '../../source.ts';
 import type { Nav } from '../nav-context';
+import { dayLabel } from '../format.ts';
 
 export type RouteTarget = { route: RouteName; params: Params };
 
@@ -60,9 +61,9 @@ export function writeHideAmounts(storage: Store | null, hidden: boolean): boolea
 export const mask = (text: string, hidden: boolean): string => hidden ? hiddenAmountText : text;
 export function browserStorage(): Storage | null { try { return localStorage; } catch { return null; } }
 
-/** `2026-10-18` to `10 月 18 日`. */
-export function dayText(date: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${Number(date.slice(5, 7))} 月 ${Number(date.slice(8))} 日` : date;
+/** `2026-10-18` to `10月18日` (with the year when it is not the current one); other text is returned as is. */
+export function dayText(date: string, today?: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? dayLabel(date, today) : date;
 }
 /** Calendar days from `from` to `to` (both YYYY-MM-DD), negative when `to` is earlier. */
 export function daysBetween(from: string, to: string): number {

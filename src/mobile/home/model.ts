@@ -5,8 +5,7 @@ import type { Modules } from '../../modules.ts';
 import { paymentReminders } from '../../recurring.ts';
 import { deriveStatus } from '../../warranty.ts';
 import { monthsLeftText } from '../../plan-fire.ts';
-import { compactYuan } from '../../plan-view.ts';
-import { money, unitMoney } from '../../asset.ts';
+import { dayLabel, moneyText, signedMoneyText, unitMoneyText } from '../format.ts';
 import type { Review } from '../../review.ts';
 import { latestComplete, ready } from '../../review.ts';
 import type { SummaryRetire } from '../../plan-summary.ts';
@@ -50,13 +49,13 @@ export function netWorthView(summary: Summary, hidden: boolean): NetWorthView {
   if (latest.scope_changed) change = '账户范围有变化，较上次不可比';
   else if (latest.change_cents !== null && latest.compared_to) {
     const cents = Number(latest.change_cents);
-    change = cents === 0 ? '较上次持平' : `较上次 ${mask(`${cents > 0 ? '+' : ''}${compactYuan(cents)}`, hidden)}`;
+    change = cents === 0 ? '较上次持平' : `较上次 ${mask(signedMoneyText(cents), hidden)}`;
     tone = hidden || cents === 0 ? null : cents > 0 ? 'positive' : 'danger';
   }
   const net = Number(latest.net_cents);
-  const text = hidden ? `金融净资产已隐藏，共 ${complete.length} 次完整盘点。` : `金融净资产 ${compactYuan(net)}，截至 ${dayText(latest.date)}，共 ${complete.length} 次完整盘点${change ? '，' + change : ''}。`;
+  const text = hidden ? `金融净资产已隐藏，共 ${complete.length} 次完整盘点。` : `金融净资产 ${moneyText(net)}，截至 ${dayText(latest.date)}，共 ${complete.length} 次完整盘点${change ? '，' + change : ''}。`;
   return {
-    state: 'known', net: mask(compactYuan(net), hidden), date: latest.date,
+    state: 'known', net: mask(moneyText(net), hidden), date: latest.date,
     incomplete: last && !last.complete ? `${dayText(last.date)} 的盘点缺 ${last.missing} 个账户，当前显示 ${dayText(latest.date)} 的完整盘点` : null,
     change, changeTone: tone, values: complete.map(point => Number(point.net_cents)), summary: text,
   };
@@ -70,7 +69,7 @@ export function dailyView(summary: DailyCostSummary): DailyView {
   if (summary.per_use_count) notes.push(`${summary.per_use_count} 件按次计费`);
   if (summary.excluded_count) notes.push(`${summary.excluded_count} 件已排除`);
   if (summary.unknown_count > 0 && summary.included_count > 0) notes.push('仅已知部分');
-  return { value: summary.known_cents === null ? '—' : unitMoney(summary.known_cents), unknown: summary.known_cents === null, sub: notes.join(' · '), note: '持有成本摊算，不是每天实际付款；账户、订阅和房租不参与。' };
+  return { value: summary.known_cents === null ? '—' : unitMoneyText(summary.known_cents), unknown: summary.known_cents === null, sub: notes.join(' · '), note: '持有成本摊算，不是每天实际付款；账户、订阅和房租不参与。' };
 }
 
 /** Warranty facts for the 待处理 list: desktop `list_assets` with the 即将到期 filter, status per desktop deriveStatus. */
@@ -113,7 +112,7 @@ export function pendingEntries({ today, modules, review, warranty, wishes }: Pen
     const rows = [...reminders.due.map(due => ({ due, late: true })), ...reminders.upcoming.map(due => ({ due, late: false }))].slice(0, 3);
     for (const { due, late } of rows) out.push({
       id: 'payment:' + due.plan_id + due.due_date, icon: 'calendar', tone: late ? 'danger' : 'accent', title: `${late ? '周期付款待确认' : '周期付款'} ${dayText(due.due_date)}`,
-      subtitle: `${due.plan_name} ${money(due.amount_cents)} · ${relative(today, due.due_date)}`, route: 'spending.recurring', params: { id: due.plan_id },
+      subtitle: `${due.plan_name} ${moneyText(due.amount_cents)} · ${relative(today, due.due_date)}`, route: 'spending.recurring', params: { id: due.plan_id },
     });
   }
   const wealth = modules.wealth && review ? ready(review.wealth) : undefined;
@@ -154,10 +153,10 @@ export function recentRows(events: TimelineEvent[], modules: Modules, describe: 
     const { label, detail } = describe(event);
     const snapshot = event.kind === 'snapshot';
     return {
-      id: event.id, date: event.date!.slice(5), kind: event.kind, label,
+      id: event.id, date: dayLabel(event.date!), kind: event.kind, label,
       title: snapshot ? label : `${label} · ${event.title}`,
       detail: snapshot && hiddenAmounts ? '金融金额已隐藏' : detail,
-      amount: !snapshot && event.amount_cents !== null ? money(event.amount_cents) : null,
+      amount: !snapshot && event.amount_cents !== null ? moneyText(event.amount_cents) : null,
       target: eventTarget(event),
     };
   });

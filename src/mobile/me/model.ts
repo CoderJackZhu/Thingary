@@ -2,7 +2,8 @@
 // Business facts come from the desktop commands; this file only formats and groups them.
 import { moduleList } from '../../modules.ts';
 import type { Modules } from '../../modules.ts';
-import { money } from '../../asset.ts';
+import { localDay } from '../../asset.ts';
+import { dayLabel, moneyText, monthLabel } from '../format.ts';
 import type { Mode, Style } from '../../appearance.ts';
 import { styles } from '../../appearance.ts';
 import type { AutoBackupStatus } from '../../auto-backup-format.ts';
@@ -35,10 +36,10 @@ export function backupReminder(last: string | null, now: Date, hasRecords: boole
   if (!last) return { tone: hasRecords ? 'warn' : 'positive', text: hasRecords ? '还没有做过完整备份。手机丢失或损坏时，没有备份就找不回资料。' : '开始记录后，别忘了做一次完整备份。', daysAgo: null };
   const days = Math.max(0, Math.floor((now.getTime() - Date.parse(last)) / dayMs));
   const when = new Date(last);
-  const date = `${when.getMonth() + 1} 月 ${when.getDate()} 日`;
+  const date = dayLabel(localDay(when), localDay(now));
   if (days >= backupReminderDays) return { tone: 'warn', text: `${date}做过完整备份，已过去 ${days} 天，建议再备份一次。`, daysAgo: days };
   const next = new Date(when.getTime() + backupReminderDays * dayMs);
-  return { tone: 'positive', text: `${date}已完整备份。下次提醒 ${next.getMonth() + 1} 月 ${next.getDate()} 日。`, daysAgo: days };
+  return { tone: 'positive', text: `${date}已完整备份。下次提醒 ${dayLabel(localDay(next), localDay(now))}。`, daysAgo: days };
 }
 export const daysAgoText = (days: number | null): string => days === null ? '未备份' : days === 0 ? '今天' : `${days} 天前`;
 
@@ -46,14 +47,14 @@ export const daysAgoText = (days: number | null): string => days === null ? '未
 /** 月合计里的「支出」：购入、维护、重要支出、周期付款与虚拟资产价格计入，退款冲减；盘点、心愿预计价格、售出不计入。 */
 const spendKinds = new Set(['purchase', 'maintenance', 'expense', 'payment', 'virtual']);
 export type MonthGroup = { key: string; title: string; events: TimelineEvent[]; spendingCents: string; unknownCount: number };
-export function monthTitle(key: string): string { return `${key.slice(0, 4)} 年 ${Number(key.slice(5, 7))} 月`; }
-export function groupByMonth(events: TimelineEvent[]): MonthGroup[] {
+export function monthTitle(key: string, today?: string): string { return monthLabel(key, today); }
+export function groupByMonth(events: TimelineEvent[], today?: string): MonthGroup[] {
   const groups: MonthGroup[] = [], totals = new Map<string, bigint>();
   for (const event of events) {
     if (!event.date) continue;
     const key = event.date.slice(0, 7);
     let group = groups.find(item => item.key === key);
-    if (!group) { group = { key, title: monthTitle(key), events: [], spendingCents: '0', unknownCount: 0 }; groups.push(group); totals.set(key, 0n); }
+    if (!group) { group = { key, title: monthTitle(key, today), events: [], spendingCents: '0', unknownCount: 0 }; groups.push(group); totals.set(key, 0n); }
     group.events.push(event);
     const spends = spendKinds.has(event.kind) || event.kind === 'refund';
     if (!spends) continue;
@@ -65,7 +66,7 @@ export function groupByMonth(events: TimelineEvent[]): MonthGroup[] {
 }
 export const monthSpendingText = (group: MonthGroup, current: string): string => {
   const unknown = group.unknownCount ? `（${group.unknownCount} 笔金额未知）` : '';
-  return `${group.key === current ? '本月' : '当月'}支出 ${money(group.spendingCents)}${unknown}`;
+  return `${group.key === current ? '本月' : '当月'}支出 ${moneyText(group.spendingCents)}${unknown}`;
 };
 export const monthsPerStep = 3;
 
@@ -94,9 +95,9 @@ export const restoreTime = (summary: BackupSummary): string => new Date(summary.
 export function autoBackupLabel(item: AutoBackupStatus['items'][number], today: string): { title: string; sub: string } {
   const encrypted = item.name.endsWith('.thingary.age');
   const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - dayMs).toISOString().slice(0, 10);
-  const when = item.date === today ? '今天' : item.date === yesterday ? '昨天' : `${Number(item.date.slice(5, 7))} 月 ${Number(item.date.slice(8, 10))} 日`;
+  const when = item.date === today ? '今天' : item.date === yesterday ? '昨天' : dayLabel(item.date, today);
   const time = item.name.match(/-(\d{2})(\d{2})-[0-9a-f]{6}\.thingary/);
-  return { title: time ? `${when} ${time[1]}:${time[2]}` : when, sub: `${item.date}${encrypted ? ' · 已加密' : ''}` };
+  return { title: time ? `${when} ${time[1]}:${time[2]}` : when, sub: encrypted ? '已加密' : '' };
 }
 
 // --- 恢复后清理本机暂存 -----------------------------------------------------------------------------
@@ -108,3 +109,13 @@ export function restoreClearKeys(keys: string[]): string[] {
 }
 /** How many left-over drafts or unchecked requests a restore will invalidate. */
 export const countLocalWork = (keys: string[]): number => keys.filter(key => /draft|request|abandon|upload/.test(key)).length;
+
+/**
+ * 时间轴一行的说明文字：电脑端 eventDetail 把金额写进了文字，手机行右侧已经显示金额，
+ * 所以已知金额只留「实付」「退回」这样的标签；「待补充」按手机约定写成「未知」。
+ */
+export function timelineDetail(detail: string, event: Pick<TimelineEvent, 'kind' | 'amount_cents'>): string {
+  const text = detail.replace(/待补充/g, '未知');
+  if (event.kind === 'snapshot' || event.amount_cents === null) return text;
+  return text.split(' · ').map(part => part.replace(/\s*[−-]?\u2060?¥[\d,]+(?:\.\d+)?$/, '')).filter(Boolean).join(' · ');
+}

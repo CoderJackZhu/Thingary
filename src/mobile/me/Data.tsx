@@ -147,7 +147,7 @@ export default function Data({ params }: PageProps) {
 
       <ListGroup title="自动备份" footer="有改动时自动保存在这台手机，保留最近 7 份。与手动备份格式相同，都可用于恢复。">
         <ListRow icon="refresh" tone="positive" title="自动备份" subtitle={auto ? autoBackupSummary(auto) : autoError ? '状态读取失败' : '正在读取…'} trailing={auto ? <Switch label="自动备份" checked={auto.enabled} disabled={autoBusy} onChange={on => void toggleAuto(on)}/> : undefined}/>
-        {auto?.items.map(item => { const label = autoBackupLabel(item, session.today); return <ListRow key={item.name} icon="clock" tone="neutral" title={label.title} subtitle={`${label.sub} · ${formatBytes(item.size)}`} value="恢复…" disabled={locked} onClick={() => void inspectAuto(item.name)}/>; })}
+        {auto?.items.map(item => { const label = autoBackupLabel(item, session.today); return <ListRow key={item.name} icon="clock" tone="neutral" title={label.title} subtitle={[label.sub, formatBytes(item.size)].filter(Boolean).join(' · ')} value="恢复…" disabled={locked} onClick={() => void inspectAuto(item.name)}/>; })}
       </ListGroup>
       {pause && <Notice>{pause}</Notice>}
       {auto?.last_error && <Notice tone="danger">上次自动备份未完成（{formatWhen(auto.last_error.at)}）：{auto.last_error.message}。已有备份保留，稍后自动重试。</Notice>}

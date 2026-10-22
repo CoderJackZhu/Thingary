@@ -16,7 +16,7 @@ function Gallery() {
     <LargeTitle title="组件库" actions={<><IconButton label="隐藏金额" pressed={hidden} onClick={() => setHidden(!hidden)}><Icon name={hidden ? 'eyeOff' : 'eye'}/></IconButton><IconButton label="搜索"><Icon name="search"/></IconButton></>}/>
     <HeroCard eyebrow="规划 · 财务自由" action="查看规划" title="还要上 21 年 10 个月班" subtitle="51 岁，最早 2048 年 8 月可以不靠工资生活" tags={[{ text: '两人都不上班：2050 年 3 月' }, { text: '每月多存 1,000 元可提前约 1 年 5 个月', tone: 'positive' }]} footnote="估算结果，不是理财建议" onClick={() => nav.push(dev('dev.gallery.page'))}/>
     <MetricGrid>
-      <Metric label="金融净资产" value="¥88.4 万" sub="较上次 +¥1.2 万" subTone="positive"><LineAreaChart values={[70, 72, 71, 80, 84, 88.4]} summary="最近 6 次盘点金融净资产缓慢上升，最近一次 88.4 万"/></Metric>
+      <Metric label="金融净资产" value="¥884,000" sub="较上次 +¥12,000" subTone="positive"><LineAreaChart values={[70, 72, 71, 80, 84, 88.4]} summary="最近 6 次盘点金融净资产缓慢上升，最近一次 ¥884,000"/></Metric>
       <Metric label="物品日均成本" value="未知" unknown sub="还没有可计入的物品"/>
     </MetricGrid>
     <ChipRow label="分类" items={[{ id: 'all', label: '全部' }, { id: 'digital', label: '数码' }, { id: 'home', label: '家电' }, { id: 'photo', label: '摄影' }, { id: 'out', label: '出行' }]} value={chip} onChange={setChip}/>
@@ -37,7 +37,7 @@ function Gallery() {
       <SelectField label="分类" value="photo" onChange={() => {}} options={[{ id: 'photo', label: '摄影' }, { id: 'digital', label: '数码' }]}/>
       <TextAreaField label="备注" value={note} onChange={setNote} placeholder="保修卡和发票在书桌抽屉"/>
     </FormGroup>
-    <Card><Section title="图表（带文字结论）"><DonutChart summary="资产结构：基金 58%，股票 28%，现金 10%，外币 4%" center={{ top: '¥89 万', bottom: '计入资产' }} slices={[{ label: '基金', value: 58 }, { label: '股票', value: 28 }, { label: '现金', value: 10 }, { label: '外币', value: 4 }]}/>
+    <Card><Section title="图表（带文字结论）"><DonutChart summary="资产结构：基金 58%，股票 28%，现金 10%，外币 4%" center={{ top: '¥890,000', bottom: '计入资产' }} slices={[{ label: '基金', value: 58 }, { label: '股票', value: 28 }, { label: '现金', value: 10 }, { label: '外币', value: 4 }]}/>
       <BarChart summary="近 6 个月购买金额，8 月未记录金额" bars={[{ label: '5月', value: 3 }, { label: '6月', value: 8 }, { label: '7月', value: 2 }, { label: '8月', value: null }, { label: '9月', value: 5 }, { label: '10月', value: 6 }]}/>
       <HBarChart summary="分类花费排行：数码最高" rows={[{ label: '数码', value: 9999, display: '¥9,999' }, { label: '摄影', value: 6490, display: '¥6,490' }, { label: '出行', value: null }]}/></Section></Card>
     <Notice>卡片内的提示条：核算注意事项。</Notice>
