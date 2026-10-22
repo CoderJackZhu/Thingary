@@ -44,9 +44,11 @@ export function navReducer(state: NavState, action: NavAction): NavState {
     case 'popToRoot': return stack.length <= 1 ? state : set([{ ...stack[0], reveal: stack[0].reveal + 1 }]);
     case 'replace': return set([...stack.slice(0, -1), entry(state.nextId, action.route, action.params, action.title)], state.nextId + 1);
     case 'root': return set([entry(state.nextId, action.route)], state.nextId + 1);
-    case 'switch':
+    case 'switch': {
       if (action.tab === state.tab) return state;
-      return state.stacks[action.tab] ? { ...state, tab: action.tab }
-        : { ...state, tab: action.tab, stacks: { ...state.stacks, [action.tab]: [entry(state.nextId, action.root)] }, nextId: state.nextId + 1 };
+      // Tabs always open at their root: the left tab's stack is dropped and the target starts fresh.
+      const { [state.tab]: _left, ...rest } = state.stacks;
+      return { tab: action.tab, stacks: { ...rest, [action.tab]: [entry(state.nextId, action.root)] }, nextId: state.nextId + 1 };
+    }
   }
 }

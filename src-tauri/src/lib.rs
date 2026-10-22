@@ -127,6 +127,22 @@ pub fn run() {
                     }
                 })?;
             }
+            #[cfg(target_os = "ios")]
+            if let Some(window) = app.get_webview_window("main") {
+                window.with_webview(|webview| {
+                    use objc2::{msg_send, runtime::AnyObject};
+                    // WKWebView defaults to no edge-swipe history navigation; the mobile UI pops pages on popstate.
+                    let view = webview.inner().cast::<AnyObject>();
+                    if view.is_null() {
+                        eprintln!("无法开启边缘返回手势：WKWebView 不可用");
+                        return;
+                    }
+                    // SAFETY: with_webview runs on the main thread and `inner` is the live WKWebView.
+                    unsafe {
+                        let _: () = msg_send![view, setAllowsBackForwardNavigationGestures: true];
+                    }
+                })?;
+            }
             #[cfg(target_os = "windows")]
             reminders::set_app_identifier(&app.config().identifier)?;
             #[cfg(target_os = "ios")]

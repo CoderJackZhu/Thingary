@@ -4751,6 +4751,7 @@ dependencies = [
  "chrono",
  "fs2",
  "image",
+ "objc2",
  "quick-xml 0.41.0",
  "rand",
  "rfd",
