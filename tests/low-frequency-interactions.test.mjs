@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import { snapshotEntryInput } from '../src/wealth.ts';
+import { snapshotEntryInput, applyClosing, canCloseInCheckIn } from '../src/wealth.ts';
 import * as currency from '../src/currency.ts';
 import { verifyAssetPatch } from '../src/wishlist.ts';
 
@@ -153,12 +153,12 @@ const checkInScript = compile(`${checkIn.getText(wealth)}\nmodule.exports = Chec
 function checkInRuntime() {
   const entry = { account_id: 'fictional-account', state: 'unchanged', amount_cents: '10000', side: 'asset', counted: true };
   const draft = { generation: 'fictional-generation', existing: { id: 'fictional-snapshot', revision: 2, notes: 'saved', entries: [entry] }, rows: [{ account: { id: entry.account_id, fields: { name: 'Fictional', side: 'asset', kind: 'cash', counted: true } }, previous: { amount_cents: '20000', date: '2026-07-01' } }] };
-  const states = ['2026-08-01', undefined, draft, '', 'saved', false, { [entry.account_id]: { state: 'unchanged', cents: '10000' } }, false, '', false, null];
+  const states = ['2026-08-01', undefined, draft, '', 'saved', false, { [entry.account_id]: { state: 'unchanged', cents: '10000' } }, false, '', false, null, {}, new Set(), false, 0];
   let cursor = 0, request;
   const context = { ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
     useState() { const slot = cursor++; return [states[slot], v => { states[slot] = typeof v === 'function' ? v(states[slot]) : v; }]; },
     useEffect() {}, useRef: v => ({ current: v }),
-    snapshotEntryInput, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
+    snapshotEntryInput, applyClosing, canCloseInCheckIn, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
     money: v => v, signedMoney: v => v, kindLabel: v => v, changeText: v => v,
     Icon() {}, DateInput() {}, CentInput() {}, DeleteButton() {}, Unresolved: class extends Error {},
     crypto: { randomUUID: () => 'fictional-request' }, errorMessage: e => String(e),
@@ -247,12 +247,12 @@ function twoRowRuntime() {
     { account: { id: 'acc-b', fields: { name: '虚构乙', side: 'liability', kind: 'loan', counted: true } }, previous: { amount_cents: '5000', date: '2026-06-15' } },
   ];
   const draft = { generation: 'fictional-generation', existing: null, rows };
-  const states = ['2026-08-01', undefined, draft, '', 'saved', false, {}, false, '', false, null];
+  const states = ['2026-08-01', undefined, draft, '', 'saved', false, {}, false, '', false, null, {}, new Set(), false, 0];
   let cursor = 0, request;
   const context = { ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
     useState() { const slot = cursor++; return [states[slot], v => { states[slot] = typeof v === 'function' ? v(states[slot]) : v; }]; },
     useEffect() {}, useRef: v => ({ current: v }),
-    snapshotEntryInput, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
+    snapshotEntryInput, applyClosing, canCloseInCheckIn, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
     money: v => v, signedMoney: v => v, kindLabel: v => v, changeText: v => v,
     Icon() {}, DateInput() {}, CentInput() {}, DeleteButton() {}, Unresolved: class extends Error {},
     crypto: { randomUUID: () => 'fictional-request' }, errorMessage: e => String(e),

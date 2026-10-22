@@ -105,6 +105,7 @@ fn main() {
     ] {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(),
                 generation: s.generation(),
                 id: None,

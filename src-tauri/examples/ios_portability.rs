@@ -186,6 +186,7 @@ fn seed(store: &mut Store) -> Result<()> {
     let request = id();
     let snapshot = store.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: request.clone(),
             generation: store.generation(),
             id: None,

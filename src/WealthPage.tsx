@@ -30,7 +30,7 @@ import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { Icon } from './AssetViews';
-import { quickAvailable, selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, comparisonText, enterJumpsAmount, checkInUnfilledTargets, nextUnfilledLabel, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
+import { quickAvailable, selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, comparisonText, enterJumpsAmount, checkInUnfilledTargets, nextUnfilledLabel, applyClosing, canCloseInCheckIn, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
 import type { Account, AccountFields, AccountSave, CheckInRow, Draft, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
 import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
@@ -184,7 +184,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     setEditing('new');
   }, [autoNew]);
   if (snapshotDetail) return <SnapshotDetail id={snapshotDetail} onCorrect={id => { const date = summary?.points.find(p => p.snapshot_id === id)?.date; setSnapshotDetail(null); if (date) { setCheckInPin(id); setCheckIn(date); } }} onClose={() => { setSnapshotDetail(null); reload(); refocusHeading(); }}/>;
-  if (checkIn) return <CheckIn expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={(saved, snapshot) => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('history'); reload(); } refocusHeading(); }}/>;
+  if (checkIn) return <CheckIn accountDialog={onDone => summary && <AccountDialog quickPoints={summary.points} groups={groups} onGroupsChanged={reload} account={null} generation={summary.generation} today={today} onQuick={openQuick} onClose={saved => onDone(saved)}/>} expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={(saved, snapshot) => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('history'); reload(); } refocusHeading(); }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const closeAccount = (saved: boolean, createdName?: string) => {
     (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close();
@@ -399,7 +399,7 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
       {holdingSupported(fields.kind) && <><FormRow label="按持仓记录" hint="一个账户一个持仓，金额由份额与单价计算；不记录交易成本或收益。"><Switch label="按持仓记录" value={!!fields.holding_mode} disabled={busy || stuck} onChange={value=>setFields(f=>({...f,holding_mode:value,...(!value?{holding_unit:null}:{})}))}/></FormRow>{fields.holding_mode && <FormRow label="持仓单位" hint="可留空，默认显示份；最多8字"><input aria-label="持仓单位" maxLength={8} value={fields.holding_unit??''} disabled={busy||stuck} onChange={e=>set('holding_unit',e.target.value||null)}/></FormRow>}</>}
       <FormRow label="分组" hint="只影响查看；未分组也可以正常盘点和规划"><select aria-label="账户分组" value={fields.group_id ?? ''} disabled={busy || stuck} onChange={e => { if (e.target.value === '__new__') setCreateGroup(true); else set('group_id', e.target.value || null); }}><option value="">未分组</option>{availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}<option value="__new__">新建分组…</option></select>{createGroup && <div className="account-group-create">{stuck && <button type="button" disabled={busy} onClick={() => void verifyGroup()}>核对分组结果</button>}<input aria-label="就地新建分组名称" value={groupName} maxLength={40} disabled={busy || stuck} onChange={e => setGroupName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveGroup(); } }}/><button type="button" disabled={busy || stuck || !groupName.trim()} onClick={() => void saveGroup()}>创建并选择</button><button type="button" disabled={busy || stuck} onClick={() => setCreateGroup(false)}>取消</button></div>}</FormRow>
       <FormRow label="启用日期" hint="此日之前的盘点不要求填写"><DateInput yearIntent="past" id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
-      {account && <FormRow label="停用日期" hint="停用前最后一次盘点须为 0"><DateInput yearIntent="past" id="wealth-account-closed" value={fields.closed_on ?? ''} max={today} allowClear disabled={busy || stuck} onChange={v => set('closed_on', v || null)}/></FormRow>}
+      {account && <FormRow label="停用日期" hint="停用后不再出现在之后的盘点里；有盘点记录的账户只能停用，不能删除。"><DateInput yearIntent="past" id="wealth-account-closed" value={fields.closed_on ?? ''} max={today} allowClear disabled={busy || stuck} onChange={v => set('closed_on', v || null)}/></FormRow>}
       {['property', 'vehicle'].includes(fields.kind) && <>
         <FormRow label="购入价" hint="可留空；仅用于显示估值涨跌，不参与净资产或规划计算"><CentInput label="购入价" value={fields.purchase_cents ?? ''} disabled={busy || stuck} onChange={v => set('purchase_cents', v || null)}/></FormRow>
         <FormRow label="购入日期" hint="可留空"><DateInput yearIntent="past" id="wealth-account-purchased" value={fields.purchased_on ?? ''} min="1900-01-01" max={today} allowClear disabled={busy || stuck} onChange={v => set('purchased_on', v || null)}/></FormRow>
@@ -457,7 +457,7 @@ function SnapshotDetail({ id, onCorrect, onClose }: { id: string; onClose: () =>
     <section className="form-block form-notes snapshot-notes"><h3>备注</h3>{snapshot.notes.trim() ? <p className="notes" style={{whiteSpace:'pre-wrap'}}>{snapshot.notes}</p> : <p className="muted">未填写备注</p>}</section>
   </section>;
 }
-function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: string; date: string; today: string; onClose: (saved: boolean, snapshot?: Snapshot) => void }) {
+function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: { accountDialog?: (onDone: (saved: boolean) => void) => ReactNode; expectedId?: string; date: string; today: string; onClose: (saved: boolean, snapshot?: Snapshot) => void }) {
   const [date, setDate] = useState(initial);
   // The source's stable-ID guard holds only while its own date is being viewed:
   // once the user deliberately switches dates, this is a normal check-in again.
@@ -468,6 +468,7 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   const [switchTo, setSwitchTo] = useState<string | null>(null);
   const [rates, setRates] = useState<Record<string,string>>({});
+  const [closing, setClosing] = useState<ReadonlySet<string>>(() => new Set()), [adding, setAdding] = useState(false), [reads, setReads] = useState(0);
   const table = useRef<HTMLTableElement>(null);
   const focusedField = useRef<string | null>(null);
   const fromSaved = useRef(false);
@@ -495,7 +496,9 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
       });
     }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
-  }, [date, pin]);
+  }, [date, pin, reads]);
+  useEffect(() => setClosing(new Set()), [date]);
+  const toggleClose = (id: string, on: boolean) => setClosing(old => { const next = new Set(old); if (on) next.add(id); else next.delete(id); return next; });
   const set = (id: string, row: Row) => {
     setRows(r => ({ ...r, [id]: { ...row, edited: true } }));
     setNotice('');
@@ -512,7 +515,8 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
     setRates(old => ({ ...old, [code]: rate }));
     for (const r of draft?.rows ?? []) if (currencyCode(r.account.fields.currency) === code && rows[r.account.id]?.edited && rows[r.account.id]?.state === 'entered') { const row=rows[r.account.id]; if(r.account.fields.holding_mode)setHolding(r.account.id,code,row.quantity_e8??'',row.unit_price_e6??'',rate);else setForeign(r.account.id,code,row.original_minor??'',rate); }
   };
-  const open = draft?.rows ?? [], existing = draft?.existing ?? null;
+  const all = draft?.rows ?? [], existing = draft?.existing ?? null;
+  const open = all.filter(r => !closing.has(r.account.id));
   const unfilled = open.filter(r => !rows[r.account.id]?.state || rows[r.account.id].state === 'missing' || rows[r.account.id].cents === '');
   const totals = previewTotals(open.map(r => ({ side: r.account.fields.side, counted: existing?.entries.find(e => e.account_id === r.account.id)?.counted ?? r.account.fields.counted, cents: rows[r.account.id]?.state && rows[r.account.id].state !== 'missing' && rows[r.account.id].cents !== '' ? rows[r.account.id].cents : null })));
   const before = existing ? previewTotals(existing.entries.map(e => ({ side: e.side, counted: e.counted, cents: e.amount_cents }))) : null;
@@ -533,9 +537,10 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
     if (!draft) return;
     if (unfilled.length) { setNotice(`还有 ${unfilled.length} 个账户未填写：填写本次金额，零余额请填 0。`); locateNextUnfilled(); return; }
     if ([...notes].length > 10000 || notes.includes('\0')) { setNotice('备注最多 10000 字，且不能含空字符。'); return; }
-    const input: SnapshotSave = { request_id: crypto.randomUUID(), generation: draft.generation, id: existing?.id ?? null, expected_revision: existing?.revision ?? null, date, notes, entries: open.map(r => snapshotEntryInput(r.account.id, rows[r.account.id])) };
+    const plain: SnapshotSave = { request_id: crypto.randomUUID(), generation: draft.generation, id: existing?.id ?? null, expected_revision: existing?.revision ?? null, date, notes, entries: open.map(r => snapshotEntryInput(r.account.id, rows[r.account.id])) };
+    const input = applyClosing(plain, all.map(r => r.account), closing);
     setBusy(true); setNotice('');
-    try { const snapshot = await submit<Snapshot>({ command: 'wealth_snapshot_save', input, label: `${date} 盘点` }); onClose(true, snapshot); }
+    try { const snapshot = await submit<Snapshot>({ command: 'wealth_snapshot_save', input, label: closing.size ? `${date} 盘点并停用 ${closing.size} 个账户` : `${date} 盘点` }); onClose(true, snapshot); }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
@@ -548,19 +553,21 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
       <div className="field check-in-date"><label htmlFor="check-in-date">盘点日期</label>{switchTo ? <div className="check-in-date-switch" role="alert"><p>切换日期将丢弃当前备注修改。</p><button type="button" onClick={() => setSwitchTo(null)}>取消</button><button type="button" className="primary" onClick={() => { const target = switchTo; setSwitchTo(null); setNotesDirty(false); setPin(undefined); if (target) setDate(target); }}>确认切换</button></div> : null}<DateInput yearIntent="past" id="check-in-date" value={date} max={today} disabled={frozen || !!switchTo} onChange={v => { if (!v) return; if (notesDirty) { setSwitchTo(v); return; } setPin(undefined); setDate(v); }}/></div>
     </header>
     {existing && draft && <div className="notice">这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。<DeleteButton label="删除这次盘点" disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={`${date} 盘点`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
-    {error ? <div role="alert"><p>盘点读取失败：{error}</p></div> : !draft ? <p role="status" className="muted">正在准备盘点…</p> : !open.length ? <p className="muted">这一天没有需要盘点的账户（账户启用日期都晚于此日或已停用）。</p> : <>
+    {error ? <div role="alert"><p>盘点读取失败：{error}</p></div> : !draft ? <p role="status" className="muted">正在准备盘点…</p> : !all.length ? <p className="muted">这一天没有需要盘点的账户（账户启用日期都晚于此日或已停用）。</p> : <>
       {open.some(r=>currencyCode(r.account.fields.currency)!=='CNY') && <section className="form-block"><h3>本次汇率</h3><p className="muted small">每单位原币兑换的人民币，只用于本次修改金额的账户；未改动的历史金额保留各自汇率。不联网取汇率。</p>{[...new Set(open.map(r=>currencyCode(r.account.fields.currency)).filter(c=>c!=='CNY'))].map(code=>{const suggestion=rateSuggestions(draft)[code];return <FormRow key={code} label={`${code} 汇率`} hint={suggestion?`${suggestion.date}记录的汇率；可修改。`:'没有历史汇率，请手动填写。'}><span data-check-in-field={`rate:${code}`}><CurrencyInput label={`${code} 汇率`} places={6} value={rates[code]??''} disabled={frozen} onChange={v=>changeRate(code,v)}/></span></FormRow>;})}</section>}
-      <table ref={table} className="ui-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th></tr></thead><tbody>{open.map(({ account: a, previous }) => {
+      <table ref={table} className="ui-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th></tr></thead><tbody>{all.map(({ account: a, previous }) => {
         const row = rows[a.id] ?? { state: null, cents: '' };
+        if (closing.has(a.id)) return <tr key={a.id} data-state="closing" className="check-in-closing"><td><s><strong>{a.fields.name}</strong></s><small className="muted">{kindLabel(a.fields.kind)}</small></td><td>{previous ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a.fields.currency} fact={previous} date={previous.date}/> : <span className="muted">无</span>}</td><td colSpan={2}>已注销，从 {date} 起停用；余额视为已转出，不用填。 <button type="button" className="ui-link" disabled={frozen} onClick={() => toggleClose(a.id, false)}>撤销</button></td></tr>;
         const diff = row.state && row.state !== 'missing' && row.cents !== '' && previous ? (BigInt(row.cents) - BigInt(previous.amount_cents)).toString() : null;
         return <tr key={a.id} data-state={row.state ?? 'empty'}>
-          <td><strong>{a.fields.name}</strong><small className="muted">{a.fields.side === 'liability' ? '负债 · 尚欠' : kindLabel(a.fields.kind)}{a.fields.counted ? '' : ' · 不计入'}</small>{(existing?.entries.find(e=>e.account_id===a.id)??previous)?.amount_cents!=null && !!a.fields.holding_mode !== ((existing?.entries.find(e=>e.account_id===a.id)??previous)?.quantity_e8!=null) && <small className="notice">从这次开始按{a.fields.holding_mode?'持仓':'余额'}记录；未改动的历史金额保持原样。</small>}</td>
+          <td><strong>{a.fields.name}</strong><small className="muted">{a.fields.side === 'liability' ? '负债 · 尚欠' : kindLabel(a.fields.kind)}{a.fields.counted ? '' : ' · 不计入'}</small>{draft && canCloseInCheckIn(draft, a) && <button type="button" className="ui-link check-in-close-link" disabled={frozen} onClick={() => toggleClose(a.id, true)}>已注销，从这次起停用</button>}{(existing?.entries.find(e=>e.account_id===a.id)??previous)?.amount_cents!=null && !!a.fields.holding_mode !== ((existing?.entries.find(e=>e.account_id===a.id)??previous)?.quantity_e8!=null) && <small className="notice">从这次开始按{a.fields.holding_mode?'持仓':'余额'}记录；未改动的历史金额保持原样。</small>}</td>
           <td>{previous ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a.fields.currency} fact={previous} date={previous.date}/> : <span className="muted">无</span>}</td>
           <td onKeyDown={e => { if (e.target instanceof HTMLInputElement && enterJumpsAmount(e.key, e.nativeEvent.isComposing, true)) { e.preventDefault(); focusNext(e.target); } }}>
             <span data-amount-wrap data-check-in-field={a.fields.holding_mode ? undefined : `amount:${a.id}`}>{a.fields.holding_mode ? <div className="holding-check-in"><label data-check-in-field={`quantity:${a.id}`}>份额<HoldingInput label={`${a.fields.name} 份额`} places={8} value={row.quantity_e8??''} disabled={frozen} onChange={q=>setHolding(a.id,currencyCode(a.fields.currency),q,row.unit_price_e6??'',rates[currencyCode(a.fields.currency)]??'')}/></label>{previous?.quantity_e8 != null && !row.quantity_e8 && <button type="button" className="ui-link" disabled={frozen} onClick={() => setHolding(a.id,currencyCode(a.fields.currency),previous.quantity_e8!,row.unit_price_e6??'',rates[currencyCode(a.fields.currency)]??'')}>沿用上次份额</button>}<label data-check-in-field={`price:${a.id}`}>单价（{currencyCode(a.fields.currency)}）<HoldingInput label={`${a.fields.name} 单价`} places={6} value={row.unit_price_e6??''} disabled={frozen} onChange={p=>setHolding(a.id,currencyCode(a.fields.currency),row.quantity_e8??'',p,rates[currencyCode(a.fields.currency)]??'')}/></label><small className="muted">{previous?.unit_price_e6!=null?(hidden?'上次单价 ••••':`上次单价 ${rateLabel(previous.unit_price_e6)} ${currencyCode(a.fields.currency)}，仅供参考`):'没有上次单价，手动填写。'}</small><output>{row.cents?(hidden?'••••':`= ${money(row.cents)}`):'请填写份额、单价及所需汇率'}</output></div> : currencyCode(a.fields.currency)==='CNY' ? <CentInput label={`${a.fields.name} 本次金额`} value={row.cents} disabled={frozen} placeholder="0.00" onChange={v => set(a.id, { state: v === '' ? null : 'entered', cents: v })}/> : <><label>{currencyCode(a.fields.currency)} 原币金额<CurrencyInput label={`${a.fields.name} 原币金额`} places={currencyDecimals(currencyCode(a.fields.currency))} value={row.original_minor??''} disabled={frozen} onChange={v=>setForeign(a.id,currencyCode(a.fields.currency),v,rates[currencyCode(a.fields.currency)]??'')}/></label><small className="muted">{hidden && row.cents ? '••••' : row.cents ? <>≈ {money(row.cents)} · 汇率 {row.fx_rate_micro ? rateLabel(row.fx_rate_micro) : '待填'}</> : '请填写原币金额与大于0的汇率'}</small></>}</span>
           </td>
           <td>{diff === null ? <span className="muted">—</span> : diff === '0' ? '持平' : changeText(diff)}</td>
         </tr>; })}</tbody></table>
+      <p><button type="button" className="ui-btn" disabled={frozen} onClick={() => setAdding(true)}>+ 新增账户</button></p>
       <section className="form-block form-notes check-in-notes"><label htmlFor="check-in-notes">本次盘点备注（可选）</label><textarea id="check-in-notes" rows={3} maxLength={10000} placeholder="记录这次盘点的背景，例如大额购买、账户调整；备注不参与金额计算" value={notes} disabled={frozen} onChange={e => { setNotes(e.target.value); setNotesDirty(true); }}/></section>
       <footer className="check-in-footer">
         <div><span>金融资产{totals.missing || unfilled.length ? "（已填小计）" : ""}</span><strong>{money(totals.assets)}</strong></div><div><span>负债{totals.missing || unfilled.length ? "（已填小计）" : ""}</span><strong>{money(totals.liabilities)}</strong></div>
@@ -569,5 +576,6 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
       </footer>
     </>}
     {notice && <p className="notice" role="status">{notice}</p>}
+    {adding && accountDialog?.(saved => { setAdding(false); if (saved) setReads(n => n + 1); })}
   </section>;
 }

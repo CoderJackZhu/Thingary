@@ -49,6 +49,7 @@ fn carried_balances_keep_their_explicit_date_in_list_and_single_account_reads() 
     store
         .wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(),
                 generation: store.generation(),
                 id: None,

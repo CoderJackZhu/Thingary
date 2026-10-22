@@ -20,7 +20,7 @@
 
 `model.ts` 只组织录入状态与写请求，换算调用已有纯函数，预览合计调用 `previewTotals`。所有应盘账户填齐后，完整盘点通过一次 `wealth_snapshot_save` 原子提交，不再逐账户调用快速更新。缺项与明确零分别处理；部分录入的合计标明范围，上次金额未知时比较保持未知。
 
-账户与单账户更新分别使用 `wealth_account_save` 和 `wealth_quick_update`。写请求复用 `submit`、`request_id`、`generation`、修订与手机会话的回执核对，保存结果未知时不新增请求、不继续导航。普通表单取消不保存草稿。已有记录的账户保留历史，停用前最后盘点须为零；误建且没有记录的账户可移入最近删除。
+账户与单账户更新分别使用 `wealth_account_save` 和 `wealth_quick_update`；盘点里标「已注销」的账户通过 `wealth_snapshot_save` 的 `close_accounts` 在同一事务里停用。写请求复用 `submit`、`request_id`、`generation`、修订与手机会话的回执核对，保存结果未知时不新增请求、不继续导航。普通表单取消不保存草稿。已有记录的账户保留历史，停用前最后盘点须为零；误建且没有记录的账户可移入最近删除。
 
 ## 开发验证
 

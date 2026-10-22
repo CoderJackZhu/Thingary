@@ -49,6 +49,7 @@ fn open(s: &mut Store, name: &str, side: &str, kind: &str, opened: &str) -> Acco
 fn check_in(s: &mut Store, date: &str, rows: &[(&Account, Option<i64>)]) -> Snapshot {
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: None,
@@ -176,6 +177,7 @@ fn the_same_day_changes_only_the_target_and_keeps_recorded_rows() {
     let old = s.wealth_snapshot(&earlier).unwrap().unwrap();
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: Some(old.id.clone()),

@@ -82,6 +82,7 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
     ] {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(),
                 generation: s.generation(),
                 id: None,

@@ -305,6 +305,7 @@ fn import_preview_is_private_groups_reuse_and_exports_and_backup_roundtrip() {
     }
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: id(),
             generation: s.generation(),
             id: None,
@@ -448,6 +449,7 @@ fn readonly_entry_projections_use_distinct_snapshot_facts_without_last_known_fil
     ] {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: id(),
                 generation: s.generation(),
                 id: None,

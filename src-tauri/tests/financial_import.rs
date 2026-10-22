@@ -96,7 +96,7 @@ fn sample_24_months_atomic_replay_and_backup_roundtrip() {
     assert_eq!(s.wealth_summary().unwrap().points.len(), 24);
 }
 #[test]
-fn closing_balance_and_missing_rows_cannot_be_bypassed() {
+fn closing_balance_is_allowed_but_unmapped_rows_cannot_be_bypassed() {
     let tmp = tempfile::tempdir().unwrap();
     let s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = batch(&s);
@@ -106,8 +106,7 @@ fn closing_balance_and_missing_rows_cannot_be_bypassed() {
     let p = s
         .financial_import_preview(&b, "2026-10-09", &|| false)
         .unwrap();
-    assert!(!p.can_commit);
-    assert!(p.issues.iter().any(|i| i.code == "ACCOUNT_CLOSE_BALANCE"));
+    assert!(p.issues.iter().all(|i| i.code != "ACCOUNT_CLOSE_BALANCE"));
     let mut b = batch(&s);
     b.files[1].csv_text = b.files[1]
         .csv_text
@@ -196,6 +195,7 @@ fn explicit_history_overrides_direction_and_ordinary_correction() {
     assert_eq!(a.fields.kind, "mixed");
     assert!(a.fields.counted);
     let ordinary = thingary_lib::wealth::SnapshotSave {
+        close_accounts: Vec::new(),
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
         id: Some(sid.clone()),
@@ -488,6 +488,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
     source
         .wealth_snapshot_save(
             &thingary_lib::wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: source.generation(),
                 id: Some(sid.clone()),

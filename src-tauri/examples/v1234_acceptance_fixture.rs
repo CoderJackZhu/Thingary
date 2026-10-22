@@ -54,6 +54,7 @@ pub fn seed(store: &mut Store, today: &str) -> Result<()> {
     for day in [&previous, today] {
         store.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: id(),
                 generation: store.generation(),
                 id: None,
