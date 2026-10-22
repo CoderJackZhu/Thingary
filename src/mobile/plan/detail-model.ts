@@ -50,3 +50,23 @@ export function fundsChart(pred: PredictionValue, mode: "today" | "nominal" = "t
     },
   };
 }
+
+/** Move the 查看月份 selection by `delta` months, staying inside [min, max]. */
+export const stepMonth = (selected: number, delta: number, min: number, max: number): number => Math.min(max, Math.max(min, selected + delta));
+
+/** Fields of one 逐年表 row as a compact card: head line (period · age), the two headline numbers, and the rest behind a tap. */
+export function yearCard(row: { period: string | null; year: number; age: number | null; marks: string[]; end: number; unfunded: number; contribution: number; income: number; unlock: number; spend: number; oneoff: number }) {
+  const title = `${row.period ?? row.year}${row.marks.length ? ` · ${row.marks.join("/")}` : ""}`;
+  return {
+    title,
+    age: row.age === null ? "" : `${row.age}岁`,
+    end: row.end,
+    unfunded: row.unfunded,
+    hasGap: row.unfunded > 0,
+    details: [
+      { label: "存入", value: row.contribution },
+      { label: "收入与解锁", value: row.income + row.unlock },
+      { label: "支出（含大额）", value: row.spend + row.oneoff },
+    ],
+  };
+}

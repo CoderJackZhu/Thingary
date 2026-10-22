@@ -213,7 +213,7 @@ export default function Goal() {
           />
         </ListGroup>
       )}
-      <ListGroup>
+      <ListGroup title="改条件">
         <ListRow
           icon="gear"
           title="计算条件"
@@ -226,14 +226,24 @@ export default function Goal() {
           }
           onClick={() => edit("setup")}
         />
-      </ListGroup>
-      <ListGroup>
         <ListRow
+          icon="calendar"
           title="大额支出"
           value={planCountText(eventCount)}
           onClick={() => nav.push("plan.events")}
         />
+      </ListGroup>
+      <ListGroup title="看结果">
         <ListRow
+          icon="chart"
+          tone="positive"
+          title="假设分析"
+          subtitle="压力测试、市场路径与敏感性"
+          onClick={() => nav.push("plan.whatif")}
+        />
+        <ListRow
+          icon="clock"
+          tone="positive"
           title="盘点以来的变化"
           subtitle={
             progressError
@@ -248,7 +258,7 @@ export default function Goal() {
                 : undefined
           }
         />
-        <ListRow title="查看当前报告" onClick={() => setReport(true)} />
+        <ListRow icon="doc" tone="positive" title="查看当前报告" onClick={() => setReport(true)} />
       </ListGroup>
       {sheet === "confirm" && (
         <Sheet title="待你确认" onClose={() => setSheet(null)}>
