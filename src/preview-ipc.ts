@@ -19,7 +19,7 @@ import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materia
 import { previewRecord } from './preview-costs';
 import { previewResaleRate } from './resale';
 import demoAssets from './demo-assets.json';
-import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewWishPage, previewReadWish, previewMarkWishPurchased, previewWishCommand, validatePreviewSource, searchPreview } from './wealth-preview';
+import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewPurgeLinkGroup, previewWishPage, previewReadWish, previewMarkWishPurchased, previewWishCommand, validatePreviewSource, searchPreview } from './wealth-preview';
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { IncomeList, PlanReview, ProfileState } from './plan';
@@ -836,6 +836,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'purge_trash') {
     const input = args.input as { kind: string | null; id: string };
+    if (input.kind === 'link_group') { previewPurgeLinkGroup(input.id); return { removed: 1, kept: 0, kept_reasons: [] }; }
     const gone = (kind: string, id: string) => input.kind === null || (input.kind === kind && input.id === id);
     const before = records.length + deletedMaintenances.length + deletedWarranties.length;
     records = records.filter(r => !(r.deleted && gone('asset', r.asset.id)));

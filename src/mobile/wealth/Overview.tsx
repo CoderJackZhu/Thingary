@@ -34,7 +34,7 @@ export function AccountList() {
     {!shown.length && <EmptyState icon="wallet" title="这里还没有账户" message={view === 'closed' ? '没有已停用的账户。' : '先添加账户，再填写余额。'} action={<Button onClick={()=>nav.push('wealth.accountEdit')}>新增账户</Button>}/>}
     {groups.value && totals.filter(g => g.accounts.length).map(group => <ListGroup key={group.id} title={group.name} footer={`最近盘点计入小计 ${group.partial && !group.known ? '未知' : moneyText(group.net_cents)}${group.partial ? ' · 有账户未涵盖或金额未知' : ''}`}>
       {group.accounts.map(account => <ListRow key={account.id} title={account.fields.name} subtitle={`${account.fields.institution || kindLabel(account.fields.kind)} · ${account.fields.counted ? '计入' : '不计入'}${account.fields.side === 'liability' ? ' · 欠款' : ''}`} value={account.latest ? moneyText(account.latest.amount_cents) : '未知'} valueSub={account.latest ? dayLabel(account.latest.date, s.today) : undefined} unknown={!account.latest} onClick={() => nav.push('wealth.account',{id:account.id})}/>)}
-    </ListGroup>)}<p className="mw-muted">显示范围只筛选账户清单。小计采用最近一次盘点的计入范围，未涵盖账户不补零。</p></>;
+    </ListGroup>)}<Button block onClick={()=>nav.push('wealth.groups')}>管理分组</Button><p className="mw-muted">显示范围只筛选账户清单。小计采用最近一次盘点的计入范围，未涵盖账户不补零。</p></>;
 }
 export function Accounts() {
   const nav = useNav();

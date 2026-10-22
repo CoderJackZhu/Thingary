@@ -12,6 +12,7 @@ import { storedTrash } from '../../../Trash';
 import { storedPending, submit } from '../../../wealth';
 import { Button, ChipRow, EmptyState, ErrorState, ListGroup, ListRow, Loading, Notice, Sheet } from '../../ui';
 import { SettingsShell } from './Shell';
+import { GroupPurgeSheet, GroupRestoreSheet, RepairSheet } from './TrashLink';
 
 const assetKey = 'thingary.trash-request.v1';
 const pageSize = 100;
@@ -23,6 +24,7 @@ export default function TrashPage() {
   const [filter, setFilter] = useState('all'), [offset, setOffset] = useState(0), [page, setPage] = useState<TrashPage | null>(null);
   const [error, setError] = useState(''), [loading, setLoading] = useState(true), [retry, setRetry] = useState(0);
   const [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [armed, setArmed] = useState<TrashEntry | null>(null);
+  const [groupRestore, setGroupRestore] = useState<{ id: string; name: string } | null>(null), [groupPurge, setGroupPurge] = useState<{ id: string; name: string } | null>(null), [repairing, setRepairing] = useState<{ side: 'virtual' | 'plan'; id: string } | null>(null);
   const [clearing, setClearing] = useState<{ preview: PurgeAllPreview | null; error: string } | null>(null);
   const [pendingNote, setPendingNote] = useState(() => !!storedTrash() || !!storedRecordTrash());
   const lock = useRef(false);
@@ -88,10 +90,11 @@ export default function TrashPage() {
       }
       return `已恢复「${title}」。`;
     }
-    if (restoresAsGroup(entry.kind)) return '关联订阅需整组恢复并核对影响，请在桌面版的「最近删除」里操作。';
+    if (restoresAsGroup(entry.kind)) { setGroupRestore({ id: entry.id, name: title }); return null; }
     if (entry.kind === 'virtual' || entry.kind === 'plan') {
       const link = await linkView(entry.kind, entry.id);
-      if (link.group || (link.asset && link.plan) || link.candidates.length) return '这一项与另一份关联订阅或周期计划有关联，需先在桌面版核对关联后再恢复。';
+      if (link.group) { setGroupRestore({ id: link.group.id, name: title }); return null; }
+      if ((link.asset && link.plan) || link.candidates.length) { setRepairing({ side: entry.kind, id: entry.id }); return null; }
     }
     const base = { request_id: crypto.randomUUID(), generation, id: entry.id, expected_revision: entry.asset_revision, deleted: false };
     if (entry.kind === 'savings_goal') await writeSavingsGoal('savings_goals_trash', base, '恢复存钱目标');
@@ -119,7 +122,7 @@ export default function TrashPage() {
   return <SettingsShell title="最近删除" lead="误删的物品、记录、心愿、盘点、账户和周期费用都在这里，可以随时找回。资料与图片会保留；只有永久删除才会真正移除。">
     <ChipRow label="按类型筛选" items={trashFilters.map(([id, label]) => ({ id, label }))} value={filter} onChange={next => { setFilter(next); setOffset(0); }}/>
     {pendingNote && <Notice>上次恢复操作的结果待核对。 <Button variant="plain" disabled={busy} onClick={() => void settle()}>核对操作结果</Button></Notice>}
-    {notice && <Notice tone={/已恢复|已永久|已核对|已整组/.test(notice) ? 'positive' : 'danger'}>{notice}</Notice>}
+    {notice && <Notice tone={/已恢复|已永久|已核对|已整组|已登记/.test(notice) ? 'positive' : 'danger'}>{notice}</Notice>}
     {error && !page ? <ErrorState title="最近删除读取失败" message={error} onRetry={reload}/>
       : loading && !page ? <Loading label="正在读取最近删除…"/>
       : !page?.items.length ? <EmptyState icon="user" title="最近删除是空的" message={filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有已删除的记录。'}/>
@@ -137,13 +140,18 @@ export default function TrashPage() {
     {armed && page && <Sheet title={entryDisplay(armed).title} doneLabel="关闭" onClose={() => setArmed(null)}>
       <div className="m-page">
         {entryDisplay(armed).parentBlocked && <Notice>所属物品「{armed.asset_name}」仍在最近删除中，请先恢复它。</Notice>}
-        {restoresAsGroup(armed.kind) && <Notice>关联订阅整组恢复或永久删除需要核对影响，请在桌面版操作。</Notice>}
+        {restoresAsGroup(armed.kind) && <Notice>关联订阅的服务档案与付款计划会整组恢复，或整组永久清除；操作前会先读取影响。</Notice>}
         {entryDisplay(armed).parentBlocked && armed.asset_id
           ? <Button variant="primary" block disabled={busy} onClick={() => { const parent = page.items.find(item => item.kind === 'asset' && item.id === armed.asset_id); setArmed(null); if (parent) setArmed(parent); else setFilter('asset'); }}>先恢复所属物品</Button>
-          : !restoresAsGroup(armed.kind) && <Button variant="primary" block disabled={busy} onClick={() => { const entry = armed; setArmed(null); void restore(entry, page.generation); }}>{restoresViaWealth(armed.kind) || armed.kind === 'asset' ? '恢复' : '恢复记录'}</Button>}
-        {!restoresAsGroup(armed.kind) && <Button variant="danger" block disabled={busy} onClick={() => void purge(armed, page.generation)}>永久删除（不可恢复）</Button>}
+          : <Button variant="primary" block disabled={busy} onClick={() => { const entry = armed; setArmed(null); void restore(entry, page.generation); }}>{restoresAsGroup(armed.kind) ? '整组恢复' : restoresViaWealth(armed.kind) || armed.kind === 'asset' ? '恢复' : '恢复记录'}</Button>}
+        {restoresAsGroup(armed.kind)
+          ? <Button variant="danger" block disabled={busy} onClick={() => { const entry = armed; setArmed(null); setGroupPurge({ id: entry.id, name: entryDisplay(entry).title }); }}>永久清除…（不可恢复）</Button>
+          : <Button variant="danger" block disabled={busy} onClick={() => void purge(armed, page.generation)}>永久删除（不可恢复）</Button>}
       </div>
     </Sheet>}
+    {groupRestore && <GroupRestoreSheet groupId={groupRestore.id} name={groupRestore.name} onClose={saved => { setGroupRestore(null); if (saved) reload(); }} onDone={setNotice}/>}
+    {groupPurge && <GroupPurgeSheet groupId={groupPurge.id} name={groupPurge.name} onClose={saved => { setGroupPurge(null); if (saved) reload(); }} onDone={setNotice}/>}
+    {repairing && <RepairSheet side={repairing.side} id={repairing.id} onClose={saved => { setRepairing(null); if (saved) reload(); }} onDone={setNotice}/>}
     {clearing && <Sheet title="清空最近删除" doneLabel="取消" onClose={() => { if (!busy) setClearing(null); }}>
       <div className="m-page">
         {clearing.error ? <Notice tone="danger">{clearing.error}</Notice> : !clearing.preview ? <Loading label="正在读取影响…"/> : <>
