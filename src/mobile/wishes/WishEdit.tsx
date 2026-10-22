@@ -101,7 +101,7 @@ export default function WishEdit({ params }: PageProps) {
     try { await allowReminders(); } catch (cause) { setPermission(errorMessage(cause)); }
   }
   const categoryOptions = [{ id: '', label: '未分类' }, ...(taxonomy.data?.categories ?? []).map(c => ({ id: c.id, label: c.name }))];
-  const channelOptions = [{ id: '', label: '未选择' }, ...(taxonomy.data?.channels ?? []).map(c => ({ id: c.id, label: c.name }))];
+  const channelOptions = [{ id: '', label: '未设置' }, ...(taxonomy.data?.channels ?? []).map(c => ({ id: c.id, label: c.name }))];
   const replacementName = replacement?.asset.id === replacementId ? `${replacement.asset.name} · ${replacement.asset.purchase_date ?? '购入日期未知'} · ${assetStateText(replacement.lifecycle?.state ?? 'active')}` : item?.replacement_asset?.id === replacementId ? item?.replacement_asset?.name ?? '…' : '…';
 
   return <div className="m-page">

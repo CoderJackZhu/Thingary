@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { errorMessage, localDay, money } from '../../asset';
+import { errorMessage, localDay } from '../../asset';
+import { moneyText } from '../format';
 import type { AssetRecord } from '../../asset';
 import { PhotoView } from '../../Photos';
 import { loadWishPlanLine } from '../../wish-plan-line';
@@ -9,8 +10,8 @@ import type { WishVerify, WishlistItem } from '../../wishlist';
 import { useNav, useReveal } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { ActionBar, Button, Card, ErrorState, Icon, LargeTitle, ListGroup, ListRow, Loading, NavBar, Notice } from '../ui';
-import { DecisionSheet, DeleteSheet, VerifySheet } from './DetailSheets';
+import { ActionBar, Button, Card, DeleteSheet, ErrorState, Icon, LargeTitle, ListGroup, ListRow, Loading, NavBar, Notice } from '../ui';
+import { DecisionSheet, VerifySheet } from './DetailSheets';
 import { addedDate, categoryName, detailActions, legacySavings, linkHost, planNotes, planOverdue, replacementLine, stateTone } from './model';
 import { CandidateSheet, ReceiptCards, StatePill, WishIcon, useReceipts, useTaxonomy } from './parts';
 import { dropChange, linkRequest, readAsset, readWish, reconsiderChange, resolveSaving, storedSavingReceipt, submitOp, verifyRequest } from './service';
@@ -102,7 +103,7 @@ export default function WishDetail({ params }: PageProps) {
   const actions = detailActions(item), p = item.preferences, category = categoryName(item, taxonomy.data?.categories ?? null);
   const overdue = planOverdue(item, today), legacy = item.decision_state === 'legacy_achieved';
   const photos = item.photos?.filter(photo => photo.id !== item.cover?.id) ?? [];
-  const line = replacement ? replacementLine(replacement) : null;
+  const line = replacement ? replacementLine(replacement, today) : null;
   const openAsset = (assetId: string) => nav.push('items.detail', { id: assetId });
   const hasBar = actions.record || actions.reconsider || actions.viewAsset || actions.verify;
 
@@ -119,7 +120,7 @@ export default function WishDetail({ params }: PageProps) {
         <div className="w-hero-id"><WishIcon photo={item.cover} generation={generation} large/>
           <div style={{ minWidth: 0 }}><h2>{item.fields.name}</h2><div className="w-hero-tags"><StatePill tone={stateTone(item.decision_state)}>{wishDecisionLabel(item.decision_state)}</StatePill>{category && <span>{category}</span>}{p?.pinned && <StatePill tone="neutral">置顶</StatePill>}</div></div></div>
         <div className="w-hero-facts">
-          <div className="w-fact"><span>预计价格</span>{item.fields.estimated_price_cents === null ? <b className="m-unknown">价格未知</b> : <b>{money(item.fields.estimated_price_cents)}</b>}</div>
+          <div className="w-fact"><span>预计价格</span>{item.fields.estimated_price_cents === null ? <b className="m-unknown">价格未知</b> : <b>{moneyText(item.fields.estimated_price_cents)}</b>}</div>
           <div className="w-fact"><span>加入日期</span><b className="w-date">{addedDate(item)}</b></div>
         </div>
       </Card>
@@ -137,7 +138,7 @@ export default function WishDetail({ params }: PageProps) {
       {(item.fields.target_date || p?.channel_id) && <ListGroup title="计划与渠道">
         {item.fields.target_date && <ListRow title="计划日期" value={item.fields.target_date + (overdue ? '（已过）' : '')} subtitle={overdue ? '不会自动购买，更新日期后规划会重新估算' : undefined} icon="calendar" tone={overdue ? 'warn' : 'accent'}/>}
         {item.fields.target_date && (p?.reminder || item.decision_state === 'considering') && <ListRow title="计划日期提醒" value={p?.reminder ? '已开启' : '未开启'} subtitle={p?.reminder ? '当日上午 9 点单次通知，不会自动购买' : '只提醒日期，不会自动购买'} icon="bell"/>}
-        {p?.channel_id && <ListRow title="可能购买的渠道" value={taxonomy.data?.channels.find(c => c.id === p.channel_id)?.name ?? '未选择'} icon="tag"/>}
+        {p?.channel_id && <ListRow title="可能购买的渠道" value={taxonomy.data?.channels.find(c => c.id === p.channel_id)?.name ?? '未设置'} icon="tag"/>}
       </ListGroup>}
 
       {item.replacement_asset && <ListGroup title="考虑替换的物品" footer="这只是一条关系，不会改动该物品；买下后你可以再决定是否退役或售出。">
@@ -150,7 +151,7 @@ export default function WishDetail({ params }: PageProps) {
       {item.converted_asset && <ListGroup title="已购入的物品"><ListRow title={item.converted_asset.name} icon="check" tone="positive" subtitle={item.converted_asset.deleted ? '在最近删除中，恢复后才能查看' : '查看物品'} onClick={item.converted_asset.deleted ? undefined : () => openAsset(item.converted_asset!.id)} chevron={!item.converted_asset.deleted}/></ListGroup>}
       {item.legacy_generated_asset && item.converted_asset?.id !== item.legacy_generated_asset.id && <ListGroup title="旧版自动生成"><ListRow title={item.legacy_generated_asset.name} icon="box" tone="neutral" subtitle={item.legacy_generated_asset.deleted ? '在最近删除中' : '旧版由此心愿自动生成的物品'} onClick={item.legacy_generated_asset.deleted ? undefined : () => openAsset(item.legacy_generated_asset!.id)} chevron={!item.legacy_generated_asset.deleted}/></ListGroup>}
       {legacySavings(item) && p && <ListGroup title="旧版记录（只读）" footer="攒钱功能已停用；金额保留为只读历史，不作为预算或账户余额。">
-        <ListRow title="旧版已攒金额" value={money(p.saved_cents)} icon="clock" tone="neutral"/>
+        <ListRow title="旧版已攒金额" value={moneyText(p.saved_cents)} icon="clock" tone="neutral"/>
         {item.legacy_generated_at && <ListRow title="旧版标为实现的日期" value={localDay(new Date(item.legacy_generated_at))} icon="calendar" tone="neutral"/>}
       </ListGroup>}
 
@@ -173,7 +174,7 @@ export default function WishDetail({ params }: PageProps) {
     {sheet === 'drop' && <DecisionSheet kind="drop" item={item} busy={busy} error={sheetError} onSubmit={drop} onClose={() => setSheet(null)}/>}
     {sheet === 'reconsider' && <DecisionSheet kind="reconsider" item={item} busy={busy} error={sheetError} onSubmit={reconsider} onClose={() => setSheet(null)}/>}
     {sheet === 'verify' && <VerifySheet item={item} busy={busy} error={sheetError} onSubmit={verify} onClose={() => setSheet(null)}/>}
-    {sheet === 'delete' && <DeleteSheet item={item} busy={busy} error={sheetError} onConfirm={() => void remove()} onClose={() => setSheet(null)}/>}
+    {sheet === 'delete' && <DeleteSheet name={item.fields.name} busy={busy} error={sheetError} onConfirm={() => void remove()} onClose={() => setSheet(null)}>{item.converted_asset && <p className="m-confirm-text">已购入的物品仍在全部物品中，不受影响。</p>}</DeleteSheet>}
     {sheet === 'link' && <CandidateSheet title="关联已有物品" intro="选择这件心愿对应的那次购入；不会修改所选物品的资料。退役或售出物品可用于补记历史购入。" legacyId={item.legacy_generated_asset?.id ?? null} confirmLabel="关联" busy={busy} error={sheetError} onPick={candidate => link(candidate)} onClose={() => setSheet(null)}/>}
   </div>;
 }

@@ -7,7 +7,7 @@ import type { WishlistItem } from '../../wishlist';
 import { useNav } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { Button, DateField, ErrorState, FormGroup, Icon, Loading, NavBar, Notice, SelectField, TextAreaField, TextField } from '../ui';
+import { DateField, ErrorState, FormGroup, Icon, Loading, NavBar, Notice, SelectField, TextAreaField, TextField } from '../ui';
 import { detailActions, newPurchaseDraft, purchaseHint, purchaseSave } from './model';
 import type { PurchaseDraft } from './model';
 import { ReceiptCards, WishIcon, useReceipts, useTaxonomy } from './parts';
@@ -62,7 +62,7 @@ export default function WishPurchase({ params }: PageProps) {
     } finally { lock.current = false; setBusy(false); }
   }
   const categories = [{ id: '', label: '未分类' }, ...(taxonomy.data?.categories ?? []).map(c => ({ id: c.id, label: c.name }))];
-  const channels = [{ id: '', label: '未选择' }, ...(taxonomy.data?.channels ?? []).map(c => ({ id: c.id, label: c.name }))];
+  const channels = [{ id: '', label: '未设置' }, ...(taxonomy.data?.channels ?? []).map(c => ({ id: c.id, label: c.name }))];
   return <div className="m-page">
     <NavBar title="记录购入" onCancel={cancel} primary={{ label: '保存', onClick: () => void save(), busy, disabled: pending || receipts.busy }}/>
     <div className="w-stack">
@@ -84,7 +84,6 @@ export default function WishPurchase({ params }: PageProps) {
         <TextAreaField label="备注" value={draft.fields.notes} onChange={value => field('notes', value)} disabled={disabled} rows={3}/>
       </FormGroup>}
       {errors.length > 0 && <Notice tone="danger">{errors.join(' ')}</Notice>}
-      <Button variant="primary" block disabled={disabled} onClick={() => void save()}>{busy ? '正在保存…' : '保存购入记录'}</Button>
     </div>
   </div>;
 }
