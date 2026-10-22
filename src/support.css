@@ -1,8 +1,8 @@
 .support-panel{max-width:760px}
 .support-identity{display:flex;align-items:center;gap:16px}
 .support-identity h2,.support-identity p{margin:0}
-.support-mark{display:grid;place-items:center;width:56px;height:56px;flex:none;border-radius:var(--ctl-radius);background:var(--soft);color:var(--accent)}
-.support-mark svg{width:40px;height:34px}
+.support-mark{display:grid;width:56px;height:56px;flex:none}
+.support-mark svg{width:100%;height:100%}
 .support-links,.support-actions{display:flex;flex-wrap:wrap;gap:12px 20px;margin:20px 0}
 .support-link a{color:var(--accent);text-underline-offset:3px}
 .support-link a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
