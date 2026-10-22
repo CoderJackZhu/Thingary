@@ -18,7 +18,7 @@ import {
 import type { Say } from "../../career-preview/guided-model.ts";
 import { runway } from "../../plan-runway.ts";
 import { runwayLines } from "../../planning-basic-view.ts";
-import { money } from "../../asset.ts";
+import { moneyText } from "../format.ts";
 
 export type CareerQuestion = "rest" | "switch" | "lower";
 export const trialDateValid = (s: string) =>
@@ -60,7 +60,7 @@ export function runwayTrial(input: {
   return {
     status: "calculated" as const,
     result,
-    lines: runwayLines(result, { set: floor !== "", cents: floor }, money),
+    lines: runwayLines(result, { set: floor !== "", cents: floor }, moneyText),
   };
 }
 

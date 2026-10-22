@@ -4,6 +4,7 @@ import { runtime } from "./planning-component-runtime.mjs";
 import * as eventModel from "../src/mobile/plan/events-model.ts";
 import { basicFixtureSources } from "../src/plan-basic-fixtures.ts";
 import { unknownCapabilityFixture } from "../src/plan-basic-fixtures.ts";
+import * as format from "../src/mobile/format.ts";
 const element = (type, props) => ({ type, props });
 const UI = Object.fromEntries(
   ["Card", "Section", "FormGroup", "FormRow", "Notice"].map((name) => [
@@ -50,6 +51,7 @@ function harness({ save = async () => ({ revision: 2 }), stuck = false } = {}) {
       components: [],
       modules: {
         "./mobile/ui": UI,
+        "./mobile/format": format,
         "./mobile/plan/data": { usePlanSaver: () => saver },
         "./mobile/plan/events-model": eventModel,
         "./plan-basic": {

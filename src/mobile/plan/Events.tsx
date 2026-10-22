@@ -5,7 +5,7 @@ import type {
   StoredLifeEvent,
   StoredSpendItem,
 } from "../../plan";
-import { money } from "../../asset";
+import { moneyText } from "../format";
 import { pctToHundredths, hundredthsToPct } from "../../plan";
 import { buildBasicCapabilities } from "../../plan-basic";
 import { eventImpact, offsetOf, totalImpact } from "../../plan-events";
@@ -198,7 +198,7 @@ export default function Events({ sources, saved, today, reload }: Props) {
                 <div>
                   <h3>{e.label}</h3>
                   <small>
-                    {e.date} · {money(e.price_cents)}
+                    {e.date} · {moneyText(e.price_cents)}
                   </small>
                 </div>
                 <Switch
@@ -235,15 +235,15 @@ export default function Events({ sources, saved, today, reload }: Props) {
                     。
                     {impact.short === 0
                       ? "预计现金足够"
-                      : `预计现金还差 ${money(String(Math.round(impact.short)))}`}
+                      : `预计现金还差 ${moneyText(String(Math.round(impact.short)))}`}
                     （含应急金线）。
                   </p>
                   {impact.payment_nominal > 0 && (
                     <p>
                       固定名义月供{" "}
-                      {money(String(Math.round(impact.payment_nominal)))}
+                      {moneyText(String(Math.round(impact.payment_nominal)))}
                       ；买后每月约能存{" "}
-                      {money(String(Math.round(impact.saving_after)))}。
+                      {moneyText(String(Math.round(impact.saving_after)))}。
                     </p>
                   )}
                 </>
@@ -978,7 +978,7 @@ export function StageCosts({ sources, saved, reload }: Props) {
         <Card key={row.id} className="mp-event-card">
           <h3>{row.label}</h3>
           <p>
-            {money(row.monthly_cents)}/月 · {row.start_month ?? "目标月份"} →{" "}
+            {moneyText(row.monthly_cents)}/月 · {row.start_month ?? "目标月份"} →{" "}
             {row.end_month ?? "规划终点"}
           </p>
           <p>
@@ -1265,7 +1265,7 @@ function DebtEditor({ sources, saved, today, reload }: Props) {
                   截至 {snapshot!.date}，余额{" "}
                   {row.entry.amount_cents === null
                     ? "未知"
-                    : money(row.entry.amount_cents)}
+                    : moneyText(row.entry.amount_cents)}
                   。
                 </p>
                 {row.changed && (

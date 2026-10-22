@@ -49,13 +49,15 @@ function mount(section = "setup") {
   );
   return { h, calls, expected, saved, saver };
 }
+// 保存只在右上 NavBar（底部「保存，查看结果」已移除）；这里取它的 primary 当按钮用。
+const saveButton = (h) => ({ props: h.find("NavBar").props.primary });
 test("partner share edit commits together with household total instead of discarding partner field", async () => {
   const { h, calls } = mount("contribution");
   h.find("MoneyField", (p) => p.label === "其中伴侣每月存多少").props.onChange(
     "100000",
   );
   h.render();
-  h.find("Button", (p) => p.children === "保存，查看结果").props.onClick();
+  saveButton(h).props.onClick();
   await h.settle();
   assert.equal(calls[0].section, "setup");
   assert.equal(
@@ -72,13 +74,13 @@ test("setup editor keeps original expected_revision and unresolved state disable
     initial = saved.revision;
   saved.revision += 3;
   h.render();
-  h.find("Button", (p) => p.children === "保存，查看结果").props.onClick();
+  saveButton(h).props.onClick();
   await h.settle();
   assert.equal(expected[0], initial);
   saver.stuck = true;
   h.render();
   assert.equal(
-    h.find("Button", (p) => p.children === "保存，查看结果").props.disabled,
+    saveButton(h).props.disabled,
     true,
   );
 });
@@ -126,7 +128,7 @@ test("switching partner to same stop date clears the now-hidden saving share", a
     "same",
   );
   h.render();
-  h.find("Button", (p) => p.children === "保存，查看结果").props.onClick();
+  saveButton(h).props.onClick();
   await h.settle();
   assert.equal(
     calls[0].fields.simplified.household.partner.stop_age_months,

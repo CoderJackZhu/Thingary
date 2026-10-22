@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { forecastMoney } from "../../plan-format";
+import { forecastMoneyText } from "../format";
 import { trajectory, snapshotRows, coverage } from "../../plan-view";
 import { timeLabel } from "../../plan-ledger";
 import { terminalText } from "../../planning-basic-view";
@@ -43,6 +43,7 @@ export default function Detail() {
       <div className="m-page mp-page">
         <LargeTitle title="测算详情" />
         <EmptyState
+          icon="chart"
           title="先设置一个目标"
           action={
             <Button onClick={() => nav.push("plan.setup")}>设置条件</Button>
@@ -55,6 +56,7 @@ export default function Detail() {
       <div className="m-page mp-page">
         <LargeTitle title="测算详情" />
         <EmptyState
+          icon="chart"
           title="还不能展示预测"
           message={
             p.capabilities?.prediction.status === "blocked"
@@ -69,7 +71,7 @@ export default function Detail() {
                 nav.push("plan.setup", { section: "contribution" })
               }
             >
-              填写或核对条件
+              补充条件
             </Button>
           }
         />
@@ -115,13 +117,13 @@ function Ready({
           `${10 + (i / Math.max(1, points.length - 1)) * 280},${170 - ((p[key] - min) / span) * 150}`,
       )
       .join(" ");
-  const conclusion = `${terminalText[pred.terminal]}；${timeLabel(pred.plan, pred.plan.horizon_months - 1)} 时预计资金（按今天购买力）${forecastMoney(pred.outcome.at_horizon)}。`;
+  const conclusion = `${terminalText[pred.terminal]}；${timeLabel(pred.plan, pred.plan.horizon_months - 1)} 时预计资金（按今天购买力）${forecastMoneyText(pred.outcome.at_horizon)}。`;
   return (
     <div className="m-page mp-page">
       <LargeTitle
         title="测算详情"
         actions={
-          <Button variant="plain" onClick={() => nav.push("plan.setup")}>
+          <Button variant="primary" onClick={() => nav.push("plan.setup")}>
             调整条件
           </Button>
         }
@@ -185,7 +187,7 @@ function Ready({
                   ? `预计停工 ${c.stop} · ${c.success ? "所选期间可覆盖" : "尚未满足完整目标"}`
                   : "规划终点前尚未达成"
               }
-              value={forecastMoney(c.required)}
+              value={forecastMoneyText(c.required)}
               valueSub="停止工作所需资金"
             />
           ))}
@@ -227,11 +229,11 @@ function Ready({
                       {r.marks.length > 0 ? ` · ${r.marks.join("/")}` : ""}
                     </th>
                     <td>{r.age ?? "未知"}</td>
-                    <td>{forecastMoney(r.contribution)}</td>
-                    <td>{forecastMoney(r.income + r.unlock)}</td>
-                    <td>{forecastMoney(r.spend + r.oneoff)}</td>
-                    <td>{forecastMoney(r.end)}</td>
-                    <td>{forecastMoney(r.unfunded)}</td>
+                    <td>{forecastMoneyText(r.contribution)}</td>
+                    <td>{forecastMoneyText(r.income + r.unlock)}</td>
+                    <td>{forecastMoneyText(r.spend + r.oneoff)}</td>
+                    <td>{forecastMoneyText(r.end)}</td>
+                    <td>{forecastMoneyText(r.unfunded)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -255,9 +257,9 @@ function Ready({
           style={{ width: "100%", minHeight: 44 }}
         />
         <p>
-          {cover.calendar_month}，每月生活费 {forecastMoney(cover.spend)}
+          {cover.calendar_month}，每月生活费 {forecastMoneyText(cover.spend)}
           ，其中无资金支持{" "}
-          {forecastMoney(
+          {forecastMoneyText(
             cover.segments.find((s) => s.kind === "unfunded")?.monthly ?? 0,
           )}
           。
@@ -267,7 +269,7 @@ function Ready({
           rows={cover.segments.map((s) => ({
             label: s.label,
             value: s.monthly,
-            display: forecastMoney(s.monthly),
+            display: forecastMoneyText(s.monthly),
           }))}
         />
       </Card>

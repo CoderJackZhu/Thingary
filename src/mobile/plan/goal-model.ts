@@ -13,7 +13,7 @@ import {
   contributionVerdict,
   requirementLine,
 } from "../../planning-basic-view.ts";
-import { forecastMoney } from "../../plan-format.ts";
+import { forecastMoneyText } from "../format.ts";
 export function goalView(
   saved: NonNullable<ProfileState["saved"]>,
   caps: BasicCapabilities,
@@ -49,7 +49,7 @@ export function goalView(
         : pred.household.same_time_stop_month &&
             pred.household.same_time_stop_month === stop
           ? "与两人同时停工相比，你的停工月份相同。"
-          : "当前条件下，尚无法比较两人同时停工的时间。",
+          : "当前条件下，暂时无法比较两人同时停工的时间。",
     );
   }
   return {
@@ -59,13 +59,13 @@ export function goalView(
     household,
     required: req && "monthly_cents" in req ? req.monthly_cents : null,
     requirement: req
-      ? requirementLine(req, forecastMoney).text
+      ? requirementLine(req, forecastMoneyText).text
       : "条件还需补充",
     verdict: req
       ? contributionVerdict(
           req,
           r.basic?.contribution.monthly_cents ?? null,
-          forecastMoney,
+          forecastMoneyText,
         ).text
       : "请核对下方注意事项",
     subtitle: `希望 ${t.target_month ?? "尚未确定"} 停工，规划到 ${t.horizon_month ?? "尚未确定"}`,

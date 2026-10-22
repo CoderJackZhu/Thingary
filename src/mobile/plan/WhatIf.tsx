@@ -51,6 +51,7 @@ export default function WhatIf() {
         <ErrorState message={error} onRetry={reload} />
       ) : !prediction ? (
         <EmptyState
+          icon="chart"
           title="先设置规划条件"
           action={
             <Button onClick={() => nav.push("plan.setup")}>设置条件</Button>
@@ -151,7 +152,7 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
     ? `${mc.n.toLocaleString("zh-CN")} 条路径中，${Math.round(mc.success_rate * 100)}% 按完整预算覆盖到 ${timeLabel(plan, plan.horizon_months - 1)}${plan.mode === "fire" ? "并实现财务独立" : ""}。`
     : running
       ? `正在计算 ${done.toLocaleString("zh-CN")} / ${Number(count).toLocaleString("zh-CN")} 条路径。`
-      : "尚无本次市场路径结果。";
+      : "暂无本次市场路径结果。";
   return (
     <>
       <p className="mp-risk-intro">
