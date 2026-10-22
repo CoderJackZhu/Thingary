@@ -14,7 +14,9 @@ import { trendKinds, trendSummary, trendTip, trendValues } from './trend-model';
 import type { TrendKind } from './trend-model';
 import { ReadState, useGroups, WealthGate } from './shared';
 
-function Trend({ points, today }: { points: Point[]; today: string }) {
+function Trend({ points: all, today }: { points: Point[]; today: string }) {
+  // Like the desktop chart: only complete check-ins are drawn, joined across incomplete ones.
+  const points = all.filter(p => p.complete);
   const [kind, setKind] = useState<TrendKind>('net'), hidden = readHideAmounts(browserStorage());
   const tone = kind === 'liabilities' ? 'var(--error)' : 'var(--accent)';
   return <><SegmentedControl label="趋势指标" items={trendKinds} value={kind} onChange={setKind}/>

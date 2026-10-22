@@ -1,4 +1,4 @@
-// 财富页趋势图的数据：一次只画一条线（净资产／资产／负债），不完整盘点留缺口。
+// 财富页趋势图的数据：一次只画一条线（净资产／资产／负债），只画完整盘点。
 import type { Point } from '../../wealth.ts';
 import { moneyText } from '../format.ts';
 
@@ -19,5 +19,5 @@ export function trendTip(point: Point, hidden: boolean): { title: string; rows: 
 export function trendSummary(points: Point[], kind: TrendKind, hidden: boolean): string {
   const done = points.filter(point => point.complete), name = trendKinds.find(k => k.id === kind)!.label;
   const last = done.at(-1), value = last ? num(last[field[kind]]) : null;
-  return `${name}趋势，${done.length} 次完整盘点${last && !hidden ? `，最近一次 ${value === null ? '未知' : moneyText(value)}` : ''}${hidden ? '，金额已隐藏' : ''}；缺项不连线`;
+  return `${name}趋势，${done.length} 次完整盘点${last && !hidden ? `，最近一次 ${value === null ? '未知' : moneyText(value)}` : ''}${hidden ? '，金额已隐藏' : ''}；不完整盘点不画`;
 }
