@@ -35,10 +35,10 @@
   "dependencies": {
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "@tauri-apps/api": "^2"
+    "@tauri-apps/api": "^2.12.4"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.11.5",
+    "@tauri-apps/cli": "2.12.3",
     "typescript": "^5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
