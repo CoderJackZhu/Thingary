@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import './date.css';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, type AssetRecord, type Photo } from '../../asset';
+import { errorMessage, type AssetRecord, type Photo, type SaveAsset } from '../../asset';
+import { defaultPreferences } from '../../preferences';
 import { NOT_SET, UNKNOWN, dateText, dayLabel, moneyText, optionalText, unitMoneyText } from '../format';
 import { PhotoView } from '../../Photos';
 import { materialArt } from '../../materials';
@@ -18,6 +19,8 @@ import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
 import { Button, Card, DeleteSheet, DateField, EmptyState, ErrorState, FormGroup, ListGroup, ListRow, Loading, Metric, MetricGrid, MoneyField, NavBar, Notice, SelectField, Sheet, Switch, TextAreaField, TextField } from '../ui';
 import { decimalFromMinor, detailGoal, detailLifecycleInput, detailMaintenanceInput, detailSaleInput, detailWarrantyInput, minorFromDecimal } from './detail-model';
+import { Glyph, type GlyphName } from './glyphs';
+import { PhotoThumbs, PhotoViewer } from './PhotoViewer';
 import './detail.css';
 
 type Context = { record: AssetRecord; generation: string };
@@ -34,7 +37,7 @@ export default function ItemDetail({ params }: PageProps) {
   const [context, setContext] = useState<(Context & { taxonomy: TaxonomySnapshot }) | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState(''), [photoError, setPhotoError] = useState('');
   const [revision, setRevision] = useState(0), [editor, setEditor] = useState<Editor | null>(null);
-  const [photo, setPhoto] = useState<Photo | null>(null), [activePhoto, setActivePhoto] = useState(0);
+  const [photo, setPhoto] = useState<Photo | null>(null);
   const camera = useRef<HTMLInputElement>(null), album = useRef<HTMLInputElement>(null);
   const lock = useRef(false), id = typeof params.id === 'string' ? params.id : '';
   const generation = session.data?.summary.generation;
@@ -47,7 +50,7 @@ export default function ItemDetail({ params }: PageProps) {
       const record = await invoke<AssetRecord | null>('read_asset', { id });
       const after = await invoke<{ generation: string }>('taxonomy_snapshot');
       if (before.generation !== after.generation) throw new Error('资料库已切换，请重新读取物品。');
-      if (live && record && !record.deleted) { setContext({ record, generation: before.generation, taxonomy: before }); setActivePhoto(Math.max(0, record.photos.findIndex(p => p.id === record.cover_id))); }
+      if (live && record && !record.deleted) { setContext({ record, generation: before.generation, taxonomy: before }); }
     })().catch(cause => { if (live) setError(errorMessage(cause)); }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [id, reveal, revision, generation, session.settled]);
@@ -66,7 +69,7 @@ export default function ItemDetail({ params }: PageProps) {
     const fields = saleFields(context.record, session.today);
     setNotice(''); setEditor({ ...context, kind: 'sale', draft: { ...context, mode, fields, original: fields, pending: null } });
   }
-  async function write(pending: Pending, after?: () => void) {
+  async function write(pending: Pending | { command: 'save_asset'; input: SaveAsset; label: string }, after?: () => void) {
     if (lock.current || session.navBlocked) return;
     lock.current = true; session.setBusy(true); setNotice('');
     try {
@@ -103,6 +106,12 @@ export default function ItemDetail({ params }: PageProps) {
       await write({ command: 'change_warranty', input: detailWarrantyInput(context.record, context.generation, { ...warrantyDraft(context.record, warranty.id), reminder: enabled ? { date: warranty.fields.end_date!, notes: '' } : null }, warranty.id), label: '保障到期提醒' });
     } catch (cause) { setNotice(errorMessage(cause)); }
   }
+  async function togglePin(pinned: boolean) {
+    if (!context || disabled) return;
+    const { record } = context;
+    const input: SaveAsset = { base: { request_id: crypto.randomUUID(), generation: context.generation, asset_id: record.asset.id, expected_revision: record.asset.revision, name: record.asset.name, price_cents: record.asset.price_cents, purchase_date: record.asset.purchase_date }, details: record.details, photos: { ids: record.photos.map(p => p.id), cover_id: record.cover_id }, classification: record.classification, options: { preferences: { ...(record.preferences ?? defaultPreferences()), pinned } } };
+    await write({ command: 'save_asset', input, label: pinned ? '置顶物品' : '取消置顶物品' });
+  }
   async function addPhoto(files: FileList | null) {
     if (!files?.length || !editor || (editor.kind !== 'warranty' && editor.kind !== 'maintenance') || disabled) return;
     const selectedFiles = Array.from(files);
@@ -130,31 +139,35 @@ export default function ItemDetail({ params }: PageProps) {
     const kind = current.record.warranties.find(w => w.id === current.recordId)?.fields.kind;
     return `${warrantyKinds.find(([id]) => id === kind)?.[1] ?? ''}保障`;
   };
-  const selectedPhoto = record?.photos[activePhoto] ?? record?.photos[0];
+  const coverPhoto = record?.photos.find(p => p.id === record.cover_id), attachments = record?.photos.filter(p => p.id !== record.cover_id) ?? [];
+  const category = record ? context?.taxonomy.categories.find(c => c.id === record.classification?.category_id)?.name ?? '未分类' : '';
+  const channel = record ? context?.taxonomy.channels.find(c => c.id === record.classification?.channel_id)?.name : undefined;
+  const brandModel = record ? [record.details.brand, record.details.model].filter(Boolean).join(' / ') : '';
+  const retired = record?.lifecycle?.state === 'retired', sold = record?.lifecycle?.state === 'sold';
+  const actions: { key: string; icon: GlyphName; label: string; onClick: () => void }[] = record && context ? [
+    { key: 'maintenance', icon: 'wrench', label: '记维护', onClick: () => openMaintenance() },
+    { key: 'warranty', icon: 'shieldPlus', label: '加保障', onClick: () => openWarranty() },
+    record.sale ? { key: 'sale', icon: 'sell', label: '更正售出', onClick: () => openSale('correct') } : { key: 'sale', icon: 'sell', label: '记录售出', onClick: () => openSale('sell') },
+    ...(sold ? [] : [{ key: 'lifecycle', icon: retired ? 'undo' : 'archive', label: retired ? '撤销退役' : '退役', onClick: () => setEditor({ ...context, kind: 'lifecycle', action: { type: 'append', kind: retired ? 'activate' : 'retire', date: session.today, notes: '' } }) } as const]),
+  ] : [];
   return <div className="m-page mi-detail">
-    <NavBar primary={record ? { label: '编辑', onClick: () => nav.push('items.edit', { id }), disabled } : undefined}/>
+    <NavBar right={record ? <><button type="button" className="m-navbar-button mi-nav-icon mi-nav-danger" aria-label="删除物品" disabled={disabled} onClick={() => setEditor({ ...context!, kind: 'delete' })}><Glyph name="trash" size={22}/></button><button type="button" className="m-navbar-button mi-nav-icon" aria-label="编辑" disabled={disabled} onClick={() => nav.push('items.edit', { id })}><Glyph name="pencil" size={22}/></button></> : undefined}/>
     {loading ? <Loading/> : error ? <ErrorState message={error} onRetry={() => setRevision(value => value + 1)}/> : !record || !context ? <EmptyState title="找不到这件物品" message="物品可能已移入最近删除。" action={<Button onClick={() => nav.pop()}>返回物品</Button>}/> : <>
-      <div className="mi-photo-hero">{selectedPhoto ? <button aria-label={'浏览图片 ' + selectedPhoto.name} onClick={() => setPhoto(selectedPhoto)}><PhotoView photo={selectedPhoto} generation={context.generation}/></button> : <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt="默认物品图标"/>}{record.photos.length > 0 && <span className="mi-photo-count">{Math.min(activePhoto + 1, record.photos.length)} / {record.photos.length}</span>}</div>
-      {record.photos.length > 1 && <div className="mi-photo-strip" aria-label="物品图片">{record.photos.map((p, index) => <button key={p.id} aria-label={`查看第 ${index + 1} 张图片`} aria-pressed={activePhoto === index} onClick={() => setActivePhoto(index)}><PhotoView photo={p} generation={context.generation} compact/></button>)}</div>}
-      <h1>{record.asset.name}</h1>
-      <p className="mi-meta">{context.taxonomy.categories.find(c => c.id === record.classification?.category_id)?.name ?? '未分类'}{record.label_name ? ` · ${record.label_name}` : ''}{record.preferences?.pinned ? ' · 已置顶' : ''}</p>
-      <div className="mi-status"><span>{stateLabel(record)}</span><span>{warrantySummaryText(record.warranty_summary)}</span></div>
+      <header className="mi-head"><span className="mi-head-icon">{coverPhoto ? <PhotoView photo={coverPhoto} generation={context.generation} compact/> : <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt="默认物品图标"/>}</span><div className="mi-head-text"><h1>{record.asset.name}</h1><p className="mi-meta">{category} · {stateLabel(record)} · {warrantySummaryText(record.warranty_summary)}</p></div></header>
       <MetricGrid><Metric label={record.preferences?.cost_mode === 'per_use' ? '单次使用成本' : record.sale ? '售出后净日均成本' : '日均成本'} value={unitMoneyText(record.preferences?.cost_mode === 'per_use' ? record.per_use_cents ?? null : record.costs.daily_cents)} sub={record.preferences?.cost_mode === 'per_use' ? `已使用 ${record.preferences.use_count} 次` : '按自然日，含购入当天'}/><Metric label={record.sale ? '截至售出日持有' : '已持有'} value={record.costs.held_days === null ? UNKNOWN : `${record.costs.held_days.toLocaleString('zh-CN')} 天`} unknown={record.costs.held_days === null}/></MetricGrid>
+      <div className="mi-actions" role="group" aria-label="物品操作">{actions.map(action => <button key={action.key} type="button" className="mi-action" disabled={disabled} onClick={action.onClick}><Glyph name={action.icon} size={22}/><span>{action.label}</span></button>)}</div>
       {goal && <Card className="mi-goal" label="目标进度"><strong>{record.preferences?.goal.mode === 'cost' ? `目标 ${unitMoneyText(record.preferences.goal.cents)} / ${record.preferences.cost_mode === 'per_use' ? '次' : '天'}` : record.preferences?.goal.mode === 'date' ? `目标 ${record.preferences.goal.date}` : ''}</strong><p>{goal.progress ? `${(goal.progress.hundredths / 100).toFixed(2)}%` : '进度未知'}</p>{goal.progress && <progress aria-label="目标进度" max={10000} value={goal.progress.hundredths}/>}<p>{goal.frozen ? `退役后目标停止，停在 ${dayLabel(goal.frozen, session.today)}` : record.sale ? '按售出日结算' : goal.progress ? goal.progress.hundredths === 10000 ? '目标已达成' : `还需 ${goal.progress.remaining} ${goal.progress.unit}${goal.progress.reached_date ? ` · 预计 ${dayLabel(goal.progress.reached_date, session.today)}` : ''}；新增维护会推迟达成。` : '补全购入金额、日期及维护费用后计算。'}</p></Card>}
       {incompleteCostReason(record) && <Notice>{incompleteCostReason(record)}</Notice>}
-      <ListGroup title="购买与投入"><ListRow title="购入价" value={moneyText(record.asset.price_cents)} unknown={record.asset.price_cents === null}/><ListRow title="购入日期" value={dateText(record.asset.purchase_date)} unknown={!record.asset.purchase_date}/><ListRow title="购买渠道" value={context.taxonomy.channels.find(c => c.id === record.classification?.channel_id)?.name ?? NOT_SET}/><ListRow title="已知维护投入" value={moneyText(record.costs.known_maintenance_cents)}/><ListRow title="总投入" value={moneyText(record.costs.total_investment_cents)} unknown={record.costs.total_investment_cents === null}/>{record.sale && <ListRow title="售出后净成本" value={moneyText(record.costs.net_cost_cents)} unknown={record.costs.net_cost_cents === null}/>}</ListGroup>
-      <ListGroup title="保障" action={<Button variant="plain" disabled={disabled} onClick={() => openWarranty()}>+ 添加保障</Button>}>
+      <ListGroup title="详情"><ListRow title="购入价" value={moneyText(record.asset.price_cents)} unknown={record.asset.price_cents === null}/><ListRow title="购入日期" value={dateText(record.asset.purchase_date)} unknown={!record.asset.purchase_date}/>{channel && <ListRow title="购买渠道" value={channel}/>}{brandModel && <ListRow title="品牌 / 型号" value={brandModel}/>}{record.details.serial_number && <ListRow title="序列号" value={record.details.serial_number}/>}<ListRow title="已知维护投入" value={moneyText(record.costs.known_maintenance_cents)}/><ListRow title="总投入" value={moneyText(record.costs.total_investment_cents)} unknown={record.costs.total_investment_cents === null}/>{record.sale && <ListRow title="售出后净成本" value={moneyText(record.costs.net_cost_cents)} unknown={record.costs.net_cost_cents === null}/>}{record.origin_wishlist && <ListRow title="来源心愿" value={record.origin_wishlist.name} onClick={() => nav.push('wishes.detail', { id: record.origin_wishlist!.id })}/>}<ListRow title="置顶" trailing={<Switch label="置顶" checked={!!record.preferences?.pinned} disabled={disabled} onChange={pinned => void togglePin(pinned)}/>}/></ListGroup>
+      <ListGroup title="备注"><p className="mi-note">{optionalText(record.details.notes)}</p><div className="mi-note-photos"><PhotoThumbs photos={attachments} generation={context.generation} onOpen={setPhoto} onAdd={() => nav.push('items.edit', { id })} addDisabled={disabled}/></div></ListGroup>
+      <ListGroup title="保障" action={<Button variant="plain" disabled={disabled} onClick={() => openWarranty()}>+ 添加</Button>}>
         {record.warranties.length ? record.warranties.map(w => <div key={w.id}><ListRow title={<>{warrantyKinds.find(([kind]) => kind === w.fields.kind)?.[1]} · {statusLabel[w.status]}</>} subtitle={`${w.fields.provider ? w.fields.provider + ' · ' : ''}${w.fields.start_date ? dayLabel(w.fields.start_date, session.today) : '开始日期未知'} — ${w.fields.end_date ? dayLabel(w.fields.end_date, session.today) : '结束日期未知'}${w.remaining_days !== null ? ` · 剩 ${w.remaining_days} 天` : ''}`} onClick={() => openWarranty(w)}/><ListRow title="到期通知" trailing={<Switch label={`${warrantyKinds.find(([kind]) => kind === w.fields.kind)?.[1]}到期通知`} checked={!!w.reminder} disabled={disabled} onChange={enabled => void toggleReminder(w, enabled)}/>}/>{w.fields.notes && <p className="mi-record-note">{w.fields.notes}</p>}<Attachments photos={w.photos} generation={context.generation} onOpen={setPhoto}/></div>) : <ListRow title="暂无保障记录" subtitle="未知日期不会被视为保障中"/>}
       </ListGroup>
       <ListGroup title="维护记录" action={<Button variant="plain" disabled={disabled} onClick={() => openMaintenance()}>+ 添加</Button>}>
         {record.maintenances.length ? record.maintenances.map(m => <div key={m.id}><ListRow title={m.fields.title} subtitle={`${m.fields.date ? dayLabel(m.fields.date, session.today) : '日期未知'} · ${maintenanceKinds.find(([kind]) => kind === m.fields.kind)?.[1]}${m.fields.provider ? ' · ' + m.fields.provider : ''}`} value={moneyText(m.fields.cost_cents)} unknown={m.fields.cost_cents === null} onClick={() => openMaintenance(m.id)}/>{m.fields.description && <p className="mi-record-note">{m.fields.description}</p>}<Attachments photos={m.photos} generation={context.generation} onOpen={setPhoto}/></div>) : <ListRow title="暂无维护记录" subtitle="维修、保养、换件与配件费用都会计入投入"/>}
       </ListGroup>
-      <ListGroup title="资料"><ListRow title="品牌" value={optionalText(record.details.brand)}/><ListRow title="型号" value={optionalText(record.details.model)}/><ListRow title="序列号" value={optionalText(record.details.serial_number)}/>{record.origin_wishlist && <ListRow title="来源心愿" value={record.origin_wishlist.name} onClick={() => nav.push('wishes.detail', { id: record.origin_wishlist!.id })}/>}</ListGroup>
-      <ListGroup title="备注"><p className="mi-note">{optionalText(record.details.notes)}</p></ListGroup>
-      <ListGroup title="图片附件" action={<Button variant="plain" disabled={disabled} onClick={() => nav.push('items.edit', { id })}>添加图片</Button>}><Attachments photos={record.photos} generation={context.generation} onOpen={setPhoto}/>{!record.photos.length && <ListRow title="暂无图片"/>}</ListGroup>
       {record.sale && <ListGroup title="售出记录"><ListRow title="售价" value={moneyText(record.sale.fields.price_cents)}/><ListRow title="售出日期" value={record.sale.fields.date}/><ListRow title="平台与买家" value={[record.sale.fields.platform, record.sale.fields.buyer].filter(Boolean).join(' · ') || NOT_SET}/>{record.sale.fields.notes && <p className="mi-note">{record.sale.fields.notes}</p>}<ListRow title="更正售出" onClick={() => openSale('correct')}/><ListRow title="撤销误记售出" onClick={() => openSale('revoke')}/></ListGroup>}
       {!!record.lifecycle?.events.length && <ListGroup title="状态记录">{record.lifecycle.events.map(event => <ListRow key={event.id} title={kindLabel(event.kind)} subtitle={event.notes} value={dayLabel(event.date, session.today)} onClick={() => setEditor({ ...context, kind: 'lifecycle', action: { type: 'correct_date', event_id: event.id, date: event.date } })}/>)}</ListGroup>}
-      <div className="mi-detail-actions"><Button variant="primary" disabled={disabled} onClick={() => nav.push('items.edit', { id })}>编辑</Button>{!record.sale && <Button disabled={disabled} onClick={() => openSale('sell')}>记录售出</Button>}{record.lifecycle?.state !== 'sold' && <Button disabled={disabled} onClick={() => setEditor({ ...context, kind: 'lifecycle', action: { type: 'append', kind: record.lifecycle?.state === 'retired' ? 'activate' : 'retire', date: session.today, notes: '' } })}>{record.lifecycle?.state === 'retired' ? '重新启用' : '退役'}</Button>}<Button variant="danger" disabled={disabled} onClick={() => setEditor({ ...context, kind: 'delete' })}>删除物品</Button></div>
     </>}
     {notice && !editor && <Notice tone="danger">{notice}</Notice>}
     {editor?.kind === 'delete' && <DeleteSheet name={deleteName(editor)} busy={disabled} error={notice} onClose={closeEditor} onConfirm={() => void saveEditor()}>{!editor.recordId && <p className="m-confirm-text">保障、维护记录和图片会一起移入。</p>}</DeleteSheet>}
@@ -171,7 +184,7 @@ export default function ItemDetail({ params }: PageProps) {
       {editor.kind === 'lifecycle' && editor.action.type === 'correct_date' && <Button variant="danger" disabled={disabled} onClick={() => { try { const input = detailLifecycleInput(editor.record, editor.generation, editor.action, session.today, true); void write({ command: 'change_lifecycle', input, label: '撤销误记状态' }); } catch (cause) { setNotice(errorMessage(cause)); } }}>撤销误记状态</Button>}
       </fieldset>
     </Sheet>}
-    {photo && context && <Sheet title={photo.name} onClose={() => setPhoto(null)}><div className="mi-photo-full"><PhotoView photo={photo} generation={context.generation}/></div></Sheet>}
+    {photo && context && <PhotoViewer photo={photo} generation={context.generation} onClose={() => setPhoto(null)}/>}
   </div>;
 }
 function Attachments({ photos, generation, onOpen }: { photos: Photo[]; generation: string; onOpen: (photo: Photo) => void }) {

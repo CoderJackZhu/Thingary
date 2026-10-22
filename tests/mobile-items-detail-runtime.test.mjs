@@ -82,3 +82,17 @@ test('mobile detail photo multi-select keeps successful imports and requires ack
   assert.deepEqual(Array.from(requests[0].input.action.photos.ids), ['prepared-photo']);
   r.unmount();
 });
+
+test('mobile detail shows the four visible actions, no bottom button grid, and saves the pin switch immediately', async () => {
+  const { r, requests } = await mounted();
+  const labels = r.nodes().filter(n => n.type === 'button' && n.props.className === 'mi-action').map(n => r.text(n));
+  assert.deepEqual(labels, ['记维护', '加保障', '记录售出', '退役']);
+  assert.equal(r.nodes().some(n => n.type === 'Button' && ['编辑', '删除物品', '记录售出', '退役'].includes(r.text(n))), false);
+  r.find('ListRow', p => p.title === '置顶').props.trailing.props.onChange(true); await r.settle();
+  const save = requests.find(request => request.command === 'save_asset');
+  assert.equal(save.input.options.preferences.pinned, true); assert.equal(save.input.base.expected_revision, 7);
+  await r.settle(); r.render();
+  r.nodes().find(n => n.type === 'button' && n.props.className === 'mi-action' && r.text(n) === '记录售出').props.onClick(); r.render();
+  assert.ok(r.find('Sheet', p => p.title === '记录售出'));
+  r.unmount();
+});
