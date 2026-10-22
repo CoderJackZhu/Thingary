@@ -1,5 +1,11 @@
 /** Line icons on a 24px grid, stroke follows `currentColor`. Add new names here so every module shares one set. */
 const paths = {
+  // Tab bar set (direction B): thin outline when inactive, solid when active. Cut-outs of the solid ones use --m-pill-bg so they read as holes in the active pill.
+  tabHome: <path d="M12 3.6 3.6 10.4h1.9V20h4.7v-5h3.6v5h4.7v-9.6h1.9z"/>,
+  tabBox: <><path d="M12 2.8 20.5 7.4v9.2L12 21.2 3.5 16.6V7.4z"/><path d="M3.8 7.6 12 12l8.2-4.4M12 12v9"/></>,
+  tabWallet: <><rect x="3" y="6" width="18" height="14" rx="3.5"/><path d="M16 13h2.5M6 6l9-3 1.5 3"/></>,
+  tabTarget: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></>,
+  tabUser: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3.2"/><path d="M6.2 18.4c1.4-2.3 3.4-3.4 5.8-3.4s4.4 1.1 5.8 3.4"/></>,
   home: <><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></>,
   box: <><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></>,
   wallet: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></>,
@@ -35,9 +41,20 @@ const paths = {
   heart: <path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z"/>,
   refresh: <><path d="M20 6v5h-5"/><path d="M19.5 11A8 8 0 1 0 18 16"/></>,
 } satisfies Record<string, React.ReactNode>;
+const cut = 'var(--m-pill-bg,#fff)';
+/** Solid variants for the selected tab. Painted with `currentColor`; inner details carry their own stroke or fill. */
+const filled = {
+  tabHome: <path d="M12 3.2 2.8 10.6a1 1 0 0 0 .6 1.8H5V20a1 1 0 0 0 1 1h4v-5.5h4V21h4a1 1 0 0 0 1-1v-7.6h1.6a1 1 0 0 0 .6-1.8z"/>,
+  tabBox: <><path d="M12 2.4 21 7.3v9.4L12 21.6 3 16.7V7.3z"/><path d="M3.8 7.6 12 12l8.2-4.4M12 12v9.2" fill="none" stroke={cut} strokeWidth="1.4" strokeLinejoin="round"/></>,
+  tabWallet: <><path d="M6 6l9-3 1.5 3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><rect x="3" y="6" width="18" height="14" rx="3.5"/><circle cx="17" cy="13" r="1.5" fill={cut}/></>,
+  tabTarget: <><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="5" fill="none" stroke={cut} strokeWidth="1.6"/><circle cx="12" cy="12" r="1.5" fill={cut}/></>,
+  tabUser: <><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3.2" fill={cut}/><path d="M6.4 18.2c1.4-2.1 3.3-3.2 5.6-3.2s4.2 1.1 5.6 3.2A9.4 9.4 0 0 1 12 21.5a9.4 9.4 0 0 1-5.6-3.3z" fill={cut}/></>,
+} satisfies Partial<Record<keyof typeof paths, React.ReactNode>>;
 export type IconName = keyof typeof paths;
 
 /** Decorative icon (aria-hidden). Pair it with visible text or give the surrounding button an aria-label. */
-export function Icon({ name, size = 22, strokeWidth = 1.8 }: { name: IconName; size?: number; strokeWidth?: number }) {
+export function Icon({ name, size = 22, strokeWidth = 1.8, active = false }: { name: IconName; size?: number; strokeWidth?: number; /** Solid variant, when the icon has one (tab icons). */ active?: boolean }) {
+  const solid = active && name in filled;
+  if (solid) return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">{filled[name as keyof typeof filled]}</svg>;
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }

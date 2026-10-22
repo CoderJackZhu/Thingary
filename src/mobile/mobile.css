@@ -1,17 +1,39 @@
 /* iPhone UI foundation. Tokens derive from theme.css (never redefine colors or fonts here). */
 :root{
   --m-gutter:20px;--m-gap:14px;--m-touch:44px;
-  --m-radius-card:var(--surface-radius,16px);--m-radius-control:12px;--m-radius-pill:999px;
-  --m-tabbar-h:calc(56px + env(safe-area-inset-bottom,0px));
-  --m-fill:var(--soft);--m-fill-active:var(--card);--m-scrim:rgba(0,0,0,.4);--m-nav-bg:color-mix(in srgb,var(--bg) 88%,transparent);
+  --m-radius-card:22px;--m-radius-control:12px;--m-radius-pill:999px;
+  /* Floating glass tab bar: 64px capsule that dips into the home-indicator area like the system bar. --m-tabbar-h is the space it occupies from the screen edge. */
+  --m-tabbar-size:64px;--m-tabbar-bottom:max(16px,calc(env(safe-area-inset-bottom,0px) - 8px));
+  --m-tabbar-h:calc(var(--m-tabbar-size) + var(--m-tabbar-bottom));
+  --m-fill:var(--soft);--m-fill-active:var(--card);--m-scrim:rgba(0,0,0,.4);--m-nav-bg:color-mix(in srgb,var(--bg) 82%,transparent);
   --m-danger-solid:#c80013;--m-danger-text:#fff;--m-warn-text:var(--warn);
-  --m-sheet-radius:20px}
+  --m-sheet-radius:24px;
+  --m-round:'SF Pro Rounded',ui-rounded,-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',system-ui,sans-serif}
+/* Direction B "floating glass": soft grey ground, borderless white cards with layered shadow, indigo brand.
+   --accent is the text-safe indigo (AA on white, ground and tint); --m-brand is the fill/icon indigo. Mobile entry only. */
+:root[data-style=bento]{
+  --bg:#f5f5f8;--side:#f5f5f8;--card:#ffffff;--soft:#ededf2;--mark:#e3e3ea;--image:#f1f1f6;
+  --text:#17171c;--muted:#686872;--line:#e4e4eb;--line-soft:#efeff3;
+  --m-brand:#5e5ce6;--accent:#4b49c8;--button-bg:#5e5ce6;--button-text:#ffffff;--selected:#eeeefd;
+  --positive:#177134;--pos-bg:#e6f5ea;--warn:#9a5400;--warn-bg:#fff2e0;--error:#c4271d;--danger-bg:#ffeceb;
+  --m-tint:#ededfc;--m-tint-warn:#fff2e0;--m-orange:#c26a00;
+  --surface-border:none;--surface-radius:22px;
+  --card-shadow:0 1px 2px rgba(20,20,40,.04),0 8px 24px rgba(20,20,40,.06);--surface-shadow:var(--card-shadow);
+  --hero-tint-1:none;--m-glass:rgba(255,255,255,.78);--m-glass-ring:0 0 0 .5px rgba(20,20,40,.08);--m-float:0 10px 30px rgba(20,20,40,.14);--m-pill-bg:#eeeefd}
+:root[data-style=bento][data-mode=dark]{
+  --bg:#000000;--side:#000000;--card:#1c1c1e;--soft:#2c2c2e;--mark:#3a3a3c;--image:#2c2c2e;
+  --text:#f5f5f7;--muted:#a1a1a8;--line:#2c2c2e;--line-soft:#262628;
+  --m-brand:#8e8cff;--accent:#9c9aff;--button-bg:#8e8cff;--button-text:#0b0b1a;--selected:#2b2a55;
+  --positive:#30d158;--pos-bg:#30d1581f;--warn:#ff9f0a;--warn-bg:#ff9f0a1f;--error:#ff6961;--danger-bg:#ff453a1f;
+  --m-tint:#2b2a55;--m-tint-warn:#ff9f0a1f;--m-orange:#ff9f0a;
+  --card-shadow:0 0 0 .5px rgba(255,255,255,.09);--surface-shadow:var(--card-shadow);
+  --m-glass:rgba(28,28,30,.78);--m-glass-ring:0 0 0 .5px rgba(255,255,255,.12);--m-float:0 10px 30px rgba(0,0,0,.5);--m-pill-bg:#2b2a55}
 :root[data-mode=dark]{--m-fill-active:#48484a;--m-scrim:rgba(0,0,0,.6);--m-danger-solid:#c4302b}
 *{box-sizing:border-box}
 html,body,#root{margin:0;min-width:0;min-height:100%;width:100%}
 body{background:var(--bg);color:var(--text);font:16px/1.5 var(--display);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
 button,input,select,textarea{font:inherit;color:inherit}
-button{cursor:pointer;min-height:var(--m-touch);border:1px solid var(--line);border-radius:var(--m-radius-control);padding:10px 16px;background:var(--card);color:var(--text)}
+button{cursor:pointer;min-height:var(--m-touch);border:0;border-radius:var(--m-radius-control);padding:10px 16px;background:var(--soft);color:var(--text)}
 button:disabled{opacity:.5;cursor:default}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 [tabindex="-1"]:focus{outline:none}
@@ -20,9 +42,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* Shell */
 .m-app{max-width:640px;margin:0 auto;min-height:100dvh;overflow-wrap:anywhere}
-.m-main{display:block;min-height:100dvh;padding:env(safe-area-inset-top,0px) max(var(--m-gutter),env(safe-area-inset-right,0px)) calc(var(--m-tabbar-h) + 24px) max(var(--m-gutter),env(safe-area-inset-left,0px))}
+.m-main{display:block;min-height:100dvh;padding:env(safe-area-inset-top,0px) max(var(--m-gutter),env(safe-area-inset-right,0px)) calc(var(--m-tabbar-h) + 20px) max(var(--m-gutter),env(safe-area-inset-left,0px))}
 .m-segment-bar{padding-top:12px}
-.m-page{display:flex;flex-direction:column;gap:var(--m-gap);min-height:calc(100dvh - var(--m-tabbar-h) - 24px - env(safe-area-inset-top,0px));padding-bottom:8px}
+.m-page{display:flex;flex-direction:column;gap:var(--m-gap);min-height:calc(100dvh - var(--m-tabbar-h) - 20px - env(safe-area-inset-top,0px));padding-bottom:8px}
 .m-modal{position:fixed;inset:var(--m-viewport-top,0px) 0 auto;height:var(--m-viewport-height,100dvh);z-index:20;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);padding:0 max(var(--m-gutter),env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(var(--m-gutter),env(safe-area-inset-left,0px));animation:m-rise .28s ease-out}
 .m-modal .m-navbar{padding-top:env(safe-area-inset-top,0px);min-height:calc(52px + env(safe-area-inset-top,0px))}
 .m-modal .m-page{min-height:calc(var(--m-viewport-height,100dvh) - env(safe-area-inset-bottom,0px))}
@@ -35,13 +57,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* The existing full-inventory toolbar uses fixed positioning instead of ActionBar. */
 :root[data-keyboard] .mw-fixed{bottom:var(--m-viewport-bottom,0px);padding-bottom:12px}
 @keyframes m-rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
-.m-tabbar{position:fixed;z-index:10;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px max(8px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(8px,env(safe-area-inset-left,0px));background:var(--m-nav-bg);-webkit-backdrop-filter:saturate(1.8) blur(18px);backdrop-filter:saturate(1.8) blur(18px);border-top:1px solid var(--line)}
+.m-tabbar{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:var(--m-tabbar-bottom);max-width:608px;margin:0 auto;height:var(--m-tabbar-size);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px;border-radius:calc(var(--m-tabbar-size)/2);background:var(--m-glass);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:var(--m-glass-ring),var(--m-float)}
 .m-tabbar:has(button:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
 .m-tabbar:has(button:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
-.m-tabbar button{min-height:50px;min-width:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;background:transparent;color:var(--muted);padding:4px 2px;font-size:11px;line-height:1.2;max-width:140px;margin:0 auto;width:100%}
-.m-tabbar button[aria-current=page]{color:var(--accent);font-weight:600}
+.m-tabbar button{min-height:44px;min-width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:26px;background:transparent;color:var(--muted);padding:0 2px;font-size:10px;font-weight:500;line-height:1.2;width:100%;transition:background .18s}
+.m-tabbar button svg{display:block;flex:none}
+.m-tabbar button[aria-current=page]{color:var(--accent);font-weight:600;background:var(--m-pill-bg)}
+.m-tabbar button[aria-current=page] svg{color:var(--m-brand)}
 .m-recovery-layer{position:fixed;inset:0;z-index:40;background:var(--m-scrim);padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow-y:auto}
-.m-recovery{max-width:560px;margin:0 auto;border:1px solid var(--warn)}
+.m-recovery{max-width:560px;margin:0 auto;border:1px solid var(--warn)!important}
 .m-recovery h2{margin:0 0 8px;font-size:18px}
 .m-recovery p{font-size:14px;margin:0 0 8px}
 .m-recovery .m-notice{margin-top:12px}
@@ -71,7 +95,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .mobile-plan h2{margin-top:8px}
 .mobile-notice,.mobile-error{font-size:14px;padding:12px;border-radius:var(--m-radius-control);background:var(--warn-bg);color:var(--warn);line-height:1.6}
 .mobile-error{background:var(--danger-bg);color:var(--error)}
-.mobile-recovery{border:1px solid var(--warn)}
+.mobile-recovery{border:1px solid var(--warn)!important}
 .mobile-recovery h2{margin-top:0}
 .mobile-recovery p{font-size:14px}
 .mobile-section-heading{margin-bottom:16px}
@@ -89,3 +113,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .mobile-check input{width:24px;height:24px;accent-color:var(--accent);flex-shrink:0}
 .mobile-actions{display:flex;gap:12px;margin-top:24px}
 .mobile-actions button{flex:1;min-width:0}
+
+/* Inputs that come from desktop components: borderless fill instead of an outline. */
+.m-date .date-input .date-input-row{border:0;background:var(--soft);border-radius:var(--m-radius-control)}
+.mobile-field input,.mobile-form input:not([type=checkbox]),.mobile-form select{border:0;background:var(--soft)}

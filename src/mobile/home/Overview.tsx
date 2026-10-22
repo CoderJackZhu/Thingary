@@ -113,7 +113,7 @@ export default function Overview(_props: PageProps) {
     {plan && (plan.state === 'error'
       ? <Card label="规划"><ErrorState title={plan.title} message={plan.subtitle ?? undefined} onRetry={() => setRetry(n => n + 1)}/></Card>
       : <button type="button" className="m-card h-plan" onClick={() => openRoute(nav, 'plan.goal')}>
-          <span className="h-plan-top"><span>{plan.eyebrow}</span><span className="h-plan-action">{plan.state === 'setup' ? '去设置' : '查看规划'}<Icon name="chevronRight" size={16}/></span></span>
+          <span className="h-plan-top"><span className="h-plan-lead"><span className="m-metric-icon m-tone-accent"><Icon name="tabTarget" size={17} strokeWidth={2}/></span><span>{plan.eyebrow}</span></span><span className="h-plan-action">{plan.state === 'setup' ? '去设置' : '查看规划'}<Icon name="chevronRight" size={16}/></span></span>
           <span className="h-plan-title">{plan.title}</span>
           {plan.subtitle && <span className="h-plan-sub">{plan.subtitle}</span>}
           {!!plan.tags.length && <span className="m-tags">{plan.tags.map(text => <span key={text} className="m-tag">{text}</span>)}</span>}
@@ -121,8 +121,8 @@ export default function Overview(_props: PageProps) {
         </button>)}
     {view.empty && <Card label="从这里开始"><div className="h-start"><h2>从这里开始</h2><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p>
       <div className="h-start-actions"><Button variant="primary" onClick={() => nav.push('items.edit')}>记录第一件物品</Button>{modules.wealth && <Button onClick={() => nav.push('wealth.accountEdit')}>建立账户并盘点</Button>}</div></div></Card>}
-    {(daily ? <Metric label="物品日均成本" value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
-      : <Metric label="物品日均成本" value="未知" unknown sub={view.physicalError || '暂时读不出来'}/>)}
+    {(daily ? <Metric icon="tabBox" tone="warn" label="物品日均成本" value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
+      : <Metric icon="tabBox" tone="warn" label="物品日均成本" value="未知" unknown sub={view.physicalError || '暂时读不出来'}/>)}
     <ListGroup title="待处理" action={view.pending.length ? <span className="h-count">{view.pending.length} 项</span> : undefined} footer={view.failed ? '部分来源读取失败，这里只显示已读取的部分。' : undefined}>
       {view.pending.length === 0 && <ListRow icon="check" tone="positive" title={view.failed ? '可用来源中暂无事项' : '暂时没有需要处理的事项'}/>}
       {view.pending.map(entry => entry.action
@@ -132,7 +132,7 @@ export default function Overview(_props: PageProps) {
     <ListGroup title="近期记录" action={<button type="button" onClick={() => nav.push('me.timeline')}>查看时间轴 ›</button>}>
       {view.recent.length === 0 && <EmptyState icon="home" title="还没有带日期的记录" message="新增物品、盘点或付款后会出现在这里。"/>}
       {view.recent.map(row => {
-        const props = { icon: <Icon name={recentIcon(row.kind)} size={20}/>, tone: 'neutral' as const, title: row.title, subtitle: [row.date, row.detail].filter(Boolean).join(' · '), value: row.amount ?? undefined };
+        const props = { icon: <Icon name={recentIcon(row.kind)} size={17} strokeWidth={2}/>, tone: 'neutral' as const, title: row.title, subtitle: [row.date, row.detail].filter(Boolean).join(' · '), value: row.amount ?? undefined };
         return row.target ? <ListRow key={row.id} {...props} onClick={() => openRoute(nav, row.target!.route, row.target!.params)}/> : <ListRow key={row.id} {...props}/>;
       })}
     </ListGroup>
