@@ -12,6 +12,7 @@ pub fn destination(target: &str) -> Result<&'static str> {
         "backup" => Ok("https://thingary.jackzhu.top/guide/backup/"),
         "update" => Ok("https://thingary.jackzhu.top/guide/update/"),
         "sources" => Ok("https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md"),
+        "mail" => Ok("mailto:feedback@jackzhu.top?subject=%E7%89%A9%E8%B0%B1%E5%8F%8D%E9%A6%88"),
         _ => Err(Error::new("SUPPORT", "帮助入口无效")),
     }
 }

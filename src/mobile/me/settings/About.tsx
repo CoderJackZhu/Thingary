@@ -6,7 +6,7 @@ import license from '../../../../LICENSE?raw';
 import thirdParty from '../../../../THIRD_PARTY_LICENSES.md?raw';
 import { feedbackEmail } from '../../../support';
 import { Button, Card, ListGroup, ListRow, Notice } from '../../ui';
-import { diagnosticText, feedbackMailto } from '../feedback';
+import { diagnosticText } from '../feedback';
 import type { SettingsPage } from '../model';
 import { settingsTitles } from '../model';
 import { SettingsShell } from './Shell';
@@ -22,9 +22,10 @@ export default function About({ page }: { page: Extract<SettingsPage, 'about' | 
   if (page === 'feedback') return <SettingsShell title={settingsTitles.feedback} lead="遇到问题或有建议，写封邮件告诉我们。">
     <Card label="反馈">
       <div className="me-actions">
-      <Button variant="primary" block onClick={() => {
-        // 邮件客户端由系统接管；只带版本、系统和设备类型，不含资料库内容。
-        try { window.location.href = feedbackMailto(diagnostics()); setNote(null); }
+      <Button variant="primary" block onClick={async () => {
+        // 只有固定目标经过 IPC：先复制诊断信息，用户粘贴到邮件里；不含资料库内容。
+        const copied = await navigator.clipboard.writeText(diagnostics()).then(() => true, () => false);
+        try { await invoke('support_open', { target: 'mail' }); setNote(copied ? { tone: 'positive', text: '诊断信息已复制，可粘贴到邮件末尾。' } : null); }
         catch { setNote({ tone: 'danger', text: `无法打开邮件。请手动发送到 ${feedbackEmail}。` }); }
       }}>写邮件反馈</Button>
       <Button block onClick={() => {
@@ -32,7 +33,7 @@ export default function About({ page }: { page: Extract<SettingsPage, 'about' | 
       }}>复制诊断信息</Button>
       {note && <Notice tone={note.tone}>{note.text}</Notice>}
       </div>
-      <p className="me-prose-p">邮件会预填物谱版本、iOS 版本和设备类型，不包含你的资料。收件地址：{feedbackEmail}</p>
+      <p className="me-prose-p">点「写邮件反馈」会同时复制物谱版本、iOS 版本和设备类型，粘贴到邮件里即可，不包含你的资料。收件地址：{feedbackEmail}</p>
       <h2 className="me-h2">反馈时提供什么</h2>
       <p className="me-prose-p">请写明物谱版本、系统版本、机型、安装来源、操作步骤和错误文字。截图请遮住真实资料，不要上传数据库、备份、发票或序列号。资料损坏时先保留现有资料和备份，再反馈问题。</p>
     </Card>
