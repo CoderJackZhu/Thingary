@@ -4,10 +4,11 @@ import type { WishlistFilter, WishlistItem, WishlistPage, WishlistQuery } from '
 import { useNav, useReveal } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { Button, Card, ChipRow, EmptyState, ErrorState, Icon, LargeTitle, IconButton, Loading, Notice, SearchField, Sheet } from '../ui';
+import { Button, ChipRow, Card, EmptyState, ErrorState, Fab, Icon, LargeTitle, Loading, Notice, SearchField, Sheet, SwipeRow } from '../ui';
 import { cardView, defaultDescending, filterItems, hasMore, initialQuery, isFiltered, mergePages, overdueBanner, sortItems, sortLabel, summaryParts } from './model';
 import { StatePill, ReceiptCards, WishIcon, useReceipts, useTaxonomy } from './parts';
-import { loadList, loadMore } from './service';
+import { DecisionSheet } from './DetailSheets';
+import { dropChange, loadList, loadMore, reconsiderChange, submitOp } from './service';
 import './wishes.css';
 
 type Totals = Record<'all' | 'considering' | 'purchased' | 'dropped', number>;
@@ -20,6 +21,7 @@ export default function WishList(_: PageProps) {
   const [totals, setTotals] = useState<Totals | null>(null), [considering, setConsidering] = useState<number | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState(''), [moreBusy, setMoreBusy] = useState(false), [moreError, setMoreError] = useState('');
   const [searchText, setSearchText] = useState(''), [sortOpen, setSortOpen] = useState(false), [tick, setTick] = useState(0);
+  const [deciding, setDeciding] = useState<{ kind: 'drop' | 'reconsider'; item: WishlistItem } | null>(null), [decideBusy, setDecideBusy] = useState(false), [decideError, setDecideError] = useState(''), [notice, setNotice] = useState('');
   const ticket = useRef(0);
   const receipts = useReceipts(page?.generation ?? taxonomy.data?.generation ?? null, () => setTick(n => n + 1));
 
@@ -44,6 +46,16 @@ export default function WishList(_: PageProps) {
     } catch (cause) { setMoreError(errorMessage(cause)); }
     finally { setMoreBusy(false); setBusy(false); }
   }
+  async function decide(note: string) {
+    if (!deciding || !page || decideBusy) return;
+    const { kind, item } = deciding, change = (kind === 'drop' ? dropChange : reconsiderChange)(item, page.generation, note, crypto.randomUUID());
+    setDecideBusy(true); setBusy(true); setDecideError('');
+    try {
+      const outcome = await submitOp({ kind: 'decision', label: kind === 'drop' ? '不再考虑' : '重新考虑', input: change });
+      if (outcome.status === 'saved') { setDeciding(null); setNotice(kind === 'drop' ? `已记录「${item.fields.name}」为不再考虑；档案与图片都保留着。` : `「${item.fields.name}」已回到考虑中。`); setTick(n => n + 1); }
+      else { setDecideError(outcome.message); if (outcome.status === 'unknown') { setDeciding(null); receipts.refresh(); } }
+    } finally { setDecideBusy(false); setBusy(false); }
+  }
   const adjust = (part: Partial<WishlistQuery>) => setQuery(q => ({ ...q, ...part, offset: 0 }));
   const blocked = receipts.all.length > 0;
   const add = () => nav.push('wishes.edit', {});
@@ -55,9 +67,11 @@ export default function WishList(_: PageProps) {
   const filtered = isFiltered(query);
 
   return <div className="m-page">
-    <LargeTitle title="心愿" segments actions={<IconButton label="添加心愿" disabled={blocked || !taxonomy.data} onClick={add}><Icon name="plus"/></IconButton>}/>
+    <LargeTitle title="心愿" segments/>
+    <Fab label="添加心愿" disabled={blocked || !taxonomy.data} onClick={add}/>
     <div className="w-stack">
       <ReceiptCards ops={receipts.all} busy={receipts.busy} notice={receipts.notice} onResolve={op => void receipts.resolve(op)}/>
+      {notice && <Notice tone="positive">{notice}</Notice>}
       <SearchField subject="心愿" value={searchText} onChange={setSearchText}/>
       <div className="w-filter" role="group" aria-label="心愿状态">
         {filterItems.map(item => <button key={item.id} type="button" aria-pressed={query.filter === item.id} onClick={() => adjust({ filter: item.id })}>{item.label}<small>{count(item.id)}</small></button>)}
@@ -78,15 +92,16 @@ export default function WishList(_: PageProps) {
           : <EmptyState icon="box" title="记下第一件想要的物品" message="名称之外都可以留空，之后再决定。" action={<Button variant="primary" disabled={blocked || !taxonomy.data} onClick={add}>添加心愿</Button>}/>) : <>
           <div className="w-head"><h2>{filterItems.find(item => item.id === query.filter)?.label}心愿</h2><button type="button" className="w-sort" onClick={() => setSortOpen(true)}>{sortLabel(query.sort, query.descending)}<Icon name="sort" size={16}/></button></div>
           <ul className="w-list" aria-busy={loading}>
-            {items.map(item => { const view = cardView(item, today, categories); return <li key={item.id}>
-              <button type="button" className="m-card w-card" onClick={() => open(item.id)}>
+            {items.map(item => { const view = cardView(item, today, categories); const swipe = item.decision_state === 'considering' ? { label: '不再考虑', icon: 'close' as const, onAction: () => { setDecideError(''); setDeciding({ kind: 'drop', item }); } } : item.decision_state === 'dropped' ? { label: '重新考虑', icon: 'refresh' as const, onAction: () => { setDecideError(''); setDeciding({ kind: 'reconsider', item }); } } : null;
+              const card = <button type="button" className="m-card w-card" onClick={() => open(item.id)}>
                 <span className="w-card-top"><WishIcon photo={view.cover} generation={page.generation}/>
                   <span className="w-card-main"><span className="w-card-name">{view.name}</span>
                     <span className="w-card-tags"><StatePill tone={view.tone}>{view.state}</StatePill>{view.category && <span>{view.category}</span>}{view.pinned && <span className="w-pill w-pill-neutral">置顶</span>}</span></span>
                   <span className="w-card-price">{view.price ? <b>{view.price}</b> : <b className="m-unknown">价格未知</b>}<small>预计价格</small></span></span>
                 {view.reason && <span className="w-card-reason">{view.reason}</span>}
                 <span className="w-card-meta"><span>加入 {view.added}</span><i aria-hidden="true"/><span>{view.plan}</span>{view.overdue && <span className="w-pill w-pill-warn">计划日期已过</span>}</span>
-              </button></li>; })}
+              </button>;
+              return <li key={item.id}>{swipe && !blocked ? <SwipeRow label={`${view.name} 操作`} actions={[swipe]}>{card}</SwipeRow> : card}</li>; })}
           </ul>
           <div className="w-more"><span>已显示 {items.length} / {page.total} 条</span>
             {moreError && <Notice tone="danger">{moreError}</Notice>}
@@ -95,6 +110,7 @@ export default function WishList(_: PageProps) {
         </>}
       </>}
     </div>
+    {deciding && <DecisionSheet kind={deciding.kind} item={deciding.item} busy={decideBusy} error={decideError} onSubmit={note => void decide(note)} onClose={() => setDeciding(null)}/>}
     {sortOpen && <Sheet title="排序" onClose={() => setSortOpen(false)}>
       <div className="w-sheet-stack">
         <ChipRow label="排序依据" items={sortItems} value={query.sort} onChange={id => adjust({ sort: id as WishlistQuery['sort'], descending: defaultDescending(id as WishlistQuery['sort']) })}/>

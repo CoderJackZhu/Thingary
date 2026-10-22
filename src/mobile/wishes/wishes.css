@@ -93,3 +93,4 @@
 .w-error{display:flex;flex-direction:column;gap:6px}
 .w-error p{margin:0}
 .w-select{width:100%}
+.w-list .m-swipe{border-radius:var(--m-radius-card);background:transparent}.w-list .m-swipe-content{background:transparent}.w-list .m-swipe-action:last-child{border-radius:0 var(--m-radius-card) var(--m-radius-card) 0}

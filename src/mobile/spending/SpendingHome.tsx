@@ -64,7 +64,7 @@ function ExpensesPanel({ period, today }: { period: FinancePeriod; today: string
     else if (line.source === 'payment') { if (line.plan_id) nav.push('spending.recurring', { id: line.plan_id }); }
     else if (line.source === 'virtual') nav.push('spending.virtualDetail', { id: line.id });
     else if (line.source === 'topup') { if (line.asset_id) nav.push('spending.virtualDetail', { id: line.asset_id }); }
-    else if (line.asset_id) { nav.switchTab('items'); nav.push('items.detail', { id: line.asset_id }); }
+    else if (line.asset_id) nav.push('items.detail', { id: line.asset_id });
   }
   const tappable = (row: ExpenseRow) => row.line.source === 'payment' ? !!row.line.plan_id && (modules ? modules.recurring : true) : row.line.source === 'virtual' || row.line.source === 'topup' ? (modules ? modules.virtual : true) : true;
   return <Loaded read={read} what="重要支出">{result => {
@@ -89,7 +89,7 @@ function ExpensesPanel({ period, today }: { period: FinancePeriod; today: string
               const amount = signedMoney(row);
               return <ListRow key={row.key} title={row.title} subtitle={row.subtitle} value={amount ?? '金额未知'} unknown={amount === null} onClick={tappable(row) ? () => open(row) : undefined}/>;
             })}
-            {rows.length > shown && <div className="sp-more"><button type="button" className="sp-link" onClick={() => setShown(n => n + 40)}>显示更多（还有 {rows.length - shown} 条）</button></div>}
+            {rows.length > shown && <button type="button" className="sp-more-row" onClick={() => setShown(n => n + 40)}>显示更多（还有 {rows.length - shown} 条）</button>}
           </ListGroup>}
       </>}
     </>;

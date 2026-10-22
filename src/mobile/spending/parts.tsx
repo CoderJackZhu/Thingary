@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useEntry, useNav } from '../nav-context';
-import { Button, DateField, ErrorState, FormGroup, Icon, IconButton, LargeTitle, Loading, NavBar, Notice, SegmentedControl, Sheet } from '../ui';
+import { Button, DateField, ErrorState, Fab, FormGroup, LargeTitle, Loading, NavBar, Notice, SegmentedControl, Sheet } from '../ui';
 import { periodChoices, periodFromKey } from './model';
 import type { PeriodKey, Tone } from './model';
 import type { FinancePeriod } from '../../finance-contract';
 import type { Read } from './read';
 import './spending.css';
 
-/** Title block of a spending page: back bar plus large title, or just the large title on a tab root. */
+/** Title block of a spending page: back bar plus large title, or just the large title on a tab root. The 新增 action is the floating button at the bottom right. */
 export function Head({ title, subtitle, add }: { title: string; subtitle?: string; add?: { label: string; onClick: () => void; disabled?: boolean } }) {
   const { isRoot } = useEntry();
   return <>
-    {!isRoot && <NavBar right={add && <button type="button" className="m-navbar-button m-navbar-primary" aria-label={add.label} disabled={add.disabled} onClick={add.onClick}>新增</button>}/>}
-    <LargeTitle title={title} subtitle={subtitle} actions={isRoot && add ? <IconButton label={add.label} disabled={add.disabled} onClick={add.onClick}><Icon name="plus"/></IconButton> : undefined}/>
+    {!isRoot && <NavBar/>}
+    <LargeTitle title={title} subtitle={subtitle}/>
+    {add && <Fab label={add.label} disabled={add.disabled} onClick={add.onClick}/>}
   </>;
 }
 
