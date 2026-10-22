@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import type { VirtualAsset, VirtualOverview } from '../../virtual';
 import { billingModes, virtualKinds } from '../../virtual';
@@ -29,6 +30,7 @@ export default function VirtualEdit({ params }: PageProps) {
 function Form({ generation, item, labels }: { generation: string; item: VirtualAsset | null; labels: Label[] }) {
   const { today } = useSession(), saver = useSaver();
   const [d, setD] = useState<VirtualDraft>(() => virtualDraft(item, today)), [problem, setProblem] = useState('');
+  useDirtyGuard(useFormChanged(d));
   const f = d.fields, mode = f.billing, locked = isLegacyLink(item) || isComplexPlan(item);
   const setF = (patch: Partial<VirtualDraft['fields']>) => { setProblem(''); setD(x => ({ ...x, fields: { ...x.fields, ...patch } })); };
   const setTopup = (patch: Partial<VirtualDraft['firstTopup']>) => { setProblem(''); setD(x => ({ ...x, firstTopup: { ...x.firstTopup, ...patch } })); };

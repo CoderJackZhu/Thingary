@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import type { VirtualAsset, VirtualOverview } from '../../virtual';
 import { submit } from '../../wealth';
@@ -24,6 +25,7 @@ export default function BalanceEdit({ params }: PageProps) {
 function Form({ generation, item }: { generation: string; item: VirtualAsset }) {
   const { today } = useSession(), saver = useSaver();
   const [cents, setCents] = useState(item.balance?.balance_cents ?? ''), [date, setDate] = useState(today), [notes, setNotes] = useState(''), [problem, setProblem] = useState('');
+  useDirtyGuard(useFormChanged({cents,date,notes}));
   function save() {
     if (!cents) { setProblem('请填写当前余额；不知道就先不记，余额会保持未知。'); return; }
     if (!date) { setProblem('请填写盘点日期。'); return; }

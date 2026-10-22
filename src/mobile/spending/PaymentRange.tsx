@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import type { Overview } from '../../recurring';
 import { submit } from '../../wealth';
@@ -24,6 +25,7 @@ function Form({ overview, planId }: { overview: Overview; planId: string }) {
   const { today } = useSession(), saver = useSaver(), plan = overview.plans.find(p => p.id === planId)!;
   const dates = rangeDates(plan, today);
   const [d, setD] = useState<RangeDraft>({ from: dates[0] ?? '', to: dates.at(-1) ?? '', amount: plan.fields.amount_cents, confirmed: false }), [problem, setProblem] = useState('');
+  useDirtyGuard(useFormChanged(d));
   const set = (patch: Partial<RangeDraft>) => { setProblem(''); setD(x => ({ ...x, ...patch })); };
   const count = rangeCount(dates, d), options = dates.map(x => ({ id: x, label: x }));
   function save() {

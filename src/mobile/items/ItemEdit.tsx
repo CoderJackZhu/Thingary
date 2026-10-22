@@ -10,7 +10,7 @@ import { PhotoView } from '../../Photos';
 import { identityFoldOpen } from '../../asset-editor-layout';
 import { submit } from '../../wealth';
 import type { TaxonomySnapshot } from '../../taxonomy';
-import { useNav } from '../nav-context';
+import { useDirtyGuard, useFormChanged, useNav } from '../nav-context';
 import { useSession } from '../session';
 import type { PageProps } from '../routes';
 import { Button, DateField, ErrorState, FormGroup, FormRow, Loading, MoneyField, NavBar, Notice, SelectField, Sheet, Switch, TextField } from '../ui';
@@ -26,6 +26,7 @@ export default function ItemEdit({ params }: PageProps) {
   const [draft, setDraft] = useState<ItemDraft | null>(null), [catalog, setCatalog] = useState<Catalog | null>(null), [labels, setLabels] = useState<Choice[]>([]);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(''), [notice, setNotice] = useState(''), [photoError, setPhotoError] = useState(''), [retry, setRetry] = useState(0), [savedId, setSavedId] = useState(''), [foldOpen, setFoldOpen] = useState(false), [addSheet, setAddSheet] = useState(false), [viewing, setViewing] = useState<Photo | null>(null);
   const [localBusy, setLocalBusy] = useState(false), lock = useRef(false), camera = useRef<HTMLInputElement>(null), album = useRef<HTMLInputElement>(null), channel = useRef(crypto.randomUUID()), submitted = useRef<string | null>(null);
+  useDirtyGuard(useFormChanged(draft));
   const contextChanged=!!catalog && !!session.data && catalog.generation!==session.data.summary.generation;
   const disabled = session.navBlocked || localBusy || contextChanged;
   useEffect(() => {
@@ -126,7 +127,7 @@ export default function ItemEdit({ params }: PageProps) {
       <FormGroup><SelectField label="成本计算模式" value={p.cost_mode} options={[{ id: 'daily', label: '按日计算' }, { id: 'per_use', label: '按次计算' }]} onChange={value => preferences({ cost_mode: value as AssetPreferences['cost_mode'] })} disabled={disabled}/>{p.cost_mode === 'per_use' && <TextField label="已使用次数" value={String(p.use_count)} inputMode="numeric" disabled={disabled} onChange={value => { if (/^\d{0,10}$/.test(value)) preferences({ use_count: Number(value) }); }}/>}<SelectField label="目标设定" value={p.goal.mode} options={[{ id: 'none', label: '不设定' }, { id: 'cost', label: '目标单位成本' }, { id: 'date', label: '目标日期' }]} disabled={disabled} onChange={value => preferences({ goal: value === 'cost' ? { mode: 'cost', cents: '' } : value === 'date' ? { mode: 'date', date: '' } : { mode: 'none' } })}/>{p.goal.mode === 'cost' && <MoneyField label="目标单位成本" value={p.goal.cents} onChange={cents => preferences({ goal: { mode: 'cost', cents } })} disabled={disabled}/>}{p.goal.mode === 'date' && <DateField label="目标日期" value={p.goal.date} onChange={date => preferences({ goal: { mode: 'date', date } })} disabled={disabled}/>}</FormGroup>
       <details className="m-card m-item-fold" open={foldOpen} onToggle={event => setFoldOpen(event.currentTarget.open)}><summary>品牌 · 型号 · 序列号</summary><TextField label="品牌" value={draft.fields.brand} onChange={value => change('brand', value)} disabled={disabled}/><TextField label="型号" value={draft.fields.model} onChange={value => change('model', value)} disabled={disabled}/><TextField label="序列号" value={draft.fields.serial_number} onChange={value => change('serial_number', value)} disabled={disabled}/></details>
       <FormGroup><FormRow label="置顶物品"><Switch label="置顶物品" checked={p.pinned} onChange={pinned => preferences({ pinned })} disabled={disabled}/></FormRow><FormRow label="不计入统计"><Switch label="不计入统计" checked={Object.values(p.exclude).some(Boolean)} onChange={checked => preferences({ exclude: { total: checked, daily: checked, statistics: checked, timeline: checked } })} disabled={disabled}/></FormRow>{Object.values(p.exclude).some(Boolean) && (['total', 'daily', 'statistics', 'timeline'] as const).map((key, index) => <FormRow key={key} label={['不计入总金额', '不计入日均成本', '不计入统计页面', '不在时间轴显示'][index]}><Switch label={['不计入总金额', '不计入日均成本', '不计入统计页面', '不在时间轴显示'][index]} checked={p.exclude[key]} onChange={checked => preferences({ exclude: { ...p.exclude, [key]: checked } })} disabled={disabled}/></FormRow>)}</FormGroup>
-      {addSheet && <Sheet title="添加图片" doneLabel="取消" onClose={() => setAddSheet(false)}><div className="m-item-add-sheet"><Button onClick={() => pickFrom(camera)}>拍照</Button><Button onClick={() => pickFrom(album)}>从相册选</Button></div></Sheet>}
+      {addSheet && <Sheet title="添加图片" cancelLabel="取消" onClose={() => setAddSheet(false)}><div className="m-item-add-sheet"><Button onClick={() => pickFrom(camera)}>拍照</Button><Button onClick={() => pickFrom(album)}>从相册选</Button></div></Sheet>}
       {viewing && <PhotoViewer photo={viewing} generation={catalog.generation} onClose={() => setViewing(null)} onRemove={disabled ? undefined : () => { setDraft(current => current && ({ ...current, photos: current.photos.filter(item => item.id !== viewing.id) })); setViewing(null); }}/>}
     </>}
   </div>;
