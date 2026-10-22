@@ -208,6 +208,8 @@ test('mobile batch refuses invalid lifecycle date before submission', async () =
 test('mobile batch rereads rows when selected ids change and does not submit removed ids', async () => {
   const { r, requests, reads } = await batchRuntime();
   r.props.ids = ['b']; r.render(); await r.settle();
+  assert.equal(r.find('SelectField', p => p.label === '操作').props.value, 'none', '批量操作默认不选任何动作');
+  r.find('SelectField', p => p.label === '操作').props.onChange('delete'); r.render();
   button(r, '移入最近删除').props.onClick(); await r.settle();
   assert.deepEqual(Array.from(reads.at(-1)), ['b']);
   assert.deepEqual(JSON.parse(JSON.stringify(requests[0].input.items)), [{ asset_id: 'b', expected_revision: 7 }]);

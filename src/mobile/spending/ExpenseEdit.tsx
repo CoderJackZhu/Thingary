@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { submit } from '../../wealth';
 import type { Expense, ExpenseFields, ExpenseView } from '../../expenses';
 import { expenseCategories } from '../../expenses';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
 import { Button, DateField, DeleteSheet, FormGroup, FormRow, MoneyField, SelectField, Switch, TextAreaField, TextField } from '../ui';
@@ -24,6 +25,7 @@ export default function ExpenseEdit({ params }: PageProps) {
 function Form({ generation, expense }: { generation: string; expense: Expense | null }) {
   const { today } = useSession(), saver = useSaver();
   const [f, setF] = useState<ExpenseFields>(() => expense?.fields ?? blankExpense(today)), [asking, setAsking] = useState(false), [problem, setProblem] = useState('');
+  useDirtyGuard(useFormChanged(f));
   const set = <K extends keyof ExpenseFields>(key: K, value: ExpenseFields[K]) => { setProblem(''); setF(x => ({ ...x, [key]: value })); };
   const refund = f.refund_date !== null;
   useEffect(() => { if (!asking) saver.setError(''); }, [asking]);

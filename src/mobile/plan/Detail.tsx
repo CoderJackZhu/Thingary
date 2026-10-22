@@ -20,7 +20,7 @@ import {
   LineChart,
 } from "../ui";
 import { usePlan } from "./data";
-import { budgetComparisons, fundsChart } from "./detail-model";
+import { budgetComparisons, fundsChart, stepMonth, yearCard } from "./detail-model";
 import "./plan.css";
 export default function Detail() {
   const p = usePlan(),
@@ -104,6 +104,8 @@ function Ready({
   const [selected, setSelected] = useState(
     pred.projection.retire_month ?? pred.plan.target_months,
   );
+  const minMonth = pred.projection.retire_month ?? pred.plan.target_months,
+    maxMonth = pred.plan.horizon_months - 1;
   const cover = coverage(pred.plan, pred.projection, selected, mode);
   const conclusion = `${terminalText[pred.terminal]}；${timeLabel(pred.plan, pred.plan.horizon_months - 1)} 时预计资金（按今天购买力）${forecastMoneyText(pred.outcome.at_horizon)}。`;
   return (
@@ -116,6 +118,15 @@ function Ready({
           </Button>
         }
       />
+      <ListGroup>
+        <ListRow
+          icon="chart"
+          tone="positive"
+          title="假设分析"
+          subtitle="压力测试、市场路径与敏感性"
+          onClick={() => nav.push("plan.whatif")}
+        />
+      </ListGroup>
       <SegmentedControl
         label="金额显示方式"
         value={mode}
@@ -159,66 +170,74 @@ function Ready({
       <Card>
         <details>
           <summary>逐年表（共 {rows.length} 行）</summary>
-          <p className="mp-muted">可左右滑动。支出含大额付款，缺口单列。</p>
-          <div
-            className="mp-table-scroll"
-            role="region"
-            aria-label="逐年表，可左右滑动"
-            tabIndex={0}
-          >
-            <table>
-              <thead>
-                <tr>
-                  {[
-                    "期间",
-                    "年龄",
-                    "存入",
-                    "收入与解锁",
-                    "支出",
-                    "期末资金",
-                    "缺口",
-                  ].map((h) => (
-                    <th key={h} scope="col">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i}>
-                    <th scope="row">
-                      {r.period ?? r.year}
-                      {r.marks.length > 0 ? ` · ${r.marks.join("/")}` : ""}
-                    </th>
-                    <td>{r.age ?? "未知"}</td>
-                    <td>{forecastMoneyText(r.contribution)}</td>
-                    <td>{forecastMoneyText(r.income + r.unlock)}</td>
-                    <td>{forecastMoneyText(r.spend + r.oneoff)}</td>
-                    <td>{forecastMoneyText(r.end)}</td>
-                    <td>{forecastMoneyText(r.unfunded)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="mp-muted">点一年可看全部字段。支出含大额付款，缺口单列。</p>
+          <ul className="mp-years">
+            {rows.map((r, i) => {
+              const y = yearCard(r);
+              return (
+                <li key={i}>
+                  <details className="mp-year">
+                    <summary>
+                      <span className="mp-year-main">
+                      <span className="mp-year-head">
+                        <strong>{y.title}</strong>
+                        {y.age && <small>{y.age}</small>}
+                      </span>
+                      <span className="mp-year-nums">
+                        <span>期末资金 <b>{forecastMoneyText(y.end)}</b></span>
+                        {y.hasGap && <span className="mp-year-gap">缺口 <b>{forecastMoneyText(y.unfunded)}</b></span>}
+                      </span>
+                      </span>
+                    </summary>
+                    <dl className="mp-year-more">
+                      {y.details.map((d) => (
+                        <div key={d.label}>
+                          <dt>{d.label}</dt>
+                          <dd>{forecastMoneyText(d.value)}</dd>
+                        </div>
+                      ))}
+                      <div>
+                        <dt>缺口</dt>
+                        <dd>{forecastMoneyText(y.unfunded)}</dd>
+                      </div>
+                    </dl>
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
         </details>
       </Card>
       <Card>
         <h2>退休生活费由什么覆盖</h2>
-        <label className="mp-muted" htmlFor="mp-coverage-month">
-          查看月份：{timeLabel(pred.plan, selected)}
-        </label>
-        <input
-          id="mp-coverage-month"
-          aria-label="查看生活费覆盖月份"
-          type="range"
-          min={pred.projection.retire_month ?? pred.plan.target_months}
-          max={pred.plan.horizon_months - 1}
-          value={selected}
-          onChange={(e) => setSelected(Number(e.target.value))}
-          style={{ width: "100%", minHeight: 44 }}
-        />
+        <div className="mp-month-picker">
+          <p className="mp-month-label" id="mp-coverage-month-label" aria-live="polite">
+            {timeLabel(pred.plan, selected)}
+          </p>
+          <div className="mp-month-steps" role="group" aria-label="调整查看月份">
+            {([["−1年", -12], ["−1月", -1], ["+1月", 1], ["+1年", 12]] as const).map(([label, delta]) => (
+              <button
+                key={label}
+                type="button"
+                disabled={stepMonth(selected, delta, minMonth, maxMonth) === selected}
+                aria-label={delta % 12 === 0 ? `${delta < 0 ? "前移" : "后移"}一年` : `${delta < 0 ? "前移" : "后移"}一个月`}
+                onClick={() => setSelected(stepMonth(selected, delta, minMonth, maxMonth))}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <input
+            id="mp-coverage-month"
+            aria-labelledby="mp-coverage-month-label"
+            type="range"
+            min={minMonth}
+            max={maxMonth}
+            value={selected}
+            onChange={(e) => setSelected(Number(e.target.value))}
+            style={{ width: "100%", minHeight: 44 }}
+          />
+        </div>
         <p>
           {cover.calendar_month}，每月生活费 {forecastMoneyText(cover.spend)}
           ，其中无资金支持{" "}
@@ -236,9 +255,6 @@ function Ready({
           }))}
         />
       </Card>
-      <Button onClick={() => nav.push("plan.whatif")}>
-        假设分析：压力测试、市场路径与敏感性
-      </Button>
       <Notice>预测取决于填写的条件和假设，实际结果可能不同。</Notice>
     </div>
   );

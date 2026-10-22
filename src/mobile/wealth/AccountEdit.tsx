@@ -5,7 +5,7 @@ import { currencies, currencyCode, validCurrency } from '../../currency';
 import { holdingSupported } from '../../holdings';
 import { groupNameError } from '../../account-groups';
 import type { AccountGroup } from '../../account-groups';
-import { useNav } from '../nav-context';
+import { useDirtyGuard, useFormChanged, useNav } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
 import { Button, DateField, FormGroup, FormRow, MoneyField, NavBar, Notice, SelectField, Switch, TextAreaField, TextField } from '../ui';
@@ -14,6 +14,7 @@ import { ReadState, useGroups, useWrite, WealthGate } from './shared';
 export function Editor({ account, groups, reloadGroups }: { account: Account | null; groups: AccountGroup[]; reloadGroups: () => void }) {
   const nav = useNav(), s = useSession(), generation = s.data!.summary.generation;
   const [fields,setFields] = useState<AccountFields>(account?.fields ?? {name:'',institution:'',side:'asset',kind:'cash',counted:true,opened_on:s.today,closed_on:null,notes:''});
+  useDirtyGuard(useFormChanged(fields));
   const choice = useRef<boolean | null>(account?.fields.counted ?? null);
   const writer = useWrite(()=>nav.pop()), [newGroup,setNewGroup] = useState(false), [groupName,setGroupName] = useState('');
   

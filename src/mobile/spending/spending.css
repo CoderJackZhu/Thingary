@@ -96,3 +96,4 @@
 .sp-h2{margin:0 0 6px;font-size:17px}
 .sp-goal{padding:8px 0;border-top:1px solid var(--line-soft)}
 .sp-goal p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.sp-more-row{display:block;width:100%;min-height:44px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--accent);font-size:15px;font-weight:600}

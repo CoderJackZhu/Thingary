@@ -165,7 +165,7 @@ export default function Events({
       {picker && onPicker && (
         <Sheet
           title="添加大额支出"
-          doneLabel="取消"
+          cancelLabel="取消"
           onClose={() => onPicker(false)}
         >
           <div className="mp-event-picker">

@@ -11,7 +11,7 @@ import './wishes.css';
 export function DecisionSheet({ kind, item, busy, error, onSubmit, onClose }: { kind: 'drop' | 'reconsider'; item: WishlistItem; busy: boolean; error: string; onSubmit: (note: string) => void; onClose: () => void }) {
   const [note, setNote] = useState(item.decision_note ?? '');
   const drop = kind === 'drop';
-  return <Sheet title={drop ? '不再考虑' : '重新考虑'} onClose={() => { if (!busy) onClose(); }} doneLabel="取消">
+  return <Sheet title={drop ? '不再考虑' : '重新考虑'} onClose={() => { if (!busy) onClose(); }} cancelLabel="取消">
     <div className="w-sheet-stack">
       <p><strong>{drop ? `不再考虑「${item.fields.name}」？` : `重新考虑「${item.fields.name}」？`}</strong></p>
       <p>{drop ? '记录与图片保留，以后可以回看；不会产生支出。' : '回到考虑中；上一次决定备注保留，可在此更正，提醒不会自动恢复。'}</p>
@@ -46,7 +46,7 @@ export function VerifySheet({ item, busy, error, onSubmit, onClose }: { item: Wi
     }
     onSubmit(outcome, note, patch);
   }
-  return <Sheet title="核实这条旧记录" onClose={() => { if (!busy) onClose(); }} doneLabel="取消">
+  return <Sheet title="核实这条旧记录" onClose={() => { if (!busy) onClose(); }} cancelLabel="取消">
     <div className="w-sheet-stack">
       <p>{item.legacy_generated_asset ? '旧版因攒钱达标标为已实现，购入情况尚未确认。' : '旧版已实现记录缺少购入确认来源，请核实。'}不急着处理，它的金额不计入考虑中合计。</p>
       {original && <>

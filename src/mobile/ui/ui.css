@@ -23,7 +23,8 @@
 .m-segmented-compact{padding:2px;border-radius:10px;gap:0;flex:none}
 .m-segmented-compact button{position:relative;flex:none;min-height:32px;padding:0 12px;border-radius:8px;font-size:13px}
 .m-segmented-compact button::after{content:"";position:absolute;inset:-6px -1px}
-.m-fab{position:fixed;z-index:9;right:max(var(--m-gutter),env(safe-area-inset-right,0px));bottom:calc(var(--m-tabbar-h) + 14px);width:56px;height:56px;padding:0;border:0;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 38%,transparent)}
+.m-fab{position:fixed;z-index:9;right:max(var(--m-gutter),env(safe-area-inset-right,0px));bottom:calc(var(--m-tabbar-h) + 14px);width:56px;height:56px;padding:0;border:0;border-radius:50%;background:var(--button-bg,var(--accent));color:var(--button-text,#fff);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 38%,transparent)}
+.m-fab-text{width:auto;min-width:56px;padding:0 20px 0 16px;border-radius:28px;gap:8px;font-size:17px;font-weight:600}
 .m-fab:active{transform:scale(.96)}
 .m-fab:disabled{opacity:.5}
 .m-segmented-chips{background:transparent;padding:0;gap:2px;width:auto}
@@ -134,6 +135,11 @@ button.m-hero,button.m-metric{display:flex}
 .m-money{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;font-variant-numeric:tabular-nums}
 .m-money .currency-input{display:block;flex:1;min-width:0}
 .m-money input{width:100%;min-height:44px;border:0;background:transparent;text-align:right;font:inherit;font-size:16px;padding:8px 6px;color:var(--text)}
+.m-money .currency-signed{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:4px}.m-money .currency-signed small{grid-column:1/-1}
+.currency-sign{min-width:44px;min-height:44px;border:0;border-radius:10px;background:var(--m-fill);color:var(--accent);font-size:20px;font-weight:600;line-height:1}.currency-sign[aria-pressed=true]{background:var(--accent);color:#fff}
+.m-kbbar{position:fixed;left:0;right:0;bottom:var(--m-viewport-bottom,0px);z-index:40;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 max(8px,env(safe-area-inset-left,0px));background:var(--m-glass);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);border-top:.5px solid var(--line)}
+:root[data-keyboard][data-kbbar] .m-main .m-actionbar,:root[data-keyboard][data-kbbar] .mw-fixed{bottom:calc(var(--m-viewport-bottom,0px) + 44px)}
+:root[data-kbbar] .m-sheet-body,:root[data-kbbar] .m-modal{scroll-padding-bottom:140px}
 .m-money small{display:block;color:var(--error);text-align:right;font-size:12px}
 .m-date{display:flex;justify-content:flex-end;width:100%}
 .m-date button{min-height:44px}
@@ -153,8 +159,10 @@ button.m-hero,button.m-metric{display:flex}
 .m-sheet{position:absolute;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;max-height:calc(var(--m-viewport-height,100dvh)*.88);display:flex;flex-direction:column;background:var(--bg);border-radius:var(--m-sheet-radius) var(--m-sheet-radius) 0 0;box-shadow:0 -8px 32px #0003;animation:m-up .28s ease-out}
 :root[data-mode=dark] .m-sheet{background:var(--card)}
 .m-sheet-handle{width:36px;height:5px;border-radius:3px;background:var(--mark);margin:8px auto 0;flex:none}
-.m-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px max(16px,env(safe-area-inset-right,0px)) 4px max(20px,env(safe-area-inset-left,0px));flex:none}
-.m-sheet-head h2{margin:0;font-size:17px;font-weight:600}
+.m-sheet-head{display:grid;grid-template-columns:minmax(64px,1fr) auto minmax(64px,1fr);align-items:center;gap:8px;padding:4px max(16px,env(safe-area-inset-right,0px)) 4px max(20px,env(safe-area-inset-left,0px));flex:none}
+.m-sheet-head h2{margin:0;font-size:17px;font-weight:600;text-align:center;overflow-wrap:anywhere;line-height:1.25;padding:6px 0}
+.m-sheet-side{display:flex;align-items:center;min-width:0}.m-sheet-right{justify-content:flex-end}
+.m-sheet-side .m-navbar-button{white-space:nowrap}
 .m-sheet-body{overflow-y:auto;overscroll-behavior:contain;padding:8px max(20px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
 .m-sheet-body .m-page{min-height:0}
 @keyframes m-up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
@@ -212,3 +220,11 @@ button.m-hero,button.m-metric{display:flex}
 .m-lc-tip small{color:var(--muted);font-size:11px}
 .m-section-head .m-segmented button{color:var(--muted);padding:4px 6px}
 .m-section-head .m-segmented button[aria-pressed=true]{color:var(--text)}
+/* A page with a floating button keeps its last rows clear of it. */
+.m-page:has(> .m-fab){padding-bottom:76px}
+/* Pull to refresh: spinner chip that follows the finger from the top edge. */
+.m-ptr{position:fixed;z-index:8;top:env(safe-area-inset-top,0px);left:50%;width:36px;height:36px;border-radius:50%;background:var(--card);color:var(--accent);box-shadow:0 2px 10px #0002;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.m-ptr-busy span{animation:m-ptr-spin .8s linear infinite;display:inline-flex}
+@keyframes m-ptr-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.m-ptr-busy span{animation-duration:2s}}
+.m-has-fab{padding-bottom:76px}

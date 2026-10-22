@@ -124,7 +124,7 @@ function OptionList({ kind, a }: { kind: Kind; a: Adapter }) {
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
     </Sheet>}
-    {editing?.mode === 'remove' && row && <Sheet title={`移除「${row.name}」`} doneLabel="取消" onClose={close}>
+    {editing?.mode === 'remove' && row && <Sheet title={`移除「${row.name}」`} cancelLabel="取消" onClose={close}>
       <div className="m-page">
         <Notice>{row.refs ? `有 ${row.refs} 条引用（含最近删除与心愿）。选择它们改成什么；不会删除任何物品。` : '没有记录使用它。'}</Notice>
         {row.refs > 0 && <ListGroup title="引用改为">

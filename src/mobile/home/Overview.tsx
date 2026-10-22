@@ -11,7 +11,7 @@ import { useModules } from '../modules-context';
 import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
 import { dayLabel } from '../format';
-import { Button, Card, EmptyState, ErrorState, HeroCard, Icon, IconButton, ListGroup, ListRow, LargeTitle, Loading, Metric, LineChart, Notice } from '../ui';
+import { Button, Card, EmptyState, PullToRefresh, ErrorState, HeroCard, Icon, IconButton, ListGroup, ListRow, LargeTitle, Loading, Metric, LineChart, Notice } from '../ui';
 import type { PageProps } from '../routes';
 import { browserStorage, openRoute, readHideAmounts, writeHideAmounts } from '../me/shared';
 import { installMobileRuntime } from '../me/runtime';
@@ -99,7 +99,7 @@ export default function Overview(_props: PageProps) {
   if (!loaded || !view) return <div className="m-page"><LargeTitle title="总览" actions={actions}/><Loading label="正在读取总览…"/></div>;
 
   const { plan, net, daily } = view;
-  return <div className="m-page">
+  return <PullToRefresh onRefresh={() => setRetry(n => n + 1)}><div className="m-page">
     <LargeTitle title="总览" actions={actions}/>
     {loaded.gate.demo.active && <Card tone="warn" label="样例体验"><div className="h-banner"><span><strong>样例体验</strong> · 虚构资料，改动不影响你的资料</span><Button variant="secondary" disabled={demoBusy} onClick={() => void leaveSample()}>{loaded.gate.demo.started ? '返回我的资料' : '开始记录我的资料'}</Button></div>{demoError && <Notice tone="danger">{demoError}</Notice>}</Card>}
     {error && <Notice tone="danger">更新失败，当前显示上次读取的结果：{error}</Notice>}
@@ -141,5 +141,5 @@ export default function Overview(_props: PageProps) {
         return row.target ? <ListRow key={row.id} {...props} onClick={() => openRoute(nav, row.target!.route, row.target!.params)}/> : <ListRow key={row.id} {...props}/>;
       })}
     </ListGroup>
-  </div>;
+  </div></PullToRefresh>;
 }

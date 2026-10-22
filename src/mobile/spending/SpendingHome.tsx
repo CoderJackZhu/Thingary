@@ -30,7 +30,7 @@ export default function SpendingHome({ params }: PageProps) {
   const seg: Seg = picked && (picked === 'expenses' ? expensesOn : recurringOn) ? picked : wantRecurring && recurringOn ? 'recurring' : expensesOn ? 'expenses' : 'recurring';
   const [key, setKey] = useState<PeriodKey>('year'), [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
   const period = periodOf(key, today, custom);
-  const anyOn = expensesOn || recurringOn;
+  const anyOn = expensesOn || recurringOn, wealthHub = modules ? modules.wealth : true;
   const virtualOn = modules ? modules.virtual : true, reviewOn = modules ? modules.wealth || modules.incomes : true;
   const add = !anyOn ? undefined : seg === 'expenses' ? { label: '记一笔支出', onClick: () => nav.push('spending.expenseEdit') } : { label: '新增周期计划', onClick: () => nav.push('spending.recurringEdit') };
   return <div className="m-page">
@@ -40,7 +40,8 @@ export default function SpendingHome({ params }: PageProps) {
     {!anyOn && <EmptyState icon="info" title="重要支出和周期费用已关闭" message="可以在「我的 › 设置 › 功能模块」重新开启；已有记录不会丢失。"/>}
     {anyOn && seg === 'expenses' && <ExpensesPanel period={period} today={today} key={`e:${JSON.stringify(period)}`}/>}
     {anyOn && seg === 'recurring' && <RecurringPanel period={period} periodKey={key} today={today}/>}
-    {(virtualOn || reviewOn) && <ListGroup title="更多">
+    {/* 虚拟资产 / 财务复盘 live once in the 财富 overview; this list only stands in when that overview is switched off. */}
+    {!wealthHub && (virtualOn || reviewOn) && <ListGroup title="更多">
       {virtualOn && <ListRow icon="doc" title="虚拟资产" subtitle="软件、域名、订阅与储值" onClick={() => nav.push('spending.virtual')}/>}
       {reviewOn && <ListRow icon="chart" title="财务复盘" subtitle="收入记录、期间汇总与年度回顾" onClick={() => nav.push('spending.review')}/>}
     </ListGroup>}
@@ -64,7 +65,7 @@ function ExpensesPanel({ period, today }: { period: FinancePeriod; today: string
     else if (line.source === 'payment') { if (line.plan_id) nav.push('spending.recurring', { id: line.plan_id }); }
     else if (line.source === 'virtual') nav.push('spending.virtualDetail', { id: line.id });
     else if (line.source === 'topup') { if (line.asset_id) nav.push('spending.virtualDetail', { id: line.asset_id }); }
-    else if (line.asset_id) { nav.switchTab('items'); nav.push('items.detail', { id: line.asset_id }); }
+    else if (line.asset_id) nav.push('items.detail', { id: line.asset_id });
   }
   const tappable = (row: ExpenseRow) => row.line.source === 'payment' ? !!row.line.plan_id && (modules ? modules.recurring : true) : row.line.source === 'virtual' || row.line.source === 'topup' ? (modules ? modules.virtual : true) : true;
   return <Loaded read={read} what="重要支出">{result => {
@@ -89,7 +90,7 @@ function ExpensesPanel({ period, today }: { period: FinancePeriod; today: string
               const amount = signedMoney(row);
               return <ListRow key={row.key} title={row.title} subtitle={row.subtitle} value={amount ?? '金额未知'} unknown={amount === null} onClick={tappable(row) ? () => open(row) : undefined}/>;
             })}
-            {rows.length > shown && <div className="sp-more"><button type="button" className="sp-link" onClick={() => setShown(n => n + 40)}>显示更多（还有 {rows.length - shown} 条）</button></div>}
+            {rows.length > shown && <button type="button" className="sp-more-row" onClick={() => setShown(n => n + 40)}>显示更多（还有 {rows.length - shown} 条）</button>}
           </ListGroup>}
       </>}
     </>;

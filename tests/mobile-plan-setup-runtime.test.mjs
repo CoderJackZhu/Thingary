@@ -252,7 +252,7 @@ test("取消 closes at once when nothing changed, and asks 放弃这次修改？
   assert.deepEqual(pops, []);
   const sheet = h.find("Sheet");
   assert.equal(sheet.props.title, "放弃这次修改？");
-  assert.equal(sheet.props.doneLabel, "继续编辑");
+  assert.equal(sheet.props.cancelLabel, "继续编辑");
   h.find("Button", (p) => p.children === "放弃").props.onClick();
   assert.deepEqual(pops, ["closed"]);
   assert.equal(calls.length, 0, "放弃 writes nothing");

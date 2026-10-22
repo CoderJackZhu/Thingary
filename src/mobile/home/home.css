@@ -37,3 +37,7 @@ button.h-plan{border-radius:24px}
 .h-bar-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
 .h-bar-gap{font-size:14px;font-weight:600}
 .h-plan-warn{font-size:12px;color:var(--warn,var(--muted));margin-top:4px}
+
+.h-welcome-links{display:flex;justify-content:center;flex-wrap:wrap;gap:0 4px}
+.h-welcome-link{min-height:44px;padding:0 12px;border:0;background:transparent;color:var(--accent);font-size:15px;font-weight:500}
+.h-welcome-link:disabled{opacity:.5}

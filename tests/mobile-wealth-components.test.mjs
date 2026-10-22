@@ -15,9 +15,9 @@ const a={id:'fictional-cash',revision:2,fields:{name:'虚构储蓄卡',instituti
 function runtime(file,name,props) {
  let cursor=0,slots=[],error='',calls=[],pops=0,frozen=false;
  const session={today:'2026-10-21',data:{summary:{generation:'fictional',points:[]},accounts:[a,b]},reload(){},get navBlocked(){return frozen;}};
- const react={useRef(value){const i=cursor++;return slots[i]??(slots[i]={current:value});},useState(value){const i=cursor++;if(!(i in slots))slots[i]=typeof value==='function'?value():value;return [slots[i],value=>slots[i]=typeof value==='function'?value(slots[i]):value];}};
+ const react={useEffect(){},useRef(value){const i=cursor++;return slots[i]??(slots[i]={current:value});},useState(value){const i=cursor++;if(!(i in slots))slots[i]=typeof value==='function'?value():value;return [slots[i],value=>slots[i]=typeof value==='function'?value(slots[i]):value];}};
  const leaf=new Proxy({}, {get:(_,key)=>key}),jsx=(type,props)=>({type,props});
- const modules={'react':react,'react/jsx-runtime':{jsx,jsxs:jsx},'../../asset':asset,'../format':format,'../../wealth':wealth,'../../currency':currency,'../../holdings':holdings,'../../account-groups':groups,'../../wealth-display':display,'./QuickUpdate':{default:()=>null},'./model':model,'../ui':leaf,'../session':{useSession:()=>session},'../nav-context':{useNav:()=>({pop(){pops++;}})},'@tauri-apps/api/core':{invoke:async()=>null},'./shared':{factText:()=> '虚构原金额',useWrite:()=>({get error(){return error;},get frozen(){return frozen;},setError(v){error=v;},async write(input){if(!frozen)calls.push(input);}})}};
+ const modules={'react':react,'react/jsx-runtime':{jsx,jsxs:jsx},'../../asset':asset,'../format':format,'../../wealth':wealth,'../../currency':currency,'../../holdings':holdings,'../../account-groups':groups,'../../wealth-display':display,'./QuickUpdate':{default:()=>null},'./model':model,'../ui':leaf,'../session':{useSession:()=>session},'../nav-context':{useNav:()=>({pop(){pops++;}}),useDirtyGuard(){},useFormChanged:()=>false},'@tauri-apps/api/core':{invoke:async()=>null},'./shared':{factText:()=> '虚构原金额',useWrite:()=>({get error(){return error;},get frozen(){return frozen;},setError(v){error=v;},async write(input){if(!frozen)calls.push(input);}})}};
  const exports={};
  const code=ts.transpileModule(readFileSync(new URL(`../src/mobile/wealth/${file}.tsx`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  vm.runInNewContext(code,{exports,require:id=>{if(!(id in modules))throw Error(id);return modules[id];},crypto:{randomUUID:()=>`fictional-request-${calls.length}`}});
@@ -37,8 +37,19 @@ test('真实完整盘点处理器：缺项阻止任何写入，填齐后一条�
  assert.equal(h.calls[0].input.entries.length,2);assert.equal(h.calls[0].input.entries[1].amount_cents,'71200');
  assert.equal(h.calls[0].input.entries[0].amount_cents,'0');
  h.setFrozen(true);assert.equal(h.render().find(n=>n.type==='Button'&&n.props.children==='保存本次盘点').props.disabled,true);
- assert.equal(h.render().find(n=>n.type==='NavBar').props.primary.disabled,true);// 右上「保存」与底部同步禁用
- h.setFrozen(false);await h.save();assert.equal(h.calls.length,2);// 右上「保存」与底部「保存本次盘点」是同一个保存
+ assert.equal(h.render().find(n=>n.type==='NavBar').props.primary,undefined);// 只有底部一个保存，右上不再重复
+});
+test('盘点缺项报错：滚到并高亮缺项那一行，行内写明原因；填上后高亮消失',async()=>{
+ const draft={generation:'fictional',date:'2026-10-21',existing:null,rows:[a,b].map(account=>({account,previous:null}))};
+ const h=runtime('CheckIn','Inventory',{draft,groups:[]});
+ const flagged=()=>h.render().filter(n=>/mw-check-flag(\s|$)/.test(n.props?.className??''));
+ assert.equal(flagged().length,0);
+ h.field('USD 本次汇率','7120000');
+ await h.click('保存本次盘点');
+ assert.equal(flagged().length,1,'第一个缺项的账户那一行高亮');
+ assert.ok(h.render().some(n=>n.props?.className==='mw-check-flag-text'&&n.props.role==='alert'));
+ h.field('虚构储蓄卡本次金额','0');
+ assert.equal(flagged().length,0,'填上之后高亮消失');
 });
 test('真实账户编辑处理器：完整外币持仓字段与修订原样保存',async()=>{
  const h=runtime('AccountEdit','Editor',{account:a,groups:[],reloadGroups(){}});

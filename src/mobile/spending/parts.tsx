@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useEntry, useNav } from '../nav-context';
-import { Button, DateField, ErrorState, FormGroup, Icon, IconButton, LargeTitle, Loading, NavBar, Notice, SegmentedControl, Sheet } from '../ui';
+import { Button, DateField, ErrorState, Fab, FormGroup, LargeTitle, Loading, NavBar, Notice, SegmentedControl, Sheet } from '../ui';
 import { periodChoices, periodFromKey } from './model';
 import type { PeriodKey, Tone } from './model';
 import type { FinancePeriod } from '../../finance-contract';
 import type { Read } from './read';
 import './spending.css';
 
-/** Title block of a spending page: back bar plus large title, or just the large title on a tab root. */
+/** Title block of a spending page: back bar plus large title, or just the large title on a tab root. The 新增 action is the floating button at the bottom right. */
 export function Head({ title, subtitle, add }: { title: string; subtitle?: string; add?: { label: string; onClick: () => void; disabled?: boolean } }) {
   const { isRoot } = useEntry();
   return <>
-    {!isRoot && <NavBar right={add && <button type="button" className="m-navbar-button m-navbar-primary" aria-label={add.label} disabled={add.disabled} onClick={add.onClick}>新增</button>}/>}
-    <LargeTitle title={title} subtitle={subtitle} actions={isRoot && add ? <IconButton label={add.label} disabled={add.disabled} onClick={add.onClick}><Icon name="plus"/></IconButton> : undefined}/>
+    {!isRoot && <NavBar/>}
+    <LargeTitle title={title} subtitle={subtitle}/>
+    {add && <Fab label={add.label} disabled={add.disabled} onClick={add.onClick}/>}
   </>;
 }
 
@@ -45,7 +46,7 @@ export function PeriodBar({ today, value, custom, onChange }: { today: string; v
     <div className="sp-period"><span>期间</span>
       <SegmentedControl label="期间" items={periodChoices} value={value} onChange={key => { if (key === 'custom') { setError(''); setEditing(true); } else onChange(key, custom); }}/></div>
     {value === 'custom' && custom && <p className="sp-period-custom">{custom.from} 至 {custom.to}（含两端）<button type="button" className="sp-link" onClick={() => { setFrom(custom.from); setTo(custom.to); setError(''); setEditing(true); }}>修改</button></p>}
-    {editing && <Sheet title="自选日期" onClose={() => setEditing(false)} doneLabel="取消">
+    {editing && <Sheet title="自选日期" onClose={() => setEditing(false)} cancelLabel="取消">
       <div className="sp-sheet-body">
         <FormGroup footer="开始和结束日期都包含在内；结束日期不能早于开始日期。">
           <DateField label="开始日期" value={from} onChange={setFrom} max={to || undefined}/>

@@ -10,7 +10,7 @@ import { contentsText, entryDisplay, recordPendingKey, restoresAsGroup, restores
 import type { TrashEntry, TrashPage } from '../../../unified-trash';
 import { storedTrash } from '../../../Trash';
 import { storedPending, submit } from '../../../wealth';
-import { Button, ChipRow, EmptyState, ErrorState, ListGroup, ListRow, Loading, Notice, Sheet } from '../../ui';
+import { Button, ChipRow, DeleteSheet, EmptyState, ErrorState, ListGroup, ListRow, Loading, Notice, Sheet, SwipeRow } from '../../ui';
 import { SettingsShell } from './Shell';
 import { GroupPurgeSheet, GroupRestoreSheet, RepairSheet } from './TrashLink';
 
@@ -25,6 +25,7 @@ export default function TrashPage() {
   const [error, setError] = useState(''), [loading, setLoading] = useState(true), [retry, setRetry] = useState(0);
   const [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [armed, setArmed] = useState<TrashEntry | null>(null);
   const [groupRestore, setGroupRestore] = useState<{ id: string; name: string } | null>(null), [groupPurge, setGroupPurge] = useState<{ id: string; name: string } | null>(null), [repairing, setRepairing] = useState<{ side: 'virtual' | 'plan'; id: string } | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState<TrashEntry | null>(null);
   const [clearing, setClearing] = useState<{ preview: PurgeAllPreview | null; error: string } | null>(null);
   const [pendingNote, setPendingNote] = useState(() => !!storedTrash() || !!storedRecordTrash());
   const lock = useRef(false);
@@ -131,7 +132,12 @@ export default function TrashPage() {
           {page.items.map(entry => {
             const display = entryDisplay(entry);
             const facts = [display.typeLabel, entry.kind !== 'asset' && entry.asset_name ? `所属：${entry.asset_name}` : '', entry.asset_id ? `状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : '', entry.deleted_at ? `删除于 ${dayLabel(deletedDay(entry.deleted_at))}` : '删除时间未知', ...display.facts, contentsText(entry.contents) ? contentsText(entry.contents) + '，恢复时一起回来' : '', display.parentBlocked ? '所属物品仍在最近删除中，请先恢复所属物品' : ''].filter(Boolean);
-            return <ListRow key={entry.kind + entry.id} icon="trash" tone="danger" title={display.title} subtitle={facts.join(' · ')} onClick={() => setArmed(entry)}/>;
+            const row = <ListRow icon="trash" tone="danger" title={display.title} subtitle={facts.join(' · ')} onClick={() => setArmed(entry)}/>;
+            // 滑动操作与点开后的面板走同一套恢复 / 永久删除逻辑；所属物品还在回收站时先打开面板说明原因。
+            return <SwipeRow key={entry.kind + entry.id} label={`${display.title} 操作`} actions={[
+              { label: '恢复', icon: 'refresh', onAction: () => { if (display.parentBlocked) setArmed(entry); else void restore(entry, page.generation); } },
+              { label: '永久删除', icon: 'trash', tone: 'danger', onAction: () => { if (restoresAsGroup(entry.kind)) setGroupPurge({ id: entry.id, name: display.title }); else setConfirmPurge(entry); } },
+            ]}>{row}</SwipeRow>;
           })}
         </ListGroup>
         {total > pageSize && <nav className="me-pager" aria-label="分页"><Button disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - pageSize))}>上一页</Button><span>第 {Math.floor(offset / pageSize) + 1} 页</span><Button disabled={offset + pageSize >= total} onClick={() => setOffset(n => n + pageSize)}>下一页</Button></nav>}
@@ -149,10 +155,13 @@ export default function TrashPage() {
           : <Button variant="danger" block disabled={busy} onClick={() => void purge(armed, page.generation)}>永久删除（不可恢复）</Button>}
       </div>
     </Sheet>}
+    {confirmPurge && page && <DeleteSheet name={entryDisplay(confirmPurge).title} recoverable={false} busy={busy} onClose={() => setConfirmPurge(null)} onConfirm={() => { const entry = confirmPurge; setConfirmPurge(null); void purge(entry, page.generation); }}>
+      <p className="m-confirm-text">永久删除后不能恢复。</p>
+    </DeleteSheet>}
     {groupRestore && <GroupRestoreSheet groupId={groupRestore.id} name={groupRestore.name} onClose={saved => { setGroupRestore(null); if (saved) reload(); }} onDone={setNotice}/>}
     {groupPurge && <GroupPurgeSheet groupId={groupPurge.id} name={groupPurge.name} onClose={saved => { setGroupPurge(null); if (saved) reload(); }} onDone={setNotice}/>}
     {repairing && <RepairSheet side={repairing.side} id={repairing.id} onClose={saved => { setRepairing(null); if (saved) reload(); }} onDone={setNotice}/>}
-    {clearing && <Sheet title="清空最近删除" doneLabel="取消" onClose={() => { if (!busy) setClearing(null); }}>
+    {clearing && <Sheet title="清空最近删除" cancelLabel="取消" onClose={() => { if (!busy) setClearing(null); }}>
       <div className="m-page">
         {clearing.error ? <Notice tone="danger">{clearing.error}</Notice> : !clearing.preview ? <Loading label="正在读取影响…"/> : <>
           <Notice>将永久清除最近删除里的全部内容，不可恢复。其中关联订阅 {clearing.preview.groups.length} 组，其他 {clearing.preview.other_count} 项。由心愿实现的物品需先永久删除对应心愿，会被保留。</Notice>

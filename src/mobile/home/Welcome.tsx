@@ -84,11 +84,13 @@ export default function Welcome(_props: PageProps) {
     {error && !choosing && <Notice tone="danger">{error}</Notice>}
     <div className="h-welcome-actions">
       <Button variant="primary" block disabled={busy || !generation} onClick={() => setChoosing(true)}>开始记录</Button>
-      <Button block disabled={busy || !generation} onClick={() => void sample()}>先看看样例</Button>
-      <Button variant="plain" block disabled={busy} onClick={fromBackup}>从备份导入</Button>
-      <Button variant="plain" block disabled={busy || !generation} onClick={() => finish(() => undefined)}>跳过</Button>
+      <div className="h-welcome-links">
+        <button type="button" className="h-welcome-link" disabled={busy || !generation} onClick={() => void sample()}>先看看样例</button>
+        <button type="button" className="h-welcome-link" disabled={busy} onClick={fromBackup}>从备份导入</button>
+        <button type="button" className="h-welcome-link" disabled={busy || !generation} onClick={() => finish(() => undefined)}>以后再说</button>
+      </div>
     </div>
-    {choosing && <Sheet title="从哪里开始" doneLabel="取消" onClose={() => { if (!busy) setChoosing(false); }}>
+    {choosing && <Sheet title="从哪里开始" cancelLabel="取消" onClose={() => { if (!busy) setChoosing(false); }}>
       <div className="m-page">
         <ListGroup footer="另一件随时都能再开始；起步时先隐藏周期费用和虚拟资产，可在我的 › 设置 › 功能模块中打开。">
           <ListRow icon="box" title="先整理物品" subtitle="从第一件物品开始建档" disabled={busy} onClick={() => void start('physical')}/>

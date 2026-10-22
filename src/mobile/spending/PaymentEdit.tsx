@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import { moneyText } from '../format';
 import type { Overview, SubscriptionDetailData } from '../../recurring';
@@ -28,6 +29,7 @@ function Form({ overview, detail, due }: { overview: Overview; detail: Subscript
   const record = detail.payments.find(p => p.due_date === due) ?? null;
   const item = [...overview.due, ...overview.upcoming].find(d => d.plan_id === plan.id && d.due_date === due) ?? null;
   const [d, setD] = useState<PaymentDraft>(() => paymentDraft(record, due, item?.amount_cents ?? plan.fields.amount_cents, today)), [problem, setProblem] = useState('');
+  useDirtyGuard(useFormChanged(d));
   const set = (patch: Partial<PaymentDraft>) => { setProblem(''); setD(x => ({ ...x, ...patch })); };
   const coverage = record?.coverage_start && record.coverage_end ? [record.coverage_start, record.coverage_end] : item?.coverage_start && item.coverage_end ? [item.coverage_start, item.coverage_end] : null;
   function save() {

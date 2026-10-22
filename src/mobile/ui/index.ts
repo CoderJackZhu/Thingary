@@ -8,6 +8,7 @@ export type { SwipeAction, Tone } from './Cards';
 export { Button, Switch, ChipRow, FormGroup, FormRow, TextField, TextAreaField, SelectField, MoneyField, DateField } from './Forms';
 export { Sheet } from './Sheet';
 export { Fab } from './Fab';
+export { PullToRefresh } from './PullToRefresh';
 export { ConfirmSheet, DeleteSheet } from './ConfirmSheet';
 export { SearchField } from './SearchField';
 export { EmptyState, UnknownState, ErrorState, Loading, Notice } from './States';

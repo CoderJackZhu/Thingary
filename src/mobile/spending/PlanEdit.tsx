@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from '../../asset';
 import type { Overview, Plan } from '../../recurring';
@@ -33,6 +34,7 @@ function Form({ generation, plan, link }: { generation: string; plan: Plan | nul
   const initial = plan ? planDraftFrom(plan) : blankPlanDraft(today);
   const simple = !!initial;
   const [draft, setDraft] = useState<PlanDraft>(() => initial ?? { name: plan!.fields.name, category: plan!.fields.category, notes: plan!.fields.notes, rent: blankPlanDraft(today).rent, backfill: null });
+  useDirtyGuard(useFormChanged(draft));
   const [problem, setProblem] = useState(''), [asking, setAsking] = useState(false), [late, setLate] = useState(false);
   const linked = link?.relation === 'linked' && !!link.asset;
   const set = (patch: Partial<PlanDraft>) => { setProblem(''); setDraft(d => ({ ...d, ...patch })); };

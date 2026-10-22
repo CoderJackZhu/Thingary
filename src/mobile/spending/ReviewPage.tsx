@@ -176,7 +176,7 @@ function Annual() {
         <Card><h2 className="sp-h2">当时记录的退休规划结论</h2><p className="sp-note">{model.planning.note}</p>
           {(model.planning.conditionsChanged || model.planning.openItems) && <p className="sp-note">规划模式、目标月份或待确认条件可能不同；并列显示原结论，不计算归因变化。</p>}</Card>
         <ListGroup title="复制与隐私">
-          <ListRow title={hidden ? '显示金融金额' : '隐藏金融金额'} subtitle="只影响这个页面的显示" onClick={toggle}/>
+          <ListRow title={hidden ? '显示金融金额' : '隐藏金融金额'} subtitle="所有页面的金融金额都会隐藏" onClick={toggle}/>
           <ListRow title="预览摘要" subtitle="默认隐私版，不含金额" onClick={() => setCopy(!copy)} chevron={false} value={copy ? '收起' : '展开'}/>
         </ListGroup>
         {copy && <pre className="sp-pre" aria-label="区间摘要预览">{annualCopyText(model, false)}</pre>}

@@ -28,3 +28,5 @@ body:has(.m-wealth) .date-calendar .date-calendar-heading .year-select>select,bo
 .m-wealth .m-notice .m-button{display:flex;margin-top:8px}
 .mw-trend{margin-top:12px}
 .mw-sheet-choices{display:flex;flex-direction:column;gap:8px;margin-top:12px}.mw-check-closed{opacity:.72}
+.mw-check-flag{border-radius:14px;padding:10px 12px!important;margin-left:-12px;margin-right:-12px;box-shadow:0 0 0 2px var(--error);background:color-mix(in srgb,var(--error) 8%,transparent)}.mw-check-flag-text{margin:0;color:var(--error);font-size:13px}
+.mw-reason{margin:-4px 4px 0}
