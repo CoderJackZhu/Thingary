@@ -19,7 +19,7 @@
   --m-tint:#ededfc;--m-tint-warn:#fff2e0;--m-orange:#c26a00;
   --surface-border:none;--surface-radius:22px;
   --card-shadow:0 1px 2px rgba(20,20,40,.04),0 8px 24px rgba(20,20,40,.06);--surface-shadow:var(--card-shadow);
-  --hero-tint-1:none;--m-glass:rgba(255,255,255,.78);--m-glass-ring:0 0 0 .5px rgba(20,20,40,.08);--m-float:0 10px 30px rgba(20,20,40,.14);--m-pill-bg:#eeeefd}
+  --hero-tint-1:none;--m-glass:rgba(255,255,255,.78);--m-glass-bar:rgba(255,255,255,.92);--m-glass-ring:0 0 0 .5px rgba(20,20,40,.08);--m-float:0 10px 30px rgba(20,20,40,.14);--m-pill-bg:#eeeefd}
 :root[data-style=bento][data-mode=dark]{
   --bg:#000000;--side:#000000;--card:#1c1c1e;--soft:#2c2c2e;--mark:#3a3a3c;--image:#2c2c2e;
   --text:#f5f5f7;--muted:#a1a1a8;--line:#2c2c2e;--line-soft:#262628;
@@ -27,7 +27,7 @@
   --positive:#30d158;--pos-bg:#30d1581f;--warn:#ff9f0a;--warn-bg:#ff9f0a1f;--error:#ff6961;--danger-bg:#ff453a1f;
   --m-tint:#2b2a55;--m-tint-warn:#ff9f0a1f;--m-orange:#ff9f0a;
   --card-shadow:0 0 0 .5px rgba(255,255,255,.09);--surface-shadow:var(--card-shadow);
-  --m-glass:rgba(28,28,30,.78);--m-glass-ring:0 0 0 .5px rgba(255,255,255,.12);--m-float:0 10px 30px rgba(0,0,0,.5);--m-pill-bg:#2b2a55}
+  --m-glass:rgba(28,28,30,.78);--m-glass-bar:rgba(28,28,30,.93);--m-glass-ring:0 0 0 .5px rgba(255,255,255,.12);--m-float:0 10px 30px rgba(0,0,0,.5);--m-pill-bg:#2b2a55}
 :root[data-mode=dark]{--m-fill-active:#48484a;--m-scrim:rgba(0,0,0,.6);--m-danger-solid:#c4302b}
 *{box-sizing:border-box}
 html,body,#root{margin:0;min-width:0;min-height:100%;width:100%}
@@ -57,7 +57,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* The existing full-inventory toolbar uses fixed positioning instead of ActionBar. */
 :root[data-keyboard] .mw-fixed{bottom:var(--m-viewport-bottom,0px);padding-bottom:12px}
 @keyframes m-rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
-.m-tabbar{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:var(--m-tabbar-bottom);max-width:608px;margin:0 auto;height:var(--m-tabbar-size);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px;border-radius:calc(var(--m-tabbar-size)/2);background:var(--m-glass);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:var(--m-glass-ring),var(--m-float)}
+.m-tabbar{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:var(--m-tabbar-bottom);max-width:608px;margin:0 auto;height:var(--m-tabbar-size);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px;border-radius:calc(var(--m-tabbar-size)/2);background:var(--m-glass-bar,var(--m-glass));-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:var(--m-glass-ring),var(--m-float)}
+/* Rows that scroll under the floating bar fade out instead of being cut off by it. */
+.m-app::after{content:'';position:fixed;left:0;right:0;bottom:0;height:calc(var(--m-tabbar-h) + 18px);background:linear-gradient(to bottom,transparent,var(--bg) 78%);pointer-events:none;z-index:8}
+:root[data-keyboard] .m-app::after{display:none}
 .m-tabbar:has(button:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
 .m-tabbar:has(button:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
 .m-tabbar button{min-height:44px;min-width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:26px;background:transparent;color:var(--muted);padding:0 2px;font-size:10px;font-weight:500;line-height:1.2;width:100%;transition:background .18s}

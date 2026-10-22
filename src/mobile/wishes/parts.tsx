@@ -88,7 +88,7 @@ export function CandidateSheet({ title, intro, legacyId = null, confirmLabel, bu
     finally { if (ticket === run.current) setLoading(false); }
   }
   const choose = (candidate: Candidate) => { if (confirmLabel) setSelected(candidate); else onPick(candidate); };
-  return <Sheet title={title} onClose={onClose} doneLabel="取消">
+  return <Sheet title={title} onClose={onClose} cancelLabel="取消">
     <div className="w-sheet-stack">
       <p>{intro}</p>
       <SearchField subject="物品" value={query} maxLength={200} disabled={busy} onChange={setQuery}/>
@@ -136,7 +136,7 @@ export function IconSheet({ generation, photos, cover, onUse, onClose }: { gener
   const visible = filterMaterials(entries, source, category, search, recent).filter(entry => entry.id !== 'icon-box');
   const own = source === 'custom' ? photos.filter(p => p.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) : [];
   const defaultSelected = !cover;
-  return <Sheet title="图标与素材" onClose={() => { if (!busy) onClose(); }} doneLabel="取消">
+  return <Sheet title="图标与素材" onClose={() => { if (!busy) onClose(); }} cancelLabel="取消">
     <div className="w-sheet-stack">
       <p>给它一个一眼就能认出的样子；素材是示意图，不是实物照片。</p>
       <ChipRow label="图片来源" items={sources} value={source} onChange={id => { setSource(id as MaterialSource); setCategory('全部'); setSearch(''); }}/>

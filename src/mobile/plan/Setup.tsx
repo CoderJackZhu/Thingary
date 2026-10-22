@@ -1019,7 +1019,7 @@ export function Editor({
         </ActionBar>
       )}
       {confirmCancel && (
-        <Sheet title="放弃这次修改？" doneLabel="继续编辑" onClose={() => setConfirmCancel(false)}>
+        <Sheet title="放弃这次修改？" cancelLabel="继续编辑" onClose={() => setConfirmCancel(false)}>
           <div className="m-confirm">
             <p className="m-confirm-text">已填的内容还没有保存，放弃后会丢失。</p>
             <Button variant="danger" block onClick={() => nav.pop()}>

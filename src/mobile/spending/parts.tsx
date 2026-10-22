@@ -45,7 +45,7 @@ export function PeriodBar({ today, value, custom, onChange }: { today: string; v
     <div className="sp-period"><span>期间</span>
       <SegmentedControl label="期间" items={periodChoices} value={value} onChange={key => { if (key === 'custom') { setError(''); setEditing(true); } else onChange(key, custom); }}/></div>
     {value === 'custom' && custom && <p className="sp-period-custom">{custom.from} 至 {custom.to}（含两端）<button type="button" className="sp-link" onClick={() => { setFrom(custom.from); setTo(custom.to); setError(''); setEditing(true); }}>修改</button></p>}
-    {editing && <Sheet title="自选日期" onClose={() => setEditing(false)} doneLabel="取消">
+    {editing && <Sheet title="自选日期" onClose={() => setEditing(false)} cancelLabel="取消">
       <div className="sp-sheet-body">
         <FormGroup footer="开始和结束日期都包含在内；结束日期不能早于开始日期。">
           <DateField label="开始日期" value={from} onChange={setFrom} max={to || undefined}/>

@@ -43,3 +43,9 @@ export function rateSuggestions(draft: { rate_suggestions?:Record<string,{rate:s
  }
  return result;
 }
+
+/** Toggle a leading minus in the text being typed (the ± button of a signed field on a keyboard without a minus key). */
+export function flipSign(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.startsWith('-') ? trimmed.slice(1) : `-${trimmed}`;
+}

@@ -105,13 +105,13 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
     {(loadError || error) && <div className="me-pad"><Notice tone="danger">{error || `备份安全状态读取失败：${loadError}`}</Notice></div>}
     {task.activeTask && <div className="me-pad"><Button onClick={() => void task.cancel()} disabled={!!task.notice}>取消本次加密备份</Button>{task.notice && <p role="status" className="me-hint">{task.notice}</p>}</div>}
 
-    {plaintext && status && <Sheet title={status.state === 'enabled' ? '关闭加密备份？' : status.state === 'needs_attention' ? '修复为明文？' : '今后的备份将为明文？'} doneLabel="取消" onClose={() => setPlaintext(false)}>
+    {plaintext && status && <Sheet title={status.state === 'enabled' ? '关闭加密备份？' : status.state === 'needs_attention' ? '修复为明文？' : '今后的备份将为明文？'} cancelLabel="取消" onClose={() => setPlaintext(false)}>
       <div className="m-page">
         <Notice>云盘或外接盘上只会得到未加密的备份文件。已有的加密备份不会被删除或改写，仍需要对应的恢复密钥才能打开。自动备份开关保持现状。</Notice>
         <Button variant="danger" block disabled={disabled} onClick={() => { setPlaintext(false); void run(() => invoke<SecurityStatus>(status.state === 'enabled' ? 'backup_security_disable' : 'backup_security_choose_plaintext')); }}>确认{status.state === 'enabled' ? '关闭加密' : status.state === 'needs_attention' ? '修复为明文' : '继续明文'}</Button>
       </div>
     </Sheet>}
-    {fromKey && <Sheet title="用恢复密钥启用" doneLabel="取消" onClose={() => { if (!busy) closeSetup(); }}>
+    {fromKey && <Sheet title="用恢复密钥启用" cancelLabel="取消" onClose={() => { if (!busy) closeSetup(); }}>
       <div className="m-page">
         <Notice>重新输入恢复密钥进行验证。应用只保存派生的公钥，不保留这份私钥。</Notice>
         <KeyInput value={enableKey} onChange={setEnableKey} disabled={disabled}/>
@@ -119,7 +119,7 @@ export default function Security({ demo, blocked, onStatusChange, onBusyChange }
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
     </Sheet>}
-    {setup && <Sheet title={status?.state === 'enabled' ? '轮换恢复密钥' : '启用加密备份'} doneLabel="取消" onClose={() => { if (!busy) closeSetup(true); }}>
+    {setup && <Sheet title={status?.state === 'enabled' ? '轮换恢复密钥' : '启用加密备份'} cancelLabel="取消" onClose={() => { if (!busy) closeSetup(true); }}>
       <div className="m-page">
         <Notice>下面是这次生成的恢复密钥，只显示一次。丢失后无法找回，也无法解密已生成的备份；请勿与备份文件存放在一起。</Notice>
         <FormGroup footer={`公钥标识 ${setup.recipient_id.slice(0, 8)}（界面只显示前 8 位）`}><p className="me-key" aria-label="恢复密钥">{setup.recovery_key}</p></FormGroup>

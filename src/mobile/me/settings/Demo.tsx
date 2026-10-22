@@ -43,7 +43,7 @@ export default function DemoPage() {
       {blocked && <Notice>请先完成当前操作或核对保存结果，再切换或重置样例。</Notice>}
       {error && <Notice tone="danger">{error}</Notice>}
     </>}
-    {confirm && !pending && <Sheet title="重置样例" doneLabel="取消" onClose={() => { if (!busy) setConfirm(false); }}>
+    {confirm && !pending && <Sheet title="重置样例" cancelLabel="取消" onClose={() => { if (!busy) setConfirm(false); }}>
       <div className="m-page">
         <Notice>样例中的编辑和删除会清除，恢复为以今天为基准的完整虚构资料。</Notice>
         <Button variant="danger" block disabled={busy || blocked} onClick={() => void run('reset')}>{busy ? '正在重置…' : '确认重置样例'}</Button>

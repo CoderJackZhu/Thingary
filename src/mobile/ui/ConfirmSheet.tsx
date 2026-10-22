@@ -6,13 +6,14 @@ import { Notice } from './States';
 /**
  * Bottom sheet that asks before something is saved or changed; shows the error of a failed attempt.
  * `busy` disables the button and swaps its text for `busyLabel`; the sheet cannot be dismissed while busy.
+ * The 取消 button sits top left (`cancelLabel` renames it, e.g. 继续编辑); the full-width button below is the only submit.
  * For deletions use {@link DeleteSheet}, which fixes the wording.
  */
-export function ConfirmSheet({ title, message, confirm, danger, busy, busyLabel = '正在保存…', error, onConfirm, onClose, children, disabled }: {
-  title: string; message?: ReactNode; confirm: string; danger?: boolean; busy: boolean; busyLabel?: string; error?: string;
+export function ConfirmSheet({ title, message, confirm, danger, busy, busyLabel = '正在保存…', error, onConfirm, onClose, children, disabled, cancelLabel = '取消' }: {
+  title: string; cancelLabel?: string; message?: ReactNode; confirm: string; danger?: boolean; busy: boolean; busyLabel?: string; error?: string;
   onConfirm: () => void; onClose: () => void; children?: ReactNode; disabled?: boolean;
 }) {
-  return <Sheet title={title} onClose={() => { if (!busy) onClose(); }} doneLabel="取消">
+  return <Sheet title={title} onClose={() => { if (!busy) onClose(); }} cancelLabel={cancelLabel}>
     <div className="m-confirm">
       {message && <p className="m-confirm-text">{message}</p>}
       {children}
