@@ -4,7 +4,7 @@ import { ModulesProvider, useModules } from './modules-context';
 import { EntryProvider, NavProvider, useNavState } from './nav-context';
 import type { InitialRoute } from './nav-context';
 import { activeStack } from './nav';
-import { routeDef, routeKind, visibleSegments, visibleTabs } from './routes';
+import { routeDef, routeKind, tabDef, visibleSegments, visibleTabs } from './routes';
 import { SessionProvider, useSession } from './session';
 import { ErrorBoundary } from './ErrorBoundary';
 import { pageFor } from './router';
@@ -72,7 +72,7 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
   const covered = overlays.length > 0, locked = !!session.pending;
   return <div className="m-app">
     <main id="mobile-content" className="m-main" tabIndex={-1} ref={main} inert={covered || locked} data-tab={state.tab}>
-      {baseEntry.id === stack[0].id && segments.length > 1 && <div className="m-segment-bar"><SegmentedControl label="分段" items={segments.map(segment => ({ id: segment.route, label: segment.label }))} value={segments.some(segment => segment.route === baseEntry.route) ? baseEntry.route : segments[0].route} onChange={route => nav.setSegment(route)}/></div>}
+      {baseEntry.id === stack[0].id && segments.length > 1 && !tabDef(state.tab).inlineSegments && <div className="m-segment-bar"><SegmentedControl label="分段" items={segments.map(segment => ({ id: segment.route, label: segment.label }))} value={segments.some(segment => segment.route === baseEntry.route) ? baseEntry.route : segments[0].route} onChange={route => nav.setSegment(route)}/></div>}
       <Page key={baseEntry.id} stack={stack} index={base}/>
     </main>
     {overlays.map((entry, i) => {

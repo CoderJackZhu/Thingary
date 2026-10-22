@@ -32,6 +32,8 @@ test('标签顺序和文字照设计稿，分段路由属于同一标签且不�
   assert.deepEqual(tabDef('items').segments.map(s => s.label), ['物品', '心愿', '统计']);
   assert.deepEqual(tabDef('wealth').segments.map(s => s.label), ['概览', '账户', '盘点记录']);
   assert.deepEqual(tabDef('plan').segments.map(s => s.label), ['目标', '测算详情', '试算']);
+  assert.equal(tabDef('items').inlineSegments, true, '物品标签的分段开关画在大标题行里');
+  assert.equal(tabDef('wealth').inlineSegments, undefined);
   assert.equal(isRootRoute('items.detail'), false);
 });
 test('模块全开显示五个标签；未读到开关时也全部显示', () => {

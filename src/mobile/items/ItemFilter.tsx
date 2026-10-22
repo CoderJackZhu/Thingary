@@ -11,10 +11,13 @@ import './items.css';
 export default function ItemFilter() {
   const nav=useNav(), query=useItemQuery();
   const draft=query, setDraft=setItemQuery;
-  const [tags,setTags]=useState<Choice[]>([]),[error,setError]=useState(''),[retry,setRetry]=useState(0);
+  const [categories,setCategories]=useState<{id:string;name:string}[]>([]),[tags,setTags]=useState<Choice[]>([]),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{ let live=true; invoke<{items:Choice[]}>('choice_list',{kind:'label'}).then(r=>{if(live)setTags(r.items);}).catch(e=>{if(live)setError(errorMessage(e));});return()=>{live=false;};},[retry]);
+  useEffect(()=>{ let live=true; invoke<{categories:{id:string;name:string}[]}>('taxonomy_snapshot').then(r=>{if(live)setCategories(r.categories);}).catch(()=>{}); return()=>{live=false;};},[retry]);
+  const categoryId=draft.category?.mode==='category'?draft.category.id:draft.category?.mode==='uncategorized'?'none':'all';
   return <div className="mi-filter">
     <FormGroup title="筛选">
+      <SelectField label="分类" value={categoryId} onChange={id=>setDraft({...draft,category:id==='all'?{mode:'all'}:id==='none'?{mode:'uncategorized'}:{mode:'category',id}})} options={[{id:'all',label:'全部'},...categories.map(c=>({id:c.id,label:c.name})),{id:'none',label:'未分类'}]}/>
       <SelectField label="保障" value={draft.warranty??'all'} onChange={warranty=>setDraft({...draft,warranty})} options={[['all','全部'],['covered','有有效保障'],['expiring','即将到期'],['lapsed','有记录，当前无有效保障'],['none','无保障记录']].map(([id,label])=>({id,label}))}/>
       <SelectField label="缺失资料" value={['missing_price','missing_date'].includes(draft.filter)?draft.filter:'all'} onChange={filter=>setDraft({...draft,filter:filter==='all' ? (['missing_price','missing_date'].includes(query.filter)?'all':query.filter) : filter})} options={[{id:'all',label:'不限'},{id:'missing_price',label:'金额未知'},{id:'missing_date',label:'日期未知'}]}/>
       <SelectField label="标签" value={draft.label??''} onChange={label=>setDraft({...draft,label:label||null})} options={[{id:'',label:'全部'},{id:'none',label:'无标签'},...labelFilterOptions(tags).map(t=>({id:t.id,label:t.text}))]}/>

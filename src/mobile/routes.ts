@@ -91,6 +91,8 @@ export type TabDef = {
   /** Root page when the tab has no visible segment, or no segments at all. */
   root: RouteName;
   segments?: Segment[];
+  /** Pages draw the segment switch themselves, compactly inside their LargeTitle, instead of the shell's full-width bar. */
+  inlineSegments?: boolean;
   /** Hidden when every one of these is off; planning and finance use their own rules below. */
   visible?: (modules: ModuleFlags) => boolean;
 };
@@ -100,7 +102,7 @@ export type ModuleFlags = Modules & { incomes?: boolean };
 // Order, labels and icons follow design mockup 01. 物品、总览、我的 are always shown.
 export const tabs: TabDef[] = [
   { id: 'overview', label: '总览', root: 'home.overview' },
-  { id: 'items', label: '物品', root: 'items.list', segments: [
+  { id: 'items', label: '物品', root: 'items.list', inlineSegments: true, segments: [
     { label: '物品', route: 'items.list' }, { label: '心愿', route: 'wishes.list', module: 'wishlist' }, { label: '统计', route: 'items.stats', module: 'stats' }] },
   { id: 'wealth', label: '财富', root: 'spending.home', visible: m => !financeOff(m), segments: [
     { label: '概览', route: 'wealth.overview', module: 'wealth' }, { label: '账户', route: 'wealth.accounts', module: 'wealth' }, { label: '盘点记录', route: 'wealth.snapshots', module: 'wealth' }] },

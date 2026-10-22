@@ -55,7 +55,7 @@ export default function WishList(_: PageProps) {
   const filtered = isFiltered(query);
 
   return <div className="m-page">
-    <LargeTitle title="心愿" actions={<IconButton label="添加心愿" disabled={blocked || !taxonomy.data} onClick={add}><Icon name="plus"/></IconButton>}/>
+    <LargeTitle title="心愿" segments actions={<IconButton label="添加心愿" disabled={blocked || !taxonomy.data} onClick={add}><Icon name="plus"/></IconButton>}/>
     <div className="w-stack">
       <ReceiptCards ops={receipts.all} busy={receipts.busy} notice={receipts.notice} onResolve={op => void receipts.resolve(op)}/>
       <SearchField subject="心愿" value={searchText} onChange={setSearchText}/>

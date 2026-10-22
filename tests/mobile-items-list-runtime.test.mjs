@@ -20,7 +20,7 @@ function session() {
 async function listRuntime({ idsResponse, countsGeneration = () => generation } = {}) {
   let query = list.initialQuery();
   const assets = [record('a'), record('b', 'retired')], calls = [], s = session();
-  const r = runtime('mobile/items/ItemList', {}, undefined, undefined, { exportName: 'default', components: [], globals: { IntersectionObserver: class { observe() {} disconnect() {} } }, modules: {
+  const r = runtime('mobile/items/ItemList', {}, undefined, undefined, { exportName: 'default', components: [], globals: { IntersectionObserver: class { observe() {} disconnect() {} }, window: { setTimeout, clearTimeout } }, modules: {
     './asset': asset, './mobile/format': format, './preferences': preferences, './lifecycle': lifecycle, './collection-navigation': navigation, './batch-select': batch, './mobile/items/list-model': list,
     './mobile/items/list-store': { useItemQuery: () => query, setItemQuery: change => { query = list.changeQuery(query, change); } },
     './mobile/items/ItemBatch': { __esModule: true, default: 'ItemBatch' },
@@ -29,15 +29,69 @@ async function listRuntime({ idsResponse, countsGeneration = () => generation } 
       if (command === 'list_assets') { const items = args.query.filter === 'retired' ? assets.filter(a => a.lifecycle.state === 'retired') : assets; return { generation, today: day, total: items.length, items }; }
       if (command === 'asset_counts') return { generation: countsGeneration(), all: 2, active: 1, retired: 1, sold: 0 };
       if (command === 'taxonomy_snapshot') return { generation, categories: [], channels: [] };
-      if (command === 'overview') return { generation, today: day, held_daily: { known_cents: '200', included_count: 2, unknown_count: 0, per_use_count: 0, excluded_count: 0 } };
+      if (command === 'overview') return { generation, today: day, held_count: 2, held_known_cents: '20000', held_unknown_price_count: 0, sold_count: 1, held_daily: { known_cents: '200', included_count: 2, unknown_count: 0, per_use_count: 0, excluded_count: 0 } };
       if (command === 'asset_ids') return idsResponse ? await idsResponse(args) : ['a', 'b'];
       throw new Error('unexpected ' + command);
     } },
   } });
   await r.settle();
-  const toggleSelecting = () => { r.find('LargeTitle').props.actions.props.children[0].props.onClick(); r.render(); };
+  const toggleSelecting = () => { r.find('IconButton', p => p.label === '批量选择').props.onClick(); r.render(); };
   return { r, calls, session: s, toggleSelecting };
 }
+
+test('mobile list: batch-select icon button replaces the text button, FAB replaces the title plus, both follow selection', async () => {
+  const { r, toggleSelecting } = await listRuntime();
+  assert.equal(r.find('LargeTitle').props.actions, undefined, 'title row has no 选择 or + button');
+  assert.equal(r.find('LargeTitle').props.segments, true);
+  assert.equal(r.find('IconButton', p => p.label === '新增物品'), undefined);
+  assert.equal(button(r, '选择'), undefined);
+  assert.equal(r.find('IconButton', p => p.label === '批量选择').props.pressed, false);
+  assert.equal(r.find('Fab').props.label, '新增物品'); assert.equal(r.find('Fab').props.hidden, false);
+  toggleSelecting();
+  assert.equal(r.find('IconButton', p => p.label === '批量选择').props.pressed, true);
+  assert.equal(r.find('Fab').props.hidden, true, 'FAB hides while selecting');
+  toggleSelecting(); assert.equal(r.find('Fab').props.hidden, false);
+  r.unmount();
+});
+
+test('mobile list: search is a hidden field behind the magnifier, shown with 取消, kept while a query is active', async () => {
+  const { r } = await listRuntime();
+  assert.equal(r.find('SearchField'), undefined);
+  r.find('IconButton', p => p.label === '搜索').props.onClick(); r.render();
+  assert.equal(r.find('SearchField').props.autoFocus, true);
+  const cancel = r.nodes().find(n => n.type === 'button' && r.text(n) === '取消'); assert.ok(cancel);
+  r.find('SearchField').props.onChange('键盘'); r.render();
+  cancel.props.onClick(); r.render();
+  assert.equal(r.find('SearchField'), undefined);
+  r.find('SearchField'); r.unmount();
+});
+
+test('mobile list: long-pressing a row enters selection with that row selected', async () => {
+  const { r } = await listRuntime();
+  const wrap = r.nodes().find(n => n.type === 'div' && n.props.onPointerDown && n.props.onContextMenu);
+  wrap.props.onPointerDown({ clientX: 10, clientY: 10 });
+  await new Promise(resolve => setTimeout(resolve, 650)); r.render();
+  assert.equal(selectedCount(r), '已选 1 件');
+  assert.equal(r.find('IconButton', p => p.label === '批量选择').props.pressed, true);
+  r.unmount();
+});
+
+test('mobile list: a short press or a drag does not start selection', async () => {
+  const { r } = await listRuntime();
+  const wrap = r.nodes().find(n => n.type === 'div' && n.props.onPointerDown && n.props.onContextMenu);
+  wrap.props.onPointerDown({ clientX: 10, clientY: 10 }); wrap.props.onPointerUp();
+  wrap.props.onPointerDown({ clientX: 10, clientY: 10 }); wrap.props.onPointerMove({ clientX: 40, clientY: 10 });
+  await new Promise(resolve => setTimeout(resolve, 650)); r.render();
+  assert.equal(selectedCount(r), undefined);
+  r.unmount();
+});
+
+test('mobile list: the summary card shows held total, daily cost and counts from the held overview', async () => {
+  const { r } = await listRuntime();
+  const text = r.text(r.find('Card', p => p.label === '持有物品摘要'));
+  assert.match(text, /持有物品总价/); assert.match(text, /¥200/); assert.match(text, /日均成本/); assert.match(text, /持有数量/); assert.match(text, /2 件/); assert.match(text, /1 件已售/);
+  r.unmount();
+});
 
 test('mobile list all-selection discards a late result after changing the status filter', async () => {
   const pending = deferred();

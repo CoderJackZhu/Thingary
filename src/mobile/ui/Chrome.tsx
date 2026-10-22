@@ -1,10 +1,20 @@
 import type { ReactNode } from 'react';
-import { useEntry, useNav } from '../nav-context';
+import { useEntry, useNav, useNavState } from '../nav-context';
+import { useModules } from '../modules-context';
+import { visibleSegments } from '../routes';
 import { Icon } from './Icon';
 
 /** Large page title (32px) with optional round icon buttons or a primary button on the right. Use it first on a tab root. */
-export function LargeTitle({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
-  return <header className="m-large-title"><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{actions && <div className="m-large-actions">{actions}</div>}</header>;
+export function LargeTitle({ title, subtitle, actions, segments }: { title: string; subtitle?: string; actions?: ReactNode; /** Show the tab's segment switch (物品 / 心愿 / 统计) compactly to the right of the title. Tab roots only. */ segments?: boolean }) {
+  return <header className="m-large-title"><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{(segments || actions) && <div className="m-large-actions">{actions}{segments && <SegmentSwitch/>}</div>}</header>;
+}
+
+/** The tab's segment switch as a compact control for the LargeTitle row. Renders nothing off a tab root or with one segment. */
+export function SegmentSwitch() {
+  const { state, nav } = useNavState(), { entry, isRoot } = useEntry(), { modules } = useModules();
+  const items = visibleSegments(state.tab, modules);
+  if (!isRoot || items.length < 2) return null;
+  return <SegmentedControl variant="compact" label="分段" items={items.map(segment => ({ id: segment.route, label: segment.label }))} value={items.some(segment => segment.route === entry.route) ? entry.route : items[0].route} onChange={route => nav.setSegment(route)}/>;
 }
 
 /** Round white 44px icon button for LargeTitle actions. `label` is its accessible name. */
@@ -39,7 +49,7 @@ export function NavBar({ title, primary, back, cancelLabel = '取消', onCancel,
 }
 
 /** Top segmented control (物品 / 心愿 / 统计). Tab roots get it from the shell; use it directly for in-page switches. */
-export function SegmentedControl<T extends string>({ items, value, onChange, label, variant }: { items: { id: T; label: string }[]; value: T; onChange: (id: T) => void; label: string; /** `chips`: borderless pills with a tinted selected state, for range pickers inside a card. */ variant?: 'chips' }) {
+export function SegmentedControl<T extends string>({ items, value, onChange, label, variant }: { items: { id: T; label: string }[]; value: T; onChange: (id: T) => void; label: string; /** `chips`: borderless pills with a tinted selected state, for range pickers inside a card. `compact`: short 32px control (hit area stays 44px) for title rows and toolbars. */ variant?: 'chips' | 'compact' }) {
   return <div className={`m-segmented${variant ? ` m-segmented-${variant}` : ''}`} role="group" aria-label={label}>{items.map(item => <button key={item.id} type="button" aria-pressed={item.id === value} onClick={() => onChange(item.id)}>{item.label}</button>)}</div>;
 }
 
