@@ -177,7 +177,7 @@ export default function Data({ params }: PageProps) {
       <p className="m-group-footer">完整备份包含物品、维护、保障、心愿、账户与盘点、支出、周期计划、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p>
     </>}
 
-    {candidate?.encrypted && <Sheet title="加密备份" doneLabel="取消" onClose={() => { if (!busy) void cancelCandidate(); }}>
+    {candidate?.encrypted && <Sheet title="加密备份" cancelLabel="取消" onClose={() => { if (!busy) void cancelCandidate(); }}>
       <div className="m-page">
         <Notice>「{candidate.name}」是加密备份。输入对应的恢复密钥后才能检查内容；密钥只在本次解密中使用，不会保存。</Notice>
         <FormGroup><TextAreaField label="恢复密钥" rows={2} value={unlockKey} disabled={busy} placeholder="AGE-SECRET-KEY-1…" onChange={setUnlockKey}/></FormGroup>
@@ -187,7 +187,7 @@ export default function Data({ params }: PageProps) {
         {state.kind === 'error' && <Notice tone="danger">{state.text}</Notice>}
       </div>
     </Sheet>}
-    {candidate && !candidate.encrypted && candidate.summary && <Sheet title="替换当前资料？" doneLabel="取消" onClose={() => { if (!busy && !restoreUnknown) void cancelCandidate(); }}>
+    {candidate && !candidate.encrypted && candidate.summary && <Sheet title="替换当前资料？" cancelLabel="取消" onClose={() => { if (!busy && !restoreUnknown) void cancelCandidate(); }}>
       <div className="m-page">
         <Notice tone="danger">用「{candidate.name}」替换当前全部资料？备份时间 {restoreTime(candidate.summary)} · 格式版本 {candidate.summary.schema}</Notice>
         <ListGroup title="这个备份包含">{restoreLines(candidate.summary).map(line => <ListRow key={line} title={line}/>)}</ListGroup>

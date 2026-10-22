@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import { pendingSubscriptionStart } from '../../recurring';
 import type { Plan, SubscriptionDetailData } from '../../recurring';
@@ -27,6 +28,7 @@ export default function PlanResume({ params }: PageProps) {
 function Form({ plan, link }: { plan: Plan; link: LinkView }) {
   const { today } = useSession(), saver = useSaver(), pending = pendingSubscriptionStart(plan, today);
   const [d, setD] = useState<ResumeDraft>(() => resumeDraft(plan, pending, today)), [problem, setProblem] = useState('');
+  useDirtyGuard(useFormChanged(d));
   const set = (patch: Partial<ResumeDraft>) => { setProblem(''); setD(x => ({ ...x, ...patch })); };
   const { minimum } = resumeContext(plan, pending);
   function save() {

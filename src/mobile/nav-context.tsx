@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { HistorySync } from './history';
+import { DirtyRegistry, changedSince, discardMessage, discardTitle, snapshot } from './dirty';
+import { ConfirmSheet } from './ui/ConfirmSheet';
 import { activeStack, initialNav, navReducer } from './nav';
 import type { Entry, NavState } from './nav';
 import { routeDef, routeKind, tabRoot } from './routes';
@@ -11,8 +13,13 @@ export type Nav = {
   tab: TabId;
   /** Open a page, modal or sheet by registered route name; its kind decides how it appears. */
   push: (route: RouteName, params?: Params, options?: { title?: string }) => void;
-  /** Go back one page, or dismiss the top modal or sheet. */
+  /** Go back one page, or dismiss the top modal or sheet. Never asks: use it after a save. */
   pop: () => void;
+  /**
+   * The user's own way out (取消, a swipe back): like `pop`, but when the page reported unsaved changes
+   * with {@link useDirtyGuard} it first asks 「放弃这次修改？」.
+   */
+  close: () => void;
   /** Swap the top entry (for example after saving a new item, open its detail instead of the form). */
   replace: (route: RouteName, params?: Params) => void;
   popToRoot: () => void;
@@ -24,6 +31,7 @@ export type Nav = {
 };
 export type NavValue = { state: NavState; nav: Nav };
 const NavContext = createContext<NavValue | null>(null);
+const DirtyContext = createContext<DirtyRegistry | null>(null);
 const EntryContext = createContext<{ entry: Entry; index: number; stack: Entry[] } | null>(null);
 
 export type InitialRoute = { tab?: TabId; route?: RouteName; params?: Params };
@@ -38,9 +46,12 @@ export function NavProvider({ children, modules, blocked, initial }: { children:
   const live = useRef({ state, blocked, modules });
   live.current = { state, blocked, modules };
   const sync = useRef<HistorySync | null>(null);
+  const dirty = useRef(new DirtyRegistry()), [asking, setAsking] = useState(false);
+  const topIsDirty = () => dirty.current.isDirty(activeStack(live.current.state).at(-1)?.id);
   useEffect(() => {
     const history = new HistorySync(window.history, steps => {
       if (live.current.blocked) return false;
+      if (topIsDirty()) { setAsking(true); return false; }
       dispatch({ type: 'pop', count: steps });
       return true;
     });
@@ -54,6 +65,11 @@ export function NavProvider({ children, modules, blocked, initial }: { children:
     push: (route, params, options) => { if (live.current.blocked) return; dispatch({ type: 'push', route, params, title: options?.title }); sync.current?.push(); },
     pop: () => {
       if (live.current.blocked || activeStack(live.current.state).length < 2) return;
+      dispatch({ type: 'pop' }); sync.current?.back();
+    },
+    close: () => {
+      if (live.current.blocked || activeStack(live.current.state).length < 2) return;
+      if (topIsDirty()) { setAsking(true); return; }
       dispatch({ type: 'pop' }); sync.current?.back();
     },
     replace: (route, params) => { if (!live.current.blocked) dispatch({ type: 'replace', route, params }); },
@@ -73,7 +89,33 @@ export function NavProvider({ children, modules, blocked, initial }: { children:
     setSegment: route => { if (!live.current.blocked) dispatch({ type: 'root', route }); },
   }), [state.tab, blocked]);
   const value = useMemo(() => ({ state, nav }), [state, nav]);
-  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
+  const discard = () => { setAsking(false); nav.pop(); };
+  return <NavContext.Provider value={value}><DirtyContext.Provider value={dirty.current}>{children}
+    {asking && <ConfirmSheet title={discardTitle} message={discardMessage} confirm="放弃" cancelLabel="继续编辑" danger busy={false} onConfirm={discard} onClose={() => setAsking(false)}/>}
+  </DirtyContext.Provider></NavContext.Provider>;
+}
+
+/**
+ * Report whether the form on this page has unsaved changes. While `dirty` is true, 取消 and a swipe back ask
+ * 「放弃这次修改？」 (放弃 / 继续编辑) instead of closing. Call it once per modal page; saving closes with `nav.pop()`, which never asks.
+ */
+export function useDirtyGuard(dirty: boolean): void {
+  const registry = useContext(DirtyContext), entry = useContext(EntryContext)?.entry;
+  const id = entry?.id;
+  useEffect(() => {
+    if (!registry || id === undefined) return;
+    registry.set(id, dirty);
+    return () => registry.clear(id);
+  }, [registry, id, dirty]);
+}
+/**
+ * Dirty flag for a form value: false until the first loaded (non-null) value, then true whenever the value differs from it.
+ * Pass the form's whole editable state, or `null` while it is still loading. `useDirtyGuard(useFormChanged(fields))`.
+ */
+export function useFormChanged(value: unknown): boolean {
+  const baseline = useRef<string | null>(null);
+  if (baseline.current === null && value != null) baseline.current = snapshot(value);
+  return changedSince(baseline.current, value);
 }
 
 export function useNavState(): NavValue {

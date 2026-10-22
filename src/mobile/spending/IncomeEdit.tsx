@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import { incomeCategories, isInvestmentIncome } from '../../income-classification';
 import type { Income, IncomeFields, IncomeList } from '../../plan';
@@ -26,6 +27,7 @@ export default function IncomeEdit({ params }: PageProps) {
 function Form({ generation, income, hpfDefault }: { generation: string; income: Income | null; hpfDefault: string }) {
   const { today } = useSession(), saver = useSaver();
   const [f, setF] = useState<IncomeFields>(() => income?.fields ?? blankIncome(today, hpfDefault)), [problem, setProblem] = useState(''), [asking, setAsking] = useState(false);
+  useDirtyGuard(useFormChanged(f));
   const [confirmed, setConfirmed] = useState(false), [edited, setEdited] = useState(false);
   const set = (patch: Partial<IncomeFields>) => { setProblem(''); setF(x => ({ ...x, ...patch })); };
   const investment = isInvestmentIncome(f), changed = investment && !isInvestmentIncome(income?.fields ?? {}) && f.hpf_cents !== null;

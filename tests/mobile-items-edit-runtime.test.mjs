@@ -21,7 +21,7 @@ function sessionState() {
 function leaves(session, nav, invoke, submit) {
   return { './asset': asset, './mobile/format': format, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model, './asset-editor-layout': layout, './mobile/items/glyphs': { Glyph() {} }, './mobile/items/PhotoViewer': { PhotoThumbs: 'PhotoThumbs', PhotoViewer: 'PhotoViewer' },
     './NotificationNotice': { allowReminders: async () => {} }, './materials': { materialArt: () => '<svg/>' },
-    './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => nav },
+    './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => nav, useDirtyGuard() {}, useFormChanged: () => false },
     './wealth': { submit }, '@tauri-apps/api/core': { invoke },
   };
 }

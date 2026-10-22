@@ -2,6 +2,7 @@ import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { CurrencyInput } from '../../CurrencyInput';
 import { DateInput } from '../../DateInput';
+import { advanceFocus } from './field-advance';
 
 type ButtonProps = { children: ReactNode; onClick?: () => void; variant?: 'primary' | 'secondary' | 'plain' | 'danger'; block?: boolean; disabled?: boolean; type?: 'button' | 'submit'; ariaLabel?: string };
 /** Text button, at least 44px tall. `primary` is the single main action of a screen. */
@@ -51,11 +52,11 @@ export function SelectField({ label, value, onChange, options, disabled, hint }:
 }
 
 /**
- * Amount input in a FormRow. Wraps the desktop CurrencyInput: `value` is an integer string of minor units
+ * Amount input in a FormRow. `signed` fields get a ± button (the iOS number pad has no minus key). Wraps the desktop CurrencyInput: `value` is an integer string of minor units
  * ('' = unknown, never zero), `places` the currency decimals. Leave empty when the amount is not known.
  */
-export function MoneyField({ label, value, onChange, places = 2, hint, disabled, signed, symbol = '¥' }: { label: string; value: string; onChange: (value: string) => void; places?: number; hint?: string; disabled?: boolean; signed?: boolean; symbol?: string }) {
-  return <FormRow label={label} hint={hint}><span className="m-money">{symbol && <span aria-hidden="true">{symbol}</span>}<CurrencyInput label={label} value={value} onChange={onChange} places={places} disabled={disabled} signed={signed}/></span></FormRow>;
+export function MoneyField({ label, value, onChange, places = 2, hint, disabled, signed, symbol = '¥', onEnter }: { label: string; value: string; onChange: (value: string) => void; places?: number; hint?: string; disabled?: boolean; signed?: boolean; symbol?: string; /** Return (or 下一项 on the keyboard bar) was pressed; default moves to the next field of the form and closes the keyboard after the last. */ onEnter?: () => void }) {
+  return <FormRow label={label} hint={hint}><span className="m-money">{symbol && <span aria-hidden="true">{symbol}</span>}<CurrencyInput label={label} value={value} onChange={onChange} places={places} disabled={disabled} signed={signed} signToggle={signed} enterKeyHint="next" onEnter={onEnter ?? (() => { const el = document.activeElement; if (el instanceof HTMLElement) advanceFocus(el); })}/></span></FormRow>;
 }
 
 /** Date input in a FormRow (desktop DateInput). `value` is YYYY-MM-DD or '' for unknown; `allowClear` adds 清除. */

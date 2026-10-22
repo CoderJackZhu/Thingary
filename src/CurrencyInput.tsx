@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { decimalUnits, parseDecimal } from './currency';
+import { decimalUnits, flipSign, parseDecimal } from './currency';
 
 /** Accept display separators only when they form complete groups of three. */
 function inputValue(text: string, places: number, signed: boolean): string {
@@ -14,18 +14,24 @@ function inputValue(text: string, places: number, signed: boolean): string {
   return parseDecimal(normalized, places, signed);
 }
 
-/** Invalid original text stays visible; an empty parent value prevents saving an old amount. */
-export function CurrencyInput({ label, value, onChange, places, disabled, signed = false }: { label: string; value: string; onChange: (v: string) => void; places: number; disabled?: boolean; signed?: boolean }) {
+/**
+ * Invalid original text stays visible; an empty parent value prevents saving an old amount.
+ * `signToggle` adds a ± button for signed fields (iOS number pads have no minus key); `enterKeyHint` / `onEnter` let the
+ * host move to the next field when Return is pressed.
+ */
+export function CurrencyInput({ label, value, onChange, places, disabled, signed = false, signToggle = false, enterKeyHint, onEnter }: { label: string; value: string; onChange: (v: string) => void; places: number; disabled?: boolean; signed?: boolean; signToggle?: boolean; enterKeyHint?: 'next' | 'done' | 'go'; onEnter?: () => void }) {
   const [raw, setRaw] = useState(value === '' ? '' : decimalUnits(value, places)), [error, setError] = useState('');
   useEffect(() => {
     let normalized = '';
     try { normalized = inputValue(raw, places, signed); } catch { /* Keep invalid original text while the parent is empty. */ }
     if (normalized !== value) { setRaw(value === '' ? '' : decimalUnits(value, places)); setError(''); }
   }, [value, places, signed]);
-  return <span className="holding-input currency-input"><input aria-label={label} aria-invalid={!!error} inputMode={places ? 'decimal' : 'numeric'} disabled={disabled} value={raw} placeholder={places ? '0.' + '0'.repeat(places) : '0'} onChange={event => {
-    const text = event.target.value;
+  function edit(text: string) {
     setRaw(text);
     try { const normalized = inputValue(text, places, signed); setError(''); onChange(normalized); }
     catch (e) { setError(e instanceof Error ? e.message : '请检查数字。'); onChange(''); }
-  }}/>{error && <small role="alert">{error}</small>}</span>;
+  }
+  return <span className={`holding-input currency-input${signed && signToggle ? ' currency-signed' : ''}`}><input aria-label={label} aria-invalid={!!error} inputMode={places ? 'decimal' : 'numeric'} enterKeyHint={enterKeyHint} disabled={disabled} value={raw} placeholder={places ? '0.' + '0'.repeat(places) : '0'} onChange={event => edit(event.target.value)} onKeyDown={onEnter ? event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); onEnter(); } } : undefined}/>
+    {signed && signToggle && <button type="button" className="currency-sign" aria-label={`${label}：切换正负`} aria-pressed={raw.trim().startsWith('-')} disabled={disabled} onClick={() => edit(flipSign(raw))}>±</button>}
+    {error && <small role="alert">{error}</small>}</span>;
 }

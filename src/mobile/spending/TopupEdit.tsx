@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDirtyGuard, useFormChanged } from '../nav-context';
 import { invoke } from '@tauri-apps/api/core';
 import type { TopupFields, VirtualAsset, VirtualOverview } from '../../virtual';
 import { submit } from '../../wealth';
@@ -27,6 +28,7 @@ export default function TopupEdit({ params }: PageProps) {
 function Form({ generation, item, record }: { generation: string; item: VirtualAsset; record: { id: string; revision: number; fields: TopupFields } | null }) {
   const { today } = useSession(), saver = useSaver();
   const [f, setF] = useState<TopupFields>(() => record?.fields ?? blankTopup(today)), [touched, setTouched] = useState(!!record?.fields.credit_cents), [problem, setProblem] = useState(''), [asking, setAsking] = useState(false);
+  useDirtyGuard(useFormChanged(f));
   const set = (patch: Partial<TopupFields>) => { setProblem(''); setF(x => ({ ...x, ...patch })); };
   const credit = touched ? null : autoCredit(f);
   function save() {

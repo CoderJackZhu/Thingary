@@ -161,7 +161,7 @@ export default function TrashPage() {
     {groupRestore && <GroupRestoreSheet groupId={groupRestore.id} name={groupRestore.name} onClose={saved => { setGroupRestore(null); if (saved) reload(); }} onDone={setNotice}/>}
     {groupPurge && <GroupPurgeSheet groupId={groupPurge.id} name={groupPurge.name} onClose={saved => { setGroupPurge(null); if (saved) reload(); }} onDone={setNotice}/>}
     {repairing && <RepairSheet side={repairing.side} id={repairing.id} onClose={saved => { setRepairing(null); if (saved) reload(); }} onDone={setNotice}/>}
-    {clearing && <Sheet title="清空最近删除" doneLabel="取消" onClose={() => { if (!busy) setClearing(null); }}>
+    {clearing && <Sheet title="清空最近删除" cancelLabel="取消" onClose={() => { if (!busy) setClearing(null); }}>
       <div className="m-page">
         {clearing.error ? <Notice tone="danger">{clearing.error}</Notice> : !clearing.preview ? <Loading label="正在读取影响…"/> : <>
           <Notice>将永久清除最近删除里的全部内容，不可恢复。其中关联订阅 {clearing.preview.groups.length} 组，其他 {clearing.preview.other_count} 项。由心愿实现的物品需先永久删除对应心愿，会被保留。</Notice>

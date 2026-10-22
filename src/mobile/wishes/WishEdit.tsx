@@ -7,7 +7,7 @@ import { allowReminders, openNotificationSettings } from '../../NotificationNoti
 import { PhotoView } from '../../Photos';
 import { draftPhotos, draftPreferences, draftReplacementId, wishPlanSave } from '../../wish-save';
 import type { WishlistDraft, WishlistItem } from '../../wishlist';
-import { useNav } from '../nav-context';
+import { useDirtyGuard, useFormChanged, useNav } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
 import { Button, DateField, ErrorState, FormGroup, FormRow, Icon, Loading, NavBar, Notice, SelectField, Switch, TextAreaField, TextField } from '../ui';
@@ -29,6 +29,7 @@ export default function WishEdit({ params }: PageProps) {
   const [more, setMore] = useState(false), [iconOpen, setIconOpen] = useState(false), [pickOpen, setPickOpen] = useState(false), [permission, setPermission] = useState('');
   const [replacement, setReplacement] = useState<AssetRecord | null>(null), [replacementError, setReplacementError] = useState(''), [replacementTick, setReplacementTick] = useState(0);
   const lock = useRef(false);
+  useDirtyGuard(useFormChanged(draft));
   const receipts = useReceipts(generation, outcome => { if (outcome.status === 'saved') setDone(outcome.value as WishlistItem); }, id);
 
   // 打开时只初始化一次草稿；之后的编辑只在内存里，关闭不存草稿。
@@ -68,7 +69,7 @@ export default function WishEdit({ params }: PageProps) {
   const set = (part: Partial<WishlistDraft>) => setDraft(old => old && { ...old, ...part });
   const field = <K extends keyof WishlistDraft['fields']>(key: K, value: WishlistDraft['fields'][K]) => setDraft(old => old && { ...old, fields: { ...old.fields, [key]: value } });
   const prefs = (part: Partial<typeof p>) => setDraft(old => old && { ...old, preferences: { ...draftPreferences(old), ...part } });
-  const cancel = () => { if (disabled) { setNotice('请先完成当前操作或核对保存结果。'); return; } nav.pop(); };
+  const cancel = () => { if (disabled) { setNotice('请先完成当前操作或核对保存结果。'); return; } nav.close(); };
 
   async function save() {
     if (lock.current || disabled || !draft) return;

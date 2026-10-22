@@ -4,7 +4,7 @@ import { errorMessage } from '../../asset';
 import type { AssetRecord, Photo } from '../../asset';
 import { localDay } from '../../asset';
 import type { WishlistItem } from '../../wishlist';
-import { useNav } from '../nav-context';
+import { useDirtyGuard, useFormChanged, useNav } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
 import { DateField, ErrorState, FormGroup, Icon, Loading, MoneyField, NavBar, Notice, SelectField, TextAreaField, TextField } from '../ui';
@@ -25,6 +25,7 @@ export default function WishPurchase({ params }: PageProps) {
   const [draft, setDraft] = useState<PurchaseDraft | null>(null), [loadError, setLoadError] = useState(''), [tick, setTick] = useState(0);
   const [busy, setBusy] = useState(false), [errors, setErrors] = useState<string[]>([]), [more, setMore] = useState(false), [done, setDone] = useState<AssetRecord | null>(null);
   const lock = useRef(false);
+  useDirtyGuard(useFormChanged(draft));
   const receipts = useReceipts(generation, outcome => { if (outcome.status === 'saved') setDone(outcome.value as AssetRecord); }, id);
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function WishPurchase({ params }: PageProps) {
   if (!draft) return <div className="m-page"><NavBar title="记录购入"/><Loading label="正在读取心愿…"/></div>;
 
   const field = (key: keyof PurchaseDraft['fields'], value: string) => setDraft(old => old && { ...old, fields: { ...old.fields, [key]: value } });
-  const cancel = () => { if (disabled) { setErrors(['请先完成当前操作或核对保存结果。']); return; } nav.pop(); };
+  const cancel = () => { if (disabled) { setErrors(['请先完成当前操作或核对保存结果。']); return; } nav.close(); };
   async function save() {
     if (lock.current || disabled || !draft) return;
     const built = purchaseSave(draft, localDay(), crypto.randomUUID());

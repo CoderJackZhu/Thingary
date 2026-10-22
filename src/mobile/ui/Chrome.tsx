@@ -36,12 +36,12 @@ export function NavBar({ title, primary, back, cancelLabel = '取消', onCancel,
   right?: ReactNode;
 }) {
   const nav = useNav(), { kind, backTitle, isRoot } = useEntry();
-  const close = onCancel ?? (() => nav.pop());
+  const close = onCancel ?? (() => nav.close());
   return <div className="m-navbar" role="banner">
     <div className="m-navbar-side">
       {kind === 'modal' ? <button type="button" className="m-navbar-button" disabled={nav.blocked} onClick={close}>{cancelLabel}</button>
         : back ? <button type="button" className="m-navbar-button" onClick={back.onClick}><Icon name="chevronLeft" size={20} strokeWidth={2.2}/><span className="m-navbar-back">{back.label}</span></button>
-        : !isRoot && <button type="button" className="m-navbar-button" disabled={nav.blocked} aria-label={`返回${backTitle ?? ''}`} onClick={() => nav.pop()}><Icon name="chevronLeft" size={20} strokeWidth={2.2}/><span className="m-navbar-back">{backTitle}</span></button>}
+        : !isRoot && <button type="button" className="m-navbar-button" disabled={nav.blocked} aria-label={`返回${backTitle ?? ''}`} onClick={() => nav.close()}><Icon name="chevronLeft" size={20} strokeWidth={2.2}/><span className="m-navbar-back">{backTitle}</span></button>}
     </div>
     {title ? <h1 className="m-navbar-title">{title}</h1> : <span/>}
     <div className="m-navbar-side m-navbar-right">{primary ? <button type="button" className="m-navbar-button m-navbar-primary" disabled={primary.disabled || primary.busy} onClick={primary.onClick}>{primary.busy ? '保存中…' : primary.label}</button> : right}</div>

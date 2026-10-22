@@ -11,6 +11,7 @@ import { pageFor } from './router';
 import { TabBar } from './TabBar';
 import { Loading, Notice, SegmentedControl, Sheet } from './ui';
 import { Button } from './ui';
+import { KeyboardBar } from './ui/KeyboardBar';
 
 /** The whole iPhone app: module switches, wealth session, per-tab page stacks, tab bar. */
 export function MobileApp({ initial }: { initial?: InitialRoute }) {
@@ -82,6 +83,7 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
         ? <div key={entry.id} inert={!last || locked}><Sheet title={title} onClose={() => nav.pop()}><Page key={entry.id} stack={stack} index={index}/></Sheet></div>
         : <div key={entry.id} className="m-modal" role="dialog" aria-modal="true" aria-label={title} inert={!last || locked}><Page key={entry.id} stack={stack} index={index}/></div>;
     })}
+    <KeyboardBar/>
     {!fullscreen && <div inert={covered || locked}><TabBar tab={state.tab} modules={modules} disabled={nav.blocked} onSelect={nav.switchTab}/></div>}
     {session.pending && <div className="m-recovery-layer"><section className="m-card m-recovery" role="alertdialog" aria-modal="true" aria-label="保存结果核对" tabIndex={-1} ref={recovery}>
       <h2>保存结果未确定</h2><p role="status">「{session.pending.label}」的结果尚未确认。原请求已保留，核对前暂停编辑和切页。</p>
