@@ -71,7 +71,7 @@ export default function Overview(_props: PageProps) {
     const wealth = ready(review.wealth), physical = ready(review.physical);
     const retire = modules.planning && modules.wealth && review.planning ? summaryRetire(review.planning, today) : null;
     return {
-      plan: retire ? planView(retire) : null,
+      plan: retire ? planView(retire, hidden) : null,
       net: wealth ? netWorthView(wealth, hidden) : null,
       daily: physical ? dailyView(physical.held_daily) : null,
       pending: pendingEntries({ today, modules, review, warranty: loaded.warranty, wishes: loaded.wishes }),
@@ -114,10 +114,15 @@ export default function Overview(_props: PageProps) {
       ? <Card label="规划"><ErrorState title={plan.title} message={plan.subtitle ?? undefined} onRetry={() => setRetry(n => n + 1)}/></Card>
       : <button type="button" className="m-card h-plan" onClick={() => openRoute(nav, 'plan.goal')}>
           <span className="h-plan-top"><span className="h-plan-lead"><span className="m-metric-icon m-tone-accent"><Icon name="tabTarget" size={17} strokeWidth={2}/></span><span>{plan.eyebrow}</span></span><span className="h-plan-action">{plan.state === 'setup' ? '去设置' : '查看规划'}<Icon name="chevronRight" size={16}/></span></span>
-          <span className="h-plan-title">{plan.title}</span>
+          {plan.lead ? <span className="h-plan-title">{plan.lead.before}<strong className="h-plan-num">{plan.lead.strong}</strong>{plan.lead.after}</span> : <span className="h-plan-title">{plan.title}</span>}
           {plan.subtitle && <span className="h-plan-sub">{plan.subtitle}</span>}
-          {!!plan.tags.length && <span className="m-tags">{plan.tags.map(text => <span key={text} className="m-tag">{text}</span>)}</span>}
-          <span className="m-hero-foot">{plan.warn ?? '估算结果，不是理财建议'}</span>
+          {plan.progress && <span className="h-plan-bar">
+            <span className="h-bar" role="progressbar" aria-label="资产覆盖现在退休所需的比例" aria-valuemin={0} aria-valuemax={100} aria-valuenow={hidden ? undefined : Math.round(plan.progress.percent)}><span className="h-bar-fill" style={{ width: `${plan.progress.percent}%` }}/></span>
+            <span className="h-bar-labels"><span>{plan.progress.have}</span><span>{plan.progress.need}</span></span>
+            {plan.progress.gap && <span className="h-bar-gap">{plan.progress.gap}</span>}
+          </span>}
+          {plan.warn && <span className="h-plan-warn">{plan.warn}</span>}
+          {plan.state === 'ready' && <span className="m-hero-foot">估算结果，不是理财建议</span>}
         </button>)}
     {view.empty && <Card label="从这里开始"><div className="h-start"><h2>从这里开始</h2><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p>
       <div className="h-start-actions"><Button variant="primary" onClick={() => nav.push('items.edit')}>记录第一件物品</Button>{modules.wealth && <Button onClick={() => nav.push('wealth.accountEdit')}>建立账户并盘点</Button>}</div></div></Card>}

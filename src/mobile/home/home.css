@@ -28,3 +28,12 @@ button.h-plan{display:flex;flex-direction:column;gap:4px;font:inherit}
 .h-plan-sub{font-size:14px;color:var(--muted)}
 button.h-plan{border-radius:24px}
 .h-plan-lead{display:inline-flex;align-items:center;gap:10px}.h-plan-lead .m-metric-icon{margin-bottom:0}.h-plan{gap:6px}
+
+.h-plan-title{font-size:17px;line-height:1.4;letter-spacing:-.01em}
+.h-plan-num{white-space:nowrap;font:700 26px/1.2 var(--m-round);color:var(--accent);letter-spacing:-.02em}
+.h-plan-bar{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.h-bar{display:block;height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.h-bar-fill{display:block;height:100%;min-width:4px;border-radius:5px;background:var(--accent)}
+.h-bar-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.h-bar-gap{font-size:14px;font-weight:600}
+.h-plan-warn{font-size:12px;color:var(--warn,var(--muted));margin-top:4px}
