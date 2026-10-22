@@ -20,7 +20,7 @@ export function Section({ title, action, children }: { title: string; action?: R
 export function HeroCard({ eyebrow, action, title, subtitle, tags, footnote, onClick, children }: { eyebrow?: string; action?: string; title: ReactNode; subtitle?: ReactNode; tags?: { text: string; tone?: 'positive' | 'neutral' }[]; footnote?: string; onClick?: () => void; children?: ReactNode }) {
   const body = <>
     {(eyebrow || action) && <span className="m-hero-top"><span>{eyebrow}</span>{action && <span className="m-hero-action">{action}<Icon name="chevronRight" size={16}/></span>}</span>}
-    <span className="m-hero-title">{title}</span>
+    <span className={`m-hero-title${typeof title === 'string' && !/^[-+\u2212]?[¥$€£]?\d[\d,.]*$/.test(title) ? ' m-hero-title-text' : ''}`}>{title}</span>
     {subtitle && <span className="m-hero-sub">{subtitle}</span>}
     {children}
     {!!tags?.length && <span className="m-tags">{tags.map(tag => <span key={tag.text} className={`m-tag m-tag-${tag.tone ?? 'neutral'}`}>{tag.text}</span>)}</span>}
@@ -30,8 +30,8 @@ export function HeroCard({ eyebrow, action, title, subtitle, tags, footnote, onC
 }
 
 /** Metric tile: small label, large value, optional trend line and a chart below. Put two in a MetricGrid. Unknown values pass `value="未知"` with `unknown`. */
-export function Metric({ label, value, sub, subTone, unknown, children, onClick }: { label: string; value: ReactNode; sub?: ReactNode; subTone?: 'positive' | 'danger'; unknown?: boolean; children?: ReactNode; onClick?: () => void }) {
-  const body = <><span className="m-metric-label">{label}</span><span className={`m-metric-value${unknown ? ' m-unknown' : ''}`}>{value}</span>{sub && <span className={`m-metric-sub${subTone ? ` m-${subTone}` : ''}`}>{sub}</span>}{children}</>;
+export function Metric({ label, value, sub, subTone, unknown, children, onClick, icon, tone = 'accent' }: { label: string; value: ReactNode; sub?: ReactNode; subTone?: 'positive' | 'danger'; unknown?: boolean; children?: ReactNode; onClick?: () => void; /** Optional 30px tinted icon chip above the label. */ icon?: IconName; tone?: Tone }) {
+  const body = <>{icon && <span className={`m-metric-icon m-tone-${tone}`}><Icon name={icon} size={17} strokeWidth={2}/></span>}<span className="m-metric-label">{label}</span><span className={`m-metric-value${unknown ? ' m-unknown' : ''}`}>{value}</span>{sub && <span className={`m-metric-sub${subTone ? ` m-${subTone}` : ''}`}>{sub}</span>}{children}</>;
   return onClick ? <button type="button" className="m-card m-metric" onClick={onClick}>{body}</button> : <div className="m-card m-metric">{body}</div>;
 }
 /** Two-column grid of Metric tiles; collapses to one column below 340px. */
@@ -55,7 +55,7 @@ type RowProps = {
 /** Grouped-list row: left icon tile, title, subtitle, right value and ›. At least 64px tall when it has a subtitle, 48px otherwise. */
 export function ListRow({ title, subtitle, value, valueSub, unknown, icon, tone = 'accent', onClick, chevron = !!onClick, trailing, disabled }: RowProps) {
   const body = <>
-    {icon != null && <span className={`m-row-icon m-tone-${tone}`}>{typeof icon === 'string' ? <Icon name={icon as IconName} size={20}/> : icon}</span>}
+    {icon != null && <span className={`m-row-icon m-tone-${tone}`}>{typeof icon === 'string' ? <Icon name={icon as IconName} size={17} strokeWidth={2}/> : icon}</span>}
     <span className="m-row-main"><span className="m-row-title">{title}</span>{subtitle && <span className="m-row-sub">{subtitle}</span>}</span>
     {trailing ?? ((value != null || valueSub != null) && <span className="m-row-value"><span className={unknown ? 'm-unknown' : undefined}>{value}</span>{valueSub && <small>{valueSub}</small>}</span>)}
     {chevron && <span className="m-row-chevron"><Icon name="chevronRight" size={18}/></span>}
@@ -81,7 +81,7 @@ export function SwipeRow({ children, actions, label }: { children: ReactNode; ac
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
   }, [open]);
-  return <div className="m-swipe" ref={root} role="group" aria-label={label} onFocus={event => { if ((event.target as HTMLElement).closest('.m-swipe-actions')) setX(-width); }} onBlur={event => { if (!root.current?.contains(event.relatedTarget as Node)) setX(0); }}>
+  return <div className="m-swipe" ref={root} data-revealed={x !== 0 || dragging || undefined} role="group" aria-label={label} onFocus={event => { if ((event.target as HTMLElement).closest('.m-swipe-actions')) setX(-width); }} onBlur={event => { if (!root.current?.contains(event.relatedTarget as Node)) setX(0); }}>
     <div className="m-swipe-actions" style={{ width }}>{actions.map(action => <button key={action.label} type="button" className={`m-swipe-action m-swipe-${action.tone ?? 'accent'}`} tabIndex={open ? 0 : -1} onClick={() => { setX(0); action.onAction(); }}>{action.icon && <Icon name={action.icon} size={20}/>}<span>{action.label}</span></button>)}</div>
     <div className={`m-swipe-content${dragging ? ' m-dragging' : ''}`} style={{ transform: `translateX(${x}px)` }}
       onPointerDown={event => { if (event.pointerType === 'mouse' && event.button !== 0) return; drag.current = { startX: event.clientX, startY: event.clientY, origin: x, last: event.clientX, lastTime: event.timeStamp, velocity: 0, active: null }; }}
