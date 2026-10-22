@@ -69,6 +69,7 @@ fn main() {
     for (i, (date, c, k)) in rows.iter().enumerate() {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(10 + i as u32),
                 generation: s.generation(),
                 id: None,
@@ -129,7 +130,7 @@ fn main() {
                 "start": { "kind": "simulation", "id": "career-trial-simulation", "available_cents": "31100000", "date": "2026-09-30", "notes": "虚构验收，不是真实资金" },
                 "contribution": { "id": "career-trial-contribution", "monthly_cents": "300000" },
                 "contribution_costs": [], "retirement_costs": [] }},
-            "budget":null,"funds":null,"simplified":{"contract_version":1,"time":{"reference":null,"target_month":"2049-10","horizon_month":"2084-09"},"income_mode":"excluded","future_incomes":[]}
+            "budget":null,"funds":null,"simplified":{"contract_version":1,"time":{"reference":null,"target_month":"2049-10","horizon_month":"2084-09"},"income_mode":"excluded","future_incomes":[],"household":{"mode":"single","partner":null}}
         }
     }))
     .unwrap();

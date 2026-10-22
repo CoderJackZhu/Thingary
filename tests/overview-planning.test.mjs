@@ -16,7 +16,7 @@ const saved = (retire) => ({ revision: 1, updated_at: today, profile: {
   assumptions: { inflation_hundredths: 0 },
   retire: { ...structuredClone(defaultRetire), mode: 'fire', core: { ...emptyCore(today), fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }] },
     basic: { ...structuredClone(basicInputFixtures.prediction.basic), start: { kind: 'live' }, contribution: { id: 'contribution', monthly_cents: retire.contribution_cents === undefined ? '1000000' : retire.contribution_cents } },
-    simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2080-05' }, income_mode: 'excluded', future_incomes: [] }, ...retire },
+    simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2080-05' }, income_mode: 'excluded', future_incomes: [], household: { mode: 'single', partner: null } }, ...retire },
 } });
 const snap = cents => ({id:'s1',date:today,revision:1, entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: String(cents) }] });
 const stats = (median, extra = {}) => ({ mean_monthly_change_cents: median, count: 4, low_sample: false, median_monthly_saving_cents: median, mean_monthly_saving_cents: median, median_monthly_spend_cents: null, window_from: '2025-10-06', latest_date: today, ...extra });
@@ -40,7 +40,7 @@ test('fire headline: reached and unreachable use the actual search cap, never "f
   assert.equal(reached.main, '当前资产已覆盖退休所需');
   assert.equal(reached.sub, '估算');
   // 50 万元预算、零储蓄、20 万资产：搜索范围内不可达；horizon 70 早于 70 岁上限时按实际终点年龄。
-  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2060-05' }, income_mode: 'excluded', future_incomes: [] }, contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
+  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2060-05' }, income_mode: 'excluded', future_incomes: [], household: { mode: 'single', partner: null } }, contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
   assert.equal(capped.main, '当前假设下，2060-05 前尚未达成');
   const defaultCap = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
   assert.equal(defaultCap.main, '当前假设下，2080-05 前尚未达成');

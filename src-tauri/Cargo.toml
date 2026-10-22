@@ -8,7 +8,7 @@ default-run = "thingary"
 
 [lib]
 name = "thingary_lib"
-crate-type = ["lib"]
+crate-type = ["lib", "staticlib", "cdylib"]
 
 [build-dependencies]
 cc = "=1.4.7"
@@ -16,8 +16,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 thingary_planning_engine = { path = "../crates/planning-engine" }
-tauri = { version = "2", features = [] }
-tauri-plugin-single-instance = "2"
+tauri = { version = "2.12", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
@@ -37,11 +36,17 @@ calamine = { version = "0.36.1", features = ["chrono"] }
 rust_xlsxwriter = "0.99.1"
 quick-xml = "0.41.0"
 
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [target.'cfg(windows)'.dependencies]
 rfd = "0.17.2"
-webview2-com = "=0.38.2"
-windows-core = "=0.61.2"
-windows = { version = "=0.61.3", features = ["UI_Notifications", "Data_Xml_Dom", "Foundation", "Win32_System_WinRT", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Registry", "Win32_System_Variant", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_UI_Notifications", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem"] }
+webview2-com = "=0.39.1"
+windows-core = "=0.62.2"
+windows = { version = "=0.62.2", features = ["UI_Notifications", "Data_Xml_Dom", "Foundation", "Win32_System_WinRT", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Registry", "Win32_System_Variant", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_UI_Notifications", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2 = "0.6.4"
 
 [features]
 fault-injection = []

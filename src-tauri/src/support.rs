@@ -9,14 +9,18 @@ pub fn destination(target: &str) -> Result<&'static str> {
         "guide" => Ok("https://thingary.jackzhu.top/guide/"),
         "site" => Ok("https://thingary.jackzhu.top/"),
         "feedback" => Ok("https://github.com/CoderJackZhu/Thingary/issues"),
-        "backup" => Ok("https://thingary.jackzhu.top/guide/#backup"),
-        "update" => Ok("https://thingary.jackzhu.top/guide/#update"),
+        "backup" => Ok("https://thingary.jackzhu.top/guide/backup/"),
+        "update" => Ok("https://thingary.jackzhu.top/guide/update/"),
         "sources" => Ok("https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md"),
+        "mail" => Ok("mailto:feedback@jackzhu.top?subject=%E7%89%A9%E8%B0%B1%E5%8F%8D%E9%A6%88"),
         _ => Err(Error::new("SUPPORT", "帮助入口无效")),
     }
 }
 
 pub fn open(target: &str) -> Result<()> {
+    if cfg!(target_os = "ios") && target == "update" {
+        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+    }
     let url = destination(target)?;
     // Windows Explorer launches the user's default browser asynchronously;
     // its exit status is not a browser-launch success signal.
@@ -28,7 +32,7 @@ pub fn open(target: &str) -> Result<()> {
             .map(|_| ())
             .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
         let status = std::process::Command::new("/usr/bin/open")
             .arg(url)
@@ -39,6 +43,10 @@ pub fn open(target: &str) -> Result<()> {
         } else {
             Err(Error::new("SUPPORT", "无法打开浏览器。"))
         }
+    }
+    #[cfg(target_os = "ios")]
+    {
+        crate::ios::open_url(url)
     }
 }
 

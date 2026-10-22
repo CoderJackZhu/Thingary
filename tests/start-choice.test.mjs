@@ -157,7 +157,7 @@ test('preview startup and module failure fixtures stay within the existing in-me
   const context = { module: { exports: {} }, exports: {}, require: () => jsx, params: new URLSearchParams('started=first-use'), previewStarted: false,
     wealthPreview: mem.module.exports, searchPreview: () => null,
   };
-  vm.runInNewContext(compileFunction('visual-preview.ts', 'handle'), context);
+  vm.runInNewContext(compileFunction('preview-ipc.ts', 'handle'), context);
   const handle = context.module.exports;
   assert.equal((await handle('demo_status', {})).started, false);
   const payload = choice.usageModules({ ...modules, incomes: true }, true, { money: true, physical: true, planning: true }); const changed = await handle('modules_set', payload);

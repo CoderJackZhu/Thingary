@@ -73,6 +73,7 @@ fn account(s: &mut Store, name: &str, kind: &str) -> Account {
 fn check_in(s: &mut Store, day: &str, rows: &[(&Account, i64)]) -> String {
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: None,

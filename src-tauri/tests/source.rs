@@ -146,6 +146,7 @@ fn check_in(
     entries: Vec<EntryInput>,
 ) -> SnapshotSave {
     SnapshotSave {
+        close_accounts: Vec::new(),
         request_id: rid(),
         generation: s.generation(),
         id: id.map(str::to_owned),
@@ -786,6 +787,7 @@ fn incomplete_snapshot_events_show_missing_counts_and_reject_bad_queries() {
     let unknown = rows.iter().find(|a| a.fields.side == "liability").unwrap();
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: None,

@@ -87,6 +87,7 @@ fn entry(a: &thingary_lib::wealth::Account, state: &str, amount: Option<i64>) ->
 
 fn check_in(s: &Store, date: &str, entries: Vec<EntryInput>) -> SnapshotSave {
     SnapshotSave {
+        close_accounts: Vec::new(),
         request_id: rid(),
         generation: s.generation(),
         id: None,

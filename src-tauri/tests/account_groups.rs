@@ -8,6 +8,12 @@ use thingary_lib::{
     wealth::{Account, AccountFields, AccountSave, EntryInput, SnapshotSave, TrashChange},
 };
 const TODAY: &str = "2026-10-17";
+/// Module preference files live beside the library root, so each test keeps its
+/// library one level down inside its own temporary directory instead of beside
+/// the shared system temp folder, where parallel tests would rewrite them.
+fn library(dir: &tempfile::TempDir) -> std::path::PathBuf {
+    dir.path().join("虚构主库").join("library")
+}
 fn id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
@@ -52,7 +58,7 @@ fn account(s: &mut Store, group_id: Option<String>, closed: bool) -> Account {
 #[test]
 fn names_revisions_reorder_receipts_and_deleted_references_are_safe() {
     let dir = tempfile::tempdir().unwrap();
-    let mut s = Store::open(dir.path()).unwrap();
+    let mut s = Store::open(&library(&dir)).unwrap();
     let input = Save {
         request_id: id(),
         generation: s.generation(),
@@ -207,7 +213,7 @@ fn every_group_write_rolls_back_with_no_receipt() {
         "account_groups_reorder.before_commit",
     ] {
         let dir = tempfile::tempdir().unwrap();
-        let mut s = Store::open(dir.path()).unwrap();
+        let mut s = Store::open(&library(&dir)).unwrap();
         let g = group(&mut s, "虚构故障组");
         let a = account(&mut s, Some(g.id.clone()), false);
         let before = serde_json::to_value(s.account_groups_list().unwrap()).unwrap();
@@ -274,8 +280,8 @@ fn commit(s: &Store, batch: BatchInput) -> CommitInput {
 #[test]
 fn import_preview_is_private_groups_reuse_and_exports_and_backup_roundtrip() {
     let dir = tempfile::tempdir().unwrap();
-    let mut s = Store::open(dir.path()).unwrap();
-    thingary_lib::modules::initialize_runtime(dir.path());
+    let mut s = Store::open(&library(&dir)).unwrap();
+    thingary_lib::modules::initialize_runtime(&library(&dir));
     let input = commit(&s, batch(&s));
     let preview = s
         .financial_import_preview(&input.batch, TODAY, &|| false)
@@ -299,6 +305,7 @@ fn import_preview_is_private_groups_reuse_and_exports_and_backup_roundtrip() {
     }
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: id(),
             generation: s.generation(),
             id: None,
@@ -407,8 +414,8 @@ fn import_preview_is_private_groups_reuse_and_exports_and_backup_roundtrip() {
 #[test]
 fn group_changes_invalidate_preview_and_failed_import_does_not_leave_groups() {
     let dir = tempfile::tempdir().unwrap();
-    let mut s = Store::open(dir.path()).unwrap();
-    thingary_lib::modules::initialize_runtime(dir.path());
+    let mut s = Store::open(&library(&dir)).unwrap();
+    thingary_lib::modules::initialize_runtime(&library(&dir));
     let input = commit(&s, batch(&s));
     group(&mut s, "虚构并发组");
     assert_eq!(
@@ -433,7 +440,7 @@ fn group_changes_invalidate_preview_and_failed_import_does_not_leave_groups() {
 #[test]
 fn readonly_entry_projections_use_distinct_snapshot_facts_without_last_known_filling() {
     let dir = tempfile::tempdir().unwrap();
-    let mut s = Store::open(dir.path()).unwrap();
+    let mut s = Store::open(&library(&dir)).unwrap();
     let a = account(&mut s, None, false);
     let b = account(&mut s, None, false);
     for (date, first, second) in [
@@ -442,6 +449,7 @@ fn readonly_entry_projections_use_distinct_snapshot_facts_without_last_known_fil
     ] {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: id(),
                 generation: s.generation(),
                 id: None,
@@ -495,8 +503,8 @@ fn readonly_entry_projections_use_distinct_snapshot_facts_without_last_known_fil
 fn rename_delete_and_reorder_all_invalidate_a_pending_import_preview() {
     for action in ["rename", "delete", "reorder"] {
         let dir = tempfile::tempdir().unwrap();
-        let mut s = Store::open(dir.path()).unwrap();
-        thingary_lib::modules::initialize_runtime(dir.path());
+        let mut s = Store::open(&library(&dir)).unwrap();
+        thingary_lib::modules::initialize_runtime(&library(&dir));
         let g = group(&mut s, "虚构现有组");
         let h = group(&mut s, "虚构另一组");
         let input = commit(&s, batch(&s));

@@ -11,7 +11,7 @@ const wealthCode = wealthAst.statements.filter(node =>
   (ts.isFunctionDeclaration(node) && node.name?.text === 'wealthPreview') ||
   (ts.isVariableStatement(node) && node.declarationList.declarations.some(d => d.name.getText() === 'due'))
 ).map(node => node.getText()).join('\n').replaceAll('export function ', 'function ');
-const visualAst = ts.createSourceFile('visual-preview.ts', read('../src/visual-preview.ts'), ts.ScriptTarget.Latest, true);
+const visualAst = ts.createSourceFile('preview-ipc.ts', read('../src/preview-ipc.ts'), ts.ScriptTarget.Latest, true);
 let overviewBranch;
 function visit(node) {
   if (ts.isIfStatement(node) && node.expression.getText() === "command === 'review_overview'") overviewBranch = node.getText();

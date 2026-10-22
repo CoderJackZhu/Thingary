@@ -43,12 +43,18 @@ for (const p of productionNpmPackages()) {
 // The Rust sys crate also embeds a Microsoft SDK loader. Its binary is not
 // licensed by the Rust wrapper's MIT declaration. Keep the SDK texts separate.
 if (options.target === 'x86_64-pc-windows-msvc') {
-  const loader = rust.find(pkg => pkg.name === 'webview2-com-sys');
-  if (!loader || loader.version !== '0.38.2') throw new Error('Recheck WebView2 SDK loader provenance for this webview2-com-sys version');
-  const sdkKey = 'Microsoft.Web.WebView2@1.0.3650.58';
-  const sdk = overrides[sdkKey];
-  if (!sdk?.length) throw new Error(`Missing SDK license override: ${sdkKey}`);
-  collect('SDK', { name: 'Microsoft.Web.WebView2 loader', version: '1.0.3650.58', license: 'BSD-3-Clause; see SDK LICENSE.txt and NOTICE.txt', repository: 'https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3650.58', authors: ['Microsoft Corporation'] }, null, sdk);
+  // Each locked webview2-com-sys version bundles one pinned SDK; recheck on any new version.
+  const sdkVersions = { '0.38.2': '1.0.3650.58', '0.39.1': '1.0.3800.47' };
+  const loaders = rust.filter(pkg => pkg.name === 'webview2-com-sys');
+  if (!loaders.length) throw new Error('Recheck WebView2 SDK loader provenance for this webview2-com-sys version');
+  for (const loader of loaders) {
+    const sdkVersion = sdkVersions[loader.version];
+    if (!sdkVersion) throw new Error(`Recheck WebView2 SDK loader provenance for webview2-com-sys ${loader.version}`);
+    const sdkKey = `Microsoft.Web.WebView2@${sdkVersion}`;
+    const sdk = overrides[sdkKey];
+    if (!sdk?.length) throw new Error(`Missing SDK license override: ${sdkKey}`);
+    collect('SDK', { name: 'Microsoft.Web.WebView2 loader', version: sdkVersion, license: 'BSD-3-Clause; see SDK LICENSE.txt and NOTICE.txt', repository: `https://www.nuget.org/packages/Microsoft.Web.WebView2/${sdkVersion}`, authors: ['Microsoft Corporation'] }, null, sdk);
+  }
 }
 // Directly embedded content is not discoverable through either package manager.
 // Keep the human-reviewed source ledger alongside the generated dependency texts.

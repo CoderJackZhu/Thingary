@@ -74,6 +74,7 @@ fn snapshot(
 ) -> Snapshot {
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: id(),
             generation: s.generation(),
             id: old.map(|s| s.id.clone()),

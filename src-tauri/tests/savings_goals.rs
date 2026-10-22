@@ -77,6 +77,7 @@ fn change_account(s: &mut Store, a: &Account, fields: AccountFields) -> Account 
 fn snapshot(s: &mut Store, day: &str, entries: &[(&Account, Option<&str>)]) -> Snapshot {
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: id(),
             generation: s.generation(),
             id: None,

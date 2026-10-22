@@ -1049,6 +1049,7 @@ fn review_p1_notes_only_correction_keeps_recorded_unchanged_amount() {
                     snap_id: Option<&str>| {
         s.wealth_snapshot_save(
             &thingary_lib::wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: request.into(),
                 generation: s.generation(),
                 id: snap_id.map(str::to_owned),

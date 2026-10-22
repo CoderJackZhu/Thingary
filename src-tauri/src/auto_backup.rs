@@ -72,6 +72,10 @@ pub fn marker_path(root: &Path) -> PathBuf {
     root.join("auto-backup-pending")
 }
 pub fn backup_dir(root: &Path) -> PathBuf {
+    #[cfg(target_os = "ios")]
+    if let Ok(documents) = crate::ios_exports::documents() {
+        return documents.join("Backups");
+    }
     root.join("auto-backups")
 }
 /// Writes the change marker recording the worker session and library write

@@ -11,20 +11,22 @@ import { OfficialToolLink } from './OfficialToolLink';
  * 结束时间、金额基准、增长口径和来源放在「更多条件」，但默认口径常显（设计 §10.3）。
  * 未知金额／时间可留空保存为不完整安排，不装成 0 或完整结果。
  */
-export function FutureIncomeFields({ value, reference, issues, busy, today, onOpenOfficial, onMerge, onCancel }: {
-  value: FutureIncomeV1; reference: TimeInputV1['reference']; issues: FieldIssueV1[]; busy: boolean; today: string;
+export function FutureIncomeFields({ value, reference, partnerReference = null, issues, busy, today, onOpenOfficial, onMerge, onCancel }: {
+  value: FutureIncomeV1; reference: TimeInputV1['reference']; partnerReference?: TimeInputV1['reference']; issues: FieldIssueV1[]; busy: boolean; today: string;
   onOpenOfficial?: (url: string) => boolean; onMerge: (next: FutureIncomeV1) => void; onCancel: () => void;
 }) {
   const [d, setD] = useState<FutureIncomeV1>(() => structuredClone(value));
   const [ageStart, setAgeStart] = useState('');
+  const [whose, setWhose] = useState<'me' | 'partner'>('me');
+  const basisRef = whose === 'partner' ? partnerReference : reference;
   const [err, setErr] = useState('');
   const patch = (v: Partial<FutureIncomeV1>) => setD(x => ({ ...x, ...v }));
   const own = issuesFor(issues, `future_incomes.${value.id}`);
   const convertStart = () => {
     const age = ageMonthsOf(ageStart, '');
     if (age === null) { setErr('年龄请填 0—120 的整数。'); return; }
-    if (!reference) { setErr('先在时间安排里确认年龄参考，或直接填写开始年月。'); return; }
-    try { setErr(''); patch({ start_month: ageToMonthV1(reference, age) }); } catch { setErr('换算月份超出范围，请直接填写开始年月。'); }
+    if (!basisRef) { setErr('先在时间安排里确认年龄参考，或直接填写开始年月。'); return; }
+    try { setErr(''); patch({ start_month: ageToMonthV1(basisRef, age) }); } catch { setErr('换算月份超出范围，请直接填写开始年月。'); }
   };
   function done() {
     if (!d.name.trim()) { setErr('请填写名称。'); return; }
@@ -49,8 +51,9 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
     <FormRow label="开始领取时间" hint="留空表示还没定；开始月在停止工作之前也只向前续算，不补发">
       <MonthInput yearIntent="long" label="开始领取时间" value={d.start_month ?? ''} disabled={busy} allowClear onChange={v => patch({ start_month: v === '' ? null : v })}/>
     </FormRow>
-    {reference
+    {(reference || partnerReference)
       ? <div className="simplified-age-start">
+        {partnerReference && <Segments label="按谁的年龄" value={whose} disabled={busy} options={[{ value: 'me', label: '按我的年龄' }, { value: 'partner', label: '按伴侣的年龄' }]} onChange={setWhose}/>}
         <label>习惯用年龄？几岁开始领取<input aria-label="开始领取年龄" inputMode="numeric" placeholder="例如 63" value={ageStart} disabled={busy} onChange={e => setAgeStart(e.target.value)}/></label>
         <button type="button" className="ui-btn" disabled={busy || ageStart.trim() === ''} onClick={convertStart}>换算成开始月份</button>
       </div>

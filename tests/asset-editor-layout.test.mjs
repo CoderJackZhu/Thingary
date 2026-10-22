@@ -3,26 +3,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import { initialSupplementalOpen, supplementalField } from '../src/asset-editor-layout.ts';
+import { identityFoldOpen, supplementalField } from '../src/asset-editor-layout.ts';
 import { emptyFields, validate, inputMoney } from '../src/asset.ts';
 import { defaultPreferences } from '../src/preferences.ts';
 
 const blank = () => ({ id: null, revision: null, generation: 'fictional-generation', fields: { ...emptyFields, name: '虚构物品' }, original: { ...emptyFields }, options: { preferences: defaultPreferences() }, photos: [], cover: null, pending: null });
-test('new and converted items stay collapsed; editing opens meaningful supplemental values', () => {
-  const initial = blank();
-  assert.equal(initialSupplementalOpen(initial), false);
-  assert.equal(initialSupplementalOpen({ ...initial, id: 'fictional-id' }), false);
-  const changes = [
-    { fields: { ...initial.fields, brand: '虚构品牌' } }, { fields: { ...initial.fields, model: '虚构型号' } }, { fields: { ...initial.fields, serial_number: 'fictional-serial' } },
-    { classification: { category_id: 'fictional-category', channel_id: null } }, { classification: { category_id: null, channel_id: 'fictional-channel' } }, { hasSupplemental: true },
-    ...[{ label_id: 'fictional-label' }, { cost_mode: 'per_use' }, { use_count: 1 }, { goal: { mode: 'cost', cents: '100' } }, { pinned: true }, { exclude: { total: true, daily: false, statistics: false, timeline: false } }].map(preferences => ({ options: { preferences: { ...defaultPreferences(), ...preferences } } })),
-  ];
-  for (const change of changes) {
-    assert.equal(initialSupplementalOpen({ ...initial, id: 'fictional-id', ...change }), true);
-    assert.equal(initialSupplementalOpen({ ...initial, ...change }), false, 'new items remain collapsed');
-    assert.equal(initialSupplementalOpen({ ...initial, conversion: { wishlist_id: 'fictional-wish' }, ...change }), false);
-  }
-  assert.equal(initialSupplementalOpen({ ...initial, id: 'fictional-id', fields: { ...initial.fields, notes: '首屏备注' } }), false);
+test('the brand/model/serial fold opens only when one of them has a value', () => {
+  assert.equal(identityFoldOpen(blank().fields), false);
+  for (const key of ['brand', 'model', 'serial_number']) assert.equal(identityFoldOpen({ ...blank().fields, [key]: '虚构值' }), true, key);
+  assert.equal(identityFoldOpen({ ...blank().fields, notes: '备注不展开' }), false);
   assert.equal(supplementalField('brand'), true); assert.equal(supplementalField('notes'), false);
 });
 
@@ -35,11 +24,11 @@ function runtime(initial = blank()) {
   const context = { module: { exports: {} }, exports: {}, require,
     useState(value) { const i = si++; if (!(i in states)) states[i] = typeof value === 'function' ? value() : value; return [states[i], v => { states[i] = typeof v === 'function' ? v(states[i]) : v; }]; },
     useRef(value) { const i = ri++; return refs[i] ?? (refs[i] = { current: value }); }, useEffect() {}, useLayoutEffect() {},
-    initialSupplementalOpen, supplementalField, validate, inputMoney, defaultPreferences, localDay: () => '2026-10-13', money: String, errorMessage: String,
+    identityFoldOpen, supplementalField, validate, inputMoney, defaultPreferences, localDay: () => '2026-10-13', money: String, errorMessage: String,
     requestAnimationFrame: fn => frames.push(fn), document: { getElementById: id => ({ focus: () => focused.push(id) }) },
     persistSubmission() {}, draftKey: 'fictional-draft', localStorage: { removeItem() {} }, crypto: { randomUUID: () => 'fictional-request' },
     invoke: async (command, args) => { commands.push([command, args]); return { asset: { id: 'saved-fictional' } }; },
-    PhotoView() {}, DefaultAssetIcon() {}, IconPicker() {}, FormRow() {}, ChoiceField() {}, AddImageButton() {}, AssetOptionsFields() {}, DateInput() {}, CloseButton() {},
+    PhotoView() {}, PhotoPreview() {}, DefaultAssetIcon() {}, IconPicker() {}, FormRow() {}, ChoiceField() {}, AddImageButton() {}, AssetOptionsFields() {}, DateInput() {}, CloseButton() {},
   };
   vm.runInNewContext(compiled, context);
   function render() {
@@ -56,14 +45,14 @@ test('the real editor keeps notes and date outside a single supplemental disclos
   const fold = nodes.filter(({ node }) => node.type === 'details'); assert.equal(fold.length, 1); assert.equal(fold[0].node.props.open, false);
   for (const id of ['field-name', 'field-price', 'field-date', 'field-notes']) assert.equal(nodes.find(({ node }) => node.props.id === id).folded, false, id);
   for (const id of ['field-brand', 'field-model', 'field-serial_number']) assert.equal(nodes.find(({ node }) => node.props.id === id).folded, true, id);
-  for (const kind of ['category', 'label', 'channel']) assert.equal(nodes.find(({ node }) => node.props.kind === kind).folded, true, kind);
+  for (const kind of ['category', 'label', 'channel']) assert.equal(nodes.find(({ node }) => node.props.kind === kind).folded, false, kind);
   await ui.save();
   const input = ui.commands.find(([command]) => command === 'save_asset')[1].input;
   assert.equal(input.base.purchase_date, null); assert.equal(input.base.price_cents, null); assert.equal(input.base.name, '虚构物品'); assert.ok(ui.saved);
 });
-test('validation inside the collapsed disclosure opens it and focuses its first error', async () => {
+test('an invalid brand keeps the fold open and focuses its first error', async () => {
   const initial = blank(); initial.fields.brand = 'x'.repeat(201);
-  const ui = runtime(initial); assert.equal(ui.render().find(({ node }) => node.type === 'details').node.props.open, false);
+  const ui = runtime(initial); assert.equal(ui.render().find(({ node }) => node.type === 'details').node.props.open, true);
   await ui.save(); ui.flushFocus();
   assert.equal(ui.render().find(({ node }) => node.type === 'details').node.props.open, true);
   assert.deepEqual(ui.focused, ['field-brand']); assert.deepEqual(ui.commands, []);

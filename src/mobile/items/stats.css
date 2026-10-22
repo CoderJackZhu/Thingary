@@ -1,0 +1,20 @@
+.mi-stats .mi-stats-note{font-size:12px;color:var(--muted);line-height:1.6;margin:8px 0;overflow-wrap:anywhere}
+.mi-stats .mi-stats-card{padding:16px;min-width:0}
+.mi-stats .mi-stats-category{display:flex;align-items:center;gap:14px;min-width:0}
+.mi-stats .mi-stats-category>.m-donut{flex-shrink:0}
+.mi-stats .mi-stats-legend{flex:1;min-width:0;list-style:none;padding:0;margin:0;font-size:12px}
+.mi-stats .mi-stats-legend li{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;overflow-wrap:anywhere}
+.mi-stats .mi-stats-swatch{width:9px;height:9px;border-radius:3px;flex:none}
+.mi-stats .mi-stats-legend-name{display:flex;align-items:center;gap:6px;min-width:0}
+.mi-stats .mi-stats-legend-value{text-align:right;flex-shrink:0}
+.mi-stats .mi-stats-trend{display:flex;overflow-x:auto;overscroll-behavior-x:contain;gap:3px;padding:6px 0;max-width:100%}
+.mi-stats .mi-stats-trend button{flex:0 0 52px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);font:inherit;font-size:12px;padding:8px 3px}
+.mi-stats .mi-stats-trend button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.mi-stats details>summary{min-height:44px;display:flex;align-items:center;color:var(--accent);cursor:pointer}
+.mi-stats .mi-stats-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.mi-stats .mi-stats-totals strong{font-size:22px;display:block;overflow-wrap:anywhere}
+@media(max-width:350px){.mi-stats .mi-stats-category{flex-direction:column;align-items:stretch}.mi-stats .mi-stats-category>.m-donut{align-self:center}}
+.mi-stats .mi-stats-range{display:flex;flex-direction:column;gap:8px}.mi-stats .mi-stats-range .mi-stats-note{margin:0}
+.mi-stats .m-section-head .m-segmented button{min-height:44px}
+.mi-stats .mi-stats-body{display:flex;flex-direction:column;gap:var(--m-gap);min-width:0;transition:opacity .15s}.mi-stats .mi-stats-loading{opacity:.55}
+.mi-stats .mi-stats-rules p{margin:4px 0}

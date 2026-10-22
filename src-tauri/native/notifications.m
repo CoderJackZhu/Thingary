@@ -14,6 +14,9 @@ static ThingaryNotificationDelegate *notificationDelegate;
 // Called off the main thread. Timeouts report failure; callbacks retain their own state.
 char *thingary_notifications(const char *json, int ask) {
  @autoreleasepool { @try {
+  // tauri dev runs an unbundled executable. New macOS versions abort before
+  // Objective-C exception recovery when no bundle proxy can be resolved.
+  if(!NSBundle.mainBundle.bundleIdentifier)return strdup("当前开发进程未打包，系统通知需在应用包中验证");
   UNUserNotificationCenter *center=UNUserNotificationCenter.currentNotificationCenter;
   static dispatch_once_t once; dispatch_once(&once, ^{notificationDelegate=[ThingaryNotificationDelegate new];center.delegate=notificationDelegate;});
 #ifdef THINGARY_NOTIFICATION_ACCEPTANCE

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>还要上几年班 · 物谱测算</title>
+  <meta name="description" content="填年龄、家底、每月花多少和能存多少，算出最早什么时候可以不靠工资生活。资料只留在你的浏览器里。">
+  <link rel="canonical" href="https://thingary.jackzhu.top/calc/">
+  <meta property="og:title" content="还要上几年班？">
+  <meta property="og:description" content="1 分钟算出最早什么时候可以不靠工资生活。资料只留在你的浏览器里。">
+  <meta property="og:url" content="https://thingary.jackzhu.top/calc/">
+  <link rel="stylesheet" href="calc.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#calc">跳到测算</a>
+  <header class="calc-header">
+    <a class="calc-brand" href="../">物谱 <span lang="en">Thingary</span></a>
+    <a class="calc-header-link" href="../#download">下载桌面版</a>
+  </header>
+  <main id="calc" class="calc-main" tabindex="-1">
+    <section class="calc-intro">
+      <h1>还要上几年班？</h1>
+      <p>填几个数，算出最早什么时候可以不靠工资生活。资料只留在这台设备的浏览器里，不上传。</p>
+    </section>
+    <div class="calc-layout">
+      <form id="calc-form" class="calc-form" novalidate>
+        <fieldset>
+          <legend>基本情况</legend>
+          <label class="field"><span>你现在几岁</span><span class="input"><input name="age" inputmode="numeric" autocomplete="off" placeholder="例如 30"><em>岁</em></span></label>
+          <label class="field"><span>现在有多少钱可以用来养老</span><span class="input"><input name="assets_wan" inputmode="decimal" autocomplete="off" placeholder="例如 50"><em>万元</em></span><small>存款、基金、股票等能取出来的钱，不算自住的房子。夫妻可以一起算。</small></label>
+          <label class="field"><span>不上班后每月生活费</span><span class="input"><input name="spend" inputmode="numeric" autocomplete="off" placeholder="例如 8000"><em>元</em></span><small>按今天的物价。房租、房贷等也算进来。</small></label>
+          <label class="field"><span>现在每月大概能存下</span><span class="input"><input name="saving" inputmode="numeric" autocomplete="off" placeholder="例如 6000"><em>元</em></span></label>
+        </fieldset>
+        <fieldset>
+          <legend>不上班后的收入</legend>
+          <label class="field"><span>每月固定收入（养老金、租金等）</span><span class="input"><input name="income" inputmode="numeric" autocomplete="off" placeholder="没有就填 0"><em>元</em></span><small>按今天的钱估。养老金可以用社保 App 的测算结果。</small></label>
+          <label class="field"><span>从几岁开始有这笔收入</span><span class="input"><input name="income_age" inputmode="numeric" autocomplete="off" placeholder="60"><em>岁</em></span></label>
+        </fieldset>
+        <fieldset>
+          <legend>收益假设</legend>
+          <div class="presets" role="radiogroup" aria-label="收益假设" data-presets></div>
+          <p class="hint" data-preset-note></p>
+        </fieldset>
+        <details class="more">
+          <summary>更多设置</summary>
+          <label class="field"><span>希望几岁不上班（选填）</span><span class="input"><input name="wish_age" inputmode="numeric" autocomplete="off" placeholder="例如 50"><em>岁</em></span><small>填了会多算一项：要在这个年龄停下，每月需要存多少。</small></label>
+          <label class="field"><span>钱要够用到几岁</span><span class="input"><input name="end_age" inputmode="numeric" autocomplete="off" placeholder="90"><em>岁</em></span></label>
+          <label class="field"><span>每年通胀</span><span class="input"><input name="inflation" inputmode="decimal" autocomplete="off" placeholder="2"><em>%</em></span></label>
+        </details>
+      </form>
+      <section class="calc-result" aria-live="polite" aria-labelledby="result-title">
+        <h2 id="result-title" class="visually-hidden">测算结果</h2>
+        <div data-result><p class="result-empty">填好左边的数，结果会显示在这里。</p></div>
+        <noscript><p class="result-empty">这个测算需要开启 JavaScript。</p></noscript>
+      </section>
+    </div>
+    <section class="calc-history" data-history hidden>
+      <h2>你记下的结果</h2>
+      <p class="hint">每个月盘一次家底，更新一下数字，看看不上班的日子是在靠近还是推后。</p>
+      <ol data-history-list></ol>
+    </section>
+    <section class="calc-notes">
+      <details>
+        <summary>怎么算的</summary>
+        <ul>
+          <li>所有金额都按今天的钱算，已经扣掉通胀。收益假设是「比通胀多赚多少」。</li>
+          <li>从现在起每个月存下的钱加进家底并按假设增值；家底够支付以后每月生活费（减去固定收入）直到设定的年龄，就算可以不上班。</li>
+          <li>没有考虑社保政策细节、税、大额开销（买房、买车、孩子）和市场大跌。这些可以在物谱桌面版里细算。</li>
+          <li>结果只是估算，不是理财建议，也不保证将来一定够用。</li>
+        </ul>
+      </details>
+      <details>
+        <summary>资料存在哪里</summary>
+        <p>计算全部在你的浏览器里完成，你填的数字不会上传。填写内容和你记下的结果保存在这台设备的浏览器里，清除浏览器数据就会消失。</p>
+        <p data-analytics-note hidden>为了知道有多少人在用，页面通过 GoatCounter 统计打开次数，以及「完成测算」「记下结果」「再次回来」这几件事各发生了多少次。统计不用 Cookie，不包含你填的任何数字或结果。</p>
+      </details>
+    </section>
+    <aside class="calc-desktop">
+      <p>想把账户一个个盘清楚、算上买房买车和孩子？可以用免费的<a href="../">物谱桌面版</a>（Mac / Windows）。</p>
+    </aside>
+  </main>
+</body>
+</html>

@@ -374,6 +374,7 @@ fn receivable_and_vehicle_accounts_save_count_back_up_and_restore() {
     let snapshot = s
         .wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: None,

@@ -56,7 +56,7 @@ fn current_user() -> windows::core::Result<String> {
         let _ = GetTokenInformation(token.0, TokenUser, None, 0, &mut needed);
     }
     if needed == 0 || needed > 4096 {
-        return Err(windows::core::Error::from_win32());
+        return Err(windows::core::Error::from_thread());
     }
     // usize storage satisfies TOKEN_USER alignment; its SID points into this buffer.
     let mut buffer = vec![0usize; (needed as usize).div_ceil(size_of::<usize>())];
@@ -94,7 +94,7 @@ fn dacl(sd: PSECURITY_DESCRIPTOR) -> windows::core::Result<*mut ACL> {
         GetSecurityDescriptorDacl(sd, &mut present, &mut acl, &mut defaulted)?;
     }
     if !present.as_bool() || acl.is_null() {
-        return Err(windows::core::Error::from_win32());
+        return Err(windows::core::Error::from_thread());
     }
     Ok(acl)
 }
@@ -143,7 +143,7 @@ fn verify(path: &[u16], user: &str) -> windows::core::Result<()> {
     }
     let acl = dacl(sd)?;
     if control & SE_DACL_PROTECTED.0 == 0 || unsafe { (*acl).AceCount } != 2 {
-        return Err(windows::core::Error::from_win32());
+        return Err(windows::core::Error::from_thread());
     }
     let mut trustees = Vec::new();
     for index in 0..2 {
@@ -155,11 +155,11 @@ fn verify(path: &[u16], user: &str) -> windows::core::Result<()> {
         let header = unsafe { &*ace.cast::<windows::Win32::Security::ACE_HEADER>() };
         // ACCESS_ALLOWED_ACE_TYPE = 0; OI | CI = 3, with no inherited ACEs.
         if header.AceType != 0 || header.AceFlags != 3 {
-            return Err(windows::core::Error::from_win32());
+            return Err(windows::core::Error::from_thread());
         }
         let ace = unsafe { &*ace.cast::<ACCESS_ALLOWED_ACE>() };
         if ace.Mask != FILE_ALL_ACCESS.0 {
-            return Err(windows::core::Error::from_win32());
+            return Err(windows::core::Error::from_thread());
         }
         trustees.push(sid_text(PSID(
             ptr::addr_of!(ace.SidStart).cast_mut().cast(),
@@ -169,7 +169,7 @@ fn verify(path: &[u16], user: &str) -> windows::core::Result<()> {
     let mut expected = vec![user.to_owned(), "S-1-5-18".to_owned()];
     expected.sort();
     if trustees != expected {
-        return Err(windows::core::Error::from_win32());
+        return Err(windows::core::Error::from_thread());
     }
     Ok(())
 }

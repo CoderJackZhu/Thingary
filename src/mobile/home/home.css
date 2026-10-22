@@ -1,0 +1,43 @@
+/* 总览 and 首次打开. Colors and fonts only through theme tokens. */
+.h-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px}
+.h-banner .m-button{min-height:44px;padding:8px 14px;font-size:14px}
+.h-count{font-size:13px;color:var(--muted)}
+.h-asof{font-size:12px;color:var(--muted);line-height:1.5}
+.h-start h2{margin:0 0 6px;font-size:17px}
+.h-start p{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.h-start-actions{display:flex;flex-direction:column;gap:10px}
+.m-row .m-button{min-height:44px;padding:8px 16px;font-size:14px;flex:none}
+
+.h-welcome{min-height:100dvh;padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));gap:16px}
+.h-welcome-brand{display:flex;align-items:center;gap:10px;font:700 20px/1 var(--head);color:var(--accent)}
+.h-logo{display:inline-flex;width:40px;height:40px;flex:none}
+.h-logo svg{width:100%;height:100%}
+.h-welcome-title{margin:4px 0 0;font:700 clamp(24px,7.4vw,30px)/1.3 var(--head);letter-spacing:-.5px}
+.h-welcome-cards{display:flex;flex-direction:column;gap:12px}
+.h-feature{display:flex;align-items:center;gap:14px}
+.h-feature-icon{width:46px;height:46px;border-radius:14px}
+.h-feature strong{font-size:16px}
+.h-feature p{margin:2px 0 0;font-size:14px;color:var(--muted)}
+.h-privacy{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--muted)}
+.h-welcome-actions{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:24px}
+
+button.h-plan{display:flex;flex-direction:column;gap:4px;font:inherit}
+.h-plan-top{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:500;color:var(--muted)}
+.h-plan-action{display:inline-flex;align-items:center;color:var(--accent);font-size:13px}
+.h-plan-title{font:700 22px/1.25 var(--m-round);letter-spacing:-.02em;margin-top:2px}
+.h-plan-sub{font-size:14px;color:var(--muted)}
+button.h-plan{border-radius:24px}
+.h-plan-lead{display:inline-flex;align-items:center;gap:10px}.h-plan-lead .m-metric-icon{margin-bottom:0}.h-plan{gap:6px}
+
+.h-plan-title{font-size:17px;line-height:1.4;letter-spacing:-.01em}
+.h-plan-num{white-space:nowrap;font:700 26px/1.2 var(--m-round);color:var(--accent);letter-spacing:-.02em}
+.h-plan-bar{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.h-bar{display:block;height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.h-bar-fill{display:block;height:100%;min-width:4px;border-radius:5px;background:var(--accent)}
+.h-bar-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.h-bar-gap{font-size:14px;font-weight:600}
+.h-plan-warn{font-size:12px;color:var(--warn,var(--muted));margin-top:4px}
+
+.h-welcome-links{display:flex;justify-content:center;flex-wrap:wrap;gap:0 4px}
+.h-welcome-link{min-height:44px;padding:0 12px;border:0;background:transparent;color:var(--accent);font-size:15px;font-weight:500}
+.h-welcome-link:disabled{opacity:.5}

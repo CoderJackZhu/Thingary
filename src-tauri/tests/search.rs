@@ -168,6 +168,7 @@ fn b03_all_nine_kinds_hit_their_defined_fields_and_targets() {
     let _snap = s
         .wealth_snapshot_save(
             &thingary_lib::wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: None,

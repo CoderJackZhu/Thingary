@@ -133,6 +133,8 @@ if (params.get('holding') === '1') {
   })}));
 }
 const receipts = new Map<string, string>();
+/** Valid calendar day in YYYY-MM-DD form, as the native backend requires. */
+const previewDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v && v >= '1900-01-01';
 const quickFingerprints = new Map<string, string>();
 let quickStaleShown = false;
 
@@ -344,7 +346,7 @@ function virtualOverview(): VirtualOverview {
     const credit = mine.reduce((t, x) => t + BigInt(x.fields.credit_cents ?? '0'), 0n);
     const unknownPaid = mine.filter(x => x.fields.paid_cents == null).length;
     const balance = balances.filter(b => b.asset_id === v.id).sort((a, b) => b.recorded_on.localeCompare(a.recorded_on))[0] ?? null;
-    return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent,
+    return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: v.fields.billing === 'topup' ? (mine.length ? String(known) : null) : spent,
       label_name: null, reminder, payment_due, topup_count: mine.length, topups: mine.slice().sort((a, b) => (b.fields.topup_date ?? '').localeCompare(a.fields.topup_date ?? '')), topup_unknown_paid: unknownPaid, topup_known_cents: mine.length ? String(known) : null, topup_credit_cents: mine.length ? String(credit) : null, balance };
   }).sort((a, b) => a.fields.name.localeCompare(b.fields.name));
   return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped' && v.status !== 'expired').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
@@ -424,6 +426,13 @@ if (firstRunFixture && planProfile?.profile.retire.basic) {
   if (firstRunFixture === 'costs') r.simplified.income_mode = 'excluded';
   if (firstRunFixture === '2b') { r.simplified.income_mode = 'unconfirmed'; r.rent_cents = '100000'; b.retirement_costs = []; b.contribution.monthly_cents = null; }
   if (firstRunFixture === 'overdue') { r.simplified.income_mode = 'excluded'; b.contribution.monthly_cents = null; }
+}
+// ?plan-household=couple-same|couple-age|couple-age-empty: fictional two-person fixtures for the saved plan.
+const householdFixture = params.get('plan-household');
+if (householdFixture && planProfile?.profile.retire.basic) {
+  const partner = { birth_month: '1992-04', stop_age_months: householdFixture === 'couple-same' ? null : 62 * 12, monthly_cents: householdFixture === 'couple-age' ? '150000' : null };
+  planProfile.profile.retire.simplified.household = { mode: 'couple', partner };
+  if (params.get('plan-household-mode') === 'fire') planProfile.profile.retire.mode = 'fire';
 }
 const reviewFixture = params.get('review-fixture');
 if (reviewFixture && snapshots.length >= 2) {
@@ -580,8 +589,17 @@ export function searchPreview(command: string, args: Record<string, unknown>): {
 }
 let previewMerged = false;
 const previewGroups = new Map<string, { assetId: string; planId: string; assetName: string; planName: string }>();
+// ?trash=link 预先放入一组已删除的关联订阅，用于查看最近删除里的整组恢复与清除。
+if (params.get('trash') === 'link') {
+  const asset = virtuals.find(v => plans.some(p => p.id === v.fields.plan_id)), plan = plans.find(p => p.id === asset?.fields.plan_id);
+  if (asset && plan) {
+    virtuals = virtuals.filter(v => v.id !== asset.id); plans = plans.filter(p => p.id !== plan.id); payments = payments.filter(p => p.plan_id !== plan.id);
+    previewGroups.set(`${asset.id}|${plan.id}`, { assetId: asset.id, planId: plan.id, assetName: asset.fields.name, planName: plan.fields.name });
+  }
+}
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
+export function previewPurgeLinkGroup(id: string) { return previewGroups.delete(id); }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command === 'wealth_account_availability') {
     if (!previewModules.wealth) throw { code: 'MODULE_DISABLED', message: '账户与盘点已关闭' };
@@ -642,8 +660,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     }
     const groupId = args.groupId as string;
     const [assetId, planId] = groupId.split('|');
-    const asset = virtuals.find(v => v.id === assetId), plan = plans.find(p => p.id === planId);
-    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: asset?.fields.name ?? '', plan_name: plan?.fields.name ?? '', payments_hidden: payments.filter(p => p.plan_id === planId).length, payments_stay_deleted: 0, blockers: [] } };
+    const held = previewGroups.get(groupId), asset = virtuals.find(v => v.id === assetId), plan = plans.find(p => p.id === planId);
+    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: held?.assetName ?? asset?.fields.name ?? '', plan_name: held?.planName ?? plan?.fields.name ?? '', payments_hidden: payments.filter(p => p.plan_id === planId).length, payments_stay_deleted: 0, blockers: [] } };
   }
   if (command === 'link_trash') {
     const input = args.input as { request_id: string; side: 'virtual' | 'plan'; id: string; asset_expected_revision: number; plan_expected_revision: number };
@@ -657,6 +675,12 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id ?? crypto.randomUUID(), groupId);
     previewGroups.set(groupId, { assetId: asset.id, planId: plan.id, assetName: asset.fields.name, planName: plan.fields.name });
     return { value: groupId };
+  }
+  if (command === 'link_purge_preview') {
+    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    const groupId = args.groupId as string, g = previewGroups.get(groupId);
+    if (!g) throw { message: '这组记录已恢复或已清除，请重新读取最近删除' };
+    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: g.assetName, plan_name: g.planName, payments_total: 3, payments_live: 2, payments_deleted: 1, rate_segments: 2, rule_segments: 1, period_ends: 0, reminders: 1, external_refs: [], blockers: [] } };
   }
   if (command === 'link_restore') {
     const input = args.input as { group_id: string };
@@ -726,6 +750,13 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as PaymentSave, p = plans.find(x => x.id === input.plan_id)!;
     if (!input.id && payments.some(x => x.plan_id === input.plan_id && x.due_date === input.due_date)) throw { code: 'PAYMENT_EXISTS', message: '这一期已经记录过，请打开原记录更正' };
+    if (input.state === 'paid') {
+      const day = input.paid_date ?? '';
+      if (!day) throw { code: 'PAYMENT_DATE', message: '请填写实付日期' };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) !== day) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (day > todayIso) throw { code: 'PAYMENT_DATE', message: '实付日期不能晚于今天' };
+      if (!/^\d+$/.test(input.amount_cents ?? '') || BigInt(input.amount_cents!) <= 0n) throw { code: 'PAYMENT_AMOUNT', message: '实付金额须为正数' };
+    }
     const id = input.id ?? crypto.randomUUID(), old = payments.find(x => x.id === id);
     const next: Payment = { coverage_start: old?.coverage_start ?? coverageFor(p.fields,input.due_date)?.[0], coverage_end: old?.coverage_end ?? coverageFor(p.fields,input.due_date)?.[1], id, plan_id: p.id, plan_name: p.fields.name, due_date: input.due_date, state: input.state, paid_date: input.paid_date, amount_cents: input.amount_cents, notes: input.notes, revision: (old?.revision ?? 0) + 1, off_schedule: false };
     payments = old ? payments.map(x => x.id === id ? next : x) : [...payments, next];
@@ -753,6 +784,12 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       balances = input.deleted ? balances.filter(b => b.id !== input.id) : balances;
       return { value: null };
     }
+    // Mock only: deleted records are dropped (not listed in 最近删除), so lists and totals update after a delete.
+    if (input.deleted && input.kind === 'account') { accounts = accounts.filter(a => a.id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'expense') { expenses = expenses.filter(e => e.id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'payment') { payments = payments.filter(p => p.id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'plan') { plans = plans.filter(p => p.id !== input.id); payments = payments.filter(p => p.plan_id !== input.id); return { value: null }; }
+    if (input.deleted && input.kind === 'virtual') { virtuals = virtuals.filter(v => v.id !== input.id); topups = topups.filter(t => t.asset_id !== input.id); balances = balances.filter(b => b.asset_id !== input.id); return { value: null }; }
     if (input.kind === 'income') {
       if (input.deleted) { const row = planIncomes.find(i => i.id === input.id); if (row) { planTrash = [...planTrash, { ...row, revision: row.revision + 1 }]; planIncomes = planIncomes.filter(i => i.id !== input.id); } }
       else { const row = planTrash.find(i => i.id === input.id); if (row) { planIncomes = [...planIncomes, { ...row, revision: row.revision + 1 }]; planTrash = planTrash.filter(i => i.id !== input.id); } }
@@ -763,20 +800,34 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'virtual_topup_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as TopupSave;
-    topups = [...topups, { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, fields: input.fields, revision: 1 }];
+    if (input.fields.topup_date && !previewDay(input.fields.topup_date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+    if (input.fields.topup_date && input.fields.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: '充值日期不能晚于今天' };
+    if (!input.fields.paid_cents && !input.fields.gift_cents && !input.fields.credit_cents) throw { code: 'TOPUP_EMPTY', message: '请至少填写实付、赠送或到账额度中的一项' };
+    topups = [...topups.filter(t => t.id !== input.id), { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, fields: input.fields, revision: 1 }];
     receipts.set(input.request_id, input.asset_id);
     return { value: { id: input.id ?? '', asset_id: input.asset_id, fields: input.fields, revision: 1 } };
   }
   if (command === 'virtual_balance_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as BalanceSave;
-    balances = [...balances, { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 }];
+    if (!previewDay(input.recorded_on)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+    if (input.recorded_on > todayIso) throw { code: 'BALANCE_DATE', message: '记录日期不能晚于今天' };
+    balances = [...balances.filter(b => b.id !== input.id), { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 }];
     receipts.set(input.request_id, input.asset_id);
     return { value: { id: input.id ?? '', asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 } };
   }
   if (command === 'virtual_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as VirtualSave, id = input.id ?? crypto.randomUUID(), old = virtuals.find(v => v.id === id);
+    {
+      const f = input.fields;
+      if (!f.name.trim() || [...f.name.trim()].length > 80) throw { code: 'VIRTUAL_NAME', message: '名称须为 1–80 字' };
+      for (const d of [f.purchase_date, f.expires, f.stopped_on, input.first_topup?.topup_date]) if (d && !previewDay(d)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (f.purchase_date && f.purchase_date > todayIso) throw { code: 'VIRTUAL_DATE', message: '购买日期不能晚于今天' };
+      if (f.stopped_on && f.stopped_on > todayIso) throw { code: 'VIRTUAL_STOP', message: '停用日期不能晚于今天' };
+      if (f.stopped_on && f.purchase_date && f.stopped_on < f.purchase_date) throw { code: 'VIRTUAL_STOP', message: '停用日期不能早于购买日期' };
+      if (input.first_topup?.topup_date && input.first_topup.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: '充值日期不能晚于今天' };
+    }
     const taken = input.fields.plan_id && virtuals.find(v => v.fields.plan_id === input.fields.plan_id && v.id !== id);
     if (taken) throw { code: 'VIRTUAL_PLAN_TAKEN', message: `这项计划已关联「${taken.fields.name}」` };
     if(input.plan) {
@@ -803,6 +854,20 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'expense_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as ExpenseSave, id = input.id ?? crypto.randomUUID(), old = expenses.find(e => e.id === id);
+    {
+      const f = input.fields, day = iso(now), valid = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v && v >= '1900-01-01';
+      if (!f.title.trim() || [...f.title.trim()].length > 80) throw { code: 'EXPENSE_TITLE', message: '名称须为 1–80 字' };
+      if (!valid(f.date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (f.date > day) throw { code: 'EXPENSE_DATE', message: '支出日期不能晚于今天' };
+      if (!/^\d+$/.test(f.amount_cents) || BigInt(f.amount_cents) <= 0n) throw { code: 'EXPENSE_AMOUNT', message: '金额须为正数' };
+      if ((f.refund_cents === null) !== (f.refund_date === null)) throw { code: 'EXPENSE_REFUND', message: '退款须同时填写金额和日期' };
+      if (f.refund_cents !== null && f.refund_date !== null) {
+        if (!/^\d+$/.test(f.refund_cents) || BigInt(f.refund_cents) <= 0n) throw { code: 'EXPENSE_REFUND', message: '退款金额须为正数' };
+        if (BigInt(f.refund_cents) > BigInt(f.amount_cents)) throw { code: 'EXPENSE_REFUND', message: '退款不能超过支出金额' };
+        if (!valid(f.refund_date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+        if (f.refund_date < f.date || f.refund_date > day) throw { code: 'EXPENSE_REFUND', message: '退款日期须在支出日期与今天之间' };
+      }
+    }
     const next: Expense = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, asset_name: input.fields.asset_id ? demoAssets.find(a => a.key === input.fields.asset_id)?.name ?? '虚构物品' : null, asset_deleted: false };
     expenses = old ? expenses.map(e => e.id === id ? next : e) : [...expenses, next];
     receipts.set(input.request_id, id);
@@ -911,6 +976,9 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (command === 'plan_income_save') {
       if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
       const input = args.input as IncomeSave, id = input.id ?? crypto.randomUUID(), old = planIncomes.find(i => i.id === id);
+      if (!previewDay(input.fields.date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
+      if (input.fields.date > todayIso) throw { code: 'INCOME_DATE', message: '到账日期不能晚于今天' };
+      if ([...(input.fields.notes ?? '')].length > 500) throw { code: 'INCOME_NOTES', message: '备注最多 500 字，且不能含空字符' };
       const next: Income = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, classification_changed: old?.classification_changed === true || !!old && (old.fields.category ?? 'unclassified') !== (input.fields.category ?? 'unclassified') };
       planIncomes = old ? planIncomes.map(i => i.id === id ? next : i) : [...planIncomes, next];
       receipts.set(input.request_id, id);
@@ -1071,6 +1139,14 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if ((f.purchase_cents != null || f.purchased_on != null) && !['property','vehicle'].includes(f.kind)) throw { code: 'ACCOUNT_PURCHASE', message: '只有房产和车辆可以填写购入价和购入日期' };
     if (f.purchase_cents != null && (!/^\d+$/.test(f.purchase_cents) || BigInt(f.purchase_cents) > 99999999999n)) throw { code: 'ACCOUNT_PURCHASE', message: '购入价超出可保存的金额范围' };
     if (f.purchased_on != null && (!/^\d{4}-\d{2}-\d{2}$/.test(f.purchased_on) || Number.isNaN(Date.parse(f.purchased_on)) || new Date(f.purchased_on).toISOString().slice(0,10) !== f.purchased_on || f.purchased_on < '1900-01-01' || f.purchased_on > iso(now))) throw { code: 'ACCOUNT_PURCHASE', message: '购入日期须在 1900-01-01 至今天之间' };
+    const validDay = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day) && new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) === day && day >= '1900-01-01';
+    if (!validDay(f.opened_on)) throw { code: 'ACCOUNT_DATE', message: '启用日期须为 1900-01-01 之后的有效日期' };
+    if (f.opened_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: '启用日期不能晚于今天' };
+    if (f.closed_on != null) {
+      if (!validDay(f.closed_on)) throw { code: 'ACCOUNT_DATE', message: '停用日期须为有效日期' };
+      if (f.closed_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: '停用日期不能晚于今天' };
+      if (f.closed_on <= f.opened_on) throw { code: 'ACCOUNT_DATE', message: '停用日期须晚于启用日期' };
+    }
     const next: Account = { id, fields: input.fields, position: old?.position ?? accounts.length, revision: (old?.revision ?? 0) + 1, latest: null };
     accounts = old ? accounts.map(a => a.id === id ? next : a) : [...accounts, next];
     receipts.set(input.request_id, id);
@@ -1138,6 +1214,14 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const input = args.input as SnapshotSave;
     if (receipts.has(input.request_id)) return { value: view(snapshots.find(s => s.id === receipts.get(input.request_id))!) };
     if (snapshots.some(s => s.date === input.date && s.id !== input.id)) throw { code: 'SNAPSHOT_DATE_TAKEN', message: '这一天已有盘点，请打开原盘点更正' };
+    for (const c of input.close_accounts ?? []) {
+      const acc = accounts.find(x => x.id === c.account_id);
+      if (!acc) throw { code: 'NOT_FOUND', message: '要停用的账户已不存在，请重新读取' };
+      if (acc.revision !== c.expected_revision) throw { code: 'REVISION_CONFLICT', message: '账户已变化，请重新读取' };
+      if (input.entries.some(e => e.account_id === acc.id)) throw { code: 'SNAPSHOT_ACCOUNT', message: '停用的账户不能同时填写金额' };
+      if (snapshots.some(s => s.entries.some(e => e.account_id === acc.id) && s.date >= input.date)) throw { code: 'ACCOUNT_DATE', message: '该账户在这一天或之后已有盘点记录，不能从这次起停用' };
+    }
+    accounts = accounts.map(a => (input.close_accounts ?? []).some(c => c.account_id === a.id) ? { ...a, revision: a.revision + 1, fields: { ...a.fields, closed_on: input.date } } : a);
     const id = input.id ?? crypto.randomUUID(), old = snapshots.find(s => s.id === id);
     const entries = input.entries.map(e => {
       const a = accounts.find(x => x.id === e.account_id)!, kept = old?.entries.find(x => x.account_id === e.account_id);
@@ -1238,6 +1322,89 @@ export function previewWishPage(query: WishlistQuery): WishlistPage {
 export function previewReadWish(id: string): WishlistItem | null {
   const found = wishes.find(w => w.id === id);
   return found ? structuredClone(found) : null;
+}
+
+// ---- 手机心愿预览（只加不改）：?wish-fixture=mobile 给出一组覆盖各状态的虚构心愿；写入命令在内存里生效，刷新重置。
+// ?mobile-state=save-error 让心愿写入失败（输入保留）；?mobile-state=unknown 让第一次心愿写入已生效但回执丢失、第一次核对也失败。
+if (params.get('wish-fixture') === 'mobile') {
+  const day = (offset: number) => iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset));
+  const made = (id: string, name: string, cents: string | null, added: string, notes: string, part: Partial<PreviewWish> & { prefs?: Partial<NonNullable<PreviewWish['preferences']>>; target?: string; category?: string | null } = {}): PreviewWish => {
+    const base = wishFixture(id, name, cents, added + 'T09:00:00.000Z');
+    const { prefs, target, category, ...rest } = part;
+    return { ...base, ...rest, fields: { ...base.fields, notes, target_date: target ?? '', category_id: category ?? null }, preferences: { added_date: added, channel_id: null, mode: null, saved_cents: '0', achievement_source: null, pinned: false, reminder: false, ...prefs } };
+  };
+  wishes = [
+    made('wish-tent', '露营帐篷', null, day(-18), '周末想和朋友去郊外露营，先看看口碑和重量', { category: 'outdoor', cover: { id: 'object3d-tent', name: '露营帐篷示意图（非实物照片）' } }),
+    made('wish-vacuum', '戴森吸尘器', '399000', day(-49), '现在这台吸力变弱，电池只能用 10 分钟，拖线又不方便。想要能吸地毯、还能吸床垫的。\n顾虑：价格偏高；集尘桶容量小，家里有宠物毛发要常倒。等 11 月促销再看。', { category: 'home', cover: { id: 'icon-robot-vacuum', name: '吸尘器示意图（非实物照片）' }, target: day(21), external_link: 'https://dyson.example.cn/vacuum' as never, replacement_asset: { id: 'coffee', name: '家里的咖啡机', deleted: false }, prefs: { reminder: true } } as never),
+    made('wish-grinder', '咖啡磨豆机', '131200', day(-62), '手冲用，想要研磨更均匀的', { category: 'home' }),
+    made('wish-monitor', '4K 显示器', '429900', day(-95), '写稿和修图时屏幕太小，色准也不够', { category: 'computer', cover: { id: 'icon-monitor', name: '显示器示意图（非实物照片）' }, target: day(-20) }),
+    made('wish-lens-fe', '索尼 FE 24-70 镜头', '899900', day(-144), '等相机用满一年后再决定要不要加镜头', { category: 'audio', cover: { id: 'icon-lens', name: '相机镜头示意图（非实物照片）' }, target: day(120), prefs: { pinned: true } }),
+    made('wish-projector', '便携投影仪', '259900', day(-243), '客厅没有电视，想在墙上看电影', { category: 'computer', cover: { id: 'icon-projector', name: '投影仪示意图（非实物照片）' }, decision_state: 'purchased', status: 'achieved', converted_asset: { id: 'tablet', name: 'iPad Air 4', deleted: false }, target: day(-190) } as never),
+    made('wish-watch', '智能手表', '199900', day(-285), '试戴后发现不常戴，记步用手机就够了', { category: 'phone', cover: { id: 'icon-watch', name: '手表示意图（非实物照片）' }, decision_state: 'dropped', status: 'abandoned', decision_note: '试戴后发现不常戴，记步用手机就够了。' } as never),
+    made('wish-old', '旧版显示器（历史待核实）', '300000', day(-300), '旧攒钱达标，购入情况尚未确认', { decision_state: 'legacy_achieved', status: 'achieved', prefs: { mode: 'savings', saved_cents: '300000', achievement_source: 'savings' } } as never),
+  ];
+}
+const wishReceipts = new Map<string, WishlistItem>();
+let wishLost = false, wishCheckFailed = false;
+const wishError = (code: string, message: string) => ({ code, message });
+function wishWrite(requestId: string, input: { generation?: string }, change: (found: PreviewWish | undefined) => PreviewWish | void, id: string | null, revision: number | null, lose = true): PreviewWish {
+  if (params.get('mobile-state') === 'save-error') throw wishError('PREVIEW_ERROR', '虚构保存失败，请核对输入后重试。');
+  if (input.generation && input.generation !== generation) throw wishError('STALE_DATASET', '资料已切换。');
+  const previous = wishReceipts.get(requestId);
+  if (previous) return structuredClone(previous) as PreviewWish;
+  const found = id ? wishes.find(w => w.id === id) : undefined;
+  if (id && !found) throw wishError('NOT_FOUND', '找不到这条心愿。');
+  if (found && revision !== null && found.revision !== revision) throw wishError('REVISION_CONFLICT', '心愿已变化，请返回重新读取。');
+  const next = (change(found) ?? found) as PreviewWish;
+  next.revision = (found?.revision ?? 0) + 1; next.updated_at = new Date().toISOString();
+  wishes = found ? wishes.map(w => w.id === next.id ? next : w) : [next, ...wishes];
+  wishReceipts.set(requestId, structuredClone(next));
+  if (lose && params.get('mobile-state') === 'unknown' && !wishLost) { wishLost = true; throw new Error('虚构保存响应丢失。'); }
+  return structuredClone(next);
+}
+function wishCheck(requestId: string): WishlistItem | null {
+  if (params.get('mobile-state') === 'unknown' && wishLost && !wishCheckFailed) { wishCheckFailed = true; throw new Error('虚构回执暂不可用。'); }
+  const saved = wishReceipts.get(requestId);
+  return saved ? structuredClone(saved) : null;
+}
+/** 购入转换：物品已由 save_asset 的预览处理创建，这里把心愿记为已购入并关联。 */
+export function previewMarkWishPurchased(wishlistId: string, expectedRevision: number, asset: { id: string; name: string }, requestId: string): void {
+  wishWrite('convert:' + requestId, {}, found => { if (!found) return; return { ...found, decision_state: 'purchased', status: 'achieved', achieved_at: new Date().toISOString(), converted_asset: { id: asset.id, name: asset.name, deleted: false } }; }, wishlistId, expectedRevision, false);
+}
+export function previewWishCommand(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  const input = args.input as Record<string, any> | undefined;
+  if (command === 'saved_wishlist_request') return { value: wishCheck((input as { request_id: string }).request_id) };
+  if (command === 'saved_wish_feature') return { value: wishCheck(String(args.request)) };
+  if (command === 'stage_wishlist_cover') return { value: wishes.find(w => w.id === args.wishlistId)?.cover ?? { id: 'staged-' + String(args.wishlistId), name: '心愿封面' } };
+  if (command === 'change_wishlist') {
+    const action = input!.action as { type: string; wishlist_id: string; decision_note: string };
+    return { value: wishWrite(input!.request_id, input!, found => found && ({ ...found, decision_state: action.type === 'drop' ? 'dropped' : 'considering', status: action.type === 'drop' ? 'abandoned' : 'ongoing', decision_note: action.decision_note, abandoned_at: action.type === 'drop' ? new Date().toISOString() : null }), action.wishlist_id, input!.expected_revision) };
+  }
+  if (command === 'link_wish_asset') {
+    const name = demoAssets.find(a => a.key === input!.asset_id)?.name ?? String(input!.asset_id);
+    return { value: wishWrite(input!.request_id, input!, found => found && ({ ...found, decision_state: 'purchased', status: 'achieved', achieved_at: new Date().toISOString(), converted_asset: { id: input!.asset_id, name, deleted: false } }), input!.wishlist_id, input!.expected_revision) };
+  }
+  if (command === 'verify_legacy_wish') {
+    const outcome = input!.outcome as 'purchased' | 'considering' | 'dropped';
+    return { value: wishWrite(input!.request_id, input!, found => found && ({ ...found, decision_state: outcome, status: outcome === 'purchased' ? 'achieved' : outcome === 'dropped' ? 'abandoned' : 'ongoing', decision_note: input!.decision_note }), input!.wishlist_id, input!.expected_revision) };
+  }
+  if (command === 'save_wish_plan') {
+    const fields = input!.fields as PreviewWish['fields'];
+    const photos = (input!.photos as { ids: string[]; cover_id: string | null }), named = (id: string) => ({ id, name: id.startsWith('icon-') ? '图标示意图（非实物照片）' : '图片 ' + id.slice(0, 4) });
+    return { value: wishWrite(input!.request_id, input!, found => ({
+      ...(found ?? wishFixture(crypto.randomUUID(), fields.name, fields.estimated_price_cents, new Date().toISOString())),
+      fields: { ...fields, priority: null, target_date: fields.target_date ?? '' }, preferences: input!.preferences, photos: photos.ids.map(named), cover: photos.cover_id ? named(photos.cover_id) : null,
+      replacement_asset: input!.replacement_asset_id ? { id: input!.replacement_asset_id, name: demoAssets.find(a => a.key === input!.replacement_asset_id)?.name ?? String(input!.replacement_asset_id), deleted: false } : input!.replacement_asset_id === null && input!.clear_replacement ? null : found?.replacement_asset,
+    }), input!.id, input!.expected_revision) };
+  }
+  if (command === 'wealth_trash' && input!.kind === 'wish') {
+    const found = wishes.find(w => w.id === input!.id);
+    if (!found) throw wishError('NOT_FOUND', '找不到这条心愿。');
+    if (found.revision !== input!.expected_revision) throw wishError('REVISION_CONFLICT', '心愿已变化，请返回重新读取。');
+    wishes = wishes.filter(w => w.id !== input!.id); receipts.set(input!.request_id, input!.id);
+    return { value: null };
+  }
+  return null;
 }
 
 export type PreviewEvent = { id: string; kind: string; date: string | null; asset_id: string | null; wishlist_id: string | null; title: string; note: string; amount_cents: string | null; target: SourceTarget; domain: string; missing?: number };

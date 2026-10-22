@@ -11,6 +11,8 @@ export function previewRecord(source: AssetRecord, today = localDay()): AssetRec
   record.costs = { ...record.costs, known_maintenance_cents: known.toString(), unknown_maintenance_count: unknown, total_investment_cents: total };
   const result = settlement(record, record.sale?.fields ?? {date: today, price_cents: '0', platform: '', buyer: '', notes: ''});
   record.costs = { ...record.costs, held_days: result.days, daily_cents: result.daily, sale_proceeds_cents: record.sale?.fields.price_cents ?? null, net_cost_cents: record.sale ? result.net : null };
+  const uses = BigInt(record.preferences?.use_count ?? 0), value = record.sale ? record.costs.net_cost_cents : record.costs.total_investment_cents;
+  record.per_use_cents = uses > 0n && value !== null ? (((BigInt(value) < 0n ? -BigInt(value) : BigInt(value)) + uses / 2n) / uses * (BigInt(value) < 0n ? -1n : 1n)).toString() : null;
   for (const warranty of record.warranties ?? []) {
     const derived = deriveStatus(warranty.fields.start_date, warranty.fields.end_date, today);
     warranty.status = derived.status;

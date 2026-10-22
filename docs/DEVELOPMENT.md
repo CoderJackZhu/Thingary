@@ -16,6 +16,56 @@ npm run tauri -- dev
 
 开发应用标题为「物谱 · 开发预览」，身份 `local.thingary.preview`。开发、测试和验收一律使用虚构资料、临时目录或独立身份，**不得打开或写入正式资料库 `local.thingary.main`**。样例库不是自己的资料，正式安装包也不是测试环境。
 
+## iOS 开发
+
+使用完整 Xcode（含 iOS SDK）、CocoaPods、XcodeGen、Node 和 Rust。`xcode-select -p` 应指向 Xcode.app 的 Developer 目录。用 `xcrun simctl list runtimes` 检查运行时已经安装且 available，再用 `xcrun simctl list devices available` 确认目标机型；SDK 和模拟器运行时是不同组件。安装 `aarch64-apple-ios`（真机）、`aarch64-apple-ios-sim`（Apple Silicon 模拟器），Intel Mac 按需安装 `x86_64-apple-ios`。运行时并非必须与 SDK 的小版本相同；若 CLI 因二者版本不同转入 Xcode，保持 CLI 进程运行，在生成工程中选择已安装运行时的设备后运行。也可在另一终端用 xcodebuild 指定 simulator destination 和 CODE_SIGNING_ALLOWED=NO 构建，再用 simctl install / launch 启动预览身份。
+
+另外安装 rustup 的 `llvm-tools` 组件（`rustup component add llvm-tools`）。Xcode 27 的 SwiftPM 在 Release 配置下会把 Tauri Swift 包（`Tauri.swift`、`Logger.swift`）的 `@_cdecl` 导出符号编译成静态库内的局部符号（`nm` 显示小写 `t`），`swift-rs` 依靠该组件里的 `llvm-objcopy` 把它们恢复为全局符号；缺少时 Debug 仍能链接，Release 会在 Rust 静态库链接阶段报 `_log_stdout`、`_on_webview_created`、`_run_plugin_command` 未定义。这是本机工具链前提，不需要改 Rust 依赖或链接选项。
+
+```sh
+rustup component add llvm-tools
+npm ci
+npm run ios:check
+npm run ios:dev -- "<可用的标准 iPhone 名称>" --no-watch
+```
+
+工程已通过官方 `npm run tauri ios init` 生成；需要重建时用 `npm run ios:init`，并检查生成差异，保留下面的框架、plist 和构建脚本配置。提交 `src-tauri/gen/apple` 中的工程、共享 scheme、源文件、图标、plist、Podfile 和 project.yml；不提交 Externals、assets、build、Pods 或 xcuserdata。根目录忽略规则保持不变，首次加入生成源文件需逐项 `git add -f`。修改 project.yml 后在其目录运行 `xcodegen generate`，权限用途与 UIScene 配置同时保存在 project.yml 和 Info.ios.plist，保证 XcodeGen 重建不丢失。不得加入个人开发团队或发行签名。隐私清单 `thingary_iOS/PrivacyInfo.xcprivacy` 随工程提交（`project.yml` 的 `thingary_iOS` 目录源自动作为资源），新增需说明理由的 API 时同步更新，核对办法见[发布流程的 iOS 小节](RELEASING.md#ios)。
+
+Xcode 27 要求 UIScene；Info.ios.plist 使用 Tao 自带的 TaoSceneDelegate，并提供非空的场景配置。Tauri 需为 2.12 及以上（Tao 0.36+）：Tao 0.35.3 在 `application:configurationForConnectingSceneSession:options:` 中提前释放返回的 UISceneConfiguration，真机 Release 启动即在 `-[UIApplication _connectUISceneFromFBSScene:…]` 的 `objc_retain` 段错误。桌面与 iOS 统一使用官方 CLI 2.12.3（2.11.5 会把 Xcode 27 devicectl 返回的模拟器当作真机）；`ios:tauri` 脚本固定同一版本，首次执行需联网取得 npm 缓存。生成工程的预构建脚本也必须调用 `npm run -- ios:tauri ios xcode-script …`，与父进程使用同一 CLI，避免通信端口不一致。`ios:dev` 使用本机回环地址；真机开发改用 `npm run ios:tauri -- ios dev --host <Mac局域网IP>`，由维护者配置开发证书。交叉编译通过不代表真机安装通过。需要完整编译真机 Rust 静态库时，运行 `cargo build --manifest-path src-tauri/Cargo.toml --lib --target aarch64-apple-ios`，不涉及设备安装或签名。
+
+iOS 入口为独立界面任务提供的 mobile.html。资料库使用 `app_local_data_dir()/library`，开发身份仍为 `local.thingary.preview`；绝不打开 `local.thingary.main`。桌面菜单、窗口尺寸和单实例插件仅在桌面启用。SQLite、规划核心、金额整数分、日期、request_id、generation 和回执机制均与桌面共用。
+
+### 前端调用约定
+
+| 能力 | 调用与返回 |
+| --- | --- |
+| 平台能力 | `invoke('platform_capabilities')`：`platform`、`updates_supported`、`native_file_sharing`、`background_privacy_cover`、`auth_name`（面容／触控 ID 或通用身份验证）。手机界面不提供更新设置和入口。 |
+| 统一分享 | `invoke('ios_share_file', {name})`：仅接受 Documents 中已存在的备份、xlsx、PDF 或 txt 文件名，完成为 true，取消为 false，系统错误则拒绝；不能传任意路径。 |
+| 完整备份／表格 | 继续调用 `create_backup`／`export_workbook`，发布到 Documents 后自动打开系统分享面板。iOS 结果额外包含 `share: {completed,error}`；分享取消或失败不等于导出文件未写入。可用返回的文件名调用统一分享重试。 |
+| 规划报告 PDF | `src/mobile/plan/Report.tsx` 将现有隐私模式下的 HTML 快照交给 `src/mobile/me/files.ts` 的 shareReport；iOS 调用 `ios_export_pdf`（name、html），由无脚本、无网络、非持久 WKWebView 和 A4 打印器生成 PDF，再走同一分享面板。HTML 限 4 MiB、PDF 限 32 MiB／200 页，返回 `{name,share}`。桌面继续下载 HTML。 |
+| 恢复备份 | 沿用 `inspect_backup` → 必要时解密 → 确认 → `restore_backup_session` 及回执核对流程。原生“文件”选择器接受 .thingary、.thingary.age，可浏览 App Documents 和其他文件提供者；选中后复制到私有临时目录再检查。 |
+| 拍照／多选照片 | WKWebView 使用 `<input type="file" accept="image/*" capture="environment">` 拍照，另设不带 capture 的 multiple 输入选择相册；读取 File 字节，沿用 `import_photo_bytes`、`photo_preview` 和物品保存回执。Info.plist 包含中文相机、照片用途说明；原图保持不变，预览由 ImageIO 生成。 |
+| 恢复密钥文件 | files.ts 的 downloadText 在 iOS 调用 ios_share_text，分享期间使用私有临时文件，完成、取消和失败均清除；界面等待完成才标记已保存，不保留在 Documents 或备份中。 |
+| 心愿照片 | 保留现有 pick_photo 命令；iOS 使用 PHPicker 系统相册单选，仅取得用户选择的照片，原始文件进入已有 staging／generation 流程。 |
+| 身份验证 | 沿用 privacy_lock 命令和状态，LocalAuthentication 使用设备机主验证策略，支持系统密码回退，名称由系统生物识别类型决定，SE 不用机型／屏宽猜测面容 ID；生物识别信息不会进入 App。 |
+| 提醒 | 沿用 `notification_permission` 和 notification-permission.ts 流程，iOS 文案判断只在 notification-permission.ts 内。UNUserNotificationCenter 复用盘点、保修、周期付款等现有计划和稳定 ID，在本地日期 09:00 提醒；系统队列按临近时间保留，超限明确报错。 |
+
+Documents 已开启 UIFileSharingEnabled 和 LSSupportsOpeningDocumentsInPlace，用户可在“文件”App 查看或放入备份；自动备份位于 Documents/Backups。系统分享面板提供“存储到文件”等目标，iCloud Drive 和隔空投送的实际可用性取决于设备配置。导出保留原有备份格式，桌面和手机互相导入；加密恢复继续使用原有密钥和会话机制。
+
+手机 privacy-runtime 将后台遮挡／锁定偏好交给原生层；启用任一保护时，场景失活即添加不透明模糊遮罩保护 App 切换器。原生场景事件同时通知前端状态机，回到前台后先更新 DOM 锁屏，再撤去原生遮罩。iOS 的手动检查、自动发现、更新同意写入和更新下载链接在后端均禁用，拒绝发生于网络请求之前；前端平台判断统一位于 update-check.ts，update-discovery.ts 调用这一判断。手机「关于」不显示更新入口，桌面行为保持不变。
+
+### 平台边界与验收
+
+当前已在标准 iPhone 17（iOS 27.0 模拟器，402×874 点）完成独立手机入口、虚构物品、未知价格／日期、账户和完整盘点、原生规划结果、两页隐私 PDF 与分享面板、系统文件选择及备份检查恢复。桌面生成的明文备份在手机恢复，再由手机导出、桌面临时库恢复，全部 SQLite 用户表（含回执）及托管原图 SHA-256 一致。系统“保存到文件”完成回调、物品双照片导入、心愿 PHPicker 单选与 ImageIO 预览、通知授权和 App 切换器原生遮罩已验。另在 iPhone SE 第三代（375×667）和 iPhone 14 Pro Max（430×932）检查五个主要页面、安全区和底部标签栏，验证键盘焦点输入框位于键盘上方，并分别打开原生 PDF 分享面板。该轮曾记录窄屏长表单的顶部保存按钮随键盘平移离开视口，现已由手机共用视口层修正，补验范围见下段。代表截图见 PR #17 的描述。恢复密钥分享取消后不会误标为已保存，临时密钥目录已清除。加密备份自动测试通过，iOS 加密密钥界面往返、真机拍照／Face ID／通知实际送达、iCloud Drive 和隔空投送仍需对应环境验证。
+
+2026-10-22 键盘补验：iOS 27.0 的 iPhone SE 第三代（375×667）、标准 iPhone 17（402×874）与 iPhone 18 Pro Max（440×956）各完成 8 项真实 WKWebView／XCUITest 检查，覆盖新增物品、新增账户、完整盘点、心愿编辑、记一笔支出、规划设置条件，以及日期输入不自动缩放、键盘打开时实际保存虚构物品并恢复标签栏。导航固定在可见顶部，按钮避开状态栏，焦点框保持在导航与键盘／底部操作条之间；原始同尺寸截图随修复 PR 提供，不加入源码目录。四项仓库检查均通过。浏览器功能回归使用本仓库的 mobile-preview.html 虚构 IPC 入口；直接打开 mobile.html 仍需要 Tauri 桥接。真机、第三方输入法、硬件键盘、VoiceOver、横屏与 iPad／浮动键盘未验证。
+
+iOS 不提供桌面应用菜单、窗口尺寸恢复、单实例进程控制，也不支持额外自动备份目录；需要外部副本时使用系统分享。`auto_backup_open_folder` 返回提示，用户到“文件”App 的 Documents/Backups 查看。设备未设置密码／生物识别时身份验证不可用；用户拒绝通知后仍保存提醒数据，但通知不能送达。文件操作取消与系统错误分别返回，导出已完成但分享未完成时文件仍留在 Documents。
+
+可复用 `src-tauri/examples/ios_portability.rs` 的 seed／restore 模式生成虚构备份及全表／原图的规范化比较结果；它要求 --isolated-fictional、全新的绝对目录和显式输入输出路径，拒绝打开已有资料库。
+
+开发验收必须使用虚构资料。分别记录实际机型、运行时、账户／未知和正常盘点／规划计算、照片与缩略图、备份桌面往返、分享完成与取消、通知权限、前后台遮罩。标准 iPhone 为主，另验 SE 和 Pro Max；模拟器截图不代表真机拍照、Face ID、隔空投送或 iCloud 已验。原生功能需在真实 Tauri WKWebView 中验证，浏览器演示不能替代。交付前同时运行本页四项检查和 macOS 开发预览，不能把编译成功写成全部原生验收成功。
+
 ## 自动检查
 
 在仓库根目录执行适用检查：
@@ -136,6 +186,8 @@ npm run dev -- --port 1429
 
 访问 <http://127.0.0.1:1429/visual-preview.html>。页面仅使用内存虚构资料，刷新重置，不包含于普通发布构建；预览保存提示不证明原生持久化或系统文件能力。
 
+手机预览访问 `/mobile-preview.html`，与桌面预览共用 `src/preview-ipc.ts` 的虚构数据；参数 `theme`、`wealth`、`mobile-state`、`tab`、`route` 见 [src/mobile/README.md](../src/mobile/README.md)。
+
 | 参数／入口 | 用途 |
 |---|---|
 | `?state=empty`、`?state=error`、`?state=save-error` | 空白、读取失败、保存失败 |
@@ -143,6 +195,7 @@ npm run dev -- --port 1429
 | `?section=overview&started=first-use&state=empty` | 未开始的虚构资料（首次样例横幅）；可加 `module-write-error`／`module-read-error` 注入模块写入／读取失败，模块仅在预览内存中更新 |
 | `?section=planning&plan-basic=saved|unknown|negative|blank&capabilities=real` | 已保存通用规划、投入未知／负值、基础未填；真实纯计算 |
 | `?section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed` | 当前目标、大额计划、计算详情与真实报告入口 |
+| `?section=planning&plan-basic=saved&capabilities=real&plan-household=couple-same|couple-age|couple-age-empty`（可加 `plan-household-mode=fire`） | 虚构两人规划：伴侣同时停工、指定年龄并填存款、指定年龄但存款为空 |
 | `?plan=error`、`?plan-profile=empty` | 规划读取失败／没有已保存规划 |
 | `?plan-core=occurred|partial|overdue` | 已发生接续、付款缺项与过期待核对 |
 | `?section=planning&plan-debt=normal|unknown|empty|error|changed|zero|saved` | 已有贷款直接还款安排 |

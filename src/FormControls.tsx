@@ -1,8 +1,7 @@
 import { CloseButton } from './CloseButton';
 import {Children,Fragment,cloneElement,isValidElement,useId,useEffect,useRef,useState,type ReactNode,type CSSProperties,type ReactElement} from 'react';
-import {invoke} from '@tauri-apps/api/core';
-import {errorMessage} from './asset';
 import { FormHintContext, FormLabelContext, useFormHint } from './form-hint';
+import { useChoices, type ChoiceKind, type Entry } from './choices-hook';
 // Describe direct native controls and shared compound controls without moving business validation.
 function describeControls(children: ReactNode, hint: string): ReactNode {
  return Children.map(children, child => {
@@ -26,53 +25,8 @@ export function DragHandle({label,disabled,onDrop,onStep}:{label:string;disabled
  return <button type="button" className="drag-handle" aria-label={'拖动排序：'+label} title="拖动排序；聚焦后用上下方向键移动" disabled={disabled} onKeyDown={e=>{if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();onStep(e.key==='ArrowUp'?-1:1)}}} onPointerDown={e=>{if(disabled||e.button!==0)return;const source=e.currentTarget.closest<HTMLElement>('[data-sort-id]');if(!source)return;e.preventDefault();e.currentTarget.focus();e.currentTarget.setPointerCapture(e.pointerId);const rect=source.getBoundingClientRect(),ghost=source.cloneNode(true) as HTMLElement;ghost.classList.add('sort-ghost');ghost.setAttribute('aria-hidden','true');ghost.inert=true;Object.assign(ghost.style,{width:rect.width+'px',height:rect.height+'px',left:rect.left+'px',top:rect.top+'px'});source.after(ghost);source.classList.add('sort-origin');drag.current={source,ghost,target:null,startX:e.clientX,startY:e.clientY,left:rect.left,top:rect.top}}} onPointerMove={e=>{const active=drag.current;if(!active)return;active.ghost.style.left=active.left+e.clientX-active.startX+'px';active.ghost.style.top=active.top+e.clientY-active.startY+'px';const target=document.elementFromPoint(e.clientX,e.clientY)?.closest<HTMLElement>('[data-sort-id]');if(target===active.target)return;active.target?.classList.remove('sort-target');active.target=target&&target!==active.source?target:null;active.target?.classList.add('sort-target')}} onPointerUp={e=>{const active=drag.current;if(!active)return;const id=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-sort-id]')?.getAttribute('data-sort-id');clear();if(id)onDrop(id)}} onPointerCancel={clear}><svg viewBox="0 0 20 20" aria-hidden="true">{[5,10,15].flatMap(y=>[7,13].map(x=><circle key={x+','+y} cx={x} cy={y} r="1.4"/>))}</svg></button>
 }
 export function SelectionMark(){return <span className="selection-mark" aria-hidden="true"><span/></span>}
-type Entry={id:string;name:string;enabled:boolean;references:number;scope?:string|null;virtual_references?:number|null};type Snapshot={revision:number;items:Entry[]};
-type ChoiceKind='category'|'channel'|'label'|'sale_channel';
 // 标签适用范围：实物、虚拟或通用（设计 §2）。
 const scopeText=(scope:string|null|undefined)=>scope==='virtual'?'虚拟':scope==='both'?'通用':'实物';
-// Shared by the picker dialog and the settings tab: one receipt-retrying change path per choice list.
-function useChoices(kind:ChoiceKind,generation:string){
- const [data,setData]=useState<Snapshot|null>(null),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
- const pending=useRef<unknown>(null),lock=useRef(false);
- const key=`thingary.choice-request.v1.${generation}.${kind}`;
- const notify=()=>window.dispatchEvent(new Event('thingary-choices-changed'));
- async function load(){
-  try {
-   const stored=JSON.parse(localStorage.getItem(key)||'null');
-   if(stored){
-    pending.current=stored;
-    const result=await invoke<string|null>('wealth_request_result',{request:stored.request_id,generation:stored.generation});
-    localStorage.removeItem(key);pending.current=null;
-    setNotice(result?'已核对：上次操作已保存。':'已核对：上次操作未保存，可以重新操作。');notify();
-   }
-   setData(await invoke<Snapshot>('choice_list',{kind}));
-  }catch(e){setNotice(errorMessage(e));}
- }
- useEffect(()=>{setData(null);pending.current=null;void load()},[kind,generation]);
- async function change(action:unknown){
-  if(!data||lock.current||pending.current)return false;
-  lock.current=true;setBusy(true);
-  const input={request_id:crypto.randomUUID(),generation,expected_revision:data.revision,kind,action};
-  try{
-   localStorage.setItem(key,JSON.stringify(input));pending.current=input;
-   setData(await invoke<Snapshot>('choice_change',{input}));
-   localStorage.removeItem(key);pending.current=null;setNotice('');notify();return true;
-  }catch(e){
-   setNotice(errorMessage(e));
-   if(pending.current){
-    try{
-     const result=await invoke<string|null>('wealth_request_result',{request:input.request_id,generation});
-     localStorage.removeItem(key);pending.current=null;
-     setData(await invoke<Snapshot>('choice_list',{kind}));
-     if(result){setNotice('已核对：操作已保存。');notify();return true;}
-    }catch{setNotice('暂时无法确认操作结果，原请求已保留，请核对后继续。');}
-   }
-   return false;
-  }finally{lock.current=false;setBusy(false);}
- }
- function move(id:string,to:number){if(!data)return;const ids=data.items.map(i=>i.id),from=ids.indexOf(id);ids.splice(from,1);ids.splice(to,0,id);void change({type:'reorder',ids})}
- return {kind,data,notice,busy,pending,load,change,move,locked:busy||!!pending.current};
-}
 type Choices=ReturnType<typeof useChoices>;
 function ManageList({c,label,onRemap,scopeControl=false}:{c:Choices;label:string;onRemap?:(old:Entry,next:Entry|null)=>void;scopeControl?:boolean}){
  const [name,setName]=useState('');
@@ -127,7 +81,7 @@ export function ChoiceField({kind,label,value,onChange,generation,disabled,byNam
  },[data,value,byName]);
  return <><button className="choice-trigger" aria-describedby={useFormHint()} type="button" disabled={disabled} aria-label={label} onClick={()=>{setOpen(true);void c.load()}}>{selected?.name||value||empty}<svg className="choice-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></button>{open&&<dialog ref={panel} className="editor choice-dialog" aria-label={(manage?'管理':'选择')+label} onCancel={e=>{e.preventDefault();if(!locked)setOpen(false)}}><header><h2>{manage?'管理':'选择'}{label}</h2><CloseButton type="button" disabled={locked} onClick={()=>setOpen(false)} aria-label="关闭选项"/></header><div className="choice-body"><p className="muted small">{manage?'拖动左侧手柄排序；键盘可用上下方向键。停用不影响已有记录。':kind==='label'?'标签用来给物品分组，比如「工作用」；使用中、保障、退役和售出按真实记录自动显示。':'选择一项；可以在管理中添加和整理。'}</p>{manage?<ManageList c={c} label={label} scopeControl={kind==='label'} onRemap={(old,next)=>{if(value===(byName?old.name:old.id))onChange(next?(byName?next.name:next.id):null)}}/>:<><div className="choice-list"><button type="button" aria-pressed={!value} onClick={()=>{onChange(null);setOpen(false)}}>{empty}<SelectionMark/></button>{data?.items.filter(e=>!(kind==='label'&&domain)||e.scope==='both'||e.scope===domain||!e.scope||(byName?e.name:e.id)===value).filter(e=>e.enabled||(byName?e.name:e.id)===value).map(e=><div key={e.id} className="choice-item" data-sort-id={e.id}><button type="button" aria-pressed={value===(byName?e.name:e.id)} onClick={()=>{onChange(byName?e.name:e.id);setOpen(false)}}>{e.name}{!e.enabled&&'（已停用）'}<SelectionMark/></button></div>)}</div>{c.notice&&<p className="error" role="alert">{c.notice}</p>}</>}</div><footer className="actions"><button type="button" disabled={locked} onClick={()=>setManage(!manage)}>{manage?'完成管理':'管理'}</button></footer></dialog>}</>;
 }
-export function AddImageButton({onClick,disabled}:{onClick:()=>void;disabled?:boolean}){return <button className="add-image-button" type="button" aria-label="添加图片" disabled={disabled} onClick={onClick}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9M3 16l5-5 4 4 3-3 3 3"/><circle cx="15.5" cy="7.5" r="1.5"/><path d="M19 16v6M16 19h6"/></svg><span>添加图片</span></button>}
+export function AddImageButton({onClick,disabled,tile}:{onClick:()=>void;disabled?:boolean;tile?:boolean}){return <button className={tile?'add-image-button add-image-tile':'add-image-button'} type="button" aria-label="添加图片" disabled={disabled} onClick={onClick}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9M3 16l5-5 4 4 3-3 3 3"/><circle cx="15.5" cy="7.5" r="1.5"/><path d="M19 16v6M16 19h6"/></svg>{!tile&&<span>添加图片</span>}</button>}
 export function CentInput({label,value,onChange,disabled,placeholder,signed=false}:{label:string;value:string;onChange:(v:string)=>void;disabled?:boolean;placeholder?:string;signed?:boolean}){const [raw,setRaw]=useState(value===''?'':String(Number(value)/100));useEffect(()=>{const normalized=raw===''?'':String(Math.round(Number(raw)*100));if(normalized!==value)setRaw(value===''?'':String(Number(value)/100))},[value]);return <input aria-describedby={useFormHint()} aria-label={label} inputMode="decimal" placeholder={placeholder} disabled={disabled} value={raw} onChange={e=>{const next=e.target.value;if(!(signed?/^-?\d{0,9}(\.\d{0,2})?$/:/^\d{0,9}(\.\d{0,2})?$/).test(next))return;setRaw(next);const [whole,fraction='']=next.replace(/^-/, '').split('.');onChange(next===''||next==='-'?'':((next.startsWith('-')?-1n:1n)*(BigInt(whole||'0')*100n+BigInt(fraction.padEnd(2,'0')))).toString())}}/>}
 
 // U15c/U16a：口径与说明收进 ⓘ；悬停或聚焦即时显示（ui.css），读屏读出 aria-label。

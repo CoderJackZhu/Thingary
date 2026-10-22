@@ -23,7 +23,7 @@ const savedFixture = (retire) => ({ revision: 1, updated_at: today, profile: {
   assumptions: { inflation_hundredths: 0 },
   retire: { ...structuredClone(defaultRetire), mode: 'fire', core: { ...emptyCore(today), fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }] },
     basic: { ...structuredClone(basicInputFixtures.prediction.basic), start: { kind: 'live' }, contribution: { id: 'contribution', monthly_cents: retire.contribution_cents === undefined ? '1000000' : retire.contribution_cents } },
-    simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2080-05' }, income_mode: 'excluded', future_incomes: [] }, ...retire },
+    simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2080-05' }, income_mode: 'excluded', future_incomes: [], household: { mode: 'single', partner: null } }, ...retire },
 } });
 const snap = cents => ({ id: 's1', date: today, revision: 1, entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: String(cents) }] });
 const reviewOf = median => ({ intervals: [], stats: { mean_monthly_change_cents: median, count: 4, low_sample: false, median_monthly_saving_cents: median, mean_monthly_saving_cents: median, median_monthly_spend_cents: null, window_from: '2025-10-06', latest_date: today }, incomplete_count: 0 });

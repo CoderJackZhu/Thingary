@@ -1,0 +1,34 @@
+.mi-photo-strip{display:flex;gap:10px;overflow:auto;max-width:100%;padding:4px 0}
+.mi-photo-strip button{flex:none;width:76px;height:76px;padding:0;overflow:hidden;border-radius:12px}
+.mi-photo-strip .photo-image{width:100%;height:100%;object-fit:cover}
+.mi-photo-strip .photo-placeholder{font-size:12px;display:block;padding:5px;overflow-wrap:anywhere}
+.mi-detail h1{font-size:28px;line-height:1.3;margin:0;overflow-wrap:anywhere}
+.mi-detail .mi-meta{margin:0;color:var(--muted);font-size:14px}
+.mi-detail .mi-goal{padding:16px}
+.mi-detail .mi-goal progress{width:100%;accent-color:var(--accent);height:12px}
+.mi-detail .mi-goal p{font-size:14px;margin:6px 0}
+.mi-detail .mi-note{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;margin:0}
+.mi-detail .mi-status{display:flex;gap:8px;flex-wrap:wrap}
+.mi-detail .mi-status span{padding:3px 8px;border-radius:8px;background:var(--soft);font-size:12px}
+.mi-detail .mi-warranty-switch{display:flex;gap:5px;align-items:center;justify-content:center;flex-direction:column;font-size:11px;color:var(--muted)}
+.mi-detail .mi-photo-full .photo-image{width:100%;max-height:65dvh;object-fit:contain}
+.mi-detail .mi-photo-full .m-button{width:100%}
+.mi-detail .mi-form-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.mi-detail .mi-form-actions>*{flex:1}
+.mi-detail .mi-attachment-title{font-size:14px;color:var(--muted)}
+.mi-detail .mi-record-note{padding:0 16px 12px;margin:0;font-size:14px;color:var(--muted);white-space:pre-wrap}
+
+.mi-detail .mi-head{display:flex;align-items:center;gap:14px}
+.mi-detail .mi-head-icon{flex:none;width:64px;height:64px;border-radius:18px;background:var(--card);box-shadow:var(--surface-shadow);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.mi-detail .mi-head-icon>img{width:42px;height:42px;object-fit:contain}
+.mi-detail .mi-head-icon .photo-image{width:100%;height:100%;object-fit:cover;border-radius:0}
+.mi-detail .mi-head-text{min-width:0;flex:1}
+.mi-detail h1{font-size:22px}
+.mi-detail .mi-meta{margin-top:4px;overflow-wrap:anywhere}
+.mi-nav-icon{padding:0 10px}
+.mi-nav-danger{color:var(--error)}
+.mi-detail .mi-actions{display:flex;gap:10px}
+.mi-detail .mi-action{flex:1;min-width:0;min-height:64px;padding:8px 4px;border:0;border-radius:var(--m-radius-card);background:var(--card);box-shadow:var(--surface-shadow);color:var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500}
+.mi-detail .mi-action:disabled{opacity:.5}
+.mi-detail .mi-note-photos{padding:0 16px 16px}
+.mi-detail .mi-note-photos:empty{display:none}

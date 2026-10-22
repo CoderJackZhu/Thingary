@@ -69,6 +69,7 @@ impl Platform {
     }
     pub(crate) fn label(self) -> String {
         match (self.os, self.arch) {
+            ("ios", _) => "iOS".into(),
             ("macos", "aarch64") => "Mac · Apple Silicon".into(),
             ("macos", "x86_64") => "Mac · Intel".into(),
             ("windows", "x86_64") => "Windows x64".into(),
@@ -431,7 +432,14 @@ fn fetch(source: Source) -> Result<String> {
 }
 
 /// Runs the lookups. Blocking: call from a blocking task.
+pub fn supported() -> bool {
+    !cfg!(target_os = "ios")
+}
+
 pub fn check() -> Result<Outcome> {
+    if !supported() {
+        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+    }
     check_with(env!("CARGO_PKG_VERSION"), &mut fetch)
 }
 
@@ -474,6 +482,9 @@ fn validated_download(
 }
 
 fn open_url(url: &str) -> Result<()> {
+    if !supported() {
+        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+    }
     #[cfg(windows)]
     {
         Command::new("explorer.exe")

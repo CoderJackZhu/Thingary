@@ -294,6 +294,14 @@ fn setup_time_income_budget_funds_share_one_revision_and_failure_rolls_back() {
     };
     fields.time.target_month = Some("2030-01".into());
     fields.time.horizon_month = Some("2040-01".into());
+    fields.household = thingary_lib::plan_simplified::Household {
+        mode: "couple".into(),
+        partner: Some(thingary_lib::plan_simplified::Partner {
+            birth_month: "1992-03".into(),
+            stop_age_months: Some(720),
+            monthly_cents: Some("150000".into()),
+        }),
+    };
     let setup = Update {
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
@@ -434,6 +442,7 @@ fn general_arrangements_preserve_personal_pension_and_housing_account_facts() {
     let snapshot = s
         .wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: None,

@@ -8,6 +8,10 @@ const output = resolve(process.argv[2] ?? join(root, '.local/pages-preview'));
 if (output === root || output === join(root, 'site')) throw new Error('Choose a separate build output directory');
 mkdirSync(output, { recursive: true });
 cpSync(join(root, 'site'), output, { recursive: true });
+// The calculator runs the same planning engine as the app, from its committed WASM build.
+const engineSource = readFileSync(join(root, 'src/planning-engine-wasm.ts'), 'utf8').match(/planningEngineWasm = '([A-Za-z0-9+/=]+)'/);
+if (!engineSource) throw new Error('Planning engine WASM not found');
+writeFileSync(join(output, 'calc/engine.wasm'), Buffer.from(engineSource[1], 'base64'));
 mkdirSync(join(output, 'docs/images'), { recursive: true });
 // Copy only image assets; never publish internal acceptance or user records.
 const homepage = readFileSync(join(root, 'site/index.html'), 'utf8').replaceAll('../docs/images/', 'docs/images/');
@@ -17,7 +21,7 @@ writeFileSync(join(output, 'index.html'), homepage);
 const sharedPrelude = homepage.match(/<body>([\s\S]*?)<div class="site">/)[1];
 const sharedHeader = homepage.match(/<header class="header wrap">[\s\S]*?<\/header>/)[0];
 function siteHeader(prefix) {
-  return sharedHeader.replace(/href="(#main|#features|#privacy|guide\/)"/g,
+  return sharedHeader.replace(/href="(#main|#features|#privacy|guide\/|calc\/)"/g,
     (_, target) => `href="${prefix}${target}"${target === 'guide/' ? ' aria-current="page"' : ''}`);
 }
 
@@ -25,7 +29,7 @@ const images = new Set([...homepage.matchAll(/docs\/(images\/[\w.-]+)/g)].map(m 
 const source = readFileSync(join(root, 'docs/USER_GUIDE.md'), 'utf8');
 const quickstart = readFileSync(join(root, 'docs/QUICKSTART.md'), 'utf8');
 const groups = [
-  ['start', '安装与第一次使用', '选对安装包，从样例开始，完成第一次记录。', ['三步上手','下载、安装与首次打开','五分钟入门：完成第一次账户盘点','五分钟入门：记录第一件物品','样例体验']],
+  ['start', '安装与第一次使用', '选对安装包或了解 iPhone 版，从样例开始，完成第一次记录。', ['三步上手','iPhone 版','下载、安装与首次打开','五分钟入门：完成第一次账户盘点','五分钟入门：记录第一件物品','样例体验']],
   ['accounts', '账户、盘点与收支', '核对余额、外币和投资，区分收入、支出与资金流动。', ['账户与盘点','重要支出','周期费用','虚拟资产']],
   ['planning', '目标、试算与回顾', '用自己的条件探索下一步，读懂假设和未知项。', ['规划：目标','总览与时间轴']],
   ['belongings', '物品与心愿', '记录购买、维护、状态与持有成本。', ['首页的物品日均成本','记录与保护资料','成本、状态与心愿','批量处理物品']],

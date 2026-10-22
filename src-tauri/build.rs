@@ -26,6 +26,28 @@ fn main() {
             println!("cargo:rustc-link-lib=framework={framework}");
         }
     }
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
+        println!("cargo:rerun-if-changed=native/ios.m");
+        println!("cargo:rerun-if-changed=native/ios_pdf.m");
+        cc::Build::new()
+            .file("native/ios.m")
+            .file("native/ios_pdf.m")
+            .flag("-fobjc-arc")
+            .compile("thingary_ios");
+        for framework in [
+            "UIKit",
+            "PhotosUI",
+            "WebKit",
+            "LocalAuthentication",
+            "UserNotifications",
+            "ImageIO",
+            "UniformTypeIdentifiers",
+            "CoreGraphics",
+            "Foundation",
+        ] {
+            println!("cargo:rustc-link-lib=framework={framework}");
+        }
+    }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         println!("cargo:rerun-if-changed=windows/app.manifest");
         let windows = tauri_build::WindowsAttributes::new()

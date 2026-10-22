@@ -21,7 +21,17 @@ extern "C" {
     fn thingary_pick_folder() -> *mut c_char;
     fn thingary_free(bytes: *mut c_void);
 }
-#[cfg(target_os = "macos")]
+#[cfg(target_os = "ios")]
+extern "C" {
+    fn thingary_preview(
+        bytes: *const u8,
+        count: usize,
+        output: *mut *mut u8,
+        length: *mut usize,
+    ) -> i32;
+    fn thingary_free(bytes: *mut std::ffi::c_void);
+}
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub fn preview(bytes: &[u8]) -> Result<Vec<u8>> {
     if bytes.len() > crate::files::MAX_IMAGE_BYTES {
         return Err(Error::new("IMAGE_SIZE", "图片不能超过 20 MiB"));
@@ -55,12 +65,12 @@ fn take_path(value: *mut c_char) -> Option<std::path::PathBuf> {
 
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_desktop(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_image() })
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick_save(
+pub(crate) fn pick_save_desktop(
     _app: &tauri::AppHandle,
     title: &str,
     prompt: &str,
@@ -73,17 +83,17 @@ pub(crate) fn pick_save(
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick_backup_open(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_backup_open_desktop(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_backup_open() })
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick_spreadsheet_open(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_spreadsheet_open_desktop(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_spreadsheet_open() })
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick_folder(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_folder_desktop(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_folder() })
 }
 
@@ -224,7 +234,7 @@ fn dialog(app: &tauri::AppHandle) -> Option<rfd::FileDialog> {
 }
 
 #[cfg(windows)]
-pub(crate) fn pick(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_desktop(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     dialog(app)?
         .set_title("选择物品图片")
         .add_filter("图片", &["jpg", "jpeg", "png", "webp"])
@@ -232,7 +242,7 @@ pub(crate) fn pick(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
 }
 
 #[cfg(windows)]
-pub(crate) fn pick_save(
+pub(crate) fn pick_save_desktop(
     app: &tauri::AppHandle,
     title: &str,
     prompt: &str,
@@ -248,7 +258,7 @@ pub(crate) fn pick_save(
 }
 
 #[cfg(windows)]
-pub(crate) fn pick_backup_open(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_backup_open_desktop(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     dialog(app)?
         .set_title("选择要恢复的备份")
         .add_filter("物谱备份", &["thingary", "age"])
@@ -256,7 +266,7 @@ pub(crate) fn pick_backup_open(app: &tauri::AppHandle) -> Option<std::path::Path
 }
 
 #[cfg(windows)]
-pub(crate) fn pick_spreadsheet_open(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_spreadsheet_open_desktop(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     dialog(app)?
         .set_title("选择要导入的 Excel 工作簿")
         .add_filter("Excel 工作簿", &["xlsx"])
@@ -264,8 +274,74 @@ pub(crate) fn pick_spreadsheet_open(app: &tauri::AppHandle) -> Option<std::path:
 }
 
 #[cfg(windows)]
-pub(crate) fn pick_folder(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) fn pick_folder_desktop(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     dialog(app)?.set_title("选择额外备份位置").pick_folder()
+}
+
+// Result separates explicit cancellation from platform/presentation failures.
+pub(crate) fn pick(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>> {
+    #[cfg(target_os = "ios")]
+    {
+        let _ = app;
+        crate::ios::pick("image")
+    }
+    #[cfg(desktop)]
+    {
+        Ok(pick_desktop(app))
+    }
+}
+pub(crate) fn pick_save(
+    app: &tauri::AppHandle,
+    title: &str,
+    prompt: &str,
+    suggested: &str,
+    extension: &str,
+) -> Result<Option<std::path::PathBuf>> {
+    #[cfg(target_os = "ios")]
+    {
+        let _ = (app, title, prompt);
+        crate::ios_exports::save_path(suggested, extension).map(Some)
+    }
+    #[cfg(desktop)]
+    {
+        Ok(pick_save_desktop(app, title, prompt, suggested, extension))
+    }
+}
+pub(crate) fn pick_backup_open(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>> {
+    #[cfg(target_os = "ios")]
+    {
+        let _ = app;
+        crate::ios::pick("backup")
+    }
+    #[cfg(desktop)]
+    {
+        Ok(pick_backup_open_desktop(app))
+    }
+}
+pub(crate) fn pick_spreadsheet_open(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>> {
+    #[cfg(target_os = "ios")]
+    {
+        let _ = app;
+        crate::ios::pick("workbook")
+    }
+    #[cfg(desktop)]
+    {
+        Ok(pick_spreadsheet_open_desktop(app))
+    }
+}
+pub(crate) fn pick_folder(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>> {
+    #[cfg(target_os = "ios")]
+    {
+        let _ = app;
+        Err(Error::new(
+            "UNSUPPORTED",
+            "iOS 请通过分享面板把备份保存到文件或 iCloud Drive；不支持后台额外目录同步",
+        ))
+    }
+    #[cfg(desktop)]
+    {
+        Ok(pick_folder_desktop(app))
+    }
 }
 
 #[cfg(test)]

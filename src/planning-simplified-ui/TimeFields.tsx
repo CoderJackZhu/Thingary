@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { MonthInput } from '../DateInput';
 import { FormRow } from '../FormControls';
-import type { FieldIssueV1, TimeInputV1 } from '../plan-simplified-contract.ts';
+import type { FieldIssueV1, HouseholdV1, TimeInputV1 } from '../plan-simplified-contract.ts';
 import { ageToMonthV1, validMonthV1 } from '../plan-simplified.ts';
 import { ageAtMonth, ageMonthsOf, ageText } from './income-view';
+import { HouseholdFields } from './HouseholdFields';
 
 /** Birth month is a newly confirmed age-zero reference. Explicit months remain the calculation source. */
-export function TimeFields({ value, issues, busy, today, onChange }: { value: TimeInputV1; issues: FieldIssueV1[]; busy: boolean; today: string; onChange: (t: TimeInputV1) => void }) {
+export function TimeFields({ value, issues, busy, today, onChange, household, onHouseholdChange }: { value: TimeInputV1; issues: FieldIssueV1[]; busy: boolean; today: string; onChange: (t: TimeInputV1) => void; household?: HouseholdV1; onHouseholdChange?: (h: HouseholdV1) => void }) {
   const [birth, setBirth] = useState(value.reference?.age_months === 0 ? value.reference.month : '');
   const parts = (month: string | null, reference = value.reference) => {
     const age = ageAtMonth(reference, month);
@@ -41,6 +42,7 @@ export function TimeFields({ value, issues, busy, today, onChange }: { value: Ti
   const ageInput = (label: string, field: 'target_month' | 'horizon_month', age: typeof target) => <input type="number" aria-label={label} min="0" max="120" step="1" inputMode="numeric" placeholder={field === 'target_month' ? '例如 60' : '例如 90'} value={age.years} disabled={busy || !reference} onChange={e => changeAge(field, { years: e.target.value, months: '' })}/>;
   const timeIssues = issues.filter(i => i.path.startsWith('time.'));
   return <section className="form-block" aria-label="时间安排">
+    {household && onHouseholdChange && <HouseholdFields value={household} issues={issues} busy={busy} today={today} onChange={onHouseholdChange}/>}
     <FormRow label="出生年月" hint="用于显示退休年龄及自动换算月份；修改后会保留已有月份，请核对年龄">
       <MonthInput yearIntent="long" label="出生年月" value={birth} max={today.slice(0, 7)} disabled={busy} allowClear onChange={changeBirth}/>
     </FormRow>

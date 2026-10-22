@@ -12,6 +12,7 @@
 | 记录收入、支出与资金流动 | [收支记录与财务复盘](USER_GUIDE.md#finance-review) |
 | 目标、测算详情、试算与当前报告 | [规划入门](USER_GUIDE.md#planning) |
 | 临时现金与工作变化条件 | [资金续航](USER_GUIDE.md#runway) · [职业试算](USER_GUIDE.md#career-trial) |
+| iPhone 版、手机与电脑间搬资料 | [iPhone 版](USER_GUIDE.md#iphone) · [在 iPhone 与电脑之间搬资料](USER_GUIDE.md#phone-transfer) |
 | 备份、恢复、Excel 与换机 | [资料保护](USER_GUIDE.md#backup) · [更新与换机](USER_GUIDE.md#update) |
 | 疑问、支持范围与数值口径 | [常见问题](USER_GUIDE.md#faq) · [当前限制](USER_GUIDE.md#limits) · [业务规则](PRODUCT_RULES.md) |
 | 关于、帮助与资料隐私 | [关于与帮助](USER_GUIDE.md#help) · [隐私与资料安全](USER_GUIDE.md#privacy) · [问题反馈](https://github.com/CoderJackZhu/Thingary/issues) |
@@ -24,7 +25,7 @@
 | [开发与测试](DEVELOPMENT.md) | 环境、预览、检查入口与当前验证边界 |
 | [架构说明](ARCHITECTURE.md) | 分层、存储、来源、请求与恢复约束 |
 | [文档维护](MAINTAINING.md) | 唯一权威入口与变更同步职责 |
-| [发布流程](RELEASING.md#release-lifecycle) | 版本迭代、冻结、验收、文档截图、平台放行与发布回查；含打包步骤 |
+| [发布流程](RELEASING.md#release-lifecycle) | 版本迭代、冻结、验收、文档截图、平台放行与发布回查；含打包步骤；iOS 上架准备见[iOS 小节](RELEASING.md#ios)与[App Store 文案草稿](releases/app-store-listing.md) |
 | [Windows 验收清单](WINDOWS_ACCEPTANCE.md) | 隔离安装、资料往返、通知、交互与候选包验收边界 |
 | [截图清单](images/README.md) | 虚构截图来源、尺寸、基线与复现 |
 | [安全政策](../SECURITY.md) · [品牌使用](brand/README.md) | 漏洞与名称图标边界 |

@@ -104,6 +104,7 @@ fn main() {
     for (i, date, investment) in [(10, "2026-10-01", "10000000"), (11, TODAY, "9700000")] {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(i),
                 generation: s.generation(),
                 id: None,
@@ -135,7 +136,7 @@ fn main() {
         )
         .unwrap();
     }
-    let setup:Update=serde_json::from_value(json!({"request_id":rid(20),"generation":s.generation(),"expected_revision":null,"section":"setup","fields":{"basic":{"spend_cents":"500000","mode":"traditional","real_return_before_hundredths":0,"real_return_after_hundredths":0,"volatility_hundredths":500,"emergency_months":0,"inflation_hundredths":200,"monetary_basis_date":"2026-10-01","basic":{"contract_version":1,"start":{"kind":"simulation","id":"flow-acceptance-simulation","available_cents":"15000000","date":"2026-10-01","notes":"虚构起点"},"contribution":{"id":"flow-acceptance-contribution","monthly_cents":"300000"},"contribution_costs":[],"retirement_costs":[]}},"budget":null,"funds":null,"simplified":{"contract_version":1,"time":{"reference":null,"target_month":"2036-10","horizon_month":"2066-10"},"income_mode":"excluded","future_incomes":[]}}})).unwrap();
+    let setup:Update=serde_json::from_value(json!({"request_id":rid(20),"generation":s.generation(),"expected_revision":null,"section":"setup","fields":{"basic":{"spend_cents":"500000","mode":"traditional","real_return_before_hundredths":0,"real_return_after_hundredths":0,"volatility_hundredths":500,"emergency_months":0,"inflation_hundredths":200,"monetary_basis_date":"2026-10-01","basic":{"contract_version":1,"start":{"kind":"simulation","id":"flow-acceptance-simulation","available_cents":"15000000","date":"2026-10-01","notes":"虚构起点"},"contribution":{"id":"flow-acceptance-contribution","monthly_cents":"300000"},"contribution_costs":[],"retirement_costs":[]}},"budget":null,"funds":null,"simplified":{"contract_version":1,"time":{"reference":null,"target_month":"2036-10","horizon_month":"2066-10"},"income_mode":"excluded","future_incomes":[],"household":{"mode":"single","partner":null}}}})).unwrap();
     s.plan_profile_update(&setup, TODAY).unwrap();
     s.expense_save(
         &thingary_lib::expenses::Save {

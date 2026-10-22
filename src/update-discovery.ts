@@ -1,3 +1,5 @@
+import { supportsUpdateChecks } from './update-check.ts';
+
 /** Update discovery (D5): shared display state derived from the backend's
  * machine-local preference/cache view, plus the small local markers that
  * coordinate the one-time ask. Pure logic only; the React controller lives in
@@ -131,7 +133,7 @@ export function updateInviteVisible(
   state: UpdateDiscoveryState | null,
   environment: { asked: boolean; hasRecords: boolean; demoActive: boolean; busy: boolean; idle?: boolean },
 ): boolean {
-  if (!state) return false;
+  if (!state || !supportsUpdateChecks(state.platform_label)) return false;
   return (
     !environment.asked &&
     !environment.demoActive &&
@@ -151,7 +153,7 @@ export function autoCheckScheduled(
   state: UpdateDiscoveryState | null,
   environment: { idle: boolean; unlocked: boolean; checkedThisSession: boolean },
 ): boolean {
-  return !!state && !environment.checkedThisSession && environment.idle && environment.unlocked && state.consent === 'enabled';
+  return !!state && supportsUpdateChecks(state.platform_label) && !environment.checkedThisSession && environment.idle && environment.unlocked && state.consent === 'enabled';
 }
 
 /** Milliseconds of calm first-screen time before the automatic request. */

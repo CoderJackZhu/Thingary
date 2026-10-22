@@ -823,7 +823,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
       }
       const cover = record?.cover_id ?? photos[0]?.id ?? null;
       const conversion = wish ? { wishlist_id: wish.id, expected_revision: wish.revision, wish_name: wish.fields.name, estimated_price_cents: wish.fields.estimated_price_cents, cover_notice: coverNotice } : undefined;
-      const next = resume && recovered ? recovered : { hasSupplemental: !!record?.warranties.length, options:record?.preferences?{preferences:record.preferences}:undefined, originalOptions:record?.preferences?{preferences:record.preferences}:undefined, conversion, fields, original: { ...fields }, classification: { ...classification }, originalClassification: { ...classification }, photos, cover, originalMedia: { photos, cover }, photoError: '', generation: page.generation, id: record?.asset.id ?? null, revision: record?.asset.revision ?? null, pending: null };
+      const next = resume && recovered ? recovered : { options:record?.preferences?{preferences:record.preferences}:undefined, originalOptions:record?.preferences?{preferences:record.preferences}:undefined, conversion, fields, original: { ...fields }, classification: { ...classification }, originalClassification: { ...classification }, photos, cover, originalMedia: { photos, cover }, photoError: '', generation: page.generation, id: record?.asset.id ?? null, revision: record?.asset.revision ?? null, pending: null };
       if (!next.conversion) setSection('assets');
       setCloseIntent(null); setDraft(next);
       return true;

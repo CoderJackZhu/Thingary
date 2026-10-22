@@ -221,6 +221,7 @@ fn import_fixed_assets(s: &mut Store, today: &str) -> Result<()> {
         }
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id,
                 generation: generation.clone(),
                 id: Some(id),
@@ -286,6 +287,7 @@ fn import_data(s: &mut Store, today: &str, data: Fixtures) -> Result<()> {
     for snapshot in data.snapshots {
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(&format!("snapshot-{}", snapshot.months_ago)),
                 generation: generation.clone(),
                 id: None,
@@ -579,7 +581,7 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
       "section":"setup","fields":{
        "basic":{"spend_cents":"750000","mode":"traditional","real_return_before_hundredths":300,"real_return_after_hundredths":200,"volatility_hundredths":500,"emergency_months":6,"inflation_hundredths":200,"monetary_basis_date":date,
         "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":"800000"},"contribution_costs":[],"retirement_costs":[]}},
-       "simplified":{"contract_version":1,"time":{"reference":null,"target_month":day(now.checked_add_months(Months::new(240)).expect("bounded sample date"))[..7],"horizon_month":day(now.checked_add_months(Months::new(600)).expect("bounded sample date"))[..7]},"income_mode":"excluded","future_incomes":[]},
+       "simplified":{"contract_version":1,"time":{"reference":null,"target_month":day(now.checked_add_months(Months::new(240)).expect("bounded sample date"))[..7],"horizon_month":day(now.checked_add_months(Months::new(600)).expect("bounded sample date"))[..7]},"income_mode":"excluded","future_incomes":[],"household":{"mode":"single","partner":null}},
        "budget":null,"funds":{"monetary_basis_date":date,"fund_rules":fund_rules,"releases":[]}
       }
     }))?;
@@ -895,6 +897,7 @@ mod fixed_asset_import_tests {
         entries[0].amount_cents = None;
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: Some(second_id.clone()),
@@ -927,6 +930,7 @@ mod fixed_asset_import_tests {
         assert_ne!(entries[0].amount_cents, preserved);
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: Some(first_id),
@@ -1044,6 +1048,7 @@ mod fixed_asset_import_tests {
         entries[0].amount_cents = Some("999999".into());
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: Some(first_id.clone()),

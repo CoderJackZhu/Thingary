@@ -132,6 +132,7 @@ fn purchase_import_commit_and_csv_excel_preserve_zero_and_unknown() {
     assert_eq!(accounts[0].fields.purchase_cents.as_deref(), Some("0"));
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: id(),
             generation: s.generation(),
             id: None,

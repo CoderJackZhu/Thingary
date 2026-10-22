@@ -305,6 +305,10 @@
             "simplified": {
               "contract_version": 1,
               "future_incomes": [],
+              "household": {
+                "mode": "single",
+                "partner": null
+              },
               "income_mode": "excluded",
               "time": {
                 "horizon_month": "2076-10",

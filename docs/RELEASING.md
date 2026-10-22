@@ -165,6 +165,183 @@ NSIS 使用 `currentUser`、简体中文，不配置 Authenticode 签名。缺�
 
 放行前登记故障处理负责人、触发条件、暂停分发与告知入口、受影响版本及资料保护／恢复步骤。发现资料安全或关键主线问题时优先暂停问题包分发，保全证据，判断用户影响并提供安全处理说明；不能以撤包推定已收回下载副本。修复后重新走适用关卡，以新补丁版本交付，并将漏检原因转为回归或清单检查项。
 
+<a id="ios"></a>
+
+## iOS（App Store）
+
+先 TestFlight 内部测试，再准备海外区上架；**未经 Jack 明确授权，不提交 App Store 审核**。商店文案见 [App Store 上架文案](releases/app-store-listing.md)，隐私页在官网 `/privacy/`。
+
+2026-10-21 已定：使用 Jack 朋友的 Apple 开发者个人账号；Bundle ID 为 `local.thingary.main`；名称「物谱」，被占用时用「物谱 Thingary」；仅 iPhone、竖屏、免费；不在中国大陆销售（尚未备案）。账号密码、证书、描述文件和团队配置只保存在本机，不提交仓库。App Store Connect 可以创建 App 记录、上传构建和开启内部测试，提交审核仍需 Jack 单独放行。
+
+### 当前工程状态
+
+- 工程在 `src-tauri/gen/apple/`，由 XcodeGen 的 `project.yml` 描述。默认开发身份保持 `local.thingary.preview`、产品名 `Thingary Preview`。上架时额外合并 `src-tauri/tauri.appstore.conf.json`，只覆盖 `identifier` 和 `productName`，不改变桌面配置。
+- 隐私清单 `thingary_iOS/PrivacyInfo.xcprivacy` 由 `thingary_iOS` 目录源自动加入 Copy Bundle Resources；每次重建工程和打包后仍需检查目标资源与包内文件。`Externals` 仅通过 `libapp.a` 链接，不作为目录源，避免 XcodeGen 把编译产物静态库误复制进 App 资源。
+- Release 链接另需 rustup 的 `llvm-tools` 组件：Xcode 27 的 SwiftPM 在 Release 配置下把 Tauri Swift 包的 `@_cdecl` 导出编译为局部符号，`swift-rs` 用 `llvm-objcopy` 恢复为全局符号；缺少时 Rust 静态库链接会报 `_log_stdout`、`_on_webview_created`、`_run_plugin_command` 未定义。原因与复现见[开发与测试](DEVELOPMENT.md#ios-开发)。
+- `TARGETED_DEVICE_FAMILY = 1`，不包含 iPad；`project.yml` 与 `thingary_iOS/Info.plist` 已移除 iPad 方向，iPhone 竖屏与 `src-tauri/Info.ios.plist` 一致。
+- 工程使用 `CODE_SIGN_STYLE = Automatic`，不固定 Team。`ExportOptions.plist` 的 method 仍是 `debugging`；商店上传使用 CLI 的 `--export-method app-store-connect` 或 Xcode Organizer。
+
+### 1. 版本号
+
+`CFBundleShortVersionString` 与桌面版本一致；本轮不改版本和构建号。当前 `project.yml`、`thingary_iOS/Info.plist` 为 0.0.8。**每次上传前**由维护者分配高于 App Store Connect 已上传值的构建号，使用 CLI `--build-number` 后核对归档 `Info.plist` 的 `CFBundleVersion`；不能仅凭命令参数推定最终值（参见 [Apple 构建版本字符串](https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleversion)）。版本维护仍按本文 §1。
+
+### 2. 构建与无签名检查
+
+在 Mac 上，按[开发与测试](DEVELOPMENT.md#ios-开发)装好完整 Xcode、模拟器运行时、Rust 目标、rustup 的 `llvm-tools` 组件与 XcodeGen。首次克隆后创建被忽略的输出目录，再生成工程：
+
+```sh
+rustup component add llvm-tools
+npm ci
+mkdir -p src-tauri/gen/apple/Externals src-tauri/gen/apple/assets
+(cd src-tauri/gen/apple && xcodegen generate)
+npm run build
+npm run test:ui
+npm run check
+npm test
+npm run ios:check
+```
+
+上架构建（需已登录朋友账号且获得证书／描述文件权限；`APPLE_DEVELOPMENT_TEAM` 为本机环境变量）：
+
+```sh
+npm run ios:tauri -- ios build --config src-tauri/tauri.appstore.conf.json --export-method app-store-connect
+```
+
+每次上传加上维护者选定的 `--build-number <递增值>`。完成包核查后，在 `src-tauri/gen/apple` 重新运行 `xcodegen generate`，并核对 `git diff`，恢复可提交工程的默认预览身份；CLI 会按本次配置改写生成工程，不能把商店身份和本机签名配置误提交为开发默认值。
+
+Tauri 通过 [JSON Merge Patch](https://v2.tauri.app/develop/configuration-files/#extending-the-configuration) 合并配置；归档后检查 Bundle ID、名称、版本、构建号、设备族和隐私清单。不启动商店身份来做开发验收，不打开正式资料库。Release 不启用 `fault-injection`。
+
+无签名设备归档用于包检查和 Privacy Report，不能上传或用作 TestFlight 包：
+
+```sh
+npm run ios:tauri -- ios build --config src-tauri/tauri.appstore.conf.json --no-sign --archive-only
+```
+
+模拟器取证保持默认预览身份。若 CLI 因 SDK／runtime 小版本不同报告模拟器 SDK 未安装，保持 `ios:dev` 运行，在另一终端明确指定已安装设备构建：
+
+```sh
+npm run ios:dev -- "Thingary Store iPhone 17 Pro Max" --no-watch
+# 另一终端；先用 xcrun simctl list devices available 获取 SIM_UDID
+xcodebuild -project src-tauri/gen/apple/thingary.xcodeproj -scheme thingary_iOS \
+  -configuration debug -sdk iphonesimulator \
+  -destination "platform=iOS Simulator,id=$SIM_UDID" \
+  -derivedDataPath "$HOME/Thingary-store-build" CODE_SIGNING_ALLOWED=NO build
+```
+
+#### 当前无签名验证边界（2026-10-22）
+
+Xcode 27.1（27A9275）、iOS 27.0 runtime、iPhone 17 Pro Max（1320×2868）：`xcodegen generate` 和明确 destination 的模拟器 Debug 构建通过，Copy Bundle Resources 与 `.app/PrivacyInfo.xcprivacy` 均已核实；图标 18 个条目尺寸齐全、1024 图无 alpha 或预制圆角。截图使用新建模拟器、默认 `local.thingary.preview`：前四张来自「先看看样例」，第五张手工新增虚构装饰画并使用模拟器自带瀑布照片；原图与证据在仓库外；不运行商店身份，不访问正式资料库。
+
+设备 Debug 与 Release 无签名归档均已通过。此前 Release 缺 `_log_stdout`、`_on_webview_created`、`_run_plugin_command` 的链接失败已定位并修复：
+
+- 根因在工具链而不在生成工程：失败发生在预构建脚本调用的 `cargo build --release --target aarch64-apple-ios`（Rust 静态库链接）阶段，早于 Xcode 链接 App；`project.yml` 删除 `Externals` 目录源只影响 App 资源复制，与该失败无关。Debug 的 Tauri Swift 静态库把三个导出符号编译为全局 `T`；Release 的 SwiftPM 产物把它们编译成局部 `t`（`nm` 可见），`swift-rs` 依靠 rustup `llvm-tools` 的 `llvm-objcopy` 恢复为全局符号。本机原先未安装该组件，构建脚本输出 `cargo:warning=swift-rs: llvm-objcopy not found …` 后跳过恢复，Rust 链接失败。
+- 修复为 `rustup component add llvm-tools`；未升级 Rust 依赖、未改生成工程的链接方式、未放宽链接检查。安装后同一命令构建成功，`nm` 显示三个符号恢复为 `T`。
+
+```sh
+# 设备 Debug 与 Release（无签名，只做包核查；后一次覆盖前一次的归档目录）
+npm run ios:tauri -- ios build --debug --config src-tauri/tauri.appstore.conf.json --no-sign --archive-only
+npm run ios:tauri -- ios build --config src-tauri/tauri.appstore.conf.json --no-sign --archive-only
+```
+
+Release 归档为 `物谱.app`（28.7 MB）：包含 `PrivacyInfo.xcprivacy`，标识 `local.thingary.main`、名称「物谱」、设备族 `[1]`、仅竖屏，版本／构建号保持 0.0.8，资源目录没有 `libapp.a`；未安装或启动。核查后重新运行 `xcodegen generate`，提交的生成工程恢复预览身份 `local.thingary.preview`／`Thingary Preview`。
+
+Release 二进制的隐私核对（`nm`／`strings`／`otool`／dSYM 符号化）：
+
+- 包内清单声明文件时间戳（`C617.1`、`3B52.1`）、系统启动时间（`35F9.1`）与磁盘空间（`E174.1`）；`NSPrivacyTracking=false`，无收集数据类型。
+- **磁盘空间（DiskSpace）在 Release 中仍有引用**：`nm -u` 有 `_statfs`、`_fstatfs`，没有 `_statvfs`／`_fstatvfs`。调用来自内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库都会调用 `fstatfs`；`autolockIoFinderImpl` 与 `proxyTransformUnixFile` 使用 `statfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其 `statvfs` 在 Release 已被剔除，Debug 中的 `statvfs` 是未使用包装的链接残留。Jack 已确认补充，清单声明 `E174.1`（检查是否有足够空间写入文件，例如打开和写入数据库、保存备份）。
+- **活动键盘（ActiveKeyboards）未发现访问**：Release 主二进制（含 `__objc_methname`）没有 `activeInputModes`／`UITextInputMode`；只有 Debug 未做 dead-strip 时保留的 `objc2-ui-kit` 选择器绑定，仓库与 `wry`／`tao`／`tauri` 源码均无调用。
+- Xcode Organizer 的 Generate Privacy Report **未生成**：该动作只在 Organizer GUI 提供（无 `xcrun`／`xcodebuild` 等价命令），本机 Accessibility 未授权且无法截图，归档无签名；是否受签名限制尚未验证，待签名后（或由 Jack 在 Xcode 手动执行）再核对。
+
+尚未安装或启动商店身份。签名前仍需生成并核对隐私报告。
+
+### 3. 签名与账号
+
+Jack 将开发者账号加入 Xcode，或在本机登录朋友账号。选择对应 Team，Automatic signing 已在工程配置；通过本机环境变量 `APPLE_DEVELOPMENT_TEAM` 传入 Team ID。个人账号中被邀请的 App Store Connect 用户能否操作证书／描述文件需以账号实际权限为准，不能仅凭能登录 Connect 推定可签名。
+
+尚未获得 Team 时，继续无签名构建和截图；签名归档、App 记录创建、上传与 TestFlight 状态保持待办，不填写假团队号，不把无签名归档当作发行包。
+
+### 4. TestFlight 内测与真机记录
+
+签名 Archive 后在 Organizer 选 Distribute App › App Store Connect › Upload。构建处理完成并完成出口合规问卷后，加入 TestFlight 内部测试组；不发起外部 Beta Review 或 App Store 审核。操作参考 [TestFlight 概览](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)。
+
+在 Jack 的 iPhone 上安装 TestFlight 包，用「先看看样例」或独立的虚构资料验收。未获准访问正式资料库；若手机已有正式资料，先由 Jack 确认隔离方案再安装。逐项记录构建号、iPhone／iOS 版本、操作、结果和截图（证据存仓库外）：
+
+| 项目 | 验收内容 |
+|---|---|
+| 照片 | 相机拍照、相册多选、HEIC 原件与缩略图 |
+| 隐私 | 面容 ID 锁屏、后台切换时模糊遮挡 |
+| 通知 | 盘点提醒、保修到期、周期付款三类授权、排程和实际送达 |
+| 文件 | 备份分享到「文件」，从「文件」恢复并核对资料 |
+| 报告 | 规划报告 PDF 导出、系统分享、打开内容 |
+| 表单 | 键盘弹出后可滚动、可见并操作保存／取消（[#21](https://github.com/CoderJackZhu/Thingary/issues/21)） |
+
+模拟器截图、交叉编译和前端检查均不能代替这些真机结果。
+
+### 5. App Store Connect 填写
+
+| 项目 | 内容 |
+|---|---|
+| 应用信息 | 名称「物谱」（占用则「物谱 Thingary」）、免费、海外区，取消中国大陆；其余文案见[上架文案](releases/app-store-listing.md) |
+| 隐私政策网址 | `https://thingary.jackzhu.top/privacy/`，须在提交前已部署可访问 |
+| App 隐私标签 | 建议选「不收集数据」，依据见下文隐私清单核对；官方说明 [App 隐私详情](https://developer.apple.com/app-store/app-privacy-details/)（未逐页核对） |
+| 年龄分级 | 建议答案见上架文案，问卷定义见 [年龄分级值与定义](https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions) |
+| 截图 | 规格见 [截图规格](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)：该页写明 6.1 寸一组（1179×2556 或 1206×2622）至少一张为必填，6.9／6.7 寸一组缺失时由其他尺寸缩放；清单见上架文案 |
+| 出口合规 | 首次上传如实回答并截图交 Jack 确认；暂不写入豁免键 |
+| 中国大陆 | 已定不上架；在「价格与销售范围」取消勾选并留存结果 |
+
+#### 隐私清单核对（PrivacyInfo.xcprivacy）
+
+依据：[描述 required reason API 的使用](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)——使用了需说明理由的 API，必须在隐私清单中声明被认可的理由，且 App 自身和每个动态库／SDK 各自声明。物谱的 Rust 代码与依赖被静态链接进主可执行文件，所以统一声明在 App 的清单里。2026-10-22 已对照 Apple 的 [NSPrivacyAccessedAPITypeReasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitypereasons) 原文核对下列三个理由代码；声明范围仍需与归档内实际使用一致。
+
+| 类别 | 是否使用 | 理由代码 | 代码出处 |
+|---|---|---|---|
+| 文件时间戳 `NSPrivacyAccessedAPICategoryFileTimestamp` | 是 | `C617.1`（读取 App 容器内文件的时间戳／大小等元数据）；`3B52.1`（读取用户通过文件选择器授予访问的文件） | `src-tauri/src/auto_backup.rs`（备份文件 mtime 与复制后还原 mtime）、`purge.rs`（清理暂存区时只保留 24 小时内的暂存选择）、`photos.rs` 与 `storage.rs`（图片校验缓存的文件戳）、`financial_import.rs`（偏好文件指纹）；`native/ios.m` 对用户所选备份／图片的 `copyItemAtURL` 与 `NSURLIsRegularFileKey`（用户经系统选择器授予的文件，随后复制到应用临时目录）。Rust 标准库的 `std::fs::metadata` 与 SQLite 的 `stat` 同样会被扫描到。 |
+| 系统启动时间 `NSPrivacyAccessedAPICategorySystemBootTime` | 是 | `35F9.1`（测量 App 内事件之间经过的时间） | `std::time::Instant`：`backup_security.rs`（会话空闲超时）、`worker.rs`（变更与失败间隔）、`backup_jobs.rs`。Rust 在 Apple 平台的 `Instant` 基于单调时钟，Apple 把 `mach_absolute_time` 等归入此类；Debug 与 Release 主二进制均检测到 `_clock_gettime` |
+| 磁盘空间 `NSPrivacyAccessedAPICategoryDiskSpace` | 是（Release 仍有引用） | `E174.1`（检查是否有足够磁盘空间写入文件） | 内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库调用 `fstatfs`（`sqlite3.c:46946`）；`autolockIoFinderImpl`（`46181`）与 `proxyTransformUnixFile`（`48371`）调用 `statfs`。Release 主二进制的 `nm -u` 有 `_statfs`、`_fstatfs`，无 `_statvfs`／`_fstatvfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其未使用的 `statvfs` 包装在 Release 已被剔除；Debug 中的 `statvfs` 是未使用包装的链接残留 |
+| 用户默认设置 `NSPrivacyAccessedAPICategoryUserDefaults` | 未发现调用 | 不声明 | `native/*.m`、`gen/apple/Sources` 无 `NSUserDefaults`；偏好保存在应用资料目录的文件里。WebKit 与 UIKit 是系统框架，由系统处理 |
+| 活动键盘 `NSPrivacyAccessedAPICategoryActiveKeyboards` | 否（Release 未引用） | 不声明 | Debug 主二进制曾有 `activeInputModes` 字符串；Release 主二进制（`strings`、`__objc_methname`）为 0，只有 Debug 未做 dead-strip 时保留的 `objc2-ui-kit` 选择器绑定；仓库与 `wry`／`tao`／`tauri` 源码均无调用 |
+
+静态扫描不等于二进制扫描：第三方 crate（`wry`、`tao`、`tauri`、`rusqlite`/SQLite、`image`、`zip`、`age`）的代码在源码层没有被逐行审读；Release 归档已用 `nm -u`／`strings`／`otool` 与 dSYM 符号化核对上表。Archive 后在 Xcode Organizer 中按住 Control 点击归档，选择「Generate Privacy Report」。报告汇总包内清单的声明，**不会自动替二进制补报漏掉的 API**；上传后留意 App Store Connect 的 ITMS-91053 邮件，按其列出的类别补充声明。依赖自带隐私清单的 SDK 不重复声明；目前没有以 xcframework／动态库形式嵌入的第三方 SDK。
+
+数据收集：`NSPrivacyTracking=false`，`NSPrivacyTrackingDomains` 与 `NSPrivacyCollectedDataTypes` 为空。依据（iOS 构建）：
+
+- `src-tauri/src/update_check.rs`：`supported()` 在 iOS 返回 false，`check()` 在发请求前返回「iOS 更新由 App Store 管理」；网络请求只通过系统 `curl` 子进程（`fetch`），iOS 无此二进制，且更新模块被禁用。
+- `src-tauri/src/support.rs`：只有固定链接，`open` 在 iOS 经 `UIApplication openURL` 交给系统浏览器，且拒绝 `update`；应用自身不发请求。心愿的「相关链接」是 `WishDetail.tsx` 中用户自己填写的 `<a target="_blank">`，点击后的行为（WKWebView 是否转交 Safari）**未在设备上验证**。
+- `src-tauri/Cargo.toml` 无 `reqwest`／`hyper`／`ureq` 等 HTTP 客户端；`src/` 前端无 `fetch`／`XMLHttpRequest`／`WebSocket`（`src/` 中仅有 `invoke` 到本机 IPC）；`tauri.conf.json` 的 CSP 为 `default-src 'self'; … connect-src ipc: http://ipc.localhost`，WebView 不能连外网。
+- PDF 导出的 WKWebView 为无脚本、无网络、非持久（`native/ios_pdf.m`，CSP `default-src 'none'`）。
+- 开发时的 `devUrl` 与 `--host` 仅用于 `ios dev`，Release 归档不使用。
+
+此外，`UIFileSharingEnabled` 与 `LSSupportsOpeningDocumentsInPlace` 为 true，使用户能在「文件」App 中看到 Documents（备份在此）；这是有意的，但会让 App 容器的 Documents 对用户可见，审核备注里说明。
+
+#### Info.plist 与设备族
+
+权限说明保留中文：相机拍摄物品照片、相册选图、面容 ID 验证机主身份。通知使用系统授权，无对应 Info.plist 用途键。仅 iPhone、仅竖屏；不再要求 iPad 方向或截图。`UIRequiredDeviceCapabilities` 保持 `arm64`、`metal`。
+
+#### 出口合规（首次上传后由 Jack 确认答案）
+
+iOS 版不联网；Rust `age` 库只加密用户自己的备份文件，使用公开的 X25519、ChaCha20-Poly1305，属于应用内实现，不是只调用 Apple 的系统加密。首次上传后在 App Store Connect 按实际问题如实回答，把**问题、选项和答案截图贴进 PR**，交 Jack 确认后再决定是否写入 `ITSAppUsesNonExemptEncryption`。当前不写该键，也不预先声明豁免；尚未上传时不能编造问卷或回答结果。
+
+参考 [出口合规概览](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance)和[判定与上传加密文档](https://developer.apple.com/help/app-store-connect/manage-app-information/determine-and-upload-app-encryption-documentation)。若实际问卷要求补充文档，按平台流程处理。
+
+#### 销售范围
+
+2026-10-21 已定先 TestFlight，之后免费在海外区上架，不包含中国大陆（尚未备案）。在 App Store Connect 的「价格与销售范围」取消中国大陆；实际后台设置尚需登录后执行和截图确认。以后若要增加中国大陆，另行处理备案与平台要求，不能沿用本次海外区决定。
+
+### 6. 提交审核前检查清单
+
+- [x] 已确定标识、名称、免费、海外区（排除中国大陆）、朋友的个人账号、仅 iPhone；出口合规先逐次回答，Jack 确认后再固化键
+- [ ] 已取得 Team 权限、创建 App 记录，并在 App Store Connect 实际完成价格与销售范围设置
+- [ ] 版本号与构建号已同步（`project.yml`、`Info.plist`、`Info.ios.plist` 与 §1 的版本文件），构建号递增
+- [x] 本轮 `npm run build`、`npm run test:ui`（1630 项）、`npm run check`、`npm test`、`npm run ios:check` 全部通过；后续上传前重新执行
+- [ ] Release 构建不含 `fault-injection`、验收身份或开发 `devUrl`
+- [ ] Archive 包含 `PrivacyInfo.xcprivacy`，隐私报告与二进制符号核对完毕，无 ITMS-91053 邮件遗漏项
+- [ ] 虚构资料走完 TestFlight 验收；真机拍照、面容 ID、通知实际送达、备份分享与恢复、断网使用各有记录；未验项如实登记
+- [ ] 隐私政策页已部署并可未登录访问，内容与应用实际一致；官网首页页脚有入口
+- [ ] App 隐私标签、年龄分级、出口合规问卷、截图（各尺寸）、描述、关键词、支持网址已填并复核；文案没有同步、联网行情、AI 等未实现功能
+- [ ] 审核备注说明：无需登录、样例入口、相机／面容 ID／通知用途、`UIFileSharingEnabled` 的原因
+- [ ] 使用指南已有「iPhone 版」说明（已改为 TestFlight 阶段表述）；上架后把使用指南、官网首页与 README 里的「即将推出／TestFlight 测试中」改为 App Store 链接，`docs/INDEX.md` 与 README 状态一致
+- [ ] 未经维护者授权不点「提交以供审核」；提交与发布均由维护者执行
+
 ## 平台更新与附件约定
 
 应用按实际发布附件匹配可用更新，不以最高版本标签代替兼容性。当前 Mac 文件名使用 `Thingary-<版本>-universal.dmg`；分包可用 `arm64`／`aarch64` 或 `x86_64`／`x64` 后缀。Windows NSIS 使用 `物谱_<版本>_x64-setup.exe`（也接受 Thingary 前缀），ARM64 命名使用 `arm64`；其他约定见 `src-tauri/src/update_check.rs` 的 installer。命名约定本身不证明对应平台／架构已发布或验收。调整命名必须同步匹配规则及测试，不靠模糊扩展名猜平台。

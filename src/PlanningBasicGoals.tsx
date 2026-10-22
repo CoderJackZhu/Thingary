@@ -149,6 +149,8 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
       const card = cards.find(c => annotation.refinement.event_id ? c.event?.id === annotation.refinement.event_id : c.action === 'costs' && annotation.reason_code.startsWith('COST_') || c.action === 'debts' && annotation.reason_code.startsWith('DEBT_'));
       if (card) action(card, from);
       else if (annotation.refinement.field?.startsWith('future_incomes.')) openSetup(3, from, true);
+      else if (annotation.refinement.field?.startsWith('household.partner.monthly_cents')) openSetup(4, from, true);
+      else if (annotation.refinement.field?.startsWith('household.')) openSetup(0, from, true);
       else if (annotation.refinement.owner === 'budget' && annotation.reason_code === 'TIME_PENDING') openSetup(1, from, true);
       else if (annotation.refinement.owner === 'budget') openDialog({ kind: 'costs', completion: false }, from);
       else owner(annotation.refinement.owner, annotation.refinement.field);

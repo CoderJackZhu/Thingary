@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { money } from './asset';
 import { CentInput, Info } from './FormControls';
+import { SPLIT_REQUIREMENT_HINT, householdOf, isSplitCouple } from './planning-simplified-ui/household-view';
 import { CapabilityNotice, MissingList, RequirementCard } from './PlanningRequirement';
 import { RetireOverview, Snapshot, useValueMode } from './RetireOverview';
 import { RiskLab } from './RiskLab';
@@ -65,7 +66,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
         {result.status !== 'ready' ? <CapabilityNotice result={result}/> : tab === 'lab'
           ? (pred ? <RiskLab advancedOpen={advancedOpen} onAdvancedOpenChange={onAdvancedOpenChange} calc={{ plan: pred.plan, assets: pred.plan.assets_cents }} today={today} basic={{ temporary: pred.source === 'temporary', terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>)
           : <>
-            <div id="plan-requirement-result" tabIndex={-1}><RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/></div>
+            <div id="plan-requirement-result" tabIndex={-1}><RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy} note={isSplitCouple(householdOf(retire.simplified), today) ? SPLIT_REQUIREMENT_HINT : null}/></div>
             <div id="plan-prediction-result" tabIndex={-1}>{pred ? <RetireOverview hideSnapshot calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}</div>
           </>}
       </div>

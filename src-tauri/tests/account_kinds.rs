@@ -217,6 +217,7 @@ fn account_kinds_totals_unknown_history_search_and_backup() {
     .collect();
     let amounts = [10000000, 5000000, 3000000, 2000000, 200000000, 60000000];
     let input = SnapshotSave {
+        close_accounts: Vec::new(),
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
         id: None,

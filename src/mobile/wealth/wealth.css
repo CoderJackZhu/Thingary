@@ -1,0 +1,32 @@
+.m-wealth{min-width:0}.m-wealth h2{font-size:16px;margin:0 0 10px}.m-wealth p{margin:6px 0}.mw-muted{font-size:13px;color:var(--muted)}
+.m-wealth .m-segmented button{min-height:44px}.mw-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.mw-toolbar>*{min-width:0}
+.mw-chart{position:relative}.mw-chart svg{display:block;width:100%;height:150px}.mw-chart text{fill:var(--muted);font:11px var(--num)}
+.mw-structure{display:flex;align-items:center;gap:12px}.mw-structure>div{flex:1;min-width:0}.mw-legend{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0}
+.mw-dot{display:inline-block;width:8px;height:8px;border-radius:3px;margin-right:5px}.mw-inputs .m-form-row{grid-template-columns:minmax(0,1fr);padding:8px 0}.mw-inputs .m-form-control{width:100%}.mw-inputs .m-form-label{font-size:14px}
+.mw-inputs input{border:0;border-radius:var(--m-radius-control);background:var(--soft);min-height:44px;width:100%;min-width:0;padding:9px;text-align:right}.mw-inputs .holding-input{width:100%;min-width:0}.mw-inputs small{color:var(--error);font-size:12px}
+.mw-check-row{padding:12px 0;border-top:1px solid var(--line-soft)}.mw-check-row:first-child{border-top:0}.mw-check-title{font-weight:600;font-size:16px}.mw-check-row .m-form-row{border:0}.mw-check-row .m-form-hint{font-size:12px}.mw-check-row output{display:block;text-align:right;font-size:13px;color:var(--muted)}
+.mw-fixed{position:fixed;bottom:0;left:0;right:0;padding:12px max(12px,env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom));z-index:7}.mw-fixed>*{border-radius:24px;background:var(--m-glass);-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:var(--m-glass-ring),0 8px 24px rgba(20,20,40,.1);padding:12px}.mw-fixed-inner{max-width:600px;margin:0 auto}.mw-fixed .mw-toolbar>*{flex:1}.mw-checkin{padding-bottom:170px!important}.mw-status{font-size:13px;margin-bottom:8px}.mw-status strong{font:600 22px var(--num)}
+.mw-compare-row{padding:12px 0;border-top:1px solid var(--line-soft)}.mw-compare-values{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-top:8px}.mw-compare-values span{display:block;color:var(--muted)}.mw-equation{font-size:14px;overflow-wrap:anywhere}.mw-notes{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:350px){.mw-structure{flex-direction:column;align-items:stretch}.mw-fixed .m-button{padding:8px;font-size:14px}.m-wealth .m-form-row{column-gap:6px}.m-wealth .m-form-label{font-size:14px}}
+/* Wealth's shell segment targets also meet the module's 44px acceptance size. */
+.m-app:has(.m-wealth) .m-segment-bar .m-segmented button{min-height:44px}
+.m-wealth .m-segmented button{min-width:44px}
+.m-wealth .date-input-row input,.m-wealth .date-picker-toggle{min-height:44px;min-width:44px}
+/* The shared calendar is portaled; enlarge only while a wealth screen is mounted. */
+body:has(.m-wealth) .date-calendar{width:min(340px,calc(100vw - 8px))}
+body:has(.m-wealth) .date-calendar-grid{gap:0}
+body:has(.m-wealth) .date-calendar button,body:has(.m-wealth) .date-calendar select{min-height:44px;min-width:44px}
+body:has(.m-wealth) .date-calendar-heading>button{width:44px}
+@media(max-width:350px){body:has(.m-wealth) .date-calendar{padding:1px}}
+body:has(.m-wealth) .date-calendar .date-calendar-heading .year-select>select,body:has(.m-wealth) .date-calendar .date-calendar-heading .year-select-trigger{min-height:44px;height:44px}
+@media(max-width:350px){body:has(.m-wealth) .date-calendar{left:4px!important}}
+.mw-fixed .m-notice{margin:0 0 8px;font-size:13px}.mw-checkin:has(.m-notice-danger){padding-bottom:250px!important}
+.mw-editor-alert{position:sticky;top:52px;z-index:5;background:var(--bg)}
+/* QA: form pages wrap their groups in a fieldset (disabled while saving); keep the page rhythm between groups. */
+.m-wealth fieldset{display:flex;flex-direction:column;gap:var(--m-gap)}
+.m-wealth .mw-equation{margin:0;padding:12px 0}
+.m-wealth .m-notice .m-button{display:flex;margin-top:8px}
+.mw-trend{margin-top:12px}
+.mw-sheet-choices{display:flex;flex-direction:column;gap:8px;margin-top:12px}.mw-check-closed{opacity:.72}
+.mw-check-flag{border-radius:14px;padding:10px 12px!important;margin-left:-12px;margin-right:-12px;box-shadow:0 0 0 2px var(--error);background:color-mix(in srgb,var(--error) 8%,transparent)}.mw-check-flag-text{margin:0;color:var(--error);font-size:13px}
+.mw-reason{margin:-4px 4px 0}
