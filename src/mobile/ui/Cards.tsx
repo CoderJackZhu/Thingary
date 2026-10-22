@@ -17,11 +17,12 @@ export function Section({ title, action, children }: { title: string; action?: R
 }
 
 /** Hero card with a tinted gradient: eyebrow, big conclusion, supporting line, tag pills and a footnote. */
-export function HeroCard({ eyebrow, action, title, subtitle, tags, footnote, onClick }: { eyebrow?: string; action?: string; title: ReactNode; subtitle?: ReactNode; tags?: { text: string; tone?: 'positive' | 'neutral' }[]; footnote?: string; onClick?: () => void }) {
+export function HeroCard({ eyebrow, action, title, subtitle, tags, footnote, onClick, children }: { eyebrow?: string; action?: string; title: ReactNode; subtitle?: ReactNode; tags?: { text: string; tone?: 'positive' | 'neutral' }[]; footnote?: string; onClick?: () => void; children?: ReactNode }) {
   const body = <>
     {(eyebrow || action) && <span className="m-hero-top"><span>{eyebrow}</span>{action && <span className="m-hero-action">{action}<Icon name="chevronRight" size={16}/></span>}</span>}
     <span className="m-hero-title">{title}</span>
     {subtitle && <span className="m-hero-sub">{subtitle}</span>}
+    {children}
     {!!tags?.length && <span className="m-tags">{tags.map(tag => <span key={tag.text} className={`m-tag m-tag-${tag.tone ?? 'neutral'}`}>{tag.text}</span>)}</span>}
     {footnote && <span className="m-hero-foot">{footnote}</span>}
   </>;

@@ -20,3 +20,9 @@
 .h-feature p{margin:2px 0 0;font-size:14px;color:var(--muted)}
 .h-privacy{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--muted)}
 .h-welcome-actions{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:24px}
+
+button.h-plan{display:flex;flex-direction:column;gap:4px;font:inherit}
+.h-plan-top{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--muted)}
+.h-plan-action{display:inline-flex;align-items:center;color:var(--accent);font-size:13px}
+.h-plan-title{font:650 20px/1.3 var(--head);letter-spacing:-.3px}
+.h-plan-sub{font-size:14px;color:var(--muted)}

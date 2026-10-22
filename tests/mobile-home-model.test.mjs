@@ -1,25 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dailyView, heroView, netWorthView, overdueWishes, pendingEntries, pendingSourcesFailed, recentRows, warrantyAlert } from '../src/mobile/home/model.ts';
+import { dailyView, planView, netWorthView, overdueWishes, pendingEntries, pendingSourcesFailed, recentRows, warrantyAlert } from '../src/mobile/home/model.ts';
 import { allModules } from '../src/modules.ts';
 
 const point = (over) => ({ snapshot_id: 's', date: '2026-10-01', complete: true, missing: 0, net_cents: '1000000', change_cents: null, compared_to: null, scope_changed: false, ...over });
 const off = (...keys) => ({ ...allModules, ...Object.fromEntries(keys.map(key => [key, false])) });
 
 test('hero：读取中、出错、未设置条件和被挡住各自有明确文字', () => {
-  assert.equal(heroView({ kind: 'loading' }).state, 'blocked');
-  const error = heroView({ kind: 'error', message: '读取失败' });
+  assert.equal(planView({ kind: 'loading' }).state, 'blocked');
+  const error = planView({ kind: 'error', message: '读取失败' });
   assert.equal(error.state, 'error'); assert.equal(error.subtitle, '读取失败');
-  const setup = heroView({ kind: 'blocked', step: 'profile', main: '先设置条件', note: '' });
-  assert.equal(setup.state, 'setup'); assert.match(setup.subtitle, /还要上几年班/);
-  assert.equal(heroView({ kind: 'blocked', step: 'goal', main: '缺目标', note: '请补充' }).state, 'blocked');
+  const setup = planView({ kind: 'blocked', step: 'profile', main: '先设置条件', note: '' });
+  assert.equal(setup.state, 'setup'); assert.match(setup.subtitle, /哪一年可以停工/);
+  assert.equal(planView({ kind: 'blocked', step: 'goal', main: '缺目标', note: '请补充' }).state, 'blocked');
 });
-test('hero：财务自由按 fi_month 算剩余月数，未知不当作零', () => {
-  const base = (fi) => ({ kind: 'ready', mode: 'fire', calc: { plan: { now_months: 100, target_months: 400 }, proj: { fi_month: fi } }, headline: { main: '无法达到', sub: '估算', warn: null }, coverage: { percent: 3500 } });
-  assert.match(heroView(base(124)).title, /还要上.*班/);
-  assert.equal(heroView(base(null)).title, '无法达到');
-  assert.equal(heroView(base(90)).title, '当前资产已覆盖退休所需');
-  assert.deepEqual(heroView(base(124)).tags, ['资产覆盖今天退休所需的 35%']);
+test('规划卡：财务自由说预计停工的年月，不倒数还要上几年班，未知不当作零', () => {
+  const base = (fi, over = {}) => ({ kind: 'ready', mode: 'fire', calc: { plan: { now_months: 100, target_months: 400, anchor_date: '2026-10-01', ...over }, proj: { fi_month: fi } }, headline: { main: '无法达到', sub: '估算', warn: null }, coverage: { percent: 3500 } });
+  assert.equal(planView(base(124)).title, '预计 2028 年 10 月可以停工');
+  assert.doesNotMatch(JSON.stringify(planView(base(124))), /还要上|年班/);
+  assert.equal(planView(base(500)).subtitle, '晚于期望的 2051 年 10 月');
+  assert.equal(planView(base(124, { target_months: 300 })).subtitle, null);
+  assert.equal(planView({ ...base(null), mode: 'traditional' }).title, '计划 2051 年 10 月退休');
+  assert.equal(planView({ ...base(null, { target_months: 100 }), mode: 'traditional' }).title, '已到目标退休时间');
+  assert.equal(planView(base(null)).title, '无法达到');
+  assert.equal(planView(base(90)).title, '当前资产已覆盖退休所需');
+  assert.deepEqual(planView(base(124)).tags, ['资产覆盖今天退休所需的 35%']);
 });
 test('净资产：没有完整盘点就是未知；不完整的最新盘点沿用上次完整并提示缺口', () => {
   assert.equal(netWorthView({ points: [] }, false).state, 'unknown');

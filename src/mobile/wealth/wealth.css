@@ -26,3 +26,4 @@ body:has(.m-wealth) .date-calendar .date-calendar-heading .year-select>select,bo
 .m-wealth fieldset{display:flex;flex-direction:column;gap:var(--m-gap)}
 .m-wealth .mw-equation{margin:0;padding:12px 0}
 .m-wealth .m-notice .m-button{display:flex;margin-top:8px}
+.mw-trend{margin-top:12px}

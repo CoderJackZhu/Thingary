@@ -107,7 +107,7 @@ pub fn render_pdf(html: &str, path: &Path) -> Result<()> {
 pub fn open_url(url: &str) -> Result<()> {
     let allowed = url == "app-settings:"
         || [
-            "author", "project", "guide", "site", "feedback", "backup", "sources",
+            "author", "project", "guide", "site", "feedback", "backup", "sources", "mail",
         ]
         .iter()
         .any(|target| crate::support::destination(target).is_ok_and(|value| value == url));

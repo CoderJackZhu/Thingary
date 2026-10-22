@@ -11,11 +11,11 @@ import { useModules } from '../modules-context';
 import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
 import { dayLabel } from '../format';
-import { Button, Card, EmptyState, ErrorState, HeroCard, Icon, IconButton, ListGroup, ListRow, LargeTitle, Loading, Metric, MetricGrid, LineAreaChart, Notice } from '../ui';
+import { Button, Card, EmptyState, ErrorState, HeroCard, Icon, IconButton, ListGroup, ListRow, LargeTitle, Loading, Metric, LineChart, Notice } from '../ui';
 import type { PageProps } from '../routes';
 import { browserStorage, openRoute, readHideAmounts, writeHideAmounts } from '../me/shared';
 import { installMobileRuntime } from '../me/runtime';
-import { dailyView, heroView, netWorthView, pendingEntries, pendingSourcesFailed, recentRows } from './model';
+import { dailyView, planView, netWorthView, pendingEntries, pendingSourcesFailed, recentRows } from './model';
 import type { WarrantyAlert, WishDue } from './model';
 import { readExpiringWarranties, readGate, readConsideringWishes, readReview } from './read';
 import type { Gate } from './read';
@@ -26,7 +26,7 @@ installMobileRuntime();
 
 type Loaded = { gate: Gate; review: Review; warranty: WarrantyAlert | null; wishes: WishDue[] | null; warrantyFailed: boolean; wishesFailed: boolean };
 
-/** 总览 (design 01): 还要上几年班, 金融净资产, 物品日均成本, 待处理, 近期记录. */
+/** 总览 (design 01): 金融净资产, 规划结果, 物品日均成本, 待处理, 近期记录. */
 const recentIcon = (kind: string) => kind.startsWith('wish_') ? 'heart' as const : kind.startsWith('warranty_') ? 'shield' as const : kind === 'snapshot' ? 'doc' as const : kind === 'purchase' ? 'box' as const : kind === 'payment' ? 'refresh' as const : kind === 'expense' || kind === 'refund' ? 'wallet' as const : 'clock' as const;
 
 export default function Overview(_props: PageProps) {
@@ -71,7 +71,7 @@ export default function Overview(_props: PageProps) {
     const wealth = ready(review.wealth), physical = ready(review.physical);
     const retire = modules.planning && modules.wealth && review.planning ? summaryRetire(review.planning, today) : null;
     return {
-      hero: retire ? heroView(retire) : null,
+      plan: retire ? planView(retire) : null,
       net: wealth ? netWorthView(wealth, hidden) : null,
       daily: physical ? dailyView(physical.held_daily) : null,
       pending: pendingEntries({ today, modules, review, warranty: loaded.warranty, wishes: loaded.wishes }),
@@ -98,24 +98,31 @@ export default function Overview(_props: PageProps) {
   if (error && !loaded) return <div className="m-page"><LargeTitle title="总览" actions={actions}/><ErrorState title="总览读取失败" message={error} onRetry={() => setRetry(n => n + 1)}/></div>;
   if (!loaded || !view) return <div className="m-page"><LargeTitle title="总览" actions={actions}/><Loading label="正在读取总览…"/></div>;
 
-  const { hero, net, daily } = view;
+  const { plan, net, daily } = view;
   return <div className="m-page">
     <LargeTitle title="总览" actions={actions}/>
     {loaded.gate.demo.active && <Card tone="warn" label="样例体验"><div className="h-banner"><span><strong>样例体验</strong> · 虚构资料，改动不影响你的资料</span><Button variant="secondary" disabled={demoBusy} onClick={() => void leaveSample()}>{loaded.gate.demo.started ? '返回我的资料' : '开始记录我的资料'}</Button></div>{demoError && <Notice tone="danger">{demoError}</Notice>}</Card>}
     {error && <Notice tone="danger">更新失败，当前显示上次读取的结果：{error}</Notice>}
-    {hero && (hero.state === 'error'
-      ? <Card label="规划"><ErrorState title={hero.title} message={hero.subtitle ?? undefined} onRetry={() => setRetry(n => n + 1)}/></Card>
-      : <HeroCard eyebrow={hero.eyebrow} action={hero.state === 'setup' ? '去设置' : '查看规划'} title={hero.title} subtitle={hero.subtitle ?? undefined} tags={hero.tags.map(text => ({ text }))} footnote={hero.warn ?? '估算结果，不是理财建议'} onClick={() => openRoute(nav, 'plan.goal')}/>)}
+    {modules.wealth && (net?.state === 'known'
+      ? <HeroCard eyebrow="金融净资产" action="查看财富" title={net.net} onClick={() => openRoute(nav, 'wealth.overview')}
+          subtitle={<span className={`m-hero-sub${net.changeTone ? ` m-${net.changeTone}` : ''}`}>{net.change ?? `截至 ${dayLabel(net.date, today)}`}</span>}
+          footnote={net.incomplete ?? `截至 ${dayLabel(net.date, today)}盘点`}>
+          {net.values.length > 1 && <LineChart compact height={56} hidden={hidden} series={[{ name: '金融净资产', values: net.values }]} labels={net.dates} summary={net.summary}/>}
+        </HeroCard>
+      : <HeroCard eyebrow="金融净资产" action="查看财富" title={<span className="m-unknown">未知</span>} subtitle={view.wealthError || '还没有完整盘点，净资产不会按零计算'} onClick={() => openRoute(nav, 'wealth.overview')}/>)}
+    {plan && (plan.state === 'error'
+      ? <Card label="规划"><ErrorState title={plan.title} message={plan.subtitle ?? undefined} onRetry={() => setRetry(n => n + 1)}/></Card>
+      : <button type="button" className="m-card h-plan" onClick={() => openRoute(nav, 'plan.goal')}>
+          <span className="h-plan-top"><span>{plan.eyebrow}</span><span className="h-plan-action">{plan.state === 'setup' ? '去设置' : '查看规划'}<Icon name="chevronRight" size={16}/></span></span>
+          <span className="h-plan-title">{plan.title}</span>
+          {plan.subtitle && <span className="h-plan-sub">{plan.subtitle}</span>}
+          {!!plan.tags.length && <span className="m-tags">{plan.tags.map(text => <span key={text} className="m-tag">{text}</span>)}</span>}
+          <span className="m-hero-foot">{plan.warn ?? '估算结果，不是理财建议'}</span>
+        </button>)}
     {view.empty && <Card label="从这里开始"><div className="h-start"><h2>从这里开始</h2><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p>
       <div className="h-start-actions"><Button variant="primary" onClick={() => nav.push('items.edit')}>记录第一件物品</Button>{modules.wealth && <Button onClick={() => nav.push('wealth.accountEdit')}>建立账户并盘点</Button>}</div></div></Card>}
-    {(net || daily || view.wealthError || view.physicalError) && <MetricGrid>
-      {modules.wealth && (net?.state === 'known'
-        ? <Metric label="金融净资产" value={net.net} sub={net.change ?? `截至 ${dayLabel(net.date, today)}`} subTone={net.changeTone ?? undefined} onClick={() => openRoute(nav, 'wealth.overview')}>
-            <LineAreaChart values={net.values} summary={net.summary}/><span className="h-asof">{net.incomplete ?? `截至 ${dayLabel(net.date, today)}盘点`}</span></Metric>
-        : <Metric label="金融净资产" value="未知" unknown sub={view.wealthError || '还没有完整盘点，净资产不会按零计算'} onClick={() => openRoute(nav, 'wealth.overview')}/>)}
-      {daily ? <Metric label="物品日均成本" value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
-        : <Metric label="物品日均成本" value="未知" unknown sub={view.physicalError || '暂时读不出来'}/>}
-    </MetricGrid>}
+    {(daily ? <Metric label="物品日均成本" value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
+      : <Metric label="物品日均成本" value="未知" unknown sub={view.physicalError || '暂时读不出来'}/>)}
     <ListGroup title="待处理" action={view.pending.length ? <span className="h-count">{view.pending.length} 项</span> : undefined} footer={view.failed ? '部分来源读取失败，这里只显示已读取的部分。' : undefined}>
       {view.pending.length === 0 && <ListRow icon="check" tone="positive" title={view.failed ? '可用来源中暂无事项' : '暂时没有需要处理的事项'}/>}
       {view.pending.map(entry => entry.action
