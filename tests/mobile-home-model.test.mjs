@@ -11,20 +11,30 @@ test('hero：读取中、出错、未设置条件和被挡住各自有明确文�
   const error = planView({ kind: 'error', message: '读取失败' });
   assert.equal(error.state, 'error'); assert.equal(error.subtitle, '读取失败');
   const setup = planView({ kind: 'blocked', step: 'profile', main: '先设置条件', note: '' });
-  assert.equal(setup.state, 'setup'); assert.match(setup.subtitle, /哪一年可以停工/);
+  assert.equal(setup.state, 'setup'); assert.match(setup.title, /还要上几年班/);
   assert.equal(planView({ kind: 'blocked', step: 'goal', main: '缺目标', note: '请补充' }).state, 'blocked');
 });
-test('规划卡：财务自由说预计停工的年月，不倒数还要上几年班，未知不当作零', () => {
-  const base = (fi, over = {}) => ({ kind: 'ready', mode: 'fire', calc: { plan: { now_months: 100, target_months: 400, anchor_date: '2026-10-01', ...over }, proj: { fi_month: fi } }, headline: { main: '无法达到', sub: '估算', warn: null }, coverage: { percent: 3500 } });
-  assert.equal(planView(base(124)).title, '预计 2028 年 10 月可以停工');
-  assert.doesNotMatch(JSON.stringify(planView(base(124))), /还要上|年班/);
-  assert.equal(planView(base(500)).subtitle, '晚于期望的 2051 年 10 月');
-  assert.equal(planView(base(124, { target_months: 300 })).subtitle, null);
-  assert.equal(planView({ ...base(null), mode: 'traditional' }).title, '计划 2051 年 10 月退休');
+test('规划卡：说还要上班多久，进度条用金额，未知不当作零', () => {
+  const base = (fi, over = {}, cov = { assets: 35000000, requiredNow: 103000000, percent: 3400 }) => ({ kind: 'ready', mode: 'fire', calc: { plan: { now_months: 100, target_months: 400, anchor_date: '2026-10-01', ...over }, proj: { fi_month: fi } }, headline: { main: '无法达到', sub: '估算', warn: null }, coverage: cov });
+  const first = planView(base(331));
+  assert.equal(first.eyebrow, '退休规划');
+  assert.deepEqual(first.lead, { before: '按现在的节奏，还要上班 约 ', strong: '19 年 3 个月', after: '' });
+  assert.deepEqual(first.progress, { percent: 34, have: '已有 ¥35万', need: '现在退休约需 ¥103万', gap: '还差约 ¥68万' });
+  assert.equal(planView(base(112)).lead.strong, '1 年');
+  assert.equal(planView(base(107)).lead.strong, '7 个月');
+  assert.equal(planView({ ...base(null), mode: 'traditional' }).lead.strong, '25 年');
   assert.equal(planView({ ...base(null, { target_months: 100 }), mode: 'traditional' }).title, '已到目标退休时间');
   assert.equal(planView(base(null)).title, '无法达到');
-  assert.equal(planView(base(90)).title, '当前资产已覆盖退休所需');
-  assert.deepEqual(planView(base(124)).tags, ['资产覆盖今天退休所需的 35%']);
+  assert.equal(planView(base(null)).lead, null);
+  const done = planView(base(90, {}, { assets: 120000000, requiredNow: 103000000, percent: 11650 }));
+  assert.equal(done.title, '当前资产已够退休所需'); assert.equal(done.progress.percent, 100); assert.equal(done.progress.gap, null);
+  assert.equal(planView({ kind: 'blocked', step: 'profile', main: 'x', note: '' }).title, '设好规划，看看还要上几年班');
+});
+test('规划卡：隐藏金额时三处金额都遮住，进度仍在', () => {
+  const retire = { kind: 'ready', mode: 'fire', calc: { plan: { now_months: 100, target_months: 400 }, proj: { fi_month: 331 } }, headline: { main: '', sub: '', warn: '规划期内存在资金缺口' }, coverage: { assets: 35000000, requiredNow: 103000000, percent: 3400 } };
+  const view = planView(retire, true);
+  assert.equal(view.progress.have, '******'); assert.equal(view.progress.need, '******'); assert.equal(view.progress.gap, '******');
+  assert.equal(view.progress.percent, 34); assert.equal(view.warn, '规划期内存在资金缺口');
 });
 test('净资产：没有完整盘点就是未知；不完整的最新盘点沿用上次完整并提示缺口', () => {
   assert.equal(netWorthView({ points: [] }, false).state, 'unknown');

@@ -4,7 +4,8 @@ import { hiddenKinds } from '../../modules.ts';
 import type { Modules } from '../../modules.ts';
 import { paymentReminders } from '../../recurring.ts';
 import { deriveStatus } from '../../warranty.ts';
-import { timeLabel } from '../../plan-ledger.ts';
+import { compactYuan } from '../../plan-view.ts';
+import { monthsLeftText } from '../../plan-fire.ts';
 import { dayLabel, moneyText, signedMoneyText, unitMoneyText } from '../format.ts';
 import type { Review } from '../../review.ts';
 import { latestComplete, ready } from '../../review.ts';
@@ -15,30 +16,38 @@ import type { TimelineEvent } from '../../Timeline.tsx';
 import type { Params, RouteName } from '../routes.ts';
 import { dayText, daysBetween, eventTarget, mask } from '../me/shared.ts';
 
-export type Hero = { state: 'ready' | 'setup' | 'blocked' | 'error'; eyebrow: string; title: string; subtitle: string | null; tags: string[]; warn: string | null };
+export type PlanProgress = { percent: number; have: string; need: string; gap: string | null };
+/** `lead` 是一句话：before + 强调的时长 + after；没有时长时只有 before。 */
+export type Hero = { state: 'ready' | 'setup' | 'blocked' | 'error'; eyebrow: string; title: string; subtitle: string | null; lead: { before: string; strong: string; after: string } | null; progress: PlanProgress | null; warn: string | null };
 
-/** `2046-03` to `2046 年 3 月`; age labels such as `55 岁` pass through. */
-const monthWords = (label: string) => { const m = /^(\d{4})-(\d{2})$/.exec(label); return m ? `${m[1]} 年 ${Number(m[2])} 月` : label; };
+const plain = (state: Hero['state'], title: string, subtitle: string | null, eyebrow = '退休规划'): Hero => ({ state, eyebrow, title, subtitle, lead: null, progress: null, warn: null });
 
 /**
- * 规划结果卡：说「哪天可以停工」，不倒数还要上几年班。FIRE 用 fi_month 的日历月；传统退休用目标退休月。
- * Same ready/blocked/error split as the desktop 规划 summary (plan-summary.summaryRetire).
+ * 规划卡：用「还要上班约 N 年 M 个月」说时间，用金额进度条说差多少。FIRE 用 fi_month 距今月数，传统退休用目标退休月。
+ * Same ready/blocked/error split as the desktop 规划 summary (plan-summary.summaryRetire). Amounts follow 隐藏金额.
  */
-export function planView(retire: SummaryRetire): Hero {
-  if (retire.kind === 'loading') return { state: 'blocked', eyebrow: '规划', title: '正在读取…', subtitle: null, tags: [], warn: null };
-  if (retire.kind === 'error') return { state: 'error', eyebrow: '规划', title: '退休估算暂时读不出来', subtitle: retire.message, tags: [], warn: null };
+export function planView(retire: SummaryRetire, hidden = false): Hero {
+  if (retire.kind === 'loading') return plain('blocked', '正在读取…', null);
+  if (retire.kind === 'error') return plain('error', '退休估算暂时读不出来', retire.message);
   if (retire.kind === 'blocked') {
-    if (retire.step === 'profile') return { state: 'setup', eyebrow: '规划', title: retire.main, subtitle: '填几项条件，就能估算哪一年可以停工。', tags: [], warn: null };
-    return { state: 'blocked', eyebrow: '规划', title: retire.main, subtitle: retire.note, tags: [], warn: null };
+    if (retire.step === 'profile') return plain('setup', '设好规划，看看还要上几年班', null);
+    return plain('blocked', retire.main, retire.note);
   }
   const calc = retire.calc, plan = calc.plan, fire = retire.mode === 'fire';
-  const eyebrow = fire ? '规划 · 财务自由' : '规划 · 传统退休';
   const month = fire ? calc.proj.fi_month : plan.target_months;
-  const done = month !== null && month <= plan.now_months;
-  const title = month === null ? retire.headline.main : done ? (fire ? '当前资产已覆盖退休所需' : '已到目标退休时间') : fire ? `预计 ${monthWords(timeLabel(plan, month))}可以停工` : `计划 ${monthWords(timeLabel(plan, month))}退休`;
-  const sub = fire && month !== null && !done && month > plan.target_months ? `晚于期望的 ${monthWords(timeLabel(plan, plan.target_months))}` : null;
-  const tags = [`资产覆盖今天退休所需的 ${(retire.coverage.percent / 100).toFixed(0)}%`];
-  return { state: 'ready', eyebrow, title, subtitle: sub, tags, warn: retire.headline.warn };
+  const left = month === null ? null : month - plan.now_months;
+  let title: string, lead: Hero['lead'] = null;
+  if (left === null) title = retire.headline.main;
+  else if (left <= 0) title = fire ? '当前资产已够退休所需' : '已到目标退休时间';
+  else { title = ''; lead = { before: fire ? '按现在的节奏，还要上班 约 ' : '距离计划退休，还要上班 约 ', strong: monthsLeftText(left), after: '' }; }
+  const { assets, requiredNow, percent } = retire.coverage;
+  const gap = requiredNow - assets;
+  const progress: PlanProgress = {
+    percent: Math.max(0, Math.min(100, percent / 100)),
+    have: mask(`已有 ${compactYuan(assets)}`, hidden), need: mask(`现在退休约需 ${compactYuan(requiredNow)}`, hidden),
+    gap: gap > 0 ? mask(`还差约 ${compactYuan(gap)}`, hidden) : null,
+  };
+  return { state: 'ready', eyebrow: '退休规划', title, subtitle: null, lead, progress, warn: retire.headline.warn };
 }
 
 export type NetWorthView =
