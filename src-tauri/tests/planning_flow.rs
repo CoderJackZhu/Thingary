@@ -45,6 +45,7 @@ fn account(s: &mut Store, name: &str, kind: &str) -> Account {
 fn snapshot(s: &mut Store, date: &str, accounts: &[(&Account, &str)]) -> String {
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: None,
@@ -514,6 +515,7 @@ fn endpoint_and_movement_corrections_disclose_only_their_actual_causes() {
             let end = s.wealth_snapshot(&p.to_snapshot_id).unwrap().unwrap();
             s.wealth_snapshot_save(
                 &SnapshotSave {
+                    close_accounts: Vec::new(),
                     request_id: rid(),
                     generation: s.generation(),
                     id: Some(end.id),
@@ -647,6 +649,7 @@ fn f10_intermediate_snapshot_overlap_delete_restore_and_endpoint_correction_do_n
     let end = s.wealth_snapshot(&sub.to_snapshot_id).unwrap().unwrap();
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: Some(end.id),

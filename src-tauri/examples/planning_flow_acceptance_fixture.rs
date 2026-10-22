@@ -104,6 +104,7 @@ fn main() {
     for (i, date, investment) in [(10, "2026-10-01", "10000000"), (11, TODAY, "9700000")] {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(i),
                 generation: s.generation(),
                 id: None,

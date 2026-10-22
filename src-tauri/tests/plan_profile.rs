@@ -116,6 +116,7 @@ fn core_fixture(s: &mut Store) -> (Profile, String, String) {
     let snapshot = s
         .wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(),
                 generation: s.generation(),
                 id: None,
@@ -379,6 +380,7 @@ fn core_referenced_sources_cannot_delete_and_corrections_raise_read_time_missing
         .unwrap();
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: Some(snapshot.clone()),

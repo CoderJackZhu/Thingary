@@ -27,7 +27,17 @@ export type Compare = { generation: string; from: CompareEnd; to: CompareEnd; re
 export type HistoryRow = CurrencyFact & { snapshot_id: string; date: string; state: string; amount_cents: string | null; counted: boolean; change_cents: string | null };
 export type AccountHistory = { generation: string; account: Account; rows: HistoryRow[] };
 export type AccountSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: AccountFields };
-export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: (CurrencyFact & { account_id: string; state: EntryState; amount_cents: string | null })[] };
+export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: (CurrencyFact & { account_id: string; state: EntryState; amount_cents: string | null })[]; close_accounts?: { account_id: string; expected_revision: number }[] };
+/** An account can be closed from a check-in only on a day after it opened, and only when that day's check-in holds no row for it yet. */
+export function canCloseInCheckIn(draft: Draft, account: Account): boolean {
+  return !account.fields.closed_on && account.fields.opened_on < draft.date && !draft.existing?.entries.some(e => e.account_id === account.id);
+}
+/** Rows marked 已注销 are left out of the entries; the backend closes them at the check-in date in the same save. */
+export function applyClosing(input: SnapshotSave, accounts: Account[], closing: ReadonlySet<string>): SnapshotSave {
+  if (!closing.size) return input;
+  const close_accounts = accounts.filter(a => closing.has(a.id)).map(a => ({ account_id: a.id, expected_revision: a.revision }));
+  return { ...input, entries: input.entries.filter(e => !closing.has(e.account_id)), close_accounts };
+}
 export type CheckInRow = { state: EntryState | null; cents: string; edited?: boolean; quantity_e8?: string | null; unit_price_e6?: string | null; original_minor?: string | null; fx_rate_micro?: string | null };
 /** Loaded unchanged rows keep history; explicitly reconfirmed rows carry the displayed amount. */
 export function snapshotEntryInput(accountId: string, row: CheckInRow): SnapshotSave['entries'][number] {

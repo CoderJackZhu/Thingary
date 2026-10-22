@@ -40,6 +40,7 @@ fn account(s: &mut Store, name: &str, kind: &str, counted: bool) -> Account {
 fn snapshot(s: &mut Store, date: &str, rows: &[(&Account, Option<&str>)]) -> String {
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: None,
@@ -98,6 +99,7 @@ fn edit_snapshot(s: &mut Store, id: &str, amount: &str, notes: &str) {
     let snap = s.wealth_snapshot(id).unwrap().unwrap();
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: Some(id.into()),
@@ -524,6 +526,7 @@ fn disabled_movements_do_not_hide_endpoint_balance_and_scope_changes() {
     let snap = s.wealth_snapshot(&to).unwrap().unwrap();
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: rid(),
             generation: s.generation(),
             id: Some(to.clone()),

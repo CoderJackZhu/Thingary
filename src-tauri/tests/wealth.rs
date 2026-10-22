@@ -71,6 +71,7 @@ fn row(a: &Account, state: &str, yuan_amount: Option<i64>) -> EntryInput {
 }
 fn check_in(s: &Store, date: &str, entries: Vec<EntryInput>) -> SnapshotSave {
     SnapshotSave {
+        close_accounts: Vec::new(),
         request_id: rid(),
         generation: s.generation(),
         id: None,
@@ -450,16 +451,12 @@ fn x_d01_d04_history_keeps_its_scope_and_counted_changes_block_comparison() {
 }
 
 #[test]
-fn closing_needs_a_recorded_zero_and_dates_must_cover_recorded_check_ins() {
+fn closing_needs_no_zero_balance_and_dates_must_cover_recorded_check_ins() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let b = book(&mut s);
     s.wealth_snapshot_save(&check_in(&s, "2026-09-30", full(&b, 1, 1, 1, 1)), TODAY)
         .unwrap();
-    assert_eq!(
-        code(edit(&mut s, &b.loan, |f| f.closed_on = Some("2026-10-15".into()))),
-        "ACCOUNT_CLOSE_BALANCE"
-    );
     assert_eq!(
         code(edit(&mut s, &b.loan, |f| f.opened_on = "2026-10-01".into())),
         "ACCOUNT_DATE"
@@ -469,14 +466,84 @@ fn closing_needs_a_recorded_zero_and_dates_must_cover_recorded_check_ins() {
         "ACCOUNT_DATE",
         "the 09-30 check-in must stay inside the open period"
     );
-    s.wealth_snapshot_save(&check_in(&s, "2026-10-10", full(&b, 1, 1, 1, 0)), TODAY)
-        .unwrap();
+    // The last recorded balance was 1 yuan, not 0: closing is still allowed.
     let closed = edit(&mut s, &b.loan, |f| f.closed_on = Some("2026-10-15".into())).unwrap();
     assert_eq!(closed.fields.closed_on.as_deref(), Some("2026-10-15"));
-    let draft = s.wealth_snapshot_draft("2026-10-31").unwrap();
+    assert_eq!(
+        code(s.wealth_snapshot_save(&check_in(&s, "2026-10-20", full(&b, 1, 1, 1, 0)), TODAY)),
+        "SNAPSHOT_ACCOUNT",
+        "no check-in entries on or after the closing date"
+    );
+    // A later check-in without the closed account is complete and no longer counts it.
+    let later = s
+        .wealth_snapshot_save(
+            &check_in(&s, "2026-10-31", full(&b, 1, 1, 1, 0)[..3].to_vec()),
+            TODAY,
+        )
+        .unwrap();
+    assert!(later.missing.is_empty());
+    let sum = s.wealth_summary().unwrap();
+    assert_eq!(sum.points[0].liabilities_cents, "100");
+    assert_eq!(sum.points[1].liabilities_cents, "0");
+    assert!(sum.points[1].complete);
+    let draft = s.wealth_snapshot_draft("2026-11-30").unwrap();
     assert_eq!(draft.rows.len(), 3);
     let fresh = open(&mut s, "从未盘点的卡", "credit_card", "2026-01-01");
     edit(&mut s, &fresh, |f| f.closed_on = Some("2026-02-01".into())).unwrap();
+}
+
+#[test]
+fn a_check_in_can_close_accounts_in_one_transaction() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = book(&mut s);
+    s.wealth_snapshot_save(&check_in(&s, "2026-09-30", full(&b, 5, 6, 7, 8)), TODAY)
+        .unwrap();
+    let close = |a: &Account| thingary_lib::wealth::CloseAccount {
+        account_id: a.id.clone(),
+        expected_revision: a.revision,
+    };
+    // Entering a balance for a closing account is refused, and nothing is written.
+    let mut bad = check_in(&s, "2026-10-31", full(&b, 5, 6, 7, 8));
+    bad.close_accounts = vec![close(&b.loan)];
+    assert_eq!(
+        code(s.wealth_snapshot_save(&bad, TODAY)),
+        "SNAPSHOT_ACCOUNT"
+    );
+    // A stale account revision is refused.
+    let mut stale = check_in(&s, "2026-10-31", full(&b, 5, 6, 7, 8)[..3].to_vec());
+    stale.close_accounts = vec![thingary_lib::wealth::CloseAccount {
+        account_id: b.loan.id.clone(),
+        expected_revision: b.loan.revision + 5,
+    }];
+    assert_eq!(
+        code(s.wealth_snapshot_save(&stale, TODAY)),
+        "REVISION_CONFLICT"
+    );
+    assert_eq!(s.wealth_summary().unwrap().points.len(), 1);
+    let accounts = s.wealth_accounts().unwrap();
+    assert!(accounts.iter().all(|a| a.fields.closed_on.is_none()));
+    // The valid save closes the account at the check-in date and omits it.
+    let mut ok = check_in(&s, "2026-10-31", full(&b, 5, 6, 7, 8)[..3].to_vec());
+    ok.close_accounts = vec![close(&b.loan)];
+    let saved = s.wealth_snapshot_save(&ok, TODAY).unwrap();
+    assert!(saved.missing.is_empty());
+    assert_eq!(saved.entries.len(), 3);
+    let loan = s
+        .wealth_accounts()
+        .unwrap()
+        .into_iter()
+        .find(|a| a.id == b.loan.id)
+        .unwrap();
+    assert_eq!(loan.fields.closed_on.as_deref(), Some("2026-10-31"));
+    // Resending the same request returns the receipt and does not close twice.
+    let again = s.wealth_snapshot_save(&ok, TODAY).unwrap();
+    assert_eq!(again.id, saved.id);
+    // An account that already has check-in entries on the date cannot be closed
+    // from that same date's check-in correction.
+    let mut fix = check_in(&s, "2026-09-30", full(&b, 5, 6, 7, 8)[..3].to_vec());
+    fix.close_accounts = vec![close(&b.cash)];
+    assert!(s.wealth_snapshot_save(&fix, TODAY).is_err());
 }
 
 #[test]

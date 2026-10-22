@@ -1206,6 +1206,14 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const input = args.input as SnapshotSave;
     if (receipts.has(input.request_id)) return { value: view(snapshots.find(s => s.id === receipts.get(input.request_id))!) };
     if (snapshots.some(s => s.date === input.date && s.id !== input.id)) throw { code: 'SNAPSHOT_DATE_TAKEN', message: '这一天已有盘点，请打开原盘点更正' };
+    for (const c of input.close_accounts ?? []) {
+      const acc = accounts.find(x => x.id === c.account_id);
+      if (!acc) throw { code: 'NOT_FOUND', message: '要停用的账户已不存在，请重新读取' };
+      if (acc.revision !== c.expected_revision) throw { code: 'REVISION_CONFLICT', message: '账户已变化，请重新读取' };
+      if (input.entries.some(e => e.account_id === acc.id)) throw { code: 'SNAPSHOT_ACCOUNT', message: '停用的账户不能同时填写金额' };
+      if (snapshots.some(s => s.entries.some(e => e.account_id === acc.id) && s.date >= input.date)) throw { code: 'ACCOUNT_DATE', message: '该账户在这一天或之后已有盘点记录，不能从这次起停用' };
+    }
+    accounts = accounts.map(a => (input.close_accounts ?? []).some(c => c.account_id === a.id) ? { ...a, revision: a.revision + 1, fields: { ...a.fields, closed_on: input.date } } : a);
     const id = input.id ?? crypto.randomUUID(), old = snapshots.find(s => s.id === id);
     const entries = input.entries.map(e => {
       const a = accounts.find(x => x.id === e.account_id)!, kept = old?.entries.find(x => x.account_id === e.account_id);

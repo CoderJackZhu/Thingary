@@ -65,6 +65,7 @@ fn main() {
     for (i, (date, c, k)) in rows.iter().enumerate() {
         s.wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(10 + i as u32),
                 generation: s.generation(),
                 id: None,

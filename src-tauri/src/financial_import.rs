@@ -923,6 +923,7 @@ fn prepare(
                 match wealth::write_snapshot_tx(
                     tx,
                     &SnapshotSave {
+                        close_accounts: Vec::new(),
                         request_id: String::new(),
                         generation: b.generation.clone(),
                         id: old.as_ref().map(|s| s.id.clone()),

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { inventoryRows, enteredRow, inventoryTotals, inventoryDelta, inventoryInput } from '../src/mobile/wealth/model.ts';
 import { accountGroupTotals } from '../src/wealth-display.ts';
-import { snapshotEntryInput, sortRows } from '../src/wealth.ts';
+import { snapshotEntryInput, sortRows, canCloseInCheckIn } from '../src/wealth.ts';
 const account=(id,fields={})=>({id,revision:1,position:0,latest:null,fields:{name:`虚构${id}`,institution:'虚构银行',kind:'cash',side:'asset',counted:true,currency:'CNY',opened_on:'2026-01-01',closed_on:null,notes:'',...fields}});
 const a=account('cash'),b=account('debt',{side:'liability',kind:'loan'}),fx=account('usd',{currency:'USD'}),h=account('fund',{kind:'fund',holding_mode:true});
 const draft=(accounts=[a,b])=>({generation:'fictional',date:'2026-10-21',existing:null,rows:accounts.map(account=>({account,previous:{amount_cents:'10000',date:'2026-09-30'}}))});
@@ -62,4 +62,28 @@ test('比较复用影响与类型排序，未知影响排最后，债务符号�
  const rows=[{account_id:'unknown',kind:'cash',effect_cents:null},{account_id:'debt',kind:'loan',effect_cents:'-5000'},{account_id:'cash',kind:'cash',effect_cents:'2000'}];
  assert.deepEqual(sortRows(rows,'impact').map(r=>r.account_id),['debt','cash','unknown']);
  assert.equal(sortRows(rows,'impact')[0].effect_cents,'-5000');
+});
+
+test('盘点里标已注销：不填金额，保存时带上停用账户，且仍算完整',()=>{
+ const d=draft(),rows=inventoryRows(d),closing=new Set(['debt']);
+ rows.cash=enteredRow(a,'500','','','');
+ assert.equal(inventoryTotals(d,rows,closing).missing,0);
+ assert.throws(()=>inventoryInput(d,rows,'','r'),/填齐/);
+ const input=inventoryInput(d,rows,'','close-request',closing);
+ assert.deepEqual(input.entries.map(e=>e.account_id),['cash']);
+ assert.deepEqual(input.close_accounts,[{account_id:'debt',expected_revision:1}]);
+ assert.equal(inventoryDelta(d,rows,closing),'-9500');
+ assert.equal(inventoryInput(d,{...rows,debt:enteredRow(b,'0','','','')},'','r').close_accounts,undefined);
+});
+test('这次跳过记为未知；全部注销也能保存；只在可注销时提供入口',()=>{
+ const d=draft(),rows=inventoryRows(d);
+ rows.cash={state:'missing',cents:''}; rows.debt=enteredRow(b,'0','','','');
+ const input=inventoryInput(d,rows,'','skip');
+ assert.equal(input.entries[0].state,'missing'); assert.equal(input.entries[0].amount_cents,null);
+ const all=inventoryInput(d,inventoryRows(d),'','all',new Set(['cash','debt']));
+ assert.equal(all.entries.length,0); assert.equal(all.close_accounts.length,2);
+ assert.equal(canCloseInCheckIn(d,a),true);
+ assert.equal(canCloseInCheckIn(d,account('new',{opened_on:'2026-10-21'})),false);
+ assert.equal(canCloseInCheckIn(d,account('old',{closed_on:'2026-05-01'})),false);
+ assert.equal(canCloseInCheckIn({...d,existing:{entries:[{account_id:'cash'}]}},a),false);
 });

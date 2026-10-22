@@ -90,6 +90,7 @@ fn fictional_store(root: &std::path::Path) -> Store {
         store
             .wealth_snapshot_save(
                 &SnapshotSave {
+                    close_accounts: Vec::new(),
                     request_id: uuid::Uuid::new_v4().to_string(),
                     generation: store.generation(),
                     id: None,

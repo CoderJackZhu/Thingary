@@ -235,6 +235,16 @@ pub struct SnapshotSave {
     pub date: String,
     pub notes: String,
     pub entries: Vec<EntryInput>,
+    /// Accounts closed by this check-in: each gets `closed_on = date` in the
+    /// same transaction and is left out of the entries.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub close_accounts: Vec<CloseAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloseAccount {
+    pub account_id: String,
+    pub expected_revision: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -896,16 +906,53 @@ pub(crate) fn validate_account_history_tx(
             ));
         }
     }
-    if let Some(closed) = &f.closed_on {
-        let last: Option<Option<i64>> = tx.query_row("SELECT e.amount_cents FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND s.deleted_at IS NULL AND s.date<?2 ORDER BY s.date DESC LIMIT 1", params![id, closed], |r| r.get(0)).optional()?;
-        if matches!(last, Some(v) if v != Some(0)) {
-            return Err(Error::new(
-                "ACCOUNT_CLOSE_BALANCE",
-                "停用前请先在盘点中记录余额为 0",
-            ));
-        }
-    }
     Ok(())
+}
+
+/// Closing from inside a check-in: the account stops at the check-in date, so
+/// it is not part of this check-in and no balance is needed. Whatever it held
+/// is treated as moved out or spent.
+fn close_accounts_tx(
+    tx: &Transaction<'_>,
+    input: &SnapshotSave,
+    today: &str,
+    mut live: Vec<Account>,
+) -> Result<Vec<Account>> {
+    let mut seen = BTreeSet::new();
+    for c in &input.close_accounts {
+        if !seen.insert(c.account_id.as_str()) {
+            return Err(Error::new("SNAPSHOT_ACCOUNT", "同一账户只能停用一次"));
+        }
+        let at = live
+            .iter()
+            .position(|a| a.id == c.account_id)
+            .ok_or_else(|| Error::new("NOT_FOUND", "要停用的账户已不存在，请重新读取"))?;
+        let old = &live[at];
+        if old.fields.closed_on.is_some() {
+            return Err(Error::new("ACCOUNT_CLOSED", "该账户已停用，请重新读取"));
+        }
+        if input.entries.iter().any(|e| e.account_id == c.account_id) {
+            return Err(Error::new("SNAPSHOT_ACCOUNT", "停用的账户不能同时填写金额"));
+        }
+        let mut fields = old.fields.clone();
+        fields.closed_on = Some(input.date.clone());
+        let saved = write_account_tx(
+            tx,
+            &AccountSave {
+                request_id: input.request_id.clone(),
+                generation: input.generation.clone(),
+                id: Some(c.account_id.clone()),
+                expected_revision: Some(c.expected_revision),
+                fields,
+            },
+            today,
+            None,
+            false,
+            None,
+        )?;
+        live[at] = saved;
+    }
+    Ok(live)
 }
 
 pub(crate) type HistoricalOverrides = BTreeMap<String, (Option<String>, Option<bool>)>;
@@ -1161,6 +1208,7 @@ fn quick_update_plan(
         date: input.date.clone(),
         notes,
         entries,
+        close_accounts: Vec::new(),
     })
 }
 
@@ -1524,7 +1572,8 @@ impl Store {
             return snapshot(&tx, &id, &live)?
                 .ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"));
         }
-        let result = write_snapshot_tx(&tx, input, today, None, None, None)?;
+        let live = close_accounts_tx(&tx, input, today, live)?;
+        let result = write_snapshot_tx(&tx, input, today, None, None, Some(&live))?;
         let id = &result.id;
         tx.execute(
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",

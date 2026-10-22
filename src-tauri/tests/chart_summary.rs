@@ -38,6 +38,7 @@ fn account(s: &mut Store, kind: &str, counted: bool) -> Account {
 fn save(s: &mut Store, date: &str, accounts: &[Account], missing: Option<usize>) {
     s.wealth_snapshot_save(
         &SnapshotSave {
+            close_accounts: Vec::new(),
             request_id: id(),
             generation: s.generation(),
             id: None,

@@ -442,6 +442,7 @@ fn general_arrangements_preserve_personal_pension_and_housing_account_facts() {
     let snapshot = s
         .wealth_snapshot_save(
             &SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: None,

@@ -47,7 +47,7 @@ export function Editor({ account, groups, reloadGroups }: { account: Account | n
         <p className="mw-muted">常用：{currencies.map(([code])=>code).join('、')}</p>
         <SelectField label="分组" value={fields.group_id ?? ''} onChange={v=>v==='__new__'?setNewGroup(true):v==='__manage__'?nav.push('wealth.groups'):set('group_id',v||null)} options={[{id:'',label:'未分组'},...groups.filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).map(g=>({id:g.id,label:g.name})),{id:'__new__',label:'新建分组…'},{id:'__manage__',label:'管理分组…'}]}/>
         <DateField label="启用日期" value={fields.opened_on} max={s.today} onChange={v=>set('opened_on',v)}/>
-        {account && <DateField label="停用日期" value={fields.closed_on??''} max={s.today} allowClear hint="停用前最后一次盘点须为 0；清空可重新启用。" onChange={v=>set('closed_on',v||null)}/>}
+        {account && <DateField label="停用日期" value={fields.closed_on??''} max={s.today} allowClear hint="停用后不再出现在之后的盘点里；有盘点记录的账户只能停用，不能删除。" onChange={v=>set('closed_on',v||null)}/>}
         <FormRow label="计入金融净资产"><Switch label="计入金融净资产" checked={fields.counted} disabled={fields.kind==='property'} onChange={v=>{choice.current=v;set('counted',v);}}/></FormRow>
         {holdingSupported(fields.kind) && <><FormRow label="按持仓记录" hint="一个账户一个持仓，金额由份额与手填单价计算。"><Switch label="按持仓记录" checked={!!fields.holding_mode} onChange={v=>setFields(f=>({...f,holding_mode:v,...(!v?{holding_unit:null}:{})}))}/></FormRow>{fields.holding_mode && <TextField label="持仓单位" value={fields.holding_unit??''} maxLength={8} hint="可留空，默认显示份。" onChange={v=>set('holding_unit',v||null)}/>}</>}
       </FormGroup>

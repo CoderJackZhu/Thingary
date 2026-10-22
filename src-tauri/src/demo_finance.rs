@@ -221,6 +221,7 @@ fn import_fixed_assets(s: &mut Store, today: &str) -> Result<()> {
         }
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id,
                 generation: generation.clone(),
                 id: Some(id),
@@ -286,6 +287,7 @@ fn import_data(s: &mut Store, today: &str, data: Fixtures) -> Result<()> {
     for snapshot in data.snapshots {
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: rid(&format!("snapshot-{}", snapshot.months_ago)),
                 generation: generation.clone(),
                 id: None,
@@ -895,6 +897,7 @@ mod fixed_asset_import_tests {
         entries[0].amount_cents = None;
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: Some(second_id.clone()),
@@ -927,6 +930,7 @@ mod fixed_asset_import_tests {
         assert_ne!(entries[0].amount_cents, preserved);
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: Some(first_id),
@@ -1044,6 +1048,7 @@ mod fixed_asset_import_tests {
         entries[0].amount_cents = Some("999999".into());
         s.wealth_snapshot_save(
             &wealth::SnapshotSave {
+                close_accounts: Vec::new(),
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 id: Some(first_id.clone()),
