@@ -84,9 +84,11 @@ export default function Welcome(_props: PageProps) {
     {error && !choosing && <Notice tone="danger">{error}</Notice>}
     <div className="h-welcome-actions">
       <Button variant="primary" block disabled={busy || !generation} onClick={() => setChoosing(true)}>开始记录</Button>
-      <Button block disabled={busy || !generation} onClick={() => void sample()}>先看看样例</Button>
-      <Button variant="plain" block disabled={busy} onClick={fromBackup}>从备份导入</Button>
-      <Button variant="plain" block disabled={busy || !generation} onClick={() => finish(() => undefined)}>跳过</Button>
+      <div className="h-welcome-links">
+        <button type="button" className="h-welcome-link" disabled={busy || !generation} onClick={() => void sample()}>先看看样例</button>
+        <button type="button" className="h-welcome-link" disabled={busy} onClick={fromBackup}>从备份导入</button>
+        <button type="button" className="h-welcome-link" disabled={busy || !generation} onClick={() => finish(() => undefined)}>以后再说</button>
+      </div>
     </div>
     {choosing && <Sheet title="从哪里开始" doneLabel="取消" onClose={() => { if (!busy) setChoosing(false); }}>
       <div className="m-page">

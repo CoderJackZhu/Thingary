@@ -13,7 +13,7 @@ import { Cover } from '../../Photos';
 import { submit } from '../../wealth';
 import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
-import { Button, Card, EmptyState, ErrorState, Fab, Icon, IconButton, LargeTitle, ListRow, SearchField, Loading, Notice, Section, SegmentedControl, SwipeRow } from '../ui';
+import { Button, Card, EmptyState, ErrorState, Fab, Icon, IconButton, LargeTitle, ListRow, SearchField, Loading, Notice, PullToRefresh, Section, SegmentedControl, SwipeRow } from '../ui';
 import { appendPage, itemsSummary, stateCaption } from './list-model';
 import { useItemQuery, setItemQuery } from './list-store';
 import ItemBatch from './ItemBatch';
@@ -23,7 +23,7 @@ export default function ItemList() {
   const nav=useNav(),session=useSession(),reveal=useReveal(),query=useItemQuery();
   const [page,setPage]=useState<Page|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   const [counts,setCounts]=useState<Counts|null>(null),[taxonomy,setTaxonomy]=useState<(TaxonomySnapshot & {generation:string})|null>(null),[overview,setOverview]=useState<OverviewData|null>(null),[expiring,setExpiring]=useState<Page|null>(null),[metaError,setMetaError]=useState('');
-  const [searchOpen,setSearchOpen]=useState(false),[view,setView]=useState<'list'|'grid'>('list'),[selecting,setSelecting]=useState(false),[selected,setSelected]=useState<string[]>([]),[batch,setBatch]=useState(false),[notice,setNotice]=useState('');
+  const [searchOpen,setSearchOpen]=useState(false),[view,setView]=useState<'list'|'grid'>('list'),[selecting,setSelecting]=useState(false),[selected,setSelected]=useState<string[]>([]),[batch,setBatch]=useState(false),[batchKind,setBatchKind]=useState<'none'|'delete'>('none'),[notice,setNotice]=useState('');
   const press=useRef<{id:string;x:number;y:number;timer:number}|null>(null),pressed=useRef(false);
   const ticket=useRef(0),writing=useRef(false),sentinel=useRef<HTMLDivElement>(null),current=useRef<Page|null>(null);current.current=page;
   const [offset,setOffset]=useState(0), [loadedKey,setLoadedKey]=useState('');
@@ -83,7 +83,7 @@ export default function ItemList() {
   });
   const open=(record:AssetRecord)=>{if(pressed.current){pressed.current=false;return;}if(selecting)select(record.asset.id);else nav.push('items.detail',{id:record.asset.id});};
   const row=(record:AssetRecord)=> <ListRow title={<>{selecting&&<span className="mi-check" aria-hidden="true">{selected.includes(record.asset.id)?'✓':'○'}</span>}{record.asset.name}{record.preferences?.pinned&&<span className="mi-pin"> · 置顶</span>}</>} icon={<Cover record={record} generation={page!.generation}/>} subtitle={[taxonomy?.categories.find(c=>c.id===record.classification?.category_id)?.name??'未分类',record.label_name,dayLabel(record.asset.purchase_date)].filter(Boolean).join(' · ')} value={record.sale?`售 ${moneyText(record.sale.fields.price_cents)}`:unitMoneyText(record.preferences?.cost_mode==='per_use'?record.per_use_cents??null:record.costs.daily_cents)+(record.preferences?.cost_mode==='per_use'?'/次':'/天')} valueSub={`${stateLabel(record)} · ${moneyText(record.asset.price_cents)}`} disabled={session.navBlocked} onClick={()=>open(record)}/>;
-  return <div className="m-page mi-page">
+  return <PullToRefresh onRefresh={()=>{setOffset(0);setRetry(n=>n+1);}}><div className="m-page mi-page">
     <LargeTitle title="物品" segments/>
     {metaError?<ErrorState title="摘要或选项读取失败" message={metaError} onRetry={()=>setRetry(n=>n+1)}/>:summary&&<Card className="mi-summary" label="持有物品摘要">
       <span className="mi-summary-label">持有物品总价</span>
@@ -106,10 +106,10 @@ export default function ItemList() {
     {searching&&<div className="mi-search"><SearchField subject="物品" maxLength={200} autoFocus value={query.search} onChange={search=>setItemQuery({search})}/><button type="button" className="mi-search-cancel" onClick={()=>{setItemQuery({search:''});setSearchOpen(false);}}>取消</button></div>}
     {expiring&&expiring.total>0&&<Card tone="warn" className="mi-expiring"><ListRow icon="bell" title={`${expiring.items[0]?.asset.name ?? '物品'}${expiring.total>1?` 等 ${expiring.total} 件`:''} 保障 30 天内到期`} onClick={()=>setItemQuery({warranty:'expiring'})}/></Card>}
     {notice&&<Notice tone="danger">{notice}</Notice>}
-    {selecting&&<Card><div className="mi-actions"><span>已选 {selected.length} 件</span><Button onClick={()=>void selectAll()}>全选结果</Button><Button variant="primary" disabled={!selected.length||session.navBlocked} onClick={()=>setBatch(true)}>批量操作</Button></div></Card>}
-    {error?<ErrorState message={error} onRetry={()=>{setOffset(0);setRetry(n=>n+1);}}/>:page&&!page.items.length?<EmptyState title={counts?.all===0?'还没有物品':'没有符合条件的物品'} message="可以先拍张照片，价格和日期不知道就留空。" action={<Button variant="primary" onClick={()=>nav.push('items.edit')}>拍照建档</Button>}/>:<Section title={collectionNavigation(query).title}><div className={view==='grid'?'mi-grid':'mi-list'}>{page?.items.map(record=>selecting?<div key={record.asset.id} onPointerDown={()=>{pressed.current=false;}}>{row(record)}</div>:<SwipeRow key={record.asset.id} label={record.asset.name+' 操作'} actions={[{label:record.preferences?.pinned?'取消置顶':'置顶',onAction:()=>void pin(record)},{label:'删除',tone:'danger',onAction:()=>{setSelected([record.asset.id]);setBatch(true);}}]}><div {...pressHandlers(record.asset.id)}>{row(record)}</div></SwipeRow>)}</div></Section>}
+    {selecting&&<Card><div className="mi-actions"><span>已选 {selected.length} 件</span><Button onClick={()=>void selectAll()}>全选结果</Button><Button variant="primary" disabled={!selected.length||session.navBlocked} onClick={()=>{setBatchKind('none');setBatch(true);}}>批量操作</Button></div></Card>}
+    {error?<ErrorState message={error} onRetry={()=>{setOffset(0);setRetry(n=>n+1);}}/>:page&&!page.items.length?<EmptyState title={counts?.all===0?'还没有物品':'没有符合条件的物品'} message="可以先拍张照片，价格和日期不知道就留空。" action={<Button variant="primary" onClick={()=>nav.push('items.edit')}>拍照建档</Button>}/>:<Section title={collectionNavigation(query).title}><div className={view==='grid'?'mi-grid':'mi-list'}>{page?.items.map(record=>selecting?<div key={record.asset.id} onPointerDown={()=>{pressed.current=false;}}>{row(record)}</div>:<SwipeRow key={record.asset.id} label={record.asset.name+' 操作'} actions={[{label:record.preferences?.pinned?'取消置顶':'置顶',onAction:()=>void pin(record)},{label:'删除',tone:'danger',onAction:()=>{setSelected([record.asset.id]);setBatchKind('delete');setBatch(true);}}]}><div {...pressHandlers(record.asset.id)}>{row(record)}</div></SwipeRow>)}</div></Section>}
     {loading&&<Loading/>}{page&&<div ref={sentinel} className="mi-caption">已显示 {page.items.length} / {page.total} 件{page.items.length<page.total&&<Button disabled={loading} onClick={()=>setOffset(page.items.length)}>加载更多</Button>}</div>}
     <Fab label="新增物品" hidden={selecting||batch} disabled={session.navBlocked} onClick={()=>nav.push('items.edit')}/>
-    {batch&&page&&<ItemBatch ids={selected} generation={page.generation} today={page.today} onClose={()=>{if(!session.navBlocked)setBatch(false);}} onDone={()=>{setBatch(false);setSelected([]);setSelecting(false);setRetry(n=>n+1);}}/>}
-  </div>;
+    {batch&&page&&<ItemBatch ids={selected} initialKind={batchKind} generation={page.generation} today={page.today} onClose={()=>{if(!session.navBlocked)setBatch(false);}} onDone={()=>{setBatch(false);setSelected([]);setSelecting(false);setRetry(n=>n+1);}}/>}
+  </div></PullToRefresh>;
 }

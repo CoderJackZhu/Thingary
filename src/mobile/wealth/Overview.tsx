@@ -8,7 +8,7 @@ import { monthsBefore, periodChange } from '../../review';
 import { useNav } from '../nav-context';
 import { useSession } from '../session';
 import { useModules } from '../modules-context';
-import { Button, Card, DonutChart, EmptyState, HeroCard, Icon, IconButton, LargeTitle, ListGroup, ListRow, LineChart, Notice, SegmentedControl, SelectField } from '../ui';
+import { Button, Card, PullToRefresh, DonutChart, EmptyState, HeroCard, Icon, IconButton, LargeTitle, ListGroup, ListRow, LineChart, Notice, SegmentedControl, SelectField } from '../ui';
 import { browserStorage, readHideAmounts } from '../me/shared';
 import { trendKinds, trendSummary, trendTip, trendValues } from './trend-model';
 import type { TrendKind } from './trend-model';
@@ -48,7 +48,7 @@ export default function Overview() {
   const shown = points.filter(p=>p.date >= from && p.date <= s.today), period = periodChange(shown), pair = defaultRange(points);
   const grouped = accountGroupTotals(s.data?.accounts ?? [], groups.value ?? [], summary?.structure_entries ?? []);
   const slices = structure === 'kind' ? (summary?.structure ?? []).map(e=>({label:kindLabel(e.kind),value:Number(e.amount_cents),display:moneyText(e.amount_cents)})) : grouped.filter(g=>g.known).map(g=>({label:g.name,value:Number(g.assets_cents),display:moneyText(g.assets_cents)}));
-  return <div className="m-page m-wealth"><LargeTitle title="财富" actions={<><Button variant="primary" onClick={()=>nav.push('wealth.checkin')}>盘点</Button><IconButton label="新增账户" onClick={()=>nav.push('wealth.accountEdit')}><Icon name="plus"/></IconButton></>}/><WealthGate>
+  return <PullToRefresh onRefresh={s.reload}><div className="m-page m-wealth"><LargeTitle title="财富" actions={<><Button variant="primary" onClick={()=>nav.push('wealth.checkin')}>盘点</Button><IconButton label="新增账户" onClick={()=>nav.push('wealth.accountEdit')}><Icon name="plus"/></IconButton></>}/><WealthGate>
     {!s.data?.accounts.length ? <EmptyState icon="wallet" title="从第一个账户开始" message="添加银行卡、投资账户，或信用卡欠款，再做第一次完整盘点。" action={<Button onClick={()=>nav.push('wealth.accountEdit')}>新增账户</Button>}/> : <>
       <HeroCard eyebrow="金融净资产" title={complete ? moneyText(complete.net_cents) : '未知'} subtitle={complete ? `较上次 ${comparisonText(complete.change_cents,complete.compared_to)}` : '完成一次完整盘点后显示金融净资产'} footnote={complete ? `最近完整盘点 ${dayLabel(complete.date, s.today)}` : undefined}/>
       {latest && !latest.complete && <Notice>最近盘点 {dayLabel(latest.date, s.today)} 缺 {latest.missing} 个账户。上方净资产和结构仍来自最近完整盘点。</Notice>}
@@ -63,5 +63,5 @@ export default function Overview() {
       {modules?.virtual !== false && <ListRow title="虚拟资产" onClick={()=>nav.push('spending.virtual')}/>}
       <ListRow title="财务复盘" onClick={()=>nav.push('spending.review')}/>
     </ListGroup>
-  </WealthGate></div>;
+  </WealthGate></div></PullToRefresh>;
 }
