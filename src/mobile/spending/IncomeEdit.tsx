@@ -5,9 +5,10 @@ import type { Income, IncomeFields, IncomeList } from '../../plan';
 import { submit } from '../../wealth';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { Button, DateField, FormGroup, FormRow, MoneyField, SelectField, Switch, TextAreaField } from '../ui';
+import { Button, DateField, DeleteSheet, FormGroup, FormRow, MoneyField, SelectField, Switch, TextAreaField } from '../ui';
 import { blankIncome, changeIncomeCategory, incomeSave, validateIncome } from './forms';
-import { ConfirmSheet, EditorFrame, Loaded } from './parts';
+import { dayLabel } from '../format';
+import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
 
 /** spending.incomeEdit: record or correct an income that actually arrived. */
@@ -46,6 +47,6 @@ function Form({ generation, income, hpfDefault }: { generation: string; income: 
     </FormGroup>
     <FormGroup><TextAreaField label="备注" value={f.notes ?? ''} onChange={notes => set({ notes })} disabled={saver.busy}/></FormGroup>
     {income && <Button variant="danger" block disabled={saver.busy} onClick={() => setAsking(true)}>删除这条收入</Button>}
-    {asking && <ConfirmSheet title="删除这条收入？" confirm="移入最近删除" danger busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove} message={`${f.date} 的这条收入会移入最近删除，可以恢复。`}/>}
+    {asking && <DeleteSheet name={`${dayLabel(f.date, today)}的收入`} busy={saver.busy} error={saver.error} onClose={() => setAsking(false)} onConfirm={remove}/>}
   </EditorFrame>;
 }

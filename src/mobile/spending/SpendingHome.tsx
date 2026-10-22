@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { money } from '../../asset';
+import { dayLabel, localizeDates, moneyText } from '../format';
 import { readFinanceSources } from '../../finance-service';
 import type { ExpenseView } from '../../expenses';
 import type { FinancePeriod } from '../../finance-contract';
@@ -12,11 +12,11 @@ import { useModules } from '../modules-context';
 import { useNav } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
-import { BarChart, Button, Card, EmptyState, Icon, ListGroup, ListRow, MetricGrid, Metric, Notice, SegmentedControl } from '../ui';
+import { BarChart, Button, Card, ConfirmSheet, EmptyState, ListGroup, ListRow, MetricGrid, Metric, Notice, SearchField, SegmentedControl } from '../ui';
 import { dueBadge, dueTotal, expenseChart, expenseRows, expenseSummary, matchesPlan, nextPayment, paidInPeriod, periodTitle, periodWord, planAmountText, planCost, planStatusInfo, samePeriod, shortDay, signedMoney, sortPlans } from './model';
 import type { ExpenseRow, PeriodKey } from './model';
 import { skipSave } from './forms';
-import { ConfirmSheet, Head, Loaded, PeriodBar, SearchBox, Tag, periodOf } from './parts';
+import { Head, Loaded, PeriodBar, Tag, periodOf } from './parts';
 import { useRead, useSaver } from './read';
 
 type Seg = 'expenses' | 'recurring';
@@ -32,7 +32,7 @@ export default function SpendingHome({ params }: PageProps) {
   const period = periodOf(key, today, custom);
   const anyOn = expensesOn || recurringOn;
   const virtualOn = modules ? modules.virtual : true, reviewOn = modules ? modules.wealth || modules.incomes : true;
-  const add = !anyOn ? undefined : seg === 'expenses' ? { label: '记一笔', onClick: () => nav.push('spending.expenseEdit') } : { label: '新增计划', onClick: () => nav.push('spending.recurringEdit') };
+  const add = !anyOn ? undefined : seg === 'expenses' ? { label: '记一笔支出', onClick: () => nav.push('spending.expenseEdit') } : { label: '新增周期计划', onClick: () => nav.push('spending.recurringEdit') };
   return <div className="m-page">
     <Head title="支出与周期费用" add={add}/>
     {expensesOn && recurringOn && <SegmentedControl label="支出与周期费用" items={[{ id: 'expenses' as Seg, label: '重要支出' }, { id: 'recurring' as Seg, label: '周期费用' }]} value={seg} onChange={setPicked}/>}
@@ -70,20 +70,20 @@ function ExpensesPanel({ period, today }: { period: FinancePeriod; today: string
   return <Loaded read={read} what="重要支出">{result => {
     if (result.status === 'disabled') return <Notice>{result.reason}</Notice>;
     const view: ExpenseView = result.value, summary = expenseSummary(view), chart = expenseChart(view, period);
-    const rows = [...expenseRows(view.lines, keyword), ...expenseRows(view.undated, keyword)];
+    const rows = [...expenseRows(view.lines, keyword, today), ...expenseRows(view.undated, keyword, today)];
     const empty = !view.lines.length && !view.undated.length;
     return <>
       <MetricGrid>
-        <Metric label={`${periodTitle(period)}已记录支出`} value={summary.display.value !== null ? money(view.spent_cents) : summary.display.note ?? '未知'} unknown={summary.display.value === null} sub={summary.display.value !== null ? summary.display.note ?? (period.kind === 'year' && period.year === Number(today.slice(0, 4)) ? '截至今天已记录' : undefined) : undefined}/>
-        <Metric label="退款" value={money(view.refund_cents)} sub="按退款日期计入"/>
-        <Metric label="净支出" value={summary.netUnknown ? `仅已知部分 ${money(view.net_cents)}` : money(view.net_cents)} sub="支出 − 退款，可为负"/>
-        <Metric label="售出回收" value={money(view.sale_cents)} sub="单列，不抵扣支出"/>
+        <Metric label={`${periodTitle(period)}已记录支出`} value={summary.display.value !== null ? moneyText(view.spent_cents) : summary.display.note ?? '未知'} unknown={summary.display.value === null} sub={summary.display.value !== null ? summary.display.note ?? (period.kind === 'year' && period.year === Number(today.slice(0, 4)) ? '截至今天已记录' : undefined) : undefined}/>
+        <Metric label="退款" value={moneyText(view.refund_cents)} sub="按退款日期计入"/>
+        <Metric label="净支出" value={summary.netUnknown ? `仅已知部分 ${moneyText(view.net_cents)}` : moneyText(view.net_cents)} sub="支出 − 退款，可为负"/>
+        <Metric label="售出回收" value={moneyText(view.sale_cents)} sub="单列，不抵扣支出"/>
       </MetricGrid>
-      {(view.undated.length > 0 || view.unknown_amount_count > 0) && <p className="sp-note sp-note-pad">{view.undated.length > 0 && `日期待补 ${view.undated.length} 条，不归入任何期间。`}{view.unknown_amount_count > 0 && `${view.unknown_amount_count} 条金额未知，未计入。`}</p>}
+      {(view.undated.length > 0 || view.unknown_amount_count > 0) && <p className="sp-note sp-note-pad">{view.undated.length > 0 && `日期未知 ${view.undated.length} 条，不归入任何期间。`}{view.unknown_amount_count > 0 && `${view.unknown_amount_count} 条金额未知，未计入。`}</p>}
       {chart && <Card className="sp-chart-card"><h2>{chart.title}</h2><p>{chart.caption}</p><BarChart bars={chart.bars} summary={chart.summary}/></Card>}
       {empty ? <EmptyState icon="wallet" title={period.kind === 'all' ? '还没有重要支出' : `${periodTitle(period)}没有记录`} message="物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。" action={<Button variant="primary" onClick={() => nav.push('spending.expenseEdit')}>记一笔支出</Button>}/> : <>
-        <SearchBox label="搜索支出明细" value={keyword} onChange={value => { setKeyword(value); setShown(40); }}/>
-        {!rows.length ? <EmptyState icon="search" title="当前条件下没有找到记录" message="搜索只筛选明细，上面的合计不变。" action={<Button onClick={() => setKeyword('')}>清除搜索</Button>}/>
+        <SearchField subject="支出明细" value={keyword} onChange={value => { setKeyword(value); setShown(40); }}/>
+        {!rows.length ? <EmptyState icon="wallet" title="当前条件下没有找到记录" message="搜索只筛选明细，上面的合计不变。" action={<Button onClick={() => setKeyword('')}>清除搜索</Button>}/>
           : <ListGroup title={`明细 · ${keyword.trim() ? `找到 ${rows.length}` : rows.length} 条`} footer="仅已记录支出；退款按发生日期，售出回收单列。物品的购入与维护从物品里读取。">
             {rows.slice(0, shown).map(row => {
               const amount = signedMoney(row);
@@ -108,31 +108,30 @@ function RecurringPanel({ period, periodKey, today }: { period: FinancePeriod; p
     const items = [...data.due.map(d => ({ d, overdue: true })), ...data.upcoming.map(d => ({ d, overdue: false }))];
     const shownItems = all ? items : items.slice(0, 4);
     const plans = sortPlans(data.plans.filter(p => matchesPlan(p, keyword)), today);
-    const skip = () => skipping && void saver.run(requestId => submit({ command: 'recurring_payment_save', input: skipSave(skipping, data.generation, requestId), label: `${skipping.plan_name} ${skipping.due_date} 本期不付` }), { onDone: () => { setNotice(`已标记「${skipping.plan_name}」${skipping.due_date} 本期不付。`); setSkipping(null); read.reload(); } });
+    const skip = () => skipping && void saver.run(requestId => submit({ command: 'recurring_payment_save', input: skipSave(skipping, data.generation, requestId), label: `${skipping.plan_name} ${skipping.due_date} 本期不付` }), { onDone: () => { setNotice(`已标记「${skipping.plan_name}」${dayLabel(skipping.due_date, today)} 本期不付。`); setSkipping(null); read.reload(); } });
     return <>
       {notice && <Notice tone="positive">{notice}</Notice>}
       <div className="sp-stat3">
-        <Card className="sp-stat"><span>进行中月均</span><strong>{money(data.monthly_cents)}</strong></Card>
-        <Card className="sp-stat"><span>{periodWord(periodKey)}已付</span><strong>{money(paid.cents)}</strong>{paid.unknown > 0 && <small>另有 {paid.unknown} 笔金额未知</small>}</Card>
-        <Card className="sp-stat"><span>未来 12 个月</span><strong>{money(data.next12_cents)}</strong></Card>
+        <Card className="sp-stat"><span>进行中月均</span><strong>{moneyText(data.monthly_cents)}</strong></Card>
+        <Card className="sp-stat"><span>{periodWord(periodKey)}已付</span><strong>{moneyText(paid.cents)}</strong>{paid.unknown > 0 && <small>另有 {paid.unknown} 笔金额未知</small>}</Card>
+        <Card className="sp-stat"><span>未来 12 个月</span><strong>{moneyText(data.next12_cents)}</strong></Card>
       </div>
       <p className="sp-note sp-note-pad">月均、未来 12 个月都是估算；只有确认付款后才计入重要支出，不改变账户余额。</p>
       {items.length > 0 && <>
-        <div className="sp-head-line"><h2>即将到期</h2><span>{[data.due.length ? `${data.due.length} 笔待确认` : '', data.upcoming.length ? `${data.upcoming.length} 笔即将到期` : ''].filter(Boolean).join(' · ')} · {money(dueTotal([...data.due, ...data.upcoming]))}</span></div>
+        <div className="sp-head-line"><h2>即将到期</h2><span>{[data.due.length ? `${data.due.length} 笔待确认` : '', data.upcoming.length ? `${data.upcoming.length} 笔即将到期` : ''].filter(Boolean).join(' · ')} · {moneyText(dueTotal([...data.due, ...data.upcoming]))}</span></div>
         {shownItems.map(({ d, overdue }) => { const badge = dueBadge(d.due_date, today); return <Card key={d.plan_id + d.due_date} className="sp-due">
-          <div className="sp-due-head"><strong>{d.plan_name}</strong><span className="sp-due-amount">{money(d.amount_cents)}</span></div>
-          <div className="sp-due-sub"><span>{shortDay(d.due_date)}{d.coverage_start && d.coverage_end ? ` · 覆盖 ${periodLabel(d.coverage_start, d.coverage_end)}` : ''}</span><Tag tone={overdue ? 'danger' : badge.tone}>{overdue && badge.tone !== 'danger' ? '待确认' : badge.text}</Tag></div>
+          <div className="sp-due-head"><strong>{d.plan_name}</strong><span className="sp-due-amount">{moneyText(d.amount_cents)}</span></div>
+          <div className="sp-due-sub"><span>{shortDay(d.due_date, today)}{d.coverage_start && d.coverage_end ? ` · 覆盖 ${localizeDates(periodLabel(d.coverage_start, d.coverage_end), today)}` : ''}</span><Tag tone={overdue ? 'danger' : badge.tone}>{overdue && badge.tone !== 'danger' ? '待确认' : badge.text}</Tag></div>
           <div className="sp-due-actions"><Button variant="primary" onClick={() => nav.push('spending.payment', { plan: d.plan_id, due: d.due_date })}>确认付款</Button><Button onClick={() => { saver.setError(''); setSkipping(d); }}>跳过</Button></div>
         </Card>; })}
         {items.length > 4 && <div className="sp-more"><button type="button" className="sp-link" onClick={() => setAll(!all)}>{all ? '收起' : `查看全部 ${items.length} 期`}</button></div>}
       </>}
-      <SearchBox label="搜索计划" value={keyword} onChange={setKeyword}/>
-      {!plans.length ? <EmptyState icon="search" title="当前条件下没有找到计划" action={<Button onClick={() => setKeyword('')}>清除搜索</Button>}/> : <ListGroup title="计划列表" action={<span className="sp-note">共 {plans.length} 项</span>}>
+      <SearchField subject="计划" value={keyword} onChange={setKeyword}/>
+      {!plans.length ? <EmptyState icon="wallet" title="当前条件下没有找到计划" action={<Button onClick={() => setKeyword('')}>清除搜索</Button>}/> : <ListGroup title="计划列表" action={<span className="sp-note">共 {plans.length} 项</span>}>
         {plans.map(p => <PlanRow key={p.id} plan={p} today={today} onClick={() => nav.push('spending.recurring', { id: p.id })}/>)}
       </ListGroup>}
-      <button type="button" className="sp-add" onClick={() => nav.push('spending.recurringEdit')}><Icon name="plus" size={18}/>新增计划</button>
       {skipping && <ConfirmSheet title="本期不付？" confirm="确认本期不付" busy={saver.busy} error={saver.error} onClose={() => setSkipping(null)} onConfirm={skip}
-        message={`「${skipping.plan_name}」${skipping.due_date} 这一期会记为不付，不计入重要支出，也不会再出现在待确认里。之后可以在计划详情里更正。`}/>}
+        message={`「${skipping.plan_name}」${dayLabel(skipping.due_date, today)} 这一期会记为不付，不计入重要支出，也不会再出现在待确认里。之后可以在计划详情里更正。`}/>}
     </>;
   }}</Loaded>;
 }
@@ -140,6 +139,6 @@ function RecurringPanel({ period, periodKey, today }: { period: FinancePeriod; p
 function PlanRow({ plan, today, onClick }: { plan: Plan; today: string; onClick: () => void }) {
   const status = planStatusInfo(plan, today), amount = planAmountText(plan, !!pendingSubscriptionStart(plan, today)), cost = planCost(plan), next = nextPayment(plan, today);
   return <ListRow title={<span className="sp-title">{plan.fields.name}<Tag tone={status.tone}>{status.text}</Tag></span>} onClick={onClick}
-    subtitle={<span className="sp-lines"><span>{recurringCategory(plan)} · {amount.main}{amount.monthly ? ` · ${amount.monthly}` : ''}</span><span>下次付款 {next ? next.date : '—'} · 累计费用 {money(cost.cents)}{cost.estimated ? '（估算）' : ''}</span></span>}/>;
+    subtitle={<span className="sp-lines"><span>{recurringCategory(plan)} · {amount.main}{amount.monthly ? ` · ${amount.monthly}` : ''}</span><span>下次付款 {next ? dayLabel(next.date, today) : '暂无'} · 累计费用 {moneyText(cost.cents)}{cost.estimated ? '（估算）' : ''}</span></span>}/>;
 }
 const recurringCategory = (plan: Plan) => recurringCategoryText(plan.fields.category);

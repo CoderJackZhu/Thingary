@@ -81,7 +81,8 @@ test('付款期次：已确认、已跳过、待确认、未到，固定租期�
   assert.equal(list.rows.find(r => r.due === '2026-11-01').state, 'upcoming');
   const parts = progressParts(list);
   assert.equal(parts.paid, 20);
-  assert.match(termText(p, list), /2026-08 至 2026-12（5 期）/);
+  assert.equal(termText(p, list, '2026-10-21'), '8月 至 12月（5 期）');
+  assert.equal(termText(p, list, '2027-01-05'), '2026年8月 至 2026年12月（5 期）');
   assert.equal(progressParts(periodList(plan(), [], [], today)), null);
 });
 test('暂停的计划不列待确认；下次付款对暂停与已结束为空', () => {

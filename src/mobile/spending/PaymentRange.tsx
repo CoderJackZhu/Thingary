@@ -33,7 +33,7 @@ function Form({ overview, planId }: { overview: Overview; planId: string }) {
   }
   return <EditorFrame title="补记往期付款" onSave={save} busy={saver.busy} canSave={dates.length > 0} error={problem || saver.error}>
     <p className="sp-note sp-note-pad">{plan.fields.name}。只补尚未记录的期，不覆盖已付或跳过的记录；实付日期按每期付款日记录，之后可单独更正。</p>
-    {!dates.length ? <p className="sp-note sp-note-pad">还没有到期的期次可以补记。</p> : <>
+    {!dates.length ? <p className="sp-note sp-note-pad">暂无可补记的期次。</p> : <>
       <FormGroup footer={`选中 ${count} 期。`}>
         <SelectField label="从" value={d.from} onChange={from => set({ from })} options={options} disabled={saver.busy}/>
         <SelectField label="到" value={d.to} onChange={to => set({ to })} options={options} disabled={saver.busy}/>

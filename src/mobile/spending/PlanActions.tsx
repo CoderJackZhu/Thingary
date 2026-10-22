@@ -5,13 +5,13 @@ import { linkDeletePreview } from '../../link';
 import type { LinkPreview, LinkTrashInput, LinkView } from '../../link';
 import { previewText } from '../../LinkDialogs';
 import type { Plan } from '../../recurring';
-import { DateField, ErrorState, Loading } from '../ui';
+import { dayLabel } from '../format';
+import { ConfirmSheet, DateField, DeleteSheet, ErrorState, Loading } from '../ui';
 import { endFields, endSuggestion, planSave, validateEnd } from './forms';
-import { ConfirmSheet } from './parts';
 import { useRead, useSaver } from './read';
 
 /** 整组删除：先读预览，再用同一份预览确认（关联订阅的服务档案和计划一起进最近删除）。 */
-export function GroupDeleteSheet({ side, id, partnerId, generation, onClose }: { side: 'virtual' | 'plan'; id: string; partnerId?: string | null; generation: string; onClose: () => void }) {
+export function GroupDeleteSheet({ side, id, name, partnerId, generation, onClose }: { side: 'virtual' | 'plan'; id: string; name: string; partnerId?: string | null; generation: string; onClose: () => void }) {
   const saver = useSaver();
   const read = useRead(() => linkDeletePreview(side, id, partnerId), `${side}:${id}`);
   const preview: LinkPreview | null = read.data;
@@ -20,11 +20,11 @@ export function GroupDeleteSheet({ side, id, partnerId, generation, onClose }: {
     const input: LinkTrashInput = { request_id: '', generation, side, id, partner_id: partnerId ?? null, asset_expected_revision: preview.asset_revision, plan_expected_revision: preview.plan_revision, preview: preview.preview };
     void saver.run(requestId => submit<string>({ command: 'link_trash', input: { ...input, request_id: requestId }, label: '删除 ' + preview.asset_name }), { close: true });
   }
-  return <ConfirmSheet title="移入最近删除？" confirm="整组移入最近删除" danger busy={saver.busy} error={saver.error || read.error} disabled={!preview} onClose={onClose} onConfirm={confirm}>
+  return <DeleteSheet name={name} busy={saver.busy} error={saver.error || read.error} disabled={!preview} onClose={onClose} onConfirm={confirm}>
     {read.loading && <Loading label="正在读取影响范围…"/>}
     {read.error && <ErrorState title="读取失败" message={read.error} onRetry={read.reload}/>}
     {preview && <ul className="sp-rows sp-facts">{previewText(preview).map(text => <li key={text}>{text}</li>)}</ul>}
-  </ConfirmSheet>;
+  </DeleteSheet>;
 }
 
 /** 结束计划：确认最后使用日并关闭后续续费；已有付款记录保留。 */
@@ -39,7 +39,7 @@ export function EndPlanSheet({ plan, link, generation, today, onClose, onDone }:
     void saver.run(requestId => link?.asset
       ? submit({ command: 'link_save', input: { request_id: requestId, generation: link.generation, asset_id: link.asset.id, asset_expected_revision: link.asset.revision, plan_id: plan.id, plan_expected_revision: plan.revision, fields }, label: '取消续费 ' + name })
       : submit({ command: 'recurring_plan_save', input: planSave(fields, plan, generation, requestId), label: '取消续费 ' + name }),
-    { onDone: () => { onDone(`「${name}」将使用至 ${day}，后续续费已关闭；历史付款与估算依据保留。`); onClose(); } });
+    { onDone: () => { onDone(`「${name}」将使用至 ${dayLabel(day, today)}，后续续费已关闭；历史付款与估算依据保留。`); onClose(); } });
   }
   return <ConfirmSheet title="结束计划" confirm="确认结束" danger busy={saver.busy} error={problem || saver.error} onClose={onClose} onConfirm={confirm}
     message={`「${name}」最后使用到哪一天？确认后不再生成新的付款期，已记录的付款保留。`}>

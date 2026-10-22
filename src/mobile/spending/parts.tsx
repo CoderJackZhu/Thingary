@@ -12,7 +12,7 @@ import './spending.css';
 export function Head({ title, subtitle, add }: { title: string; subtitle?: string; add?: { label: string; onClick: () => void; disabled?: boolean } }) {
   const { isRoot } = useEntry();
   return <>
-    {!isRoot && <NavBar right={add && <button type="button" className="m-navbar-button m-navbar-primary" disabled={add.disabled} onClick={add.onClick}>＋ {add.label}</button>}/>}
+    {!isRoot && <NavBar right={add && <button type="button" className="m-navbar-button m-navbar-primary" aria-label={add.label} disabled={add.disabled} onClick={add.onClick}>新增</button>}/>}
     <LargeTitle title={title} subtitle={subtitle} actions={isRoot && add ? <IconButton label={add.label} disabled={add.disabled} onClick={add.onClick}><Icon name="plus"/></IconButton> : undefined}/>
   </>;
 }
@@ -29,22 +29,6 @@ export function Loaded<T>({ read, what, nav, children }: { read: Read<T>; what: 
     : read.loading || read.data === null ? <Loading label={`正在读取${what}…`}/> : null;
   if (state) return nav ? <div className="m-page"><NavBar/>{state}</div> : state;
   return <>{children(read.data as T)}</>;
-}
-
-export function SearchBox({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
-  return <div className="sp-search"><Icon name="search" size={18}/><input type="search" className="m-input" aria-label={label} placeholder={label} value={value} onChange={event => onChange(event.target.value)}/></div>;
-}
-
-/** Bottom sheet that asks before something is saved or deleted; shows the error of a failed attempt. */
-export function ConfirmSheet({ title, message, confirm, danger, busy, error, onConfirm, onClose, children, disabled }: { title: string; message?: ReactNode; confirm: string; danger?: boolean; busy: boolean; error?: string; onConfirm: () => void; onClose: () => void; children?: ReactNode; disabled?: boolean }) {
-  return <Sheet title={title} onClose={() => { if (!busy) onClose(); }} doneLabel="取消">
-    <div className="sp-sheet-body">
-      {message && <p className="sp-sheet-text">{message}</p>}
-      {children}
-      {error && <Notice tone="danger">{error}</Notice>}
-      <Button variant={danger ? 'danger' : 'primary'} block disabled={busy || disabled} onClick={onConfirm}>{busy ? '正在保存…' : confirm}</Button>
-    </div>
-  </Sheet>;
 }
 
 /** 期间：本月 / 今年 / 全部 / 自选. 自选在弹窗里填两个日期，用桌面同一个校验器，不合法就留在弹窗里提示。 */
