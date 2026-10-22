@@ -8,7 +8,7 @@ import { coverKey, initialPrivacyState, lockKey, privacyTransition, readCoverPre
 import type { LockPreference, PrivacyEvent, PrivacyState } from '../../privacy-lock';
 import { storedPending } from '../../wealth';
 
-export type PrivacySnapshot = { cover: boolean; lock: LockPreference; available: boolean | null; checking: boolean; locked: boolean; error: string };
+export type PrivacySnapshot = { cover: boolean; lock: LockPreference; available: boolean | null; checking: boolean; locked: boolean; mounted: boolean; error: string };
 
 const storage = (): Storage | null => { try { return window.localStorage; } catch { return null; } };
 let started = false;
@@ -17,7 +17,7 @@ let state: PrivacyState = initialPrivacyState(lock, 0);
 let available: boolean | null = null, checking = false, error = '';
 let overlay: HTMLElement | null = null;
 const listeners = new Set<() => void>();
-let snapshot: PrivacySnapshot = { cover, lock, available, checking, locked: false, error };
+let snapshot: PrivacySnapshot = { cover, lock, available, checking, locked: false, mounted: true, error };
 let nativeCover: boolean | undefined;
 let nativeAuthName = '身份验证';
 
@@ -27,7 +27,7 @@ function publish() {
     nativeCover = protect;
     void invoke('ios_privacy_cover_set', { enabled: protect }).catch(() => { nativeCover = undefined; });
   }
-  snapshot = { cover, lock, available, checking, locked: state.locked, error };
+  snapshot = { cover, lock, available, checking, locked: state.locked, mounted: state.mounted, error };
   render();
   listeners.forEach(listener => listener());
 }

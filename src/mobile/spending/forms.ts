@@ -54,7 +54,7 @@ export function validatePlanDraft(draft: PlanDraft, today: string): Check {
 }
 /** 新建且开始日期已过去时，已过去的期数；房租默认把这些期补记为已付，其他费用默认不补。 */
 export function pastDues(draft: PlanDraft, today: string): number {
-  return rentPreview(draft.rent, today)?.rows.filter(r => r.due <= today).length ?? 0;
+  return rentPreview(draft.rent, today)?.past ?? 0;
 }
 export const backfillDefault = (draft: PlanDraft): boolean => draft.backfill ?? draft.category === 'rent';
 export function planSave(fields: PlanFields, existing: Pick<Plan, 'id' | 'revision'> | null, generation: string, requestId: string): PlanSave {

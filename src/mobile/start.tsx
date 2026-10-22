@@ -7,7 +7,12 @@ import './mobile.css';
 import './ui/ui.css';
 
 const media = matchMedia('(prefers-color-scheme: dark)');
+// A saved 主题／浅色／深色 is applied by installMobileRuntime (me/runtime.ts); only the unsaved default is set here.
+function hasSavedAppearance() {
+  try { return localStorage.getItem('thingary.theme') !== null || localStorage.getItem('thingary.style') !== null; } catch { return false; }
+}
 function appearance() {
+  if (hasSavedAppearance()) return;
   document.documentElement.dataset.style = 'bento';
   document.documentElement.dataset.mode = media.matches ? 'dark' : 'light';
 }

@@ -16,3 +16,16 @@ test('first run defaults to the bento theme and saved choices are kept', () => {
 test('only the bento card is labelled as the default', () => {
   assert.deepEqual(styles.filter(s => s.note.includes('默认')).map(s => s.value), ['bento']);
 });
+
+import { readFileSync } from 'node:fs';
+test('mobile start leaves a saved appearance to the runtime instead of overwriting it', () => {
+  const start = readFileSync(new URL('../src/mobile/start.tsx', import.meta.url), 'utf8');
+  assert.match(start, /function appearance\(\) \{\s*if \(hasSavedAppearance\(\)\) return;/);
+});
+
+test('mobile app mounts nothing until the privacy gate allows reading, and a payment record can be deleted', () => {
+  const app = readFileSync(new URL('../src/mobile/MobileApp.tsx', import.meta.url), 'utf8');
+  assert.match(app, /privacySnapshot\(\)\.mounted[\s\S]*if \(!mounted\) return null;/);
+  const pay = readFileSync(new URL('../src/mobile/spending/PaymentEdit.tsx', import.meta.url), 'utf8');
+  assert.match(pay, /trash\('payment', record\.id/);
+});

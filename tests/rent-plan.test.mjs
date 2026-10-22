@@ -71,3 +71,13 @@ test('invalid input gives no preview; one month before follows the calendar', ()
   assert.deepEqual(['2026-11-06', '2026-03-31', '2026-03-01'].map(oneMonthBefore), [31, 31, 28]);
   assert.equal(blankRent('2026-10-06').end, '');
 });
+
+test('past counts every due period, not just the 24 shown in the preview', () => {
+  const r = rent({ amount_cents: '100000', interval_months: 1, start: '2023-01-01', advance_days: 0, end: '2026-11-01' });
+  const p = rentPreview(r, '2026-10-01');
+  assert.equal(p.rows.length, 24);
+  assert.equal(p.past, 46);
+  assert.equal(p.total_cents, 4_600_000n);
+  const dates = scheduleDates(planOf(r).fields, '1900-01-01', '2026-10-01');
+  assert.equal(dates.length, p.past);
+});

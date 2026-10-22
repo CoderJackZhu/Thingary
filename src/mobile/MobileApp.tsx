@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
 import { ModulesProvider, useModules } from './modules-context';
 import { EntryProvider, NavProvider, useNavState } from './nav-context';
@@ -12,10 +12,14 @@ import { TabBar } from './TabBar';
 import { Loading, Notice, SegmentedControl, Sheet } from './ui';
 import { Button } from './ui';
 import { KeyboardBar } from './ui/KeyboardBar';
+import { privacySnapshot, subscribePrivacy } from './me/privacy-runtime';
 
 /** The whole iPhone app: module switches, wealth session, per-tab page stacks, tab bar. */
 export function MobileApp({ initial }: { initial?: InitialRoute }) {
   const recovery = useRef<HTMLElement>(null);
+  // Like the desktop PrivacyBoundary: until the first unlock nothing is mounted, so the library is not even read (the overlay alone only hides it).
+  const mounted = useSyncExternalStore(subscribePrivacy, () => privacySnapshot().mounted);
+  if (!mounted) return null;
   return <ModulesProvider><SessionProvider onFocusRecovery={() => setTimeout(() => recovery.current?.focus(), 0)}><Gate initial={initial} recovery={recovery}/></SessionProvider></ModulesProvider>;
 }
 

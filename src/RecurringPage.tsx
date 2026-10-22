@@ -199,7 +199,7 @@ function PlanDialog({ backfillOpen = false, plan, generation, today, onClose, mo
   const doBackfill = backfillTouched ? backfill : f.category === 'rent';
   const effective: PlanFields = rentMode ? { ...f, ...rentToFields(rent, f.category) } : f;
   const dirty = extrasDirty || (!plan ? true : rentMode ? JSON.stringify(rent) !== JSON.stringify(initialRent) || f.name !== plan.fields.name || f.notes !== plan.fields.notes || f.category !== plan.fields.category : JSON.stringify(f) !== JSON.stringify(plan.fields));
-  const pastDues = rentMode && !plan ? (rentPreview(rent, today)?.rows.filter(r => r.due <= today).length ?? 0) : 0;
+  const pastDues = rentMode && !plan ? (rentPreview(rent, today)?.past ?? 0) : 0;
   const [late, setLate] = useState(false);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('plan-name')?.focus(); return () => dialog.current?.close(); }, []);

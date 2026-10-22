@@ -49,9 +49,10 @@ export function fieldsToRent(plan: Pick<Plan, 'fields' | 'rules' | 'period_ends'
 }
 
 export type RentRow = { due: string; from: string; to: string };
-export type RentPreview = { rows: RentRow[]; total_cents: bigint; monthly_cents: bigint | null; open_ended: boolean; truncated: boolean };
+export type RentPreview = { rows: RentRow[]; total_cents: bigint; monthly_cents: bigint | null; open_ended: boolean; truncated: boolean; past: number };
 
-/** 预览将生成的期次：有到期日则列到到期为止；持续租则列到今天之后再多一期。 */
+/** `rows` 只是展示用的前 `limit` 期；`total_cents` 与 `past`（到今天已到期的期数）按完整排期计算，确认文案与补记提交都应取这两项。
+ * 预览将生成的期次：有到期日则列到到期为止；持续租则列到今天之后再多一期。 */
 export function rentPreview(r: RentForm, today: string, limit = 24): RentPreview | null {
   if (!isDay(r.start) || !/^\d+$/.test(r.amount_cents || '') || (r.end && (!isDay(r.end) || r.end <= r.start))) return null;
   const f = { name: '', notes: '', ...rentToFields(r) } as PlanFields;
@@ -66,5 +67,5 @@ export function rentPreview(r: RentForm, today: string, limit = 24): RentPreview
   });
   const rows = all.slice(0, limit);
   const amount = BigInt(r.amount_cents || '0');
-  return { rows, total_cents: amount * BigInt(all.length), monthly_cents: amount / BigInt(r.interval_months), open_ended: !r.end, truncated: all.length > rows.length };
+  return { rows, total_cents: amount * BigInt(all.length), monthly_cents: amount / BigInt(r.interval_months), open_ended: !r.end, truncated: all.length > rows.length, past: all.filter(row => row.due <= today).length };
 }
