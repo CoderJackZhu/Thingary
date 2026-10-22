@@ -1,6 +1,5 @@
 .mi-stats .mi-stats-note{font-size:12px;color:var(--muted);line-height:1.6;margin:8px 0;overflow-wrap:anywhere}
 .mi-stats .mi-stats-card{padding:16px;min-width:0}
-.mi-stats .m-segmented button{min-height:44px;min-width:44px}
 .mi-stats .mi-stats-category{display:flex;align-items:center;gap:14px;min-width:0}
 .mi-stats .mi-stats-category>.m-donut{flex-shrink:0}
 .mi-stats .mi-stats-legend{flex:1;min-width:0;list-style:none;padding:0;margin:0;font-size:12px}
@@ -15,4 +14,7 @@
 .mi-stats .mi-stats-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .mi-stats .mi-stats-totals strong{font-size:22px;display:block;overflow-wrap:anywhere}
 @media(max-width:350px){.mi-stats .mi-stats-category{flex-direction:column;align-items:stretch}.mi-stats .mi-stats-category>.m-donut{align-self:center}}
-.m-app:has(.mi-stats) .m-segment-bar .m-segmented button{min-height:44px}
+.mi-stats .mi-stats-range{display:flex;flex-direction:column;gap:8px}.mi-stats .mi-stats-range .mi-stats-note{margin:0}
+.mi-stats .m-section-head .m-segmented button{min-height:44px}
+.mi-stats .mi-stats-body{display:flex;flex-direction:column;gap:var(--m-gap);min-width:0;transition:opacity .15s}.mi-stats .mi-stats-loading{opacity:.55}
+.mi-stats .mi-stats-rules p{margin:4px 0}

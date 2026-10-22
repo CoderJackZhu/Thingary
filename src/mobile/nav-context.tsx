@@ -84,6 +84,12 @@ export function useNavState(): NavValue {
 /** Navigation commands: `const nav = useNav(); nav.push('items.detail', { id })`. */
 export const useNav = (): Nav => useNavState().nav;
 
+/** True while a modal or sheet sits above the page, so floating controls such as the Fab can step aside. */
+export function useCovered(): boolean {
+  const { state } = useNavState(), stack = activeStack(state), top = stack[stack.length - 1];
+  return !!top && routeKind(top.route) !== 'page';
+}
+
 export function EntryProvider({ stack, index, children }: { stack: Entry[]; index: number; children: ReactNode }) {
   const value = useMemo(() => ({ entry: stack[index], index, stack }), [stack, index]);
   return <EntryContext.Provider value={value}>{children}</EntryContext.Provider>;
