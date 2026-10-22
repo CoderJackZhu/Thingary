@@ -45,3 +45,6 @@ fs.readFileSync = function (path, options) {
   return out;
 };
 syncBuiltinESMExports();
+
+// Tests assert Chinese output: Node reports navigator.language as en-US, which would select the English table.
+Object.defineProperty(globalThis.navigator, 'language', { value: 'zh-CN', configurable: true });

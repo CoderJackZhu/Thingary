@@ -6,7 +6,7 @@ export type Lang = 'zh-CN' | 'en';
 export type LangPreference = Lang | 'system';
 export const langKey = 'thingary.lang';
 export const langPreferences: readonly { value: LangPreference; label: string }[] = [
-  { value: 'system', label: '跟随系统 / System' }, { value: 'zh-CN', label: '简体中文' }, { value: 'en', label: 'English' },
+  { value: 'system', label: '自动 / Auto' }, { value: 'zh-CN', label: '简体中文' }, { value: 'en', label: 'English' },
 ];
 const tables: Record<Lang, Record<string, string>> = { 'zh-CN': {}, en };
 

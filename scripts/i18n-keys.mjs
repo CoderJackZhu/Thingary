@@ -12,7 +12,7 @@ export function collectKeys() {
       const full = path.join(p, f.name);
       if (f.isDirectory()) walk(full);
       else if (/\.(ts|tsx)$/.test(f.name) && !/\.test\.|\.d\.ts$/.test(f.name) && !/src\/(i18n\.ts|locales)/.test(full)) {
-        const sf = ts.createSourceFile(full, fs.readFileSync(full, 'utf8'), ts.ScriptTarget.ES2022, true, f.name.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+        const sf = ts.createSourceFile(full, fs.readFileSync(full).toString(), ts.ScriptTarget.ES2022, true, f.name.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
         (function v(n) {
           if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['t', 'tr', 'tt'].includes(n.expression.text) && n.arguments[0] && ts.isStringLiteralLike(n.arguments[0])) keys.add(n.arguments[0].text);
           ts.forEachChild(n, v);
