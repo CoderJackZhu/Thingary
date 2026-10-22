@@ -16,7 +16,7 @@ export type Nav = {
   /** Swap the top entry (for example after saving a new item, open its detail instead of the form). */
   replace: (route: RouteName, params?: Params) => void;
   popToRoot: () => void;
-  /** Show another tab with its own preserved stack. */
+  /** Open a tab at its root; for the current tab, pop to its root, or scroll to top when already there. */
   switchTab: (tab: TabId) => void;
   /** Change the top segment of a tab root (物品 / 心愿 / 统计). */
   setSegment: (route: RouteName) => void;
@@ -60,9 +60,16 @@ export function NavProvider({ children, modules, blocked, initial }: { children:
     popToRoot: () => {
       const extra = activeStack(live.current.state).length - 1;
       if (live.current.blocked || extra < 1) return;
-      dispatch({ type: 'popToRoot' }); for (let i = 0; i < extra; i++) sync.current?.back();
+      dispatch({ type: 'popToRoot' }); sync.current?.back(extra);
     },
-    switchTab: tab => { if (!live.current.blocked) dispatch({ type: 'switch', tab, root: tabRoot(tab, live.current.modules) }); },
+    switchTab: tab => {
+      const { blocked: isBlocked, state: now, modules: mods } = live.current;
+      if (isBlocked) return;
+      const extra = activeStack(now).length - 1;
+      if (tab !== now.tab) { dispatch({ type: 'switch', tab, root: tabRoot(tab, mods) }); sync.current?.back(extra); }
+      else if (extra > 0) { dispatch({ type: 'popToRoot' }); sync.current?.back(extra); }
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
     setSegment: route => { if (!live.current.blocked) dispatch({ type: 'root', route }); },
   }), [state.tab, blocked]);
   const value = useMemo(() => ({ state, nav }), [state, nav]);
