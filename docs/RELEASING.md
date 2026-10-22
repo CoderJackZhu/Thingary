@@ -247,12 +247,12 @@ Release 归档为 `物谱.app`（28.7 MB）：包含 `PrivacyInfo.xcprivacy`，�
 
 Release 二进制的隐私核对（`nm`／`strings`／`otool`／dSYM 符号化）：
 
-- 包内清单只声明文件时间戳（`C617.1`、`3B52.1`）与系统启动时间（`35F9.1`）；`NSPrivacyTracking=false`，无收集数据类型。
-- **磁盘空间（DiskSpace）在 Release 中仍有引用**：`nm -u` 有 `_statfs`、`_fstatfs`，没有 `_statvfs`／`_fstatvfs`。调用来自内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库都会调用 `fstatfs`；`autolockIoFinderImpl` 与 `proxyTransformUnixFile` 使用 `statfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其 `statvfs` 在 Release 已被剔除，Debug 中的 `statvfs` 是未使用包装的链接残留。是否补充该类别及理由代码由 Jack 决定，本轮未添加。
+- 包内清单声明文件时间戳（`C617.1`、`3B52.1`）、系统启动时间（`35F9.1`）与磁盘空间（`E174.1`）；`NSPrivacyTracking=false`，无收集数据类型。
+- **磁盘空间（DiskSpace）在 Release 中仍有引用**：`nm -u` 有 `_statfs`、`_fstatfs`，没有 `_statvfs`／`_fstatvfs`。调用来自内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库都会调用 `fstatfs`；`autolockIoFinderImpl` 与 `proxyTransformUnixFile` 使用 `statfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其 `statvfs` 在 Release 已被剔除，Debug 中的 `statvfs` 是未使用包装的链接残留。Jack 已确认补充，清单声明 `E174.1`（检查是否有足够空间写入文件，例如打开和写入数据库、保存备份）。
 - **活动键盘（ActiveKeyboards）未发现访问**：Release 主二进制（含 `__objc_methname`）没有 `activeInputModes`／`UITextInputMode`；只有 Debug 未做 dead-strip 时保留的 `objc2-ui-kit` 选择器绑定，仓库与 `wry`／`tao`／`tauri` 源码均无调用。
 - Xcode Organizer 的 Generate Privacy Report **未生成**：该动作只在 Organizer GUI 提供（无 `xcrun`／`xcodebuild` 等价命令），本机 Accessibility 未授权且无法截图，归档无签名；是否受签名限制尚未验证，待签名后（或由 Jack 在 Xcode 手动执行）再核对。
 
-尚未安装或启动商店身份。签名前仍需 Jack 决定 DiskSpace 是否补声明，并生成、核对隐私报告。
+尚未安装或启动商店身份。签名前仍需生成并核对隐私报告。
 
 ### 3. 签名与账号
 
@@ -297,7 +297,7 @@ Jack 将开发者账号加入 Xcode，或在本机登录朋友账号。选择对
 |---|---|---|---|
 | 文件时间戳 `NSPrivacyAccessedAPICategoryFileTimestamp` | 是 | `C617.1`（读取 App 容器内文件的时间戳／大小等元数据）；`3B52.1`（读取用户通过文件选择器授予访问的文件） | `src-tauri/src/auto_backup.rs`（备份文件 mtime 与复制后还原 mtime）、`purge.rs`（清理暂存区时只保留 24 小时内的暂存选择）、`photos.rs` 与 `storage.rs`（图片校验缓存的文件戳）、`financial_import.rs`（偏好文件指纹）；`native/ios.m` 对用户所选备份／图片的 `copyItemAtURL` 与 `NSURLIsRegularFileKey`（用户经系统选择器授予的文件，随后复制到应用临时目录）。Rust 标准库的 `std::fs::metadata` 与 SQLite 的 `stat` 同样会被扫描到。 |
 | 系统启动时间 `NSPrivacyAccessedAPICategorySystemBootTime` | 是 | `35F9.1`（测量 App 内事件之间经过的时间） | `std::time::Instant`：`backup_security.rs`（会话空闲超时）、`worker.rs`（变更与失败间隔）、`backup_jobs.rs`。Rust 在 Apple 平台的 `Instant` 基于单调时钟，Apple 把 `mach_absolute_time` 等归入此类；Debug 与 Release 主二进制均检测到 `_clock_gettime` |
-| 磁盘空间 `NSPrivacyAccessedAPICategoryDiskSpace` | 是（Release 仍有引用） | 未补，待 Jack 决定 | 内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库调用 `fstatfs`（`sqlite3.c:46946`）；`autolockIoFinderImpl`（`46181`）与 `proxyTransformUnixFile`（`48371`）调用 `statfs`。Release 主二进制的 `nm -u` 有 `_statfs`、`_fstatfs`，无 `_statvfs`／`_fstatvfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其未使用的 `statvfs` 包装在 Release 已被剔除；Debug 中的 `statvfs` 是未使用包装的链接残留。补充类别与理由代码由 Jack 决定 |
+| 磁盘空间 `NSPrivacyAccessedAPICategoryDiskSpace` | 是（Release 仍有引用） | `E174.1`（检查是否有足够磁盘空间写入文件） | 内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库调用 `fstatfs`（`sqlite3.c:46946`）；`autolockIoFinderImpl`（`46181`）与 `proxyTransformUnixFile`（`48371`）调用 `statfs`。Release 主二进制的 `nm -u` 有 `_statfs`、`_fstatfs`，无 `_statvfs`／`_fstatvfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其未使用的 `statvfs` 包装在 Release 已被剔除；Debug 中的 `statvfs` 是未使用包装的链接残留 |
 | 用户默认设置 `NSPrivacyAccessedAPICategoryUserDefaults` | 未发现调用 | 不声明 | `native/*.m`、`gen/apple/Sources` 无 `NSUserDefaults`；偏好保存在应用资料目录的文件里。WebKit 与 UIKit 是系统框架，由系统处理 |
 | 活动键盘 `NSPrivacyAccessedAPICategoryActiveKeyboards` | 否（Release 未引用） | 不声明 | Debug 主二进制曾有 `activeInputModes` 字符串；Release 主二进制（`strings`、`__objc_methname`）为 0，只有 Debug 未做 dead-strip 时保留的 `objc2-ui-kit` 选择器绑定；仓库与 `wry`／`tao`／`tauri` 源码均无调用 |
 
