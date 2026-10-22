@@ -31,6 +31,9 @@ export class HistorySync {
     if (target < this.seq) {
       const steps = this.seq - target;
       if (!this.onBack(steps)) { this.expected++; this.history.go(steps); return; }
+    } else if (target > this.seq) {
+      // A forward swipe or key lands on an entry whose page was already popped: step back to where the stack is.
+      this.expected++; this.history.go(this.seq - target); return;
     }
     this.seq = target;
   }

@@ -93,6 +93,14 @@ test('历史记录：切换标签后立即推入新页，等回退完成再写�
   assert.deepEqual(h.log.slice(-1), [['push', 1]]); assert.equal(sync.seq, 1); assert.deepEqual(popped, []);
   sync.handlePop({ thingaryMobile: true, seq: 0 }); assert.deepEqual(popped, [1]); assert.equal(sync.seq, 0);
 });
+test('历史记录：前进到已关闭的页面时退回原位，不改页面栈', () => {
+  const h = fakeHistory(), popped = [];
+  const sync = new HistorySync(h, steps => { popped.push(steps); return true; });
+  sync.push(); sync.handlePop({ thingaryMobile: true, seq: 0 });
+  sync.handlePop({ thingaryMobile: true, seq: 1 });
+  assert.deepEqual(h.log.at(-1), ['go', -1]); assert.equal(sync.seq, 0);
+  sync.handlePop({ thingaryMobile: true, seq: 0 }); assert.equal(sync.seq, 0); assert.deepEqual(popped, [1]);
+});
 test('左滑吸附：过半或快速滑动展开，轻触回弹', () => {
   assert.equal(clampSwipe(-300, 176), -176); assert.equal(clampSwipe(20, 176), 0);
   assert.equal(settleSwipe(-100, 176, 0), true); assert.equal(settleSwipe(-60, 176, 0), false);
