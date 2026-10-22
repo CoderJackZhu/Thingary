@@ -4,12 +4,17 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { areaPath, axisLabel, lineAxis, monotonePath, nearestIndex, runsOf, xTicks } from './chart-model';
+import type { Pt } from './chart-model';
 
 type Num = number | null;
+type BandPt = Pt & { low?: number };
 export type LineSeries = { name: string; values: Num[]; color?: string; dashed?: boolean; area?: boolean };
+/** Shaded range between two arrays of the same length (plan: 10%–90% market paths). Null in either array is a gap. */
+export type LineBand = { name: string; lower: Num[]; upper: Num[]; color?: string };
 export type ScrubTip = { title: string; rows: { name: string; value: string; color?: string }[]; note?: string };
 export type LineChartProps = {
   series: LineSeries[];
+  band?: LineBand;
   /** x labels per index (e.g. dates). Axis shows the first, a middle and the last one. */
   labels: string[];
   /** Numeric x per index (e.g. timestamps) for uneven spacing; default evenly spaced. */
@@ -32,7 +37,7 @@ export type LineChartProps = {
 const PAD_X = 8, TOP = 14, BOTTOM_AXIS = 22;
 const money = (cents: number, hidden: boolean) => hidden ? '******' : axisLabel(cents);
 
-export function LineChart({ series, labels, xs, summary, height = 180, compact = false, hidden = false, marker, shade, tip, className, children }: LineChartProps) {
+export function LineChart({ series, band, labels, xs, summary, height = 180, compact = false, hidden = false, marker, shade, tip, className, children }: LineChartProps) {
   const id = useId().replace(/:/g, ''), box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0), [scrub, setScrub] = useState<number | null>(null);
   useEffect(() => {
@@ -45,13 +50,13 @@ export function LineChart({ series, labels, xs, summary, height = 180, compact =
     return () => observer.disconnect();
   }, []);
   const count = labels.length, h = compact ? height : Math.max(height, 120);
-  const top = compact ? 6 : TOP, bottom = h - (compact ? 6 : BOTTOM_AXIS), left = compact ? 6 : PAD_X, right = width - (compact ? 6 : PAD_X);
+  const top = compact ? (marker ? 18 : 6) : TOP, bottom = h - (compact ? 6 : BOTTOM_AXIS), left = compact ? 6 : PAD_X, right = width - (compact ? 6 : PAD_X);
   const pos = xs && xs.length === count ? xs : labels.map((_, i) => i);
   const x0 = pos[0] ?? 0, span = (pos.at(-1) ?? 0) - x0 || 1;
   const px = (v: number) => left + (right - left) * (v - x0) / span;
-  const axis = lineAxis(series.map(s => s.values));
+  const axis = lineAxis(band ? [...series.map(s => s.values), band.lower, band.upper] : series.map(s => s.values));
   const py = (v: number) => top + (bottom - top) * (1 - (v - axis.bottom) / (axis.top - axis.bottom || 1));
-  const known = series.some(s => s.values.some(v => v !== null));
+  const known = series.some(s => s.values.some(v => v !== null)) || !!band?.upper.some(v => v !== null);
   const cls = `m-linechart${compact ? ' m-linechart-compact' : ''}${className ? ' ' + className : ''}`;
   if (!known || count < 2) return <div ref={box} className={cls} style={{ height: h }}><svg role="img" aria-label={summary} width={width || '100%'} height={h}><line x1={left} x2={Math.max(left, right)} y1={bottom - 4} y2={bottom - 4} className="m-lc-grid" strokeDasharray="3 4"/></svg></div>;
 
@@ -60,12 +65,16 @@ export function LineChart({ series, labels, xs, summary, height = 180, compact =
     const runs = runsOf(pts), color = s.color ?? (si === 0 ? 'var(--accent)' : 'var(--muted)');
     return { s, si, color, runs, last: pts.reduceRight<{ x: number; y: number; i: number } | null>((found, p, i) => found ?? (p ? { ...p, i } : null), null) };
   });
+  const bandPath = band ? (runsOf(band.upper.map((u, i) => u === null || band.lower[i] === null ? null : { x: px(pos[i]), y: py(u), low: py(band.lower[i]!) } as BandPt)) as BandPt[][]).map(run => {
+    const edge = [...run].reverse().map(p => `${Math.round(p.x * 100) / 100},${Math.round(p.low! * 100) / 100}`).join('L');
+    return `${monotonePath(run)}L${edge}Z`;
+  }) : [];
   const primary = drawn[0], lastValue = primary.last ? primary.s.values[primary.last.i]! : null;
   const place = (e: React.PointerEvent) => {
     const rect = e.currentTarget.getBoundingClientRect(), at = nearestIndex(pos.map(px), e.clientX - rect.left);
     setScrub(at < 0 ? null : at);
   };
-  const info: ScrubTip | null = scrub === null || compact ? null : tip ? tip(scrub) : { title: labels[scrub], rows: series.map((s, i) => ({ name: s.name, value: s.values[scrub] === null ? '未知' : hidden ? '******' : axisLabel(s.values[scrub]!), color: drawn[i].color })) };
+  const info: ScrubTip | null = scrub === null || compact ? null : tip ? tip(scrub) : { title: labels[scrub], rows: [...series.map((s, i) => ({ name: s.name, value: s.values[scrub] === null ? '未知' : hidden ? '******' : axisLabel(s.values[scrub]!), color: drawn[i].color })), ...(band ? [{ name: band.name, value: band.lower[scrub] === null || band.upper[scrub] === null ? '未知' : hidden ? '******' : `${axisLabel(band.lower[scrub]!)}–${axisLabel(band.upper[scrub]!)}`, color: band.color ?? 'var(--accent)' }] : [])] };
   const sx = scrub === null ? 0 : px(pos[scrub]), flip = sx > width / 2;
   const shadeX = shade && [Math.max(left, px(shade.from)), Math.min(right, px(shade.to))] as const;
   const mx = marker && marker.at >= 0 && marker.at < count ? px(pos[marker.at]) : null;
@@ -81,6 +90,7 @@ export function LineChart({ series, labels, xs, summary, height = 180, compact =
       {!compact && axis.grid.map(v => <g key={v}><line x1={left} x2={right} y1={py(v)} y2={py(v)} className={v === 0 ? 'm-lc-axis' : 'm-lc-grid'}/><text x={left} y={py(v) - 4} className="m-lc-text">{money(v, hidden)}</text></g>)}
       {shadeX && shadeX[1] > shadeX[0] && <g><rect x={shadeX[0]} y={top} width={shadeX[1] - shadeX[0]} height={bottom - top} className="m-lc-shade"/>{shade!.label && <text x={shadeX[1] - 4} y={top + 12} textAnchor="end" className="m-lc-text m-lc-bad">{shade!.label}</text>}</g>}
       {mx !== null && <g><line x1={mx} x2={mx} y1={top} y2={bottom} className="m-lc-marker"/><text x={Math.min(Math.max(mx, left + 24), right - 24)} y={top - 3} textAnchor="middle" className="m-lc-text m-lc-mark">{marker!.label}</text></g>}
+      {bandPath.map((d, i) => <path key={`band${i}`} d={d} fill={band!.color ?? 'var(--accent)'} opacity=".16"/>)}
       {drawn.map(d => <g key={d.si}>
         {(d.s.area ?? d.si === 0) && d.runs.map((run, i) => <path key={i} d={areaPath(run, bottom)} fill={`url(#${id}-${d.si})`}/>)}
         {d.runs.map((run, i) => run.length === 1 ? <circle key={i} cx={run[0].x} cy={run[0].y} r="2.5" fill={d.color}/> : <path key={i} d={monotonePath(run)} fill="none" stroke={d.color} strokeWidth={compact ? 2 : 2.25} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={d.s.dashed ? '5 4' : undefined}/>)}

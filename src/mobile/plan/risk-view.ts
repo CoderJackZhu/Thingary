@@ -1,4 +1,4 @@
-import type { Matrix, StressResult, SorrPath, Bands } from "../../plan-risk.ts";
+import type { Matrix, StressResult, SorrPath, Bands, MonteCarlo } from "../../plan-risk.ts";
 
 /** A compact view of the engine matrix: keep the current setting and its nearest alternatives. */
 export function compactMatrix(matrix: Matrix): Matrix {
@@ -67,4 +67,39 @@ export function fanPlot(bands: Bands) {
   const [lower, middle, upper] = riskPlot([bands.p10, bands.p50, bands.p90]);
   const lowerPoints = lower.replace(/^M/, "").split(" L").reverse();
   return { middle, area: `${upper} L${lowerPoints.join(" L")} Z` };
+}
+
+const cents = (values: number[]) => values.map((v) => Math.round(v));
+/** Axis labels and x positions for chart points; falls back to plain indices when the engine gave none. */
+function axisOf(count: number, calendar?: string[], months?: number[]) {
+  const ok = (list?: unknown[]) => !!list && list.length === count;
+  return {
+    labels: ok(calendar) ? calendar! : Array.from({ length: count }, (_, i) => String(i + 1)),
+    xs: ok(months) ? months : undefined,
+  };
+}
+
+/** Median line with the 10%–90% range shaded, for the shared LineChart. */
+export function fanChart(mc: Pick<MonteCarlo, "bands"> & Partial<Pick<MonteCarlo, "months" | "calendar_months">>) {
+  const { p10, p50, p90 } = mc.bands;
+  return {
+    ...axisOf(p50.length, mc.calendar_months, mc.months),
+    series: [{ name: "中位数", values: cents(p50) }],
+    band: { name: "10%–90%", lower: cents(p10), upper: cents(p90) },
+  };
+}
+
+/** The three return-order paths on one axis: base long-dashed, early drop solid, late drop dotted-style dashes. */
+export function sequenceChart(paths: SorrPath[]) {
+  const base = paths[0];
+  return {
+    ...axisOf(base?.path.length ?? 0, base?.calendar_months, base?.months),
+    series: paths.map((path, index) => ({
+      name: path.label,
+      values: cents(path.path),
+      color: index === 1 ? "var(--warn)" : index === 2 ? "var(--accent)" : "var(--muted)",
+      dashed: index !== 1,
+      area: false,
+    })),
+  };
 }

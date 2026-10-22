@@ -84,26 +84,19 @@
   max-width: 48%;
   white-space: normal;
 }
-.mp-step-progress {
+.mp-flow-progress {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  list-style: none;
-  padding: 0;
-  margin: 0;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 4px;
 }
-.mp-step-progress li {
-  font-size: 11px;
-  min-height: 44px;
-  text-align: center;
-  color: var(--muted);
-  border-bottom: 3px solid var(--line);
-  padding: 6px 0;
+.mp-flow-progress span {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
 }
-.mp-step-progress li[aria-current] {
-  color: var(--accent);
-  border-color: var(--accent);
-  font-weight: 700;
+.mp-flow-progress .mp-flow-done {
+  background: var(--accent);
 }
 .mp-chart-labels {
   display: flex;
@@ -174,4 +167,101 @@
 }
 .mp-page .m-segmented button {
   min-height: 44px;
+}
+.mp-coverage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mp-coverage-group {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-radius: var(--m-radius-control);
+  padding: 2px 4px 2px 14px;
+}
+.mp-coverage-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mp-coverage-line {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 8px 0;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.mp-coverage-go {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 10px;
+}
+.mp-coverage-items {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.mp-coverage-items li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.mp-coverage-items small {
+  opacity: 0.85;
+}
+.mp-result-verdict {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.mp-confirm {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mp-confirm li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mp-confirm li:last-child {
+  border-bottom: 0;
+}
+.mp-confirm-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mp-confirm-text strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.mp-confirm-text small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
