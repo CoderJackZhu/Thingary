@@ -177,6 +177,7 @@ NSIS 使用 `currentUser`、简体中文，不配置 Authenticode 签名。缺�
 
 - 工程在 `src-tauri/gen/apple/`，由 XcodeGen 的 `project.yml` 描述。默认开发身份保持 `local.thingary.preview`、产品名 `Thingary Preview`。上架时额外合并 `src-tauri/tauri.appstore.conf.json`，只覆盖 `identifier` 和 `productName`，不改变桌面配置。
 - 隐私清单 `thingary_iOS/PrivacyInfo.xcprivacy` 由 `thingary_iOS` 目录源自动加入 Copy Bundle Resources；每次重建工程和打包后仍需检查目标资源与包内文件。`Externals` 仅通过 `libapp.a` 链接，不作为目录源，避免 XcodeGen 把编译产物静态库误复制进 App 资源。
+- Release 链接另需 rustup 的 `llvm-tools` 组件：Xcode 27 的 SwiftPM 在 Release 配置下把 Tauri Swift 包的 `@_cdecl` 导出编译为局部符号，`swift-rs` 用 `llvm-objcopy` 恢复为全局符号；缺少时 Rust 静态库链接会报 `_log_stdout`、`_on_webview_created`、`_run_plugin_command` 未定义。原因与复现见[开发与测试](DEVELOPMENT.md#ios-开发)。
 - `TARGETED_DEVICE_FAMILY = 1`，不包含 iPad；`project.yml` 与 `thingary_iOS/Info.plist` 已移除 iPad 方向，iPhone 竖屏与 `src-tauri/Info.ios.plist` 一致。
 - 工程使用 `CODE_SIGN_STYLE = Automatic`，不固定 Team。`ExportOptions.plist` 的 method 仍是 `debugging`；商店上传使用 CLI 的 `--export-method app-store-connect` 或 Xcode Organizer。
 
@@ -186,9 +187,10 @@ NSIS 使用 `currentUser`、简体中文，不配置 Authenticode 签名。缺�
 
 ### 2. 构建与无签名检查
 
-在 Mac 上，按[开发与测试](DEVELOPMENT.md#ios-开发)装好完整 Xcode、模拟器运行时、Rust 目标与 XcodeGen。首次克隆后创建被忽略的输出目录，再生成工程：
+在 Mac 上，按[开发与测试](DEVELOPMENT.md#ios-开发)装好完整 Xcode、模拟器运行时、Rust 目标、rustup 的 `llvm-tools` 组件与 XcodeGen。首次克隆后创建被忽略的输出目录，再生成工程：
 
 ```sh
+rustup component add llvm-tools
 npm ci
 mkdir -p src-tauri/gen/apple/Externals src-tauri/gen/apple/assets
 (cd src-tauri/gen/apple && xcodegen generate)
@@ -230,15 +232,27 @@ xcodebuild -project src-tauri/gen/apple/thingary.xcodeproj -scheme thingary_iOS 
 
 Xcode 27.1（27A9275）、iOS 27.0 runtime、iPhone 17 Pro Max（1320×2868）：`xcodegen generate` 和明确 destination 的模拟器 Debug 构建通过，Copy Bundle Resources 与 `.app/PrivacyInfo.xcprivacy` 均已核实；图标 18 个条目尺寸齐全、1024 图无 alpha 或预制圆角。截图使用新建模拟器、默认 `local.thingary.preview`：前四张来自「先看看样例」，第五张手工新增虚构装饰画并使用模拟器自带瀑布照片；原图与证据在仓库外；不运行商店身份，不访问正式资料库。
 
-上面的无签名 Release 命令已实际尝试，但 Tauri Swift 桥接在链接时缺少 `_log_stdout`、`_on_webview_created`、`_run_plugin_command`，尚未产出可验证的 Release。以下 Debug 设备归档成功，仅用于包核查：
+设备 Debug 与 Release 无签名归档均已通过。此前 Release 缺 `_log_stdout`、`_on_webview_created`、`_run_plugin_command` 的链接失败已定位并修复：
+
+- 根因在工具链而不在生成工程：失败发生在预构建脚本调用的 `cargo build --release --target aarch64-apple-ios`（Rust 静态库链接）阶段，早于 Xcode 链接 App；`project.yml` 删除 `Externals` 目录源只影响 App 资源复制，与该失败无关。Debug 的 Tauri Swift 静态库把三个导出符号编译为全局 `T`；Release 的 SwiftPM 产物把它们编译成局部 `t`（`nm` 可见），`swift-rs` 依靠 rustup `llvm-tools` 的 `llvm-objcopy` 恢复为全局符号。本机原先未安装该组件，构建脚本输出 `cargo:warning=swift-rs: llvm-objcopy not found …` 后跳过恢复，Rust 链接失败。
+- 修复为 `rustup component add llvm-tools`；未升级 Rust 依赖、未改生成工程的链接方式、未放宽链接检查。安装后同一命令构建成功，`nm` 显示三个符号恢复为 `T`。
 
 ```sh
+# 设备 Debug 与 Release（无签名，只做包核查；后一次覆盖前一次的归档目录）
 npm run ios:tauri -- ios build --debug --config src-tauri/tauri.appstore.conf.json --no-sign --archive-only
-# 输出：src-tauri/gen/apple/build/thingary_iOS.xcarchive
-ls src-tauri/gen/apple/build/thingary_iOS.xcarchive/Products/Applications/物谱.app
+npm run ios:tauri -- ios build --config src-tauri/tauri.appstore.conf.json --no-sign --archive-only
 ```
 
-该 Debug 归档包含隐私清单，标识 `local.thingary.main`、名称「物谱」、设备族 `[1]`、仅竖屏，版本／构建号均保持 0.0.8；未安装或启动。已在 Xcode Organizer 打开该归档，但本机未能调出 Generate Privacy Report，**没有生成或核对隐私报告**。包内清单仅含文件时间戳 `C617.1`、`3B52.1` 与系统启动时间 `35F9.1`，不能据此宣称报告或二进制无额外类别。`nm`／`strings` 的额外候选见下表；签名前需解决 Release 链接、生成报告并复核，尚未满足商店上传条件。
+Release 归档为 `物谱.app`（28.7 MB）：包含 `PrivacyInfo.xcprivacy`，标识 `local.thingary.main`、名称「物谱」、设备族 `[1]`、仅竖屏，版本／构建号保持 0.0.8，资源目录没有 `libapp.a`；未安装或启动。核查后重新运行 `xcodegen generate`，提交的生成工程恢复预览身份 `local.thingary.preview`／`Thingary Preview`。
+
+Release 二进制的隐私核对（`nm`／`strings`／`otool`／dSYM 符号化）：
+
+- 包内清单只声明文件时间戳（`C617.1`、`3B52.1`）与系统启动时间（`35F9.1`）；`NSPrivacyTracking=false`，无收集数据类型。
+- **磁盘空间（DiskSpace）在 Release 中仍有引用**：`nm -u` 有 `_statfs`、`_fstatfs`，没有 `_statvfs`／`_fstatvfs`。调用来自内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库都会调用 `fstatfs`；`autolockIoFinderImpl` 与 `proxyTransformUnixFile` 使用 `statfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其 `statvfs` 在 Release 已被剔除，Debug 中的 `statvfs` 是未使用包装的链接残留。是否补充该类别及理由代码由 Jack 决定，本轮未添加。
+- **活动键盘（ActiveKeyboards）未发现访问**：Release 主二进制（含 `__objc_methname`）没有 `activeInputModes`／`UITextInputMode`；只有 Debug 未做 dead-strip 时保留的 `objc2-ui-kit` 选择器绑定，仓库与 `wry`／`tao`／`tauri` 源码均无调用。
+- Xcode Organizer 的 Generate Privacy Report **未生成**：该动作只在 Organizer GUI 提供（无 `xcrun`／`xcodebuild` 等价命令），本机 Accessibility 未授权且无法截图，归档无签名；是否受签名限制尚未验证，待签名后（或由 Jack 在 Xcode 手动执行）再核对。
+
+尚未安装或启动商店身份。签名前仍需 Jack 决定 DiskSpace 是否补声明，并生成、核对隐私报告。
 
 ### 3. 签名与账号
 
@@ -282,12 +296,12 @@ Jack 将开发者账号加入 Xcode，或在本机登录朋友账号。选择对
 | 类别 | 是否使用 | 理由代码 | 代码出处 |
 |---|---|---|---|
 | 文件时间戳 `NSPrivacyAccessedAPICategoryFileTimestamp` | 是 | `C617.1`（读取 App 容器内文件的时间戳／大小等元数据）；`3B52.1`（读取用户通过文件选择器授予访问的文件） | `src-tauri/src/auto_backup.rs`（备份文件 mtime 与复制后还原 mtime）、`purge.rs`（清理暂存区时只保留 24 小时内的暂存选择）、`photos.rs` 与 `storage.rs`（图片校验缓存的文件戳）、`financial_import.rs`（偏好文件指纹）；`native/ios.m` 对用户所选备份／图片的 `copyItemAtURL` 与 `NSURLIsRegularFileKey`（用户经系统选择器授予的文件，随后复制到应用临时目录）。Rust 标准库的 `std::fs::metadata` 与 SQLite 的 `stat` 同样会被扫描到。 |
-| 系统启动时间 `NSPrivacyAccessedAPICategorySystemBootTime` | 是 | `35F9.1`（测量 App 内事件之间经过的时间） | `std::time::Instant`：`backup_security.rs`（会话空闲超时）、`worker.rs`（变更与失败间隔）、`backup_jobs.rs`。Rust 在 Apple 平台的 `Instant` 基于单调时钟，Apple 把 `mach_absolute_time` 等归入此类；Debug 归档中检测到 `_clock_gettime`；Release 仍需核对 |
-| 磁盘空间 `NSPrivacyAccessedAPICategoryDiskSpace` | Debug 归档检测到符号，Release 待核对 | 未擅自补理由 | App 业务未发现直接调用；无签名 Debug 主二进制存在 `_statfs`／`_fstatfs`／`_statvfs`／`_fstatvfs`。`fs2` 含 `statvfs` 实现，App 使用它做文件锁；Debug 的符号存在不能证明实际访问，也不能推定 Release 会剔除。须在可用的 Release 归档中追踪再决定声明 |
+| 系统启动时间 `NSPrivacyAccessedAPICategorySystemBootTime` | 是 | `35F9.1`（测量 App 内事件之间经过的时间） | `std::time::Instant`：`backup_security.rs`（会话空闲超时）、`worker.rs`（变更与失败间隔）、`backup_jobs.rs`。Rust 在 Apple 平台的 `Instant` 基于单调时钟，Apple 把 `mach_absolute_time` 等归入此类；Debug 与 Release 主二进制均检测到 `_clock_gettime` |
+| 磁盘空间 `NSPrivacyAccessedAPICategoryDiskSpace` | 是（Release 仍有引用） | 未补，待 Jack 决定 | 内置 SQLite 3.53.2（`rusqlite 0.40.2` 的 `bundled` → `libsqlite3-sys 0.38.2`）：`unixOpen` 在 Apple 上每次打开数据库调用 `fstatfs`（`sqlite3.c:46946`）；`autolockIoFinderImpl`（`46181`）与 `proxyTransformUnixFile`（`48371`）调用 `statfs`。Release 主二进制的 `nm -u` 有 `_statfs`、`_fstatfs`，无 `_statvfs`／`_fstatvfs`。`fs2` 只用于 `src-tauri/src/storage.rs:410` 的文件锁，其未使用的 `statvfs` 包装在 Release 已被剔除；Debug 中的 `statvfs` 是未使用包装的链接残留。补充类别与理由代码由 Jack 决定 |
 | 用户默认设置 `NSPrivacyAccessedAPICategoryUserDefaults` | 未发现调用 | 不声明 | `native/*.m`、`gen/apple/Sources` 无 `NSUserDefaults`；偏好保存在应用资料目录的文件里。WebKit 与 UIKit 是系统框架，由系统处理 |
-| 活动键盘 `NSPrivacyAccessedAPICategoryActiveKeyboards` | Debug 归档有候选字符串，Release 待核对 | 未擅自补理由 | 主二进制有 `activeInputModes` 字符串；`objc2-ui-kit` 含该选择器绑定，尚未确认 App／依赖实际调用。字符串扫描本身不足以证明访问 |
+| 活动键盘 `NSPrivacyAccessedAPICategoryActiveKeyboards` | 否（Release 未引用） | 不声明 | Debug 主二进制曾有 `activeInputModes` 字符串；Release 主二进制（`strings`、`__objc_methname`）为 0，只有 Debug 未做 dead-strip 时保留的 `objc2-ui-kit` 选择器绑定；仓库与 `wry`／`tao`／`tauri` 源码均无调用 |
 
-静态扫描不等于二进制扫描：第三方 crate（`wry`、`tao`、`tauri`、`rusqlite`/SQLite、`image`、`zip`、`age`）的代码在源码层没有被逐行审读。Archive 后在 Xcode Organizer 中按住 Control 点击归档，选择「Generate Privacy Report」。报告汇总包内清单的声明，**不会自动替二进制补报漏掉的 API**；另对最终二进制 `nm`/`strings` 核对 `stat`、`fstat`、`mach_absolute_time`、`statvfs`、`NSUserDefaults`，上传后留意 App Store Connect 的 ITMS-91053 邮件，按其列出的类别补充声明。依赖自带隐私清单的 SDK 不重复声明；目前没有以 xcframework／动态库形式嵌入的第三方 SDK。
+静态扫描不等于二进制扫描：第三方 crate（`wry`、`tao`、`tauri`、`rusqlite`/SQLite、`image`、`zip`、`age`）的代码在源码层没有被逐行审读；Release 归档已用 `nm -u`／`strings`／`otool` 与 dSYM 符号化核对上表。Archive 后在 Xcode Organizer 中按住 Control 点击归档，选择「Generate Privacy Report」。报告汇总包内清单的声明，**不会自动替二进制补报漏掉的 API**；上传后留意 App Store Connect 的 ITMS-91053 邮件，按其列出的类别补充声明。依赖自带隐私清单的 SDK 不重复声明；目前没有以 xcframework／动态库形式嵌入的第三方 SDK。
 
 数据收集：`NSPrivacyTracking=false`，`NSPrivacyTrackingDomains` 与 `NSPrivacyCollectedDataTypes` 为空。依据（iOS 构建）：
 

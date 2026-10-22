@@ -20,7 +20,10 @@ npm run tauri -- dev
 
 使用完整 Xcode（含 iOS SDK）、CocoaPods、XcodeGen、Node 和 Rust。`xcode-select -p` 应指向 Xcode.app 的 Developer 目录。用 `xcrun simctl list runtimes` 检查运行时已经安装且 available，再用 `xcrun simctl list devices available` 确认目标机型；SDK 和模拟器运行时是不同组件。安装 `aarch64-apple-ios`（真机）、`aarch64-apple-ios-sim`（Apple Silicon 模拟器），Intel Mac 按需安装 `x86_64-apple-ios`。运行时并非必须与 SDK 的小版本相同；若 CLI 因二者版本不同转入 Xcode，保持 CLI 进程运行，在生成工程中选择已安装运行时的设备后运行。也可在另一终端用 xcodebuild 指定 simulator destination 和 CODE_SIGNING_ALLOWED=NO 构建，再用 simctl install / launch 启动预览身份。
 
+另外安装 rustup 的 `llvm-tools` 组件（`rustup component add llvm-tools`）。Xcode 27 的 SwiftPM 在 Release 配置下会把 Tauri Swift 包（`Tauri.swift`、`Logger.swift`）的 `@_cdecl` 导出符号编译成静态库内的局部符号（`nm` 显示小写 `t`），`swift-rs` 依靠该组件里的 `llvm-objcopy` 把它们恢复为全局符号；缺少时 Debug 仍能链接，Release 会在 Rust 静态库链接阶段报 `_log_stdout`、`_on_webview_created`、`_run_plugin_command` 未定义。这是本机工具链前提，不需要改 Rust 依赖或链接选项。
+
 ```sh
+rustup component add llvm-tools
 npm ci
 npm run ios:check
 npm run ios:dev -- "<可用的标准 iPhone 名称>" --no-watch
