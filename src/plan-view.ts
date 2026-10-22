@@ -4,7 +4,7 @@ import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, ta
 import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
-
+import { t as tr } from './i18n.ts';
 export type ValueMode = 'today' | 'nominal';
 export type Tone = 'good' | 'watch' | 'bad';
 export type Seg = { t: string; strong?: boolean };
@@ -147,9 +147,9 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
   const c = coverageAt(P, proj, month), k = scaleAt(P, mode, month);
   const segments: CoverageSegment[] = [
     ...c.items.filter(x => x.monthly > 0).map(x => ({ key: x.id, label: x.label, monthly: x.monthly * k, kind: 'income' as const })),
-    ...(c.pension > 0 ? [{ key: 'pension', label: '国家养老金', monthly: c.pension * k, kind: 'pension' as const }] : []),
-    ...(c.withdrawal > 0 ? [{ key: 'portfolio', label: '投资组合提取', monthly: c.withdrawal * k, kind: 'portfolio' as const }] : []),
-    ...(c.unfunded > 0 ? [{ key: 'unfunded', label: '无资金支持', monthly: c.unfunded * k, kind: 'unfunded' as const }] : []),
+    ...(c.pension > 0 ? [{ key: 'pension', label: tr('国家养老金'), monthly: c.pension * k, kind: 'pension' as const }] : []),
+    ...(c.withdrawal > 0 ? [{ key: 'portfolio', label: tr('投资组合提取'), monthly: c.withdrawal * k, kind: 'portfolio' as const }] : []),
+    ...(c.unfunded > 0 ? [{ key: 'unfunded', label: tr('无资金支持'), monthly: c.unfunded * k, kind: 'unfunded' as const }] : []),
   ];
   const spend = c.spend * k, pct = (v: number) => (spend > 0 ? Math.min(100, (v / spend) * 100) : 0);
   const income = segments.filter(s => s.kind === 'income' || s.kind === 'pension').reduce((s, x) => s + x.monthly, 0);
@@ -173,7 +173,7 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
     income_items: [
       ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: timeLabel(P, s.start_age * 12), end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
       ...(P.future_incomes ?? []).map(s => ({ id: s.id, label: s.name, monthly: (c.items.find(x => x.id === s.id)?.monthly ?? 0) * k, start: s.start_month ?? '待确认', end: s.end_month ?? '未设结束月', active: c.items.find(x => x.id === s.id)?.active ?? false })),
-      ...(hasPension ? [{ id: 'pension', label: '国家养老金', monthly: c.pension * k, start: proj.pension!.income_start_age_months === undefined ? `${ageInt(pensionStart)} 岁` : pensionStartText, end: '终身', active: c.pension > 0 }] : []),
+      ...(hasPension ? [{ id: 'pension', label: tr('国家养老金'), monthly: c.pension * k, start: proj.pension!.income_start_age_months === undefined ? `${ageInt(pensionStart)} 岁` : pensionStartText, end: '终身', active: c.pension > 0 }] : []),
     ],
     next_income_age: nextIncome,
   };

@@ -11,7 +11,7 @@ const day = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice
 
 export { changeLine } from './chart-change';
 import { changeLine } from './chart-change';
-
+import { t } from './i18n.ts';
 /** 默认是总览卡里的小折线；hero 是总览顶部的满宽头图，数据、悬停与键盘操作完全一样，只是更高、标签更疏。
  *  标签密度跟随实际渲染宽度：双列较窄时至多约 6 个月份标签，一列更宽时可至多约 8 个；宽度变化只影响标签，不删数据点。 */
 export function Sparkline({ points, hero = false, hideAmounts = false }: { points: Point[]; hero?: boolean; generation?: string; hideAmounts?: boolean }) {
@@ -29,7 +29,7 @@ export function Sparkline({ points, hero = false, hideAmounts = false }: { point
     ro.observe(el);
     return () => ro.disconnect();
   }, [hero, full.length >= 2]);
-  if (full.length < 2) return <p className="ui-sub">完成两次完整盘点后显示走势。</p>;
+  if (full.length < 2) return <p className="ui-sub">{t('完成两次完整盘点后显示走势。')}</p>;
   const x0 = day(points[0].date), x1 = Math.max(day(points.at(-1)!.date), x0 + 1);
   const values = full.map(p => Number(p.net_cents)), lo = Math.min(...values), hi = Math.max(...values), span = hi - lo || 1;
   const x = (d: string) => PAD + (day(d) - x0) / (x1 - x0) * (W - 2 * PAD);
@@ -47,7 +47,7 @@ export function Sparkline({ points, hero = false, hideAmounts = false }: { point
     let best = 0; full.forEach((p, i) => { if (Math.abs(x(p.date) - vx) < Math.abs(x(full[best].date) - vx)) best = i; });
     setCur(best);
   };
-  return <><div ref={box} className={'ui-spark' + (hero ? ' hero' : '')} tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点；左右方向键浏览，虚线为不完整盘点${hideAmounts ? "，金额已隐藏" : ""}`}
+  return <><div ref={box} className={'ui-spark' + (hero ? ' hero' : '')} tabIndex={0} role="img" aria-label={t('金融净资产趋势，共 {length} 次完整盘点；左右方向键浏览，虚线为不完整盘点{v2}', { length: full.length, v2: hideAmounts ? "，金额已隐藏" : "" })}
     onFocus={() => setCur(full.length - 1)} onBlur={() => setCur(null)}
     onKeyDown={e => {
       if (e.key === 'ArrowRight') { e.preventDefault(); setCur(c => Math.min(full.length - 1, (c ?? -1) + 1)); }
@@ -62,6 +62,6 @@ export function Sparkline({ points, hero = false, hideAmounts = false }: { point
     {full.map((p, i) => <i key={p.snapshot_id} className={'ui-spark-dot' + (i === cur ? ' on' : i === full.length - 1 ? ' last' : '')} style={{ left: `${x(p.date) / W * 100}%`, top: `${y(p.net_cents)}px` }}/>)}
     <div className="ui-spark-labels" aria-hidden="true">{months.map(p => <span key={p.date} style={{ left: `${labelX(p) / plotWidth * 100}%`, transform: 'translateX(-50%)' }}>{tick(p)}</span>)}</div>
     {shown && <div className="ui-tip" style={{ left: `clamp(70px, ${x(shown.date) / W * 100}%, calc(100% - 70px))`, top: `${y(shown.net_cents)}px` }}>{shown.date}<b>{amount(shown)}</b><span className={shown.change_cents?.startsWith('-') ? 'neg' : shown.change_cents && shown.change_cents !== '0' ? 'pos' : undefined}>{change(shown)}</span></div>}
-    </div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown ? `${shown.date}，净资产 ${amount(shown)}，${change(shown)}` : ''}</span>
+    </div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown ? t('{date}，净资产 {v2}，{v3}', { date: shown.date, v2: amount(shown), v3: change(shown) }) : ''}</span>
   </>;
 }

@@ -10,7 +10,7 @@ import { useSource } from '../useSource.ts';
 import type { SourceProps } from '../source.ts';
 import { MovementForm } from './MovementForm.tsx';
 import { DateInput } from '../DateInput';
-
+import { t } from '../i18n.ts';
 function MovementsListContent({ port, generation, writeVersion, today, blocked = false, onPending, onEditingChange, onSaved, period, accountIds, search = '', autoNew = false, onAutoNewDone, onNewAccount, receiptResolutionVersion = 0, source, onSourceDone, embedded = false }: SourceProps & {
   port: PlanningFollowupPortV1; generation: string; writeVersion: number; today: string; blocked?: boolean; onPending: () => void; onEditingChange: (v: boolean) => void; onSaved?: () => void; receiptResolutionVersion?: number;
   period?: FinancePeriod; accountIds?: string[]; search?: string; autoNew?: boolean; onAutoNewDone?: () => void; onNewAccount?: () => void;
@@ -44,7 +44,7 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
 
   useEffect(() => { // 账户表：无账户时引导先建账户，不生成外部→外部的无归属记录。
     let live = true; setAccountsRead(null);
-    port.listAccounts(generation).then(v => { if (live) setAccountsRead(v.status === 'ready' && v.value.generation !== generation ? { status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请重新读取。' } : v); }).catch(e => { if (live) setAccountsRead({ status: 'error', code: 'READ_ERROR', message: e instanceof Error ? e.message : String(e) }); });
+    port.listAccounts(generation).then(v => { if (live) setAccountsRead(v.status === 'ready' && v.value.generation !== generation ? { status: 'error', code: 'GENERATION_MISMATCH', message: t('资料库已变化，请重新读取。') } : v); }).catch(e => { if (live) setAccountsRead({ status: 'error', code: 'READ_ERROR', message: e instanceof Error ? e.message : String(e) }); });
     return () => { live = false; };
   }, [port, generation, writeVersion, retry]);
 
@@ -110,7 +110,7 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
   }, [autoNew, frozen, editing, accountsRead, onAutoNewDone, onNewAccount]);
   const sourceError = useSource({ source, onSourceDone }, generation, async (target, alive) => {
     if (target.kind !== 'movement') return false;
-    if (frozen || editing !== null || openingRef.current) throw new Error('请先关闭表单或核对上次保存结果，再打开来源流动。');
+    if (frozen || editing !== null || openingRef.current) throw new Error(t('请先关闭表单或核对上次保存结果，再打开来源流动。'));
     const ticket = ++openTicket.current;
     openingRef.current = true; setOpening(true);
     try {
@@ -124,7 +124,7 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
         const found = fresh.value.records.find(record => record.id === target.id && !record.deleted);
         if (found) { setEditing(found); return true; }
         cursor = fresh.value.next_cursor;
-        if (cursor && seen.has(cursor)) throw new Error('明细分页游标重复，请重新读取。');
+        if (cursor && seen.has(cursor)) throw new Error(t('明细分页游标重复，请重新读取。'));
         if (cursor) seen.add(cursor);
       } while (cursor);
       return false;
@@ -132,32 +132,32 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
   });
   const text = search.trim().toLocaleLowerCase();
   const visible = records?.filter(r => !text || [r.fields.date, r.fields.notes, formatCents(r.fields.amount_cents), endpointText(r.fields.from, names), endpointText(r.fields.to, names), purposeLabel[r.fields.purpose], sourceStatusText[r.source_status]].join(' ').toLocaleLowerCase().includes(text));
-  return <section className={`pfu-movements${embedded ? ' pfu-records-card ui-card ui-content' : ''}`} aria-label="资金流动明细">
+  return <section className={`pfu-movements${embedded ? ' pfu-records-card ui-card ui-content' : ''}`} aria-label={t('资金流动明细')}>
     {sourceError && <p className="pfu-notice" role="alert">{sourceError}</p>}
-    <div className="pfu-section-head"><div><h4>资金流动明细</h4>{embedded && <p className="pfu-meta">账户转账、外部投入与取回；记录不会改变账户余额。</p>}</div>
-      {!embedded && accountsRead?.status === 'ready' && selectable.length > 0 && <button ref={addButton} type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => { if (frozen || openingRef.current || editing !== null) return; ++openTicket.current; setEditing('new'); }}>记一笔资金流动</button>}
+    <div className="pfu-section-head"><div><h4>{t('资金流动明细')}</h4>{embedded && <p className="pfu-meta">{t('账户转账、外部投入与取回；记录不会改变账户余额。')}</p>}</div>
+      {!embedded && accountsRead?.status === 'ready' && selectable.length > 0 && <button ref={addButton} type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => { if (frozen || openingRef.current || editing !== null) return; ++openTicket.current; setEditing('new'); }}>{t('记一笔资金流动')}</button>}
     </div>
-    {accountsRead === null ? <p className="pfu-muted" role="status">正在读取账户…</p>
+    {accountsRead === null ? <p className="pfu-muted" role="status">{t('正在读取账户…')}</p>
       : accountsRead.status === 'disabled' ? <p className="pfu-state" role="status">{accountsRead.message}</p>
-      : accountsRead.status === 'error' ? <p className="pfu-notice" role="alert">账户读取失败：{accountsRead.message}<button type="button" className="pfu-btn" onClick={() => setRetry(n => n + 1)}>重试</button></p>
-      : accounts.length === 0 ? <p className="pfu-muted">还没有账户。资金流动至少一端要落在真实账户上，请先在「账户与盘点」创建账户，再记录外部投入或取回。{onNewAccount && <button type="button" className="pfu-btn" disabled={frozen} onClick={onNewAccount}>创建账户</button>}</p>
+      : accountsRead.status === 'error' ? <p className="pfu-notice" role="alert">{t('账户读取失败：{message}', { message: accountsRead.message })}<button type="button" className="pfu-btn" onClick={() => setRetry(n => n + 1)}>{t('重试')}</button></p>
+      : accounts.length === 0 ? <p className="pfu-muted">{t('还没有账户。资金流动至少一端要落在真实账户上，请先在「账户与盘点」创建账户，再记录外部投入或取回。')}{onNewAccount && <button type="button" className="pfu-btn" disabled={frozen} onClick={onNewAccount}>{t('创建账户')}</button>}</p>
       : <>
         <div className="pfu-filters">
-          {!period && <><div><span>开始日期</span><DateInput yearIntent="past" label="明细开始日期" min="0001-01-01" allowClear disabled={frozen} value={from} onChange={setFrom}/></div>
-          <div><span>结束日期</span><DateInput yearIntent="past" label="明细结束日期" min="0001-01-01" allowClear disabled={frozen} value={to} onChange={setTo}/></div></>}
-          {accountIds === undefined && <label>账户<select aria-label="筛选账户" disabled={frozen} value={account} onChange={e => setAccount(e.target.value)}>
-            <option value="">全部账户</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          {!period && <><div><span>{t('开始日期')}</span><DateInput yearIntent="past" label={t('明细开始日期')} min="0001-01-01" allowClear disabled={frozen} value={from} onChange={setFrom}/></div>
+          <div><span>{t('结束日期')}</span><DateInput yearIntent="past" label={t('明细结束日期')} min="0001-01-01" allowClear disabled={frozen} value={to} onChange={setTo}/></div></>}
+          {accountIds === undefined && <label>{t('账户')}<select aria-label={t('筛选账户')} disabled={frozen} value={account} onChange={e => setAccount(e.target.value)}>
+            <option value="">{t('全部账户')}</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></label>}
-          <label>记录状态<select aria-label="显示范围" disabled={frozen} value={showDeleted} onChange={e => setShowDeleted(e.target.value as 'active' | 'all')}>
-            <option value="active">有效记录</option><option value="all">含已删除</option>
+          <label>{t('记录状态')}<select aria-label={t('显示范围')} disabled={frozen} value={showDeleted} onChange={e => setShowDeleted(e.target.value as 'active' | 'all')}>
+            <option value="active">{t('有效记录')}</option><option value="all">{t('含已删除')}</option>
           </select></label>
         </div>
-        {accountIds !== undefined && <p className="pfu-muted small">账户范围：{accountIds.length ? accountIds.map(id => names[id] ?? `历史账户 ${id}`).join("、") : "未选择账户"}；按任一端属于所选账户筛选。</p>}
-        {records !== null && <p className="pfu-muted small">{scoped ? "所选范围" : "已加载范围"} {records.length} 笔{text && ` · 搜索匹配 ${visible?.length ?? 0} 笔（搜索仅筛明细）`}{page?.next_cursor && " · 还有未加载记录"}</p>}
-        {listLoading && records === null ? <p className="pfu-muted" role="status">正在读取明细…</p>
-          : listError && records === null ? <p className="pfu-notice" role="alert">明细读取失败：{listError}<button type="button" className="pfu-btn" onClick={() => load(null)}>重试</button></p>
-          : records === null || visible?.length === 0 ? <div className="pfu-empty"><h4>{text ? '没有匹配的资金流动' : '当前范围尚无资金流动'}</h4><p className="pfu-muted">{text ? '试试其他关键词，或调整账户和期间。' : '用「记一笔资金流动」记录一次转账、投入或取回。'}空列表不等于本期间没有流动。</p></div>
-          : <div className="pfu-table-scroll"><table className="pfu-table"><thead><tr><th>日期</th><th>转出 → 转入</th><th className="pfu-num">金额</th><th>用途 / 备注</th><th>来源状态</th><th>操作</th></tr></thead>
+        {accountIds !== undefined && <p className="pfu-muted small">{t('账户范围：')}{accountIds.length ? accountIds.map(id => names[id] ?? `历史账户 ${id}`).join("、") : t('未选择账户')}{t('；按任一端属于所选账户筛选。')}</p>}
+        {records !== null && <p className="pfu-muted small">{scoped ? t('所选范围') : t('已加载范围')} {t('{length} 笔', { length: records.length })}{text && t(' · 搜索匹配 {v1} 笔（搜索仅筛明细）', { v1: visible?.length ?? 0 })}{page?.next_cursor && t(' · 还有未加载记录')}</p>}
+        {listLoading && records === null ? <p className="pfu-muted" role="status">{t('正在读取明细…')}</p>
+          : listError && records === null ? <p className="pfu-notice" role="alert">{t('明细读取失败：{listError}', { listError })}<button type="button" className="pfu-btn" onClick={() => load(null)}>{t('重试')}</button></p>
+          : records === null || visible?.length === 0 ? <div className="pfu-empty"><h4>{text ? t('没有匹配的资金流动') : t('当前范围尚无资金流动')}</h4><p className="pfu-muted">{text ? t('试试其他关键词，或调整账户和期间。') : t('用「记一笔资金流动」记录一次转账、投入或取回。')}{t('空列表不等于本期间没有流动。')}</p></div>
+          : <div className="pfu-table-scroll"><table className="pfu-table"><thead><tr><th>{t('日期')}</th><th>{t('转出 → 转入')}</th><th className="pfu-num">{t('金额')}</th><th>{t('用途 / 备注')}</th><th>{t('来源状态')}</th><th>{t('操作')}</th></tr></thead>
             <tbody>{visible?.map(r => <tr key={r.id} className={r.deleted ? 'pfu-deleted' : undefined}>
               <td>{r.fields.date}</td>
               <td className="pfu-transfer"><span>{endpointText(r.fields.from, names)}</span><span className="pfu-muted" aria-hidden="true">→</span><span>{endpointText(r.fields.to, names)}</span></td>
@@ -165,20 +165,20 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
               <td>{purposeLabel[r.fields.purpose]}{r.fields.notes && <small className="pfu-muted"> {r.fields.notes}</small>}</td>
               <td><span className={`pfu-tag ${r.source_status}`}>{sourceStatusText[r.source_status]}</span></td>
               <td><div className="pfu-row-actions">
-                <button type="button" className="pfu-btn" disabled={frozen || editing !== null || r.deleted} onClick={() => { if (frozen || openingRef.current || editing !== null) return; if (typeof document !== 'undefined') formOpener.current = document.activeElement as HTMLElement | null; ++openTicket.current; setEditing(r); }}>修改</button>
-                {r.deleted && r.fields.source && <button type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => void trash(r, true)}>解除来源关联</button>}
+                <button type="button" className="pfu-btn" disabled={frozen || editing !== null || r.deleted} onClick={() => { if (frozen || openingRef.current || editing !== null) return; if (typeof document !== 'undefined') formOpener.current = document.activeElement as HTMLElement | null; ++openTicket.current; setEditing(r); }}>{t('修改')}</button>
+                {r.deleted && r.fields.source && <button type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => void trash(r, true)}>{t('解除来源关联')}</button>}
                 {r.deleted
-                  ? <button type="button" className="pfu-btn" disabled={frozen} onClick={() => void trash(r)}>恢复</button>
-                  : deleting === r.id ? <><button type="button" className="pfu-btn pfu-danger" disabled={frozen} onClick={() => void trash(r)}>确认删除</button><button type="button" className="pfu-btn" disabled={busy} onClick={() => setDeleting(null)}>取消</button></>
-                    : <button type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => setDeleting(r.id)}>删除</button>}
+                  ? <button type="button" className="pfu-btn" disabled={frozen} onClick={() => void trash(r)}>{t('恢复')}</button>
+                  : deleting === r.id ? <><button type="button" className="pfu-btn pfu-danger" disabled={frozen} onClick={() => void trash(r)}>{t('确认删除')}</button><button type="button" className="pfu-btn" disabled={busy} onClick={() => setDeleting(null)}>{t('取消')}</button></>
+                    : <button type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => setDeleting(r.id)}>{t('删除')}</button>}
               </div></td>
             </tr>)}</tbody></table></div>}
-        {records !== null && page?.next_cursor && <div className="pfu-more"><button type="button" className="pfu-btn" disabled={frozen || moreLoading} onClick={() => { setMoreLoading(true); load(page.next_cursor); }}>{moreLoading ? '读取中…' : '加载更多'}</button><span className="pfu-muted small">区间核对会包含所有相关明细。</span></div>}
-        {listError && records !== null && <p className="pfu-notice" role="alert">继续读取失败：{listError}<button type="button" className="pfu-btn" onClick={() => load(null)}>从第一页重读</button></p>}
+        {records !== null && page?.next_cursor && <div className="pfu-more"><button type="button" className="pfu-btn" disabled={frozen || moreLoading} onClick={() => { setMoreLoading(true); load(page.next_cursor); }}>{moreLoading ? t('读取中…') : t('加载更多')}</button><span className="pfu-muted small">{t('区间核对会包含所有相关明细。')}</span></div>}
+        {listError && records !== null && <p className="pfu-notice" role="alert">{t('继续读取失败：{listError}', { listError })}<button type="button" className="pfu-btn" onClick={() => load(null)}>{t('从第一页重读')}</button></p>}
         {writeError && <p className="pfu-notice" role="alert">{writeError}</p>}
-        <details className="pfu-records-help"><summary>记录与核对说明</summary><p className="pfu-muted small">一笔本人账户转账只存一条记录；金额、端点或用途无法确定时不要保存成虚构事实。记录资金流动不会改变账户余额，也不会自动生成收入或支出。</p></details>
+        <details className="pfu-records-help"><summary>{t('记录与核对说明')}</summary><p className="pfu-muted small">{t('一笔本人账户转账只存一条记录；金额、端点或用途无法确定时不要保存成虚构事实。记录资金流动不会改变账户余额，也不会自动生成收入或支出。')}</p></details>
       </>}
-    {savedNotice && <p className="pfu-notice" role="status">{listError ? "已保存，刷新失败。请重新读取，不要重复提交。" : listLoading ? "已保存，正在刷新明细…" : "已保存，明细已刷新。"}</p>}
+    {savedNotice && <p className="pfu-notice" role="status">{listError ? t('已保存，刷新失败。请重新读取，不要重复提交。') : listLoading ? t('已保存，正在刷新明细…') : t('已保存，明细已刷新。')}</p>}
     {editing !== null && accountsRead?.status === 'ready' && <MovementForm port={port} generation={generation} accounts={accounts} record={editing === 'new' ? null : editing} today={today} blocked={blocked} onPending={() => { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); onPending(); }}
       onClose={saved => { setEditing(null); if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => { if (formOpener.current?.isConnected && !formOpener.current.matches(':disabled')) formOpener.current.focus(); else if (addButton.current && !addButton.current.disabled) addButton.current.focus(); else document.getElementById('page-heading')?.focus(); }); if (saved) { setSavedNotice(true); load(null); onSaved?.(); } }}/>}
   </section>;

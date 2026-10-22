@@ -15,7 +15,7 @@ import { Button, ConfirmSheet, DateField, EmptyState, FormGroup, LargeTitle, Mon
 import { enteredRow, inventoryDelta, inventoryInput, inventoryRows, inventoryTotals } from './model';
 import { savedText } from './model';
 import { factText, ReadState, useGroups, useRead, useWrite } from './shared';
-
+import { t as tr } from '../../i18n.ts';
 export function Inventory({draft,groups,header,onDirty}:{draft:Draft;groups:AccountGroup[];header?:ReactNode;/** Reports whether anything was entered, so the page can ask before switching the date. */onDirty?:(dirty:boolean)=>void}) {
   const nav=useNav(), s=useSession(), [edits,setRows]=useState<Record<string,CheckInRow>>({}), [notes,setNotes]=useState(draft.existing?.notes??'');
   const [rates,setRates]=useState<Record<string,string>>(()=>Object.fromEntries(Object.entries(rateSuggestions(draft)).map(([c,v])=>[c,v.rate])));
@@ -59,47 +59,47 @@ export function Inventory({draft,groups,header,onDirty}:{draft:Draft;groups:Acco
     nextUnfilled();
   }
   async function save() {
-    try { const input=inventoryInput(draft,rows,notes,crypto.randomUUID(),closing); await writer.write({command:'wealth_snapshot_save',label:closing.size?`${draft.date} 盘点并停用 ${closing.size} 个账户`:`${draft.date} 完整盘点`,input}); }
+    try { const input=inventoryInput(draft,rows,notes,crypto.randomUUID(),closing); await writer.write({command:'wealth_snapshot_save',label:closing.size?tr('{date} 盘点并停用 {size} 个账户', { date: draft.date, size: closing.size }):tr('{date} 完整盘点', { date: draft.date }),input}); }
     catch(e){writer.setError(e instanceof Error?e.message:String(e));const key=nextUnfilled();setFlag(key?.split(':')[1]??null);}
   }
   return <><NavBar/>{header}
   <div ref={root} className="mw-inventory" onFocusCapture={e=>{focused.current=(e.target as HTMLElement).closest<HTMLElement>('[data-check-in-field]')?.dataset.checkInField??null;}}>
-    {draft.existing && <Notice>正在更正 {draft.date} 的盘点。已记录金额与历史计入范围会保留，保存后替换同一次盘点。</Notice>}
+    {draft.existing && <Notice>{tr('正在更正 {date} 的盘点。已记录金额与历史计入范围会保留，保存后替换同一次盘点。', { date: draft.date })}</Notice>}
     <fieldset disabled={writer.frozen} style={{border:0,padding:0,margin:0,minWidth:0}}>
-      {[...new Set(accounts.map(a=>currencyCode(a.fields.currency)).filter(c=>c!=='CNY'))].map(code=><FormGroup key={code} title={`${code} 汇率`} footer={rateSuggestions(draft)[code]?`${rateSuggestions(draft)[code].date} 记录的参考汇率，请核对。`:'每单位原币兑换人民币，手动填写。'}><div data-check-in-field={`rate:${code}`} className={flag===code&&!/^\d+$/.test(rates[code]??'')?'mw-check-flag':undefined}><MoneyField label={`${code} 本次汇率`} symbol="" places={6} value={rates[code]??''} onEnter={enter} onChange={v=>changeRate(code,v)}/></div></FormGroup>)}
-      {grouped.filter(g=>g.accounts.length).map(group=><FormGroup key={group.id} title={group.name} footer={`已填小计 ${group.known ? moneyText(group.net_cents) : '待填写'}${group.partial?' · 仍有未填账户':''}`}>
+      {[...new Set(accounts.map(a=>currencyCode(a.fields.currency)).filter(c=>c!=='CNY'))].map(code=><FormGroup key={code} title={tr('{code} 汇率', { code })} footer={rateSuggestions(draft)[code]?tr('{date} 记录的参考汇率，请核对。', { date: rateSuggestions(draft)[code].date }):tr('每单位原币兑换人民币，手动填写。')}><div data-check-in-field={`rate:${code}`} className={flag===code&&!/^\d+$/.test(rates[code]??'')?'mw-check-flag':undefined}><MoneyField label={tr('{code} 本次汇率', { code })} symbol="" places={6} value={rates[code]??''} onEnter={enter} onChange={v=>changeRate(code,v)}/></div></FormGroup>)}
+      {grouped.filter(g=>g.accounts.length).map(group=><FormGroup key={group.id} title={group.name} footer={tr('已填小计 {v1}{v2}', { v1: group.known ? moneyText(group.net_cents) : '待填写', v2: group.partial?' · 仍有未填账户':'' })}>
         {group.accounts.map(account=>{
           const row=rows[account.id], previous=draft.rows.find(r=>r.account.id===account.id)!.previous, code=currencyCode(account.fields.currency);
           const counted=draft.existing?.entries.find(e=>e.account_id===account.id)?.counted??account.fields.counted;
           const closes=closing.has(account.id), skipped=row.state==='missing', canClose=canCloseInCheckIn(draft,account);
           if(closes||skipped) return <div className="mw-check-row mw-inputs mw-check-closed" key={account.id}>
-            <div className="mw-toolbar"><span className="mw-check-title" style={closes?{textDecoration:'line-through'}:undefined}>{account.fields.name}</span><Button variant="plain" onClick={()=>mark(account.id,'fill')} ariaLabel={`撤销${account.fields.name}的${closes?'注销':'跳过'}`}>撤销</Button></div>
-            <p className="mw-muted">{closes?`已注销，从${dayLabel(draft.date,s.today)}起停用；上次 ${factText(previous,account)}，视为已转出，不用填。`:`这次跳过，盘点记为不完整；上次 ${factText(previous,account)}。`}</p>
+            <div className="mw-toolbar"><span className="mw-check-title" style={closes?{textDecoration:'line-through'}:undefined}>{account.fields.name}</span><Button variant="plain" onClick={()=>mark(account.id,'fill')} ariaLabel={tr('撤销{name}的{v2}', { name: account.fields.name, v2: closes?'注销':'跳过' })}>{tr('撤销')}</Button></div>
+            <p className="mw-muted">{closes?tr('已注销，从{v1}起停用；上次 {v2}，视为已转出，不用填。', { v1: dayLabel(draft.date,s.today), v2: factText(previous,account) }):tr('这次跳过，盘点记为不完整；上次 {v1}。', { v1: factText(previous,account) })}</p>
           </div>;
           const flagged=flag===account.id&&!(row.state&&row.state!=='missing'&&row.cents!=='');
           return <div className={`mw-check-row mw-inputs${flagged?' mw-check-flag':''}`} key={account.id} data-check-in-row={account.id}>
-            <div className="mw-toolbar"><span className="mw-check-title">{account.fields.name}</span><span className="mw-toolbar"><span className="mw-muted">{row.state && row.cents!==''?'✓ 已填':'待填写'}</span><Button variant="plain" onClick={()=>setMenu(account.id)} ariaLabel={`${account.fields.name}更多操作`}>{canClose?'注销/跳过':'跳过'}</Button></span></div>
-            <p className="mw-muted">上次 {factText(previous,account)}{account.fields.side==='liability'?' · 欠款':''}{!counted?' · 不进合计':''}</p>
-            {account.fields.holding_mode ? <><div data-check-in-field={`quantity:${account.id}`}><MoneyField label={`${account.fields.name}份额`} symbol={account.fields.holding_unit??'份'} places={8} value={row.quantity_e8??''} onEnter={enter} onChange={v=>update(account.id,{quantity_e8:v})}/></div><div data-check-in-field={`price:${account.id}`}><MoneyField label={`${account.fields.name}单价`} symbol={code} places={6} value={row.unit_price_e6??''} onEnter={enter} onChange={v=>update(account.id,{unit_price_e6:v})}/></div></> : <div data-check-in-field={`amount:${account.id}`}><MoneyField label={`${account.fields.name}${code==='CNY'?'本次金额':'原币金额'}`} symbol={code==='CNY'?'¥':code} places={currencyDecimals(code)} value={code==='CNY'?row.cents:row.original_minor??''} onEnter={enter} onChange={v=>update(account.id,code==='CNY'?{cents:v}:{original_minor:v})}/></div>}
-            {flagged && <p className="mw-check-flag-text" role="alert">这一项还没填。没有余额就填 0，暂时不盘点可以选「跳过」。</p>}
-            {(account.fields.holding_mode || code!=='CNY') && <output>折合人民币 {row.cents!==''?moneyText(row.cents):'待填'}</output>}
+            <div className="mw-toolbar"><span className="mw-check-title">{account.fields.name}</span><span className="mw-toolbar"><span className="mw-muted">{row.state && row.cents!==''?tr('✓ 已填'):tr('待填写')}</span><Button variant="plain" onClick={()=>setMenu(account.id)} ariaLabel={tr('{name}更多操作', { name: account.fields.name })}>{canClose?tr('注销/跳过'):tr('跳过')}</Button></span></div>
+            <p className="mw-muted">{tr('上次 {v1}', { v1: factText(previous,account) })}{account.fields.side==='liability'?tr(' · 欠款'):''}{!counted?tr(' · 不进合计'):''}</p>
+            {account.fields.holding_mode ? <><div data-check-in-field={`quantity:${account.id}`}><MoneyField label={tr('{name}份额', { name: account.fields.name })} symbol={account.fields.holding_unit??tr('份')} places={8} value={row.quantity_e8??''} onEnter={enter} onChange={v=>update(account.id,{quantity_e8:v})}/></div><div data-check-in-field={`price:${account.id}`}><MoneyField label={tr('{name}单价', { name: account.fields.name })} symbol={code} places={6} value={row.unit_price_e6??''} onEnter={enter} onChange={v=>update(account.id,{unit_price_e6:v})}/></div></> : <div data-check-in-field={`amount:${account.id}`}><MoneyField label={`${account.fields.name}${code==='CNY'?'本次金额':'原币金额'}`} symbol={code==='CNY'?'¥':code} places={currencyDecimals(code)} value={code==='CNY'?row.cents:row.original_minor??''} onEnter={enter} onChange={v=>update(account.id,code==='CNY'?{cents:v}:{original_minor:v})}/></div>}
+            {flagged && <p className="mw-check-flag-text" role="alert">{tr('这一项还没填。没有余额就填 0，暂时不盘点可以选「跳过」。')}</p>}
+            {(account.fields.holding_mode || code!=='CNY') && <output>{tr('折合人民币')} {row.cents!==''?moneyText(row.cents):tr('待填')}</output>}
           </div>;
         })}
       </FormGroup>)}
-      <Button block disabled={writer.frozen} onClick={()=>nav.push('wealth.accountEdit',{},{title:'新增账户'})}>+ 新增账户</Button>
-      <FormGroup><TextAreaField label="本次盘点备注" value={notes} onChange={setNotes}/></FormGroup>
+      <Button block disabled={writer.frozen} onClick={()=>nav.push('wealth.accountEdit',{},{title:tr('新增账户')})}>{tr('+ 新增账户')}</Button>
+      <FormGroup><TextAreaField label={tr('本次盘点备注')} value={notes} onChange={setNotes}/></FormGroup>
     </fieldset>
-    {!accounts.length && <EmptyState icon="wallet" title="这一天没有应盘账户" message="请检查账户的启用与停用日期。" action={<Button onClick={()=>nav.push('wealth.accountEdit')}>新增账户</Button>}/>}
-    <div className="mw-fixed"><div className="mw-fixed-inner">{writer.error && <Notice tone="danger">{writer.error}</Notice>}<div className="mw-status" role="status">已填 {openCount-totals.missing} / {openCount}{closing.size?`（另有 ${closing.size} 个注销）`:''} · {totals.missing?'已填账户合计':'本次合计'}<br/><strong>{openCount===totals.missing?(closing.size&&!openCount?'¥0':'待填写'):moneyText(totals.net)}</strong><span className="mw-muted"> · {draft.existing?'较更正前':'较上次这些账户'} {delta===null?'未知':changeText(delta)}</span></div><div className="mw-toolbar"><Button disabled={writer.frozen || !totals.missing} onClick={nextUnfilled}>下一处未填</Button><Button variant="primary" disabled={writer.frozen || !accounts.length} onClick={()=>void save()}>保存本次盘点</Button></div></div></div>
+    {!accounts.length && <EmptyState icon="wallet" title={tr('这一天没有应盘账户')} message={tr('请检查账户的启用与停用日期。')} action={<Button onClick={()=>nav.push('wealth.accountEdit')}>{tr('新增账户')}</Button>}/>}
+    <div className="mw-fixed"><div className="mw-fixed-inner">{writer.error && <Notice tone="danger">{writer.error}</Notice>}<div className="mw-status" role="status">{tr('已填')} {openCount-totals.missing} / {openCount}{closing.size?tr('（另有 {size} 个注销）', { size: closing.size }):''} · {totals.missing?tr('已填账户合计'):tr('本次合计')}<br/><strong>{openCount===totals.missing?(closing.size&&!openCount?'¥0':tr('待填写')):moneyText(totals.net)}</strong><span className="mw-muted"> · {draft.existing?tr('较更正前'):tr('较上次这些账户')} {delta===null?tr('未知'):changeText(delta)}</span></div><div className="mw-toolbar"><Button disabled={writer.frozen || !totals.missing} onClick={nextUnfilled}>{tr('下一处未填')}</Button><Button variant="primary" disabled={writer.frozen || !accounts.length} onClick={()=>void save()}>{tr('保存本次盘点')}</Button></div></div></div>
     {menu && (()=>{const account=accounts.find(a=>a.id===menu)!, previous=draft.rows.find(r=>r.account.id===menu)!.previous;
-      return <Sheet title={account.fields.name} onClose={()=>setMenu(null)} cancelLabel="取消">
-        <p className="mw-muted">上次盘点 {factText(previous,account)}{previous?`（${dayLabel(previous.date,s.today)}）`:''}</p>
+      return <Sheet title={account.fields.name} onClose={()=>setMenu(null)} cancelLabel={tr('取消')}>
+        <p className="mw-muted">{tr('上次盘点 {v1}', { v1: factText(previous,account) })}{previous?`（${dayLabel(previous.date,s.today)}）`:''}</p>
         <div className="mw-sheet-choices">
-          <Button block onClick={()=>mark(menu,'fill')}>填写本次余额</Button>
-          {canCloseInCheckIn(draft,account) && <Button block onClick={()=>mark(menu,'close')}>已注销，从这次起停用</Button>}
-          <Button block variant="plain" onClick={()=>mark(menu,'skip')}>这次跳过（盘点记为不完整）</Button>
+          <Button block onClick={()=>mark(menu,'fill')}>{tr('填写本次余额')}</Button>
+          {canCloseInCheckIn(draft,account) && <Button block onClick={()=>mark(menu,'close')}>{tr('已注销，从这次起停用')}</Button>}
+          <Button block variant="plain" onClick={()=>mark(menu,'skip')}>{tr('这次跳过（盘点记为不完整）')}</Button>
         </div></Sheet>;})()}
-    {s.pending && <Notice>保存结果未确定，请先核对原请求。</Notice>}
+    {s.pending && <Notice>{tr('保存结果未确定，请先核对原请求。')}</Notice>}
   </div></>;
 }
 export function FullCheckIn({params}:PageProps) {
@@ -107,9 +107,9 @@ export function FullCheckIn({params}:PageProps) {
   const generation=s.data?.summary.generation??'', pin=String(params.id??'');
   const read=useRead(`inventory:${generation}:${date}`,async()=>{const draft=await invoke<Draft>('wealth_snapshot_draft',{date});if(draft.generation!==generation || draft.date!==date || (pin && draft.existing?.id!==pin))throw Error('这条盘点或资料库已变化，请返回后重新读取。');return draft;});
   const header=<>
-    <LargeTitle title={`${pin?'更正':''}${dayLabel(date, s.today)}盘点`} subtitle="对照各平台填写当前金额，零余额填 0。上次金额只作参考。"/>
-    {!pin && <DateField label="盘点日期" value={date} max={s.today} disabled={s.navBlocked} onChange={v=>{if(v===date)return;if(entered.current)setChange(v);else setDate(v);}}/>}
-    {change && <ConfirmSheet title="切换日期？" message={`切换到 ${dayLabel(change,s.today)} 会放弃已经填写的内容。`} confirm="切换并放弃输入" cancelLabel="继续编辑" danger busy={false} onClose={()=>setChange('')} onConfirm={()=>{entered.current=false;setDate(change);setChange('');}}/>}
+    <LargeTitle title={tr('{v1}{v2}盘点', { v1: pin?'更正':'', v2: dayLabel(date, s.today) })} subtitle={tr('对照各平台填写当前金额，零余额填 0。上次金额只作参考。')}/>
+    {!pin && <DateField label={tr('盘点日期')} value={date} max={s.today} disabled={s.navBlocked} onChange={v=>{if(v===date)return;if(entered.current)setChange(v);else setDate(v);}}/>}
+    {change && <ConfirmSheet title={tr('切换日期？')} message={tr('切换到 {v1} 会放弃已经填写的内容。', { v1: dayLabel(change,s.today) })} confirm={tr('切换并放弃输入')} cancelLabel={tr('继续编辑')} danger busy={false} onClose={()=>setChange('')} onConfirm={()=>{entered.current=false;setDate(change);setChange('');}}/>}
   </>;
   const ready=!!read.value && !!groups.value && !read.error && !s.error;
   return <div className="m-page m-wealth mw-checkin">

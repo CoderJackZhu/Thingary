@@ -1,6 +1,7 @@
 import { FormRow } from "../ui";
 import { flowSteps, progressText } from "./setup-model";
 import type { StepStatus } from "./setup-model";
+import { t } from '../../i18n.ts';
 /** Native month picker; the persisted contract stays YYYY-MM. */
 export function MonthField({
   label,
@@ -41,7 +42,7 @@ const statusWord = { done: "已填", attention: "需要确认", todo: "未填" }
 export function FlowSteps({ index, statuses, onJump, disabled }: { index: number; statuses: StepStatus[]; onJump: (step: number) => void; disabled?: boolean }) {
   return (
     <div className="mp-flow">
-      <ol className="mp-flow-dots" aria-label="设置步骤">
+      <ol className="mp-flow-dots" aria-label={t('设置步骤')}>
         {flowSteps.map((s, i) => {
           const status = statuses[i] ?? "todo";
           return (
@@ -50,7 +51,7 @@ export function FlowSteps({ index, statuses, onJump, disabled }: { index: number
                 type="button"
                 disabled={disabled}
                 aria-current={i === index ? "step" : undefined}
-                aria-label={`第 ${i + 1} 步 ${s.title}，${statusWord[status]}`}
+                aria-label={t('第 {v1} 步 {title}，{v3}', { v1: i + 1, title: s.title, v3: statusWord[status] })}
                 onClick={() => onJump(i)}
               >
                 <span aria-hidden="true">{status === "attention" ? "!" : status === "done" ? "✓" : i + 1}</span>

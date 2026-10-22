@@ -1,6 +1,7 @@
 import { recurringCategories } from './recurring.ts';
 import type { FinancePeriod } from './finance-contract';
 import type { SourceTarget } from './source';
+import { t } from './i18n.ts';
 export type ExpenseFields = { title: string; date: string; amount_cents: string; category: string; notes: string; refund_cents: string | null; refund_date: string | null; asset_id: string | null };
 export type Expense = { id: string; fields: ExpenseFields; revision: number; asset_name: string | null; asset_deleted: boolean };
 export type ExpenseSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: ExpenseFields };
@@ -32,8 +33,8 @@ export function expenseSourceTarget(line: Line): SourceTarget | null {
 
 /** Chart/summary wording for a spend bucket with known and unknown parts (design §3.2). */
 export function spendDisplay(b: { count: number; known_count: number; unknown_count: number; spent_cents?: string }): { value: string | null; note: string | null } {
-  if (b.count === 0) return { value: null, note: '未记录支出' };
-  if (b.known_count === 0) return { value: null, note: '金额待补' };
+  if (b.count === 0) return { value: null, note: t('未记录支出') };
+  if (b.known_count === 0) return { value: null, note: t('金额待补') };
   const note = b.unknown_count > 0 ? `仅已知部分 · ${b.unknown_count} 笔金额待补` : null;
   return { value: b.spent_cents ?? null, note };
 }

@@ -28,6 +28,7 @@ import type { Snapshot, Summary } from './wealth';
 import type { AccountAvailability, Review, Read } from './review';
 import type { ExpenseView } from './expenses';
 import type { SourceTarget } from './source';
+import { t as tr } from './i18n.ts';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_count:0,upcoming_count:0,expired_count:0,pending_count:0} as const;
 
@@ -122,7 +123,7 @@ const tagFixtureRecord = (id: string, name: string, price: string | null, state:
   preferences: previewPrefs('摄影'),
   lifecycle: { state, events: state === 'retired' ? [{ id: 'tag-fixture-retire', sequence: 1, kind: 'retire', date: '2026-03-05', notes: '' }] : [] },
   sale: state === 'sold' ? { id: 'tag-fixture-sale', previous_state: 'active', fields: { date: '2026-04-10', price_cents: sale ?? '0', platform: '', buyer: '', notes: '虚构' } } : null,
-  maintenances: maintenance.map((m, i) => ({ id: `tag-fixture-m${i}`, fields: { date: '2026-06-01', kind: 'repair' as const, title: '虚构维护', description: '', cost_cents: m.cost, provider: '' }, photos: [], created_at: '2026-06-01T08:00:00Z', updated_at: '2026-06-01T08:00:00Z' })),
+  maintenances: maintenance.map((m, i) => ({ id: `tag-fixture-m${i}`, fields: { date: '2026-06-01', kind: 'repair' as const, title: tr('虚构维护'), description: '', cost_cents: m.cost, provider: '' }, photos: [], created_at: '2026-06-01T08:00:00Z', updated_at: '2026-06-01T08:00:00Z' })),
   warranties: [],
   warranty_summary: { ...emptyWarrantySummary },
   costs: { ...emptyCosts },
@@ -168,12 +169,12 @@ if (params.get('tag-view') === 'missing') {
   const boxRecord = records.find(r => r.asset.id === 'box');
   if (boxRecord) boxRecord.asset = { ...boxRecord.asset, price_cents: null };
   const camera = records.find(r => r.asset.id === 'camera');
-  if (camera) camera.maintenances = [...camera.maintenances, { id: 'demo-maintenance-unknown', fields: { date: '2026-08-01', kind: 'repair' as const, title: '传感器清洁（费用待补）', description: '', cost_cents: null, provider: '' }, photos: [], created_at: '2026-08-01T08:00:00Z', updated_at: '2026-08-01T08:00:00Z' }];
+  if (camera) camera.maintenances = [...camera.maintenances, { id: 'demo-maintenance-unknown', fields: { date: '2026-08-01', kind: 'repair' as const, title: tr('传感器清洁（费用待补）'), description: '', cost_cents: null, provider: '' }, photos: [], created_at: '2026-08-01T08:00:00Z', updated_at: '2026-08-01T08:00:00Z' }];
 }
 if (params.get('tag-view') === 'excluded') {
   records = records.map(r => r.preferences?.label_id === 'label-photo' && r.preferences ? { ...r, preferences: { ...r.preferences, exclude: { ...r.preferences.exclude, statistics: true } } } : r);
 }
-if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:'更换快门',description:'虚构验收记录',cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
+if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:tr('更换快门'),description:tr('虚构验收记录'),cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
 const images = new Map<string, Promise<ArrayBuffer>>();
 // Staged material selections keep their artwork key so previews render the
 // same illustration the native app hosts; ids are per-selection and independent.
@@ -259,7 +260,7 @@ function timelinePreview(args: Record<string, unknown>) {
   const domain = String(args.domain ?? 'all');
   const year = (args.year as number | null) ?? null;
   const wanted = timelineKindSets[filter];
-  if (!wanted || !['all', 'physical', 'wish', 'wealth', 'expense'].includes(domain)) throw { message: '时间轴筛选无效' };
+  if (!wanted || !['all', 'physical', 'wish', 'wealth', 'expense'].includes(domain)) throw { message: tr('时间轴筛选无效') };
   const keep = (e: PreviewEvent) => wanted.includes(e.kind) && (filter !== 'wishlist' || e.kind !== 'purchase' || !!e.wishlist_id);
   const assetId = (args.query as { asset_id?: string })?.asset_id;
   const domainFiltered = [...physicalTimelineEvents(), ...financialTimelineEvents()].filter(e => (!assetId || e.asset_id === assetId) && (domain === 'all' || e.domain === domain) && keep(e));
@@ -281,12 +282,12 @@ function autoBackupFixture(): PreviewAutoBackup {
     enabled: true,
     folder: '/Users/虚构用户/Library/Application Support/local.thingary.preview/library/auto-backups',
     last_success_at: mode === 'never' ? null : when(mode === 'error' ? 26 * 60 : 42),
-    last_error: mode === 'error' ? { at: when(18), message: '模拟自动备份失败：目标磁盘空间不足' } : null,
+    last_error: mode === 'error' ? { at: when(18), message: tr('模拟自动备份失败：目标磁盘空间不足') } : null,
     items,
     total_size: items.reduce((sum, item) => sum + item.size, 0),
     extra_dir: mode === 'ok' || mode === 'extra-error' ? '/Users/虚构用户/额外备份/物谱' : null,
     extra_last_at: mode === 'ok' ? when(42) : null,
-    extra_last_error: mode === 'extra-error' ? { at: when(11), message: '额外备份位置不可用：外接盘未连接' } : null,
+    extra_last_error: mode === 'extra-error' ? { at: when(11), message: tr('额外备份位置不可用：外接盘未连接') } : null,
   };
 }
 let previewAutoBackup = autoBackupFixture();
@@ -302,7 +303,7 @@ function backupSecurityFixture(): PreviewSecurity {
     case 'needs_attention': return { ...base, state, paused: true, reason: '安全配置不是有效的格式' };
     case 'restore_review_required': return { ...base, state, paused: true };
     case 'enabled-waiting': return { ...base, state: 'enabled', paused: false, recipient_id: 'a1b2c3d4'.repeat(8), recipient_short: 'a1b2c3d4', verified_at: when(2), changed_at: when(2), first_backup: { state: 'waiting' } };
-    case 'enabled-failed': return { ...base, state: 'enabled', paused: false, recipient_id: 'a1b2c3d4'.repeat(8), recipient_short: 'a1b2c3d4', verified_at: when(30), changed_at: when(30), first_backup: { state: 'failed', at: when(28), message: '模拟首份加密备份失败：磁盘空间不足' } };
+    case 'enabled-failed': return { ...base, state: 'enabled', paused: false, recipient_id: 'a1b2c3d4'.repeat(8), recipient_short: 'a1b2c3d4', verified_at: when(30), changed_at: when(30), first_backup: { state: 'failed', at: when(28), message: tr('模拟首份加密备份失败：磁盘空间不足') } };
     default: return { ...base, state: 'unconfigured', paused: true };
   }
 }
@@ -319,11 +320,11 @@ function backupSecurityPreview(command: string, args: Record<string, unknown>): 
     return previewSetupSession;
   }
   if (command === 'backup_security_cancel_setup') { previewSetupSession = null; return null; }
-  if (command === 'backup_security_export_key') throw { message: '恢复密钥文件保存请在原生 App 中验证，此页面仅展示界面状态。' };
+  if (command === 'backup_security_export_key') throw { message: tr('恢复密钥文件保存请在原生 App 中验证，此页面仅展示界面状态。') };
   if (command === 'backup_security_confirm_setup' || command === 'backup_security_enable_from_key') {
     previewSetupSession = null;
     const ok = command === 'backup_security_enable_from_key' || /AGE-SECRET-KEY-1PREVIEW/.test(String(args.keyText ?? ''));
-    if (!ok) throw { code: 'CRYPTO_KEY', message: '重新输入的恢复密钥与本次生成的公钥不匹配' };
+    if (!ok) throw { code: 'CRYPTO_KEY', message: tr('重新输入的恢复密钥与本次生成的公钥不匹配') };
     previewSecurity = { ...backupSecurityFixture(), state: 'enabled', paused: false, recipient_id: 'e5f6a7b8'.repeat(8), recipient_short: 'e5f6a7b8', verified_at: when(0), changed_at: when(0), first_backup: { state: 'success', at: when(0) } };
     return previewSecurity;
   }
@@ -332,11 +333,11 @@ function backupSecurityPreview(command: string, args: Record<string, unknown>): 
     return null;
   }
   if (command === 'unlock_backup_session') {
-    if (!/AGE-SECRET-KEY-1PREVIEW/.test(String(args.keyText ?? ''))) throw { code: 'CRYPTO_AUTH', message: '无法解密，请核对恢复密钥或备份完整性' };
+    if (!/AGE-SECRET-KEY-1PREVIEW/.test(String(args.keyText ?? ''))) throw { code: 'CRYPTO_AUTH', message: tr('无法解密，请核对恢复密钥或备份完整性') };
     return { token: 'preview-token', summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
   }
   if (command === 'cancel_backup_session') return null;
-  if (command === 'restore_backup_session') throw { message: '恢复流程请在原生 App 中验证，此页面仅展示界面状态。' };
+  if (command === 'restore_backup_session') throw { message: tr('恢复流程请在原生 App 中验证，此页面仅展示界面状态。') };
   throw { message: '此操作需在原生 App 验证：' + command };
 }
 function autoBackupPreview(command: string, args: Record<string, unknown>): unknown {
@@ -344,10 +345,10 @@ function autoBackupPreview(command: string, args: Record<string, unknown>): unkn
   if (command === 'auto_backup_set_enabled') { previewAutoBackup = { ...previewAutoBackup, enabled: !!args.enabled }; return previewAutoBackup; }
   if (command === 'auto_backup_clear_extra') { previewAutoBackup = { ...previewAutoBackup, extra_dir: null, extra_last_at: null, extra_last_error: null }; return previewAutoBackup; }
   if (command === 'auto_backup_open_folder') return null;
-  if (command === 'auto_backup_choose_extra') throw { message: '额外备份位置选择请在原生 App 中验证，此页面仅展示界面状态。' };
+  if (command === 'auto_backup_choose_extra') throw { message: tr('额外备份位置选择请在原生 App 中验证，此页面仅展示界面状态。') };
   if (command === 'inspect_auto_backup') {
     const name = String(args.name ?? '');
-    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}(-\d{4}-[0-9a-f]{6})?\.thingary(\.age)?$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
+    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}(-\d{4}-[0-9a-f]{6})?\.thingary(\.age)?$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: tr('不是有效的自动备份文件名') };
     const encrypted = name.endsWith('.age');
     if (encrypted) return { path: `${previewAutoBackup.folder}/${name}`, name, encrypted, token: 'preview-token', summary: null };
     return { path: `${previewAutoBackup.folder}/${name}`, name, encrypted, token: 'preview-token', summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
@@ -383,55 +384,55 @@ let spendingLost = false, spendingLookupFailed = false, spendingReplaying = fals
 export async function handle(command: string, payload: unknown): Promise<unknown> {
   const mobilePlanState = params.get('mobile-state');
   const mobilePlanArgs = (payload ?? {}) as Record<string, unknown>;
-  if (command === 'wealth_request_result' && mobilePlanLookups.delete(String(mobilePlanArgs.request))) throw { message: '虚构规划回执暂不可用，请稍后核对。' };
+  if (command === 'wealth_request_result' && mobilePlanLookups.delete(String(mobilePlanArgs.request))) throw { message: tr('虚构规划回执暂不可用，请稍后核对。') };
   if (command === 'plan_assumptions_read' && mobileAssumptionConfirmation !== null) {
     const read = wealthPreview(command, mobilePlanArgs)!.value as import('./planning-followup-contract').AssumptionReadV1;
     return { ...read, confirmation: mobileAssumptionConfirmation, confirmed_values: mobileAssumptionConfirmation === 'confirmed' ? { ...read.values } : null };
   }
   if (command === 'plan_assumptions_save') {
     const input = mobilePlanArgs.input as import('./planning-followup-contract').FollowupWriteContext & { values: import('./planning-followup-contract').AssumptionValuesV1; confirm: boolean };
-    if (mobilePlanState === 'save-error') throw { message: '虚构规划保存失败，输入保留。' };
+    if (mobilePlanState === 'save-error') throw { message: tr('虚构规划保存失败，输入保留。') };
     const state = wealthPreview('plan_profile', {})!.value as ProfileState;
-    if (!state.saved?.profile.retire.basic || !state.saved.profile.retire.core) throw { message: '请先设置目标。' };
+    if (!state.saved?.profile.retire.basic || !state.saved.profile.retire.core) throw { message: tr('请先设置目标。') };
     const r = state.saved.profile.retire;
     const result = wealthPreview('plan_profile_update', { input: { request_id: input.request_id, generation: input.generation, expected_revision: input.expected_revision, section: 'basic', fields: { spend_cents: r.spend_cents, mode: r.mode, emergency_months: r.emergency_months, monetary_basis_date: r.core!.monetary_basis_date, basic: r.basic, ...input.values } } })!.value as NonNullable<ProfileState['saved']>;
     mobileAssumptionConfirmation = input.confirm ? 'confirmed' : 'unconfirmed';
-    if (mobilePlanState === 'unknown' && !mobilePlanLost.has(input.request_id)) { mobilePlanLost.add(input.request_id); mobilePlanLookups.add(input.request_id); throw { message: '虚构规划响应丢失。' }; }
+    if (mobilePlanState === 'unknown' && !mobilePlanLost.has(input.request_id)) { mobilePlanLost.add(input.request_id); mobilePlanLookups.add(input.request_id); throw { message: tr('虚构规划响应丢失。') }; }
     return { id: 'profile', revision: result.revision };
   }
   if (command === 'plan_profile_update' && mobilePlanState) {
     const input = mobilePlanArgs.input as { request_id: string };
-    if (mobilePlanState === 'save-error') throw { message: '虚构规划保存失败，输入保留。' };
+    if (mobilePlanState === 'save-error') throw { message: tr('虚构规划保存失败，输入保留。') };
     const value = wealthPreview(command, mobilePlanArgs)!.value;
-    if (mobilePlanState === 'unknown' && !mobilePlanLost.has(input.request_id)) { mobilePlanLost.add(input.request_id); mobilePlanLookups.add(input.request_id); throw { message: '虚构规划响应丢失。' }; }
+    if (mobilePlanState === 'unknown' && !mobilePlanLost.has(input.request_id)) { mobilePlanLost.add(input.request_id); mobilePlanLookups.add(input.request_id); throw { message: tr('虚构规划响应丢失。') }; }
     return value;
   }
   const mobileSnapshotInput = (payload as { input?: { request_id?: string }; request?: string } | null);
   if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'save-error') {
-    throw { code: 'PREVIEW_ERROR', message: '虚构盘点保存失败，输入已保留。' };
+    throw { code: 'PREVIEW_ERROR', message: tr('虚构盘点保存失败，输入已保留。') };
   }
   if (command === 'wealth_snapshot_save' && params.get('mobile-state') === 'unknown' && mobileSnapshotInput?.input?.request_id && !mobileSnapshotLost.has(mobileSnapshotInput.input.request_id)) {
     const result = wealthPreview(command, (payload ?? {}) as Record<string, unknown>);
     if (result) {
       mobileSnapshotLost.add(mobileSnapshotInput.input.request_id);
       mobileSnapshotLookup.add(mobileSnapshotInput.input.request_id);
-      throw { message: '虚构盘点保存响应丢失。' };
+      throw { message: tr('虚构盘点保存响应丢失。') };
     }
   }
   if (command === 'wealth_request_result' && mobileSnapshotInput?.request && mobileSnapshotLookup.delete(mobileSnapshotInput.request)) {
-    throw { message: '虚构盘点回执暂不可用，请核对原请求。' };
+    throw { message: tr('虚构盘点回执暂不可用，请核对原请求。') };
   }
   const mobileArgs = (payload ?? {}) as { input?: { request_id?: string; generation?: string; base?: SaveAsset['base']; options?: SaveAsset['options'] }; request?: string };
   const mobileInput = mobileArgs.input;
   const mobileCatalogWrites = ['save_asset','change_warranty','change_maintenance','change_sale','change_lifecycle','change_trash','change_record_trash','batch_change'];
   if (command === 'wealth_request_result' && batchReceipts.has(String(mobileArgs.request))) return 'mobile-batch-receipt';
   if (['saved_request','saved_record_trash_request','wealth_request_result'].includes(command) && params.get('mobile-state') === 'unknown' && mobileItemLost && !mobileItemLookupLost) {
-    mobileItemLookupLost = true; throw {message:'虚构物品回执暂不可用，请核对原请求。'};
+    mobileItemLookupLost = true; throw {message:tr('虚构物品回执暂不可用，请核对原请求。')};
   }
   if (mobileCatalogWrites.includes(command) && (params.has('tab') || params.has('route')) && !mobileItemDispatch) {
-    if (params.get('mobile-state') === 'save-error') throw {code:'PREVIEW_ERROR',message:'虚构保存失败，输入保留。'};
+    if (params.get('mobile-state') === 'save-error') throw {code:'PREVIEW_ERROR',message:tr('虚构保存失败，输入保留。')};
     const identity = mobileInput?.base ?? mobileInput;
-    if (identity?.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if (identity?.generation !== generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const prior = requests.get(identity?.request_id ?? '');
     if (prior && command !== 'batch_change') return structuredClone(prior);
     mobileItemDispatch = true;
@@ -445,17 +446,17 @@ export async function handle(command: string, payload: unknown): Promise<unknown
         value=previewRecord(stored); requests.set(identity!.request_id!,value as AssetRecord);
       }
     }
-    if (params.get('mobile-state') === 'unknown' && !mobileItemLost) { mobileItemLost = true; throw {message:'虚构物品保存响应丢失。'}; }
+    if (params.get('mobile-state') === 'unknown' && !mobileItemLost) { mobileItemLost = true; throw {message:tr('虚构物品保存响应丢失。')}; }
     return value;
   }
-  if (params.get('mobile-state') === 'save-error' && spendingWrites.has(command)) throw { code: 'PREVIEW_ERROR', message: '虚构保存失败，请核对输入后重试。' };
+  if (params.get('mobile-state') === 'save-error' && spendingWrites.has(command)) throw { code: 'PREVIEW_ERROR', message: tr('虚构保存失败，请核对输入后重试。') };
   if (params.get('mobile-state') === 'unknown') {
-    if (command === 'wealth_request_result' && spendingLost && !spendingLookupFailed) { spendingLookupFailed = true; throw new Error('虚构回执暂不可用。'); }
+    if (command === 'wealth_request_result' && spendingLost && !spendingLookupFailed) { spendingLookupFailed = true; throw new Error(tr('虚构回执暂不可用。')); }
     if (!spendingLost && !spendingReplaying && spendingWrites.has(command)) {
       spendingReplaying = true;
       try { await handle(command, payload); } finally { spendingReplaying = false; }
       spendingLost = true;
-      throw new Error('虚构保存响应丢失。');
+      throw new Error(tr('虚构保存响应丢失。'));
     }
   }
   if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
@@ -467,10 +468,10 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     return null;
   }
   if (command === 'app_version') {
-    if (params.get('support-version') === 'error') throw { message: '版本读取失败' };
+    if (params.get('support-version') === 'error') throw { message: tr('版本读取失败') };
     return '0.0.7';
   }
-  if (command === 'support_open') throw { message: '虚构预览不打开外部浏览器。' };
+  if (command === 'support_open') throw { message: tr('虚构预览不打开外部浏览器。') };
   if (command === 'update_state_get' || command === 'update_check_request' || command === 'update_consent_set' || command === 'update_mark_seen' || command === 'update_ignore_version') {
     const mode = params.get('update') ?? 'available';
     const consent = params.get('update-consent') ?? 'unset';
@@ -478,7 +479,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     const windows = params.get('update-platform') === 'windows';
     const release = { version: mode === 'available' || mode === 'partial' ? '0.0.8' : mode === 'ahead' ? '0.0.6' : '0.0.7', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：启动检查更新与盘点体验。\n- 更新前请先备份。' };
     const sources = mode === 'partial' ? ['gitee'] : ['gitee', 'github'];
-    const downloads = sources.map(source => ({ source, name: windows ? `物谱_${release.version}_x64-setup.exe` : `Thingary-${release.version}-universal.dmg`, label: windows ? 'Windows 安装包（x64）' : 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000 }));
+    const downloads = sources.map(source => ({ source, name: windows ? `物谱_${release.version}_x64-setup.exe` : `Thingary-${release.version}-universal.dmg`, label: windows ? tr('Windows 安装包（x64）') : tr('Mac 通用安装包（Apple Silicon 与 Intel）'), size: source === 'gitee' ? null : 30000000 }));
     const available = { ...release, sources, downloads, confirmed_at: '2026-10-21T08:00:00Z' };
     const updateAvailable = mode === 'available' || mode === 'partial';
     const state: UpdateDiscoveryState = previewUpdateState ?? {
@@ -509,17 +510,17 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       return { decision: 'started', task: { origin: 'manual', applied: true, cancelled: false, error: null }, state };
     }
     if (command === 'update_consent_set') {
-      if (params.get('update-write') === 'error') throw { message: '虚构更新设置保存失败' };
-      if (state.preferences_repairable === false) throw { message: '设置来自较新版本，请升级后再试' };
+      if (params.get('update-write') === 'error') throw { message: tr('虚构更新设置保存失败') };
+      if (state.preferences_repairable === false) throw { message: tr('设置来自较新版本，请升级后再试') };
       return previewUpdateState = { ...state, consent: (payload as { enabled: boolean }).enabled ? 'enabled' : 'disabled', preference_revision: state.preference_revision + 1, preferences_status: 'ok', preferences_problem: null };
     }
     if (command === 'update_mark_seen') {
-      if (state.preferences_status === 'damaged') throw { message: '虚构设置文件读取失败，已读状态未保存' };
+      if (state.preferences_status === 'damaged') throw { message: tr('虚构设置文件读取失败，已读状态未保存') };
       return previewUpdateState = { ...state, preference_revision: state.preference_revision + 1, highest_seen_version: String((payload as { version: string }).version), unread: false };
     }
     return previewUpdateState = { ...state, preference_revision: state.preference_revision + 1, ignored_version: String((payload as { version: string }).version), unread: false };
   }
-  if (command === 'update_open_release' || command === 'update_open_download') throw { message: '预览中不能打开浏览器' };
+  if (command === 'update_open_release' || command === 'update_open_download') throw { message: tr('预览中不能打开浏览器') };
   if (command === 'checkin_reminder_status') return checkinStatus();
   const args = payload as Record<string,unknown>;
   if (command === 'checkin_reminder_set') { checkinMonths = Number(args.months); return checkinStatus(); }
@@ -527,23 +528,23 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   if(command==='choice_list')return choiceSnapshot(String(args.kind));
   if(command==='choice_change'){
     const input=args.input as {request_id:string;generation:string;expected_revision:number;kind:string;action:{type:string;id:string;name:string;enabled:boolean;ids:string[];replacement:string|null;expected_references:number}};
-    if(input.generation!==generation)throw {code:'STALE_DATASET',message:'资料库已变化'};
+    if(input.generation!==generation)throw {code:'STALE_DATASET',message:tr('资料库已变化')};
     const fingerprint=JSON.stringify(input),prior=choiceReceipts.get(input.request_id);
-    if(prior){if(prior!==fingerprint)throw {code:'REQUEST_CONFLICT',message:'请求已变化'};return choiceSnapshot(input.kind)}
-    if(input.expected_revision!==taxonomyRevision)throw {code:'TAXONOMY_STALE',message:'选项已变化，请重新读取'};
+    if(prior){if(prior!==fingerprint)throw {code:'REQUEST_CONFLICT',message:tr('请求已变化')};return choiceSnapshot(input.kind)}
+    if(input.expected_revision!==taxonomyRevision)throw {code:'TAXONOMY_STALE',message:tr('选项已变化，请重新读取')};
     const {action:a,kind}=input,snapshot=choiceSnapshot(kind),old=snapshot.items.find(e=>e.id===a.id);
-    if(a.type!=='create'&&a.type!=='reorder'&&!old)throw {code:'CHOICE',message:'选项已不存在'};
+    if(a.type!=='create'&&a.type!=='reorder'&&!old)throw {code:'CHOICE',message:tr('选项已不存在')};
     const list=namedChoices[kind];
     if(a.type==='create'||a.type==='rename'){
       const name=normalizeName(a.name);
-      if(!name||[...name].length>80||/[\u0000-\u001f\u007f-\u009f]/u.test(name)||snapshot.items.some(e=>e.id!==a.id&&e.name.replace(/[A-Z]/g,c=>c.toLowerCase())===name.replace(/[A-Z]/g,c=>c.toLowerCase()))||['全部','未设置','未选择',...(kind==='label'?['保障中','已退役','已售出']:[])].includes(name))throw {code:'CHOICE_NAME',message:'名称为空、过长、重复或为系统保留名称'};
-      if(!list)throw {message:'请使用分类与购买渠道管理'};
+      if(!name||[...name].length>80||/[\u0000-\u001f\u007f-\u009f]/u.test(name)||snapshot.items.some(e=>e.id!==a.id&&e.name.replace(/[A-Z]/g,c=>c.toLowerCase())===name.replace(/[A-Z]/g,c=>c.toLowerCase()))||['全部','未设置','未选择',...(kind==='label'?['保障中','已退役','已售出']:[])].includes(name))throw {code:'CHOICE_NAME',message:tr('名称为空、过长、重复或为系统保留名称')};
+      if(!list)throw {message:tr('请使用分类与购买渠道管理')};
       if(a.type==='create')list.push({id:crypto.randomUUID(),name,enabled:true});
       else {if(kind==='sale_channel')for(const r of records){if(r.sale?.fields.platform===old!.name){r.sale.fields.platform=name;r.asset.revision++}}list.find(e=>e.id===a.id)!.name=name;}
     }else if(a.type==='remove'){
-      if(old!.references!==a.expected_references)throw {code:'CHOICE_REFERENCES',message:'关联数量已变化，请重新查看后删除'};
+      if(old!.references!==a.expected_references)throw {code:'CHOICE_REFERENCES',message:tr('关联数量已变化，请重新查看后删除')};
       const target=list?.find(e=>e.id===a.replacement&&e.id!==a.id&&e.enabled);
-      if(!list||(a.replacement&&!target))throw {code:'CHOICE',message:'替换选项不可用'};
+      if(!list||(a.replacement&&!target))throw {code:'CHOICE',message:tr('替换选项不可用')};
       for(const r of records){if(kind==='label'&&r.preferences?.label_id===a.id){r.preferences.label_id=a.replacement;r.asset.revision++}if(kind==='sale_channel'&&r.sale?.fields.platform===old!.name){r.sale.fields.platform=target?.name??'';r.asset.revision++}}
       namedChoices[kind]=list.filter(e=>e.id!==a.id);
     }else if(a.type==='enable'){if(list)list.find(e=>e.id===a.id)!.enabled=a.enabled;else disabledChoices.set(kind+':'+a.id,!a.enabled)}
@@ -560,11 +561,11 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     const today = localDay(), done: { id: string; after: number; before: AssetRecord }[] = [];
     for (const item of input.items) {
       const r = records.find(x => x.asset.id === item.asset_id && !x.deleted);
-      if (!r || r.asset.revision !== item.expected_revision) throw { code: 'REVISION_CONFLICT', message: `「${r?.asset.name ?? '物品'}」已变化，请重新读取后再保存` };
+      if (!r || r.asset.revision !== item.expected_revision) throw { code: 'REVISION_CONFLICT', message: tr('「{v1}」已变化，请重新读取后再保存', { v1: r?.asset.name ?? '物品' }) };
       if (input.action === 'retire' || input.action === 'activate') {
         const life = r.lifecycle ?? { state: 'active', events: [] }, want = input.action === 'retire' ? 'active' : 'retired';
         const earliest = [r.asset.purchase_date, life.events.at(-1)?.date].filter(Boolean).sort().at(-1);
-        if (life.state !== want || !item.date || item.date > today || (earliest && item.date < earliest)) throw { code: 'DATE_CONFLICT', message: `「${r.asset.name}」：状态或日期不符合规则` };
+        if (life.state !== want || !item.date || item.date > today || (earliest && item.date < earliest)) throw { code: 'DATE_CONFLICT', message: tr('「{name}」：状态或日期不符合规则', { name: r.asset.name }) };
       }
     }
     for (const item of input.items) {
@@ -586,7 +587,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'batch_undo') {
     const input = args.input as { batch_request_id: string };
-    const batch = batchReceipts.get(input.batch_request_id); if (!batch) throw { code: 'NOT_FOUND', message: '找不到这次批量操作' };
+    const batch = batchReceipts.get(input.batch_request_id); if (!batch) throw { code: 'NOT_FOUND', message: tr('找不到这次批量操作') };
     let changed = 0, skipped = 0;
     for (const item of batch.items) {
       const i = records.findIndex(x => x.asset.id === item.id);
@@ -603,7 +604,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     return {period:args.period,start:null,end:localDay(),total:rows.length,active:rows.filter(r=>r.lifecycle?.state==='active').length,retired:rows.filter(r=>r.lifecycle?.state==='retired').length,sold:sold.length,known_cents:sum(rows),unknown_price_count:rows.filter(r=>r.asset.price_cents===null).length,sale_proceeds_cents:rated.reduce((n,r)=>n+BigInt(r.sale?.fields.price_cents??0),0n).toString(),sold_purchase_cents:sum(rated),sold_unknown_price_count:sold.filter(r=>r.asset.price_cents===null).length,sold_zero_price_count:sold.filter(r=>r.asset.price_cents==='0').length,categories:catalog.categories.flatMap(c=>{const items=rows.filter(r=>r.classification?.category_id===c.id);return items.length?[{id:c.id,name:c.name,count:items.length,known_cents:sum(items),unknown_price_count:items.filter(r=>r.asset.price_cents===null).length}]:[]})};
   }
   if (command === 'resale_rate') {
-    if (params.has('resale-error')) throw { message: '虚构保值率读取失败，用于验证错误与重试。' };
+    if (params.has('resale-error')) throw { message: tr('虚构保值率读取失败，用于验证错误与重试。') };
     return previewResaleRate(records);
   }
   if (command === 'purchase_trend') {
@@ -616,18 +617,18 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   if (command === 'holding') {
     const rows=records.filter(r=>!r.deleted).map(r=>previewRecord(r)), scoped=rows.filter(r=>args.scope==='history'||r.lifecycle?.state!=='sold'),days=scoped.flatMap(r=>r.costs.held_days===null?[]:[r.costs.held_days]).sort((a,b)=>a-b);
     const rank=(rs:AssetRecord[])=>rs.flatMap(r=>r.costs.daily_cents!==null&&r.costs.held_days!==null?[{id:r.asset.id,name:r.asset.name,state:r.lifecycle?.state,held_days:r.costs.held_days,cost_cents:r.costs.net_cost_cents??r.costs.total_investment_cents,daily_cents:r.costs.daily_cents}]:[]).sort((a,b)=>Number(b.daily_cents)-Number(a.daily_cents));
-    return {scope:args.scope,groups:[{key:'all',label:'已有持有记录',count:days.length}],dated_count:days.length,unknown_date_count:scoped.length-days.length,average_days:days.length?days.reduce((a,b)=>a+b,0)/days.length:null,median_days:days.length?days[Math.floor(days.length/2)]:null,longest:rank(scoped).sort((a,b)=>b.held_days-a.held_days)[0]??null,held_ranking:rank(rows.filter(r=>r.lifecycle?.state!=='sold')),sold_ranking:rank(rows.filter(r=>r.lifecycle?.state==='sold')),excluded:rows.filter(r=>r.costs.daily_cents===null).map(r=>({id:r.asset.id,name:r.asset.name,reason:'资料待补充'}))};
+    return {scope:args.scope,groups:[{key:'all',label:tr('已有持有记录'),count:days.length}],dated_count:days.length,unknown_date_count:scoped.length-days.length,average_days:days.length?days.reduce((a,b)=>a+b,0)/days.length:null,median_days:days.length?days[Math.floor(days.length/2)]:null,longest:rank(scoped).sort((a,b)=>b.held_days-a.held_days)[0]??null,held_ranking:rank(rows.filter(r=>r.lifecycle?.state!=='sold')),sold_ranking:rank(rows.filter(r=>r.lifecycle?.state==='sold')),excluded:rows.filter(r=>r.costs.daily_cents===null).map(r=>({id:r.asset.id,name:r.asset.name,reason:'资料待补充'}))};
   }
   if (command === 'overview') return physicalPreview(String(args.scope));
   if (command === 'timeline_view' || command === 'list_timeline') return timelinePreview(args);
   if (command === 'validate_source') {
-    if (args.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已变化，请返回后重新读取。' };
+    if (args.generation !== generation) throw { code: 'STALE_DATASET', message: tr('资料库已变化，请返回后重新读取。') };
     // ?source=missing demonstrates the failed-source path: notice plus refresh,
     // never a same-named substitute record.
-    if (params.get('source') === 'missing') throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' };
+    if (params.get('source') === 'missing') throw { code: 'NOT_FOUND', message: tr('这条来源记录已删除或失效，请返回后重新读取。') };
     const target = args.target as SourceTarget;
     if (target.kind === 'asset') {
-      if (!records.some(r => r.asset.id === target.id && !r.deleted)) throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' };
+      if (!records.some(r => r.asset.id === target.id && !r.deleted)) throw { code: 'NOT_FOUND', message: tr('这条来源记录已删除或失效，请返回后重新读取。') };
       return null;
     }
     validatePreviewSource(target);
@@ -636,7 +637,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   if (command === 'list_wishlist') return previewWishPage(args.query as never);
   if (command === 'read_wishlist') return previewReadWish(String(args.id));
   if (command === 'review_overview') {
-    if (params.get('review') === 'error') throw { message: '虚构综合读取失败，用于重试验证。' };
+    if (params.get('review') === 'error') throw { message: tr('虚构综合读取失败，用于重试验证。') };
     const read = <T,>(command: string, args: Record<string, unknown> = {}): Read<T> => { try { const value = wealthPreview(command, args); if (!value) throw Error('Unsupported preview source'); return { status: 'ready', value: value.value as T }; } catch (error) { return { status: 'error', value: { code: (error as { code?: string }).code ?? 'PREVIEW', message: String((error as { message?: string }).message ?? error) } }; } };
     const expenses = read<ExpenseView>('expense_view', args);
     // Recent rides the same unified projection as the timeline, snapshots and
@@ -645,7 +646,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     const wealth = read<Summary>('wealth_summary');
     const latest = wealth.status === 'ready' ? wealth.value.points.filter(p => p.complete).at(-1) : null;
     const runtimeModules = wealthPreview('modules_get', {})!.value as RuntimeModules;
-    const disabled: Read<never> = { status: 'error', value: { code: 'MODULE_DISABLED', message: '模块已关闭，本次未读取' } };
+    const disabled: Read<never> = { status: 'error', value: { code: 'MODULE_DISABLED', message: tr('模块已关闭，本次未读取') } };
     const list = args.planning ? runtimeModules.incomes ? read<IncomeList>('plan_income_list') : disabled : null;
     const planning = args.planning ? {
       review: runtimeModules.wealth && runtimeModules.incomes ? read<PlanReview>('plan_review') : disabled, profile: read<ProfileState>('plan_profile'),
@@ -657,36 +658,36 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     const result: Review = { generation, today, year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth, account_availability: read<AccountAvailability>('wealth_account_availability', { today }), planning, expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
     return result;
   }
-  if (command === 'modules_set' && params.has('module-write-error')) throw { message: '虚构模块写入失败，用于起步卡重试验证。' };
-  if (command === 'modules_get' && params.has('module-read-error')) throw { message: '虚构模块读取失败，用于保留当前偏好验证。' };
+  if (command === 'modules_set' && params.has('module-write-error')) throw { message: tr('虚构模块写入失败，用于起步卡重试验证。') };
+  if (command === 'modules_get' && params.has('module-read-error')) throw { message: tr('虚构模块读取失败，用于保留当前偏好验证。') };
   // 手机心愿写入命令（只在命令匹配时才引用心愿预览实现）。
   if (['saved_wishlist_request', 'saved_wish_feature', 'stage_wishlist_cover', 'change_wishlist', 'link_wish_asset', 'verify_legacy_wish', 'save_wish_plan'].includes(command) || (command === 'wealth_trash' && (args.input as { kind?: string }).kind === 'wish')) return previewWishCommand(command, args)!.value;
   const wealth = wealthPreview(command,args); if (wealth) { if (command.endsWith('_save')) previewStarted = true; return wealth.value; }
   const search = searchPreview(command,args); if (search) return search.value;
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:previewStarted || params.get('started') === '1'};
-  if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
+  if (command === 'switch_demo' || command === 'reset_demo') throw {message:tr('浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。')};
   if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
   if (command === 'backup_task_begin') return crypto.randomUUID();
   if (command === 'backup_task_cancel') return true;
   if (command === 'backup_session_result') return null;
   if (command.startsWith('backup_security_') || command === 'inspect_backup' || command === 'unlock_backup_session' || command === 'cancel_backup_session' || command === 'restore_backup_session') return backupSecurityPreview(command, args);
-  if (command === 'taxonomy_snapshot') { if (params.has('taxonomy-error')) throw { message: '虚构分类读取失败，用于验证错误与重试。' }; return taxonomySnapshot(); }
+  if (command === 'taxonomy_snapshot') { if (params.has('taxonomy-error')) throw { message: tr('虚构分类读取失败，用于验证错误与重试。') }; return taxonomySnapshot(); }
   if (command === 'taxonomy_request') return taxonomyReceipts.has(String(args.request));
   if (command === 'change_taxonomy') {
     const input = args.input as {request_id:string;generation:string;expected_revision:number;command:TaxonomyCommand};
     const fingerprint=JSON.stringify(input), previous=taxonomyReceipts.get(input.request_id);
-    if(previous) { if(previous!==fingerprint) throw {code:'REQUEST_CONFLICT',message:'请求内容不一致。'}; return taxonomySnapshot(); }
-    if(input.generation!==generation || input.expected_revision!==taxonomyRevision) throw {code:'TAXONOMY_CONFLICT',message:'分类资料已变化，请重新加载。'};
+    if(previous) { if(previous!==fingerprint) throw {code:'REQUEST_CONFLICT',message:tr('请求内容不一致。')}; return taxonomySnapshot(); }
+    if(input.generation!==generation || input.expected_revision!==taxonomyRevision) throw {code:'TAXONOMY_CONFLICT',message:tr('分类资料已变化，请重新加载。')};
     taxonomySnapshot(); catalog=applyPreviewCommand(catalog,input.command,crypto.randomUUID());
     for(const r of records) { const ref=catalog.assets.find(a=>a.id===r.asset.id)!; const next={category_id:ref.categoryId,channel_id:ref.channelId}; if(JSON.stringify(r.classification)!==JSON.stringify(next)) {r.classification=next;r.asset.revision++;} }
     taxonomyRevision++;taxonomyReceipts.set(input.request_id,fingerprint);return taxonomySnapshot();
   }
   if (command === 'tag_investment_view') {
-    if (params.get('tag-view') === 'error') throw { code: 'DATABASE', message: '虚构标签投入读取失败，用于重试验证。' };
+    if (params.get('tag-view') === 'error') throw { code: 'DATABASE', message: tr('虚构标签投入读取失败，用于重试验证。') };
     const { label_id, scope } = args.query as { label_id: string; scope: 'all' | 'held' };
-    if (!label_id || !/^[a-zA-Z0-9-]+$/.test(label_id)) throw { code: 'QUERY', message: '不支持的标签筛选' };
+    if (!label_id || !/^[a-zA-Z0-9-]+$/.test(label_id)) throw { code: 'QUERY', message: tr('不支持的标签筛选') };
     const label = namedChoices.label.find(l => l.id === label_id);
-    if (!label) throw { code: 'LABEL', message: '标签已不可用，请返回物品列表重新选择' };
+    if (!label) throw { code: 'LABEL', message: tr('标签已不可用，请返回物品列表重新选择') };
     const states = scope === 'held' ? ['active', 'retired'] : ['active', 'retired', 'sold'];
     const matched = records.filter(r => !r.deleted && states.includes(r.lifecycle?.state ?? 'active') && r.preferences?.label_id === label_id);
     const items = matched.filter(r => !r.preferences?.exclude.statistics).map(r => {
@@ -709,7 +710,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       matched: matched.length, included: items.length, excluded: matched.length - items.length,
       active: items.filter(i => i.lifecycle_state === 'active').length, retired: items.filter(i => i.lifecycle_state === 'retired').length, sold: items.filter(i => i.lifecycle_state === 'sold').length,
     };
-    const checked = (values: number[]) => { let total = 0; for (const v of values) { total += v; if (!Number.isSafeInteger(total)) throw { code: 'OVERFLOW', message: '金额超出范围' }; } return total; };
+    const checked = (values: number[]) => { let total = 0; for (const v of values) { total += v; if (!Number.isSafeInteger(total)) throw { code: 'OVERFLOW', message: tr('金额超出范围') }; } return total; };
     const knownPurchase = checked(items.map(i => Number(i.purchase_cents ?? 0)));
     const knownMaintenance = checked(items.map(i => Number(i.known_maintenance_cents)));
     const proceeds = checked(items.map(i => Number(i.sale_proceeds_cents)));
@@ -727,7 +728,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       }, items };
   }
   if (command === 'list_assets') {
-    if (params.get('state') === 'error') throw { message: '虚构加载失败，用于验证错误页面。' };
+    if (params.get('state') === 'error') throw { message: tr('虚构加载失败，用于验证错误页面。') };
     const query = args.query as Query;
     const labelName = (id: string | null | undefined) => namedChoices.label.find(l => l.id === id)?.name ?? '';
     let found=records.filter(r => r.deleted === (query.filter === 'deleted'));
@@ -769,20 +770,20 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     });
     return { generation, items: found.slice(query.offset,args.all ? undefined : query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
   }
-  if (command === 'read_asset') { if(params.get('replacement-read')==='error') throw {message:'虚构原物品读取失败'}; const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }
-  if (command === 'saved_request' && params.get('mobile-state') === 'unknown' && convertLost && !convertCheckFailed) { convertCheckFailed = true; throw new Error('虚构回执暂不可用。'); }
+  if (command === 'read_asset') { if(params.get('replacement-read')==='error') throw {message:tr('虚构原物品读取失败')}; const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }
+  if (command === 'saved_request' && params.get('mobile-state') === 'unknown' && convertLost && !convertCheckFailed) { convertCheckFailed = true; throw new Error(tr('虚构回执暂不可用。')); }
   if (command === 'saved_request') {
     const request=String(args.request);
-    if(lostMaintenanceReceipts.delete(request)) throw {message:'模拟首次回执查询失败。'};
+    if(lostMaintenanceReceipts.delete(request)) throw {message:tr('模拟首次回执查询失败。')};
     if(params.has('pending-receipt') && request==='request-stable') return structuredClone(records[0] ?? null);
     return structuredClone(requests.get(request) ?? null);
   }
   if (command === 'saved_record_trash_request') {
     const input = args.input as RecordTrashChange;
-    if (input.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if (input.generation !== generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const prior = recordTrashReceipts.get(input.request_id);
-    if (!prior && requests.has(input.request_id)) throw {code:'REQUEST_CONFLICT',message:'请求标识已用于其他操作。'};
-    if (prior && prior !== JSON.stringify(input)) throw {code:'REQUEST_CONFLICT',message:'请求内容不一致。'};
+    if (!prior && requests.has(input.request_id)) throw {code:'REQUEST_CONFLICT',message:tr('请求标识已用于其他操作。')};
+    if (prior && prior !== JSON.stringify(input)) throw {code:'REQUEST_CONFLICT',message:tr('请求内容不一致。')};
     if (!prior) return null;
     const record = records.find(r => r.asset.id === input.asset_id);
     return record ? previewRecord(record) : null;
@@ -790,19 +791,19 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   if (command === 'trash_request') return structuredClone(requests.get(String(args.request)) ?? null);
   // 手机心愿：记录购入一次完成物品与心愿（预览用 save_asset 建物品，再把心愿记为已购入）；?mobile-state=unknown 时第一次回复丢失、第一次核对失败。
   if (command === 'convert_wishlist') {
-    if (params.get('mobile-state') === 'save-error') throw { message: '虚构保存失败，请核对输入后重试。' };
+    if (params.get('mobile-state') === 'save-error') throw { message: tr('虚构保存失败，请核对输入后重试。') };
     const input = args.input as { wishlist_id: string; expected_revision: number; asset: SaveAsset };
     const record = await handle('save_asset', { input: input.asset }) as AssetRecord;
     previewMarkWishPurchased(input.wishlist_id, input.expected_revision, record.asset, input.asset.base.request_id);
-    if (params.get('mobile-state') === 'unknown' && !convertLost) { convertLost = true; throw new Error('虚构保存响应丢失。'); }
+    if (params.get('mobile-state') === 'unknown' && !convertLost) { convertLost = true; throw new Error(tr('虚构保存响应丢失。')); }
     return record;
   }
   if (command === 'save_asset') {
-    if(params.get('state')==='save-error') throw {message:'模拟保存失败，输入应保留。'};
+    if(params.get('state')==='save-error') throw {message:tr('模拟保存失败，输入应保留。')};
     const input=args.input as SaveAsset;
     const old=records.find(r=>r.asset.id===input.base.asset_id);
-    if(old?.sale && input.base.purchase_date && input.base.purchase_date>old.sale.fields.date) throw {code:'DATE_CONFLICT',message:'购入日期晚于有效售出记录。'};
-    if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:'购入日期晚于已有状态记录，请先更正相关动作日期。'};
+    if(old?.sale && input.base.purchase_date && input.base.purchase_date>old.sale.fields.date) throw {code:'DATE_CONFLICT',message:tr('购入日期晚于有效售出记录。')};
+    if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:tr('购入日期晚于已有状态记录，请先更正相关动作日期。')};
     const id=old?.asset.id ?? crypto.randomUUID();
     const record:AssetRecord={preferences:input.options?.preferences??old?.preferences,sale:old?.sale??null,maintenances:old?.maintenances??[],warranties:old?.warranties??[],warranty_summary:old?.warranty_summary??{...emptyWarrantySummary},costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:previewPhotoName(photoId)})),cover_id:input.photos?.cover_id??null};
     taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); previewStarted = true; return previewRecord(record);
@@ -811,7 +812,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   if (command === 'change_trash') {
     const input = args.input as TrashChange;
     const record = records.find(r => r.asset.id === input.asset_id);
-    if (!record) throw {message:'虚构记录不存在。'};
+    if (!record) throw {message:tr('虚构记录不存在。')};
     taxonomyRevision++; record.deleted = input.deleted;
     record.deleted_at = input.deleted ? new Date().toISOString() : null;
     record.asset.revision += 1;
@@ -850,36 +851,36 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'change_record_trash') {
     const input = args.input as RecordTrashChange;
-    if (input.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if (input.generation !== generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const prior = recordTrashReceipts.get(input.request_id);
-    if (prior && prior !== JSON.stringify(input)) throw {code:'REQUEST_CONFLICT',message:'请求内容不一致。'};
-    if (!prior && requests.has(input.request_id)) throw {code:'REQUEST_CONFLICT',message:'请求标识已用于其他操作。'};
+    if (prior && prior !== JSON.stringify(input)) throw {code:'REQUEST_CONFLICT',message:tr('请求内容不一致。')};
+    if (!prior && requests.has(input.request_id)) throw {code:'REQUEST_CONFLICT',message:tr('请求标识已用于其他操作。')};
     const record = records.find(r => r.asset.id === input.asset_id);
-    if (!record) throw {code:'NOT_FOUND',message:'找不到所属物品。'};
+    if (!record) throw {code:'NOT_FOUND',message:tr('找不到所属物品。')};
     if (prior) return previewRecord(record);
-    if (record.deleted) throw {code:'PARENT_DELETED',message:'所属物品还在最近删除中。请先恢复所属物品，再处理这条记录。'};
-    if (record.asset.revision !== input.expected_revision) throw {code:'REVISION_CONFLICT',message:'所属物品已更改，请重新读取后再决定。'};
+    if (record.deleted) throw {code:'PARENT_DELETED',message:tr('所属物品还在最近删除中。请先恢复所属物品，再处理这条记录。')};
+    if (record.asset.revision !== input.expected_revision) throw {code:'REVISION_CONFLICT',message:tr('所属物品已更改，请重新读取后再决定。')};
     if (input.kind === 'maintenance') {
       if (input.deleted) {
         const item = record.maintenances.find(m => m.id === input.record_id);
-        if (!item) throw {code:'REVISION_CONFLICT',message:'维护记录状态已变化，请重新读取后再决定。'};
+        if (!item) throw {code:'REVISION_CONFLICT',message:tr('维护记录状态已变化，请重新读取后再决定。')};
         record.maintenances = record.maintenances.filter(m => m.id !== input.record_id);
         deletedMaintenances.push({ id: item.id, assetId: record.asset.id, deleted_at: new Date().toISOString(), snapshot: structuredClone(item) });
       } else {
         const index = deletedMaintenances.findIndex(e => e.id === input.record_id && e.assetId === record.asset.id);
-        if (index === -1) throw {code:'REVISION_CONFLICT',message:'维护记录状态已变化，请重新读取后再决定。'};
+        if (index === -1) throw {code:'REVISION_CONFLICT',message:tr('维护记录状态已变化，请重新读取后再决定。')};
         const [entry] = deletedMaintenances.splice(index, 1);
         record.maintenances = [...record.maintenances, structuredClone(entry.snapshot)];
       }
     } else {
       if (input.deleted) {
         const item = (record.warranties ?? []).find(w => w.id === input.record_id);
-        if (!item) throw {code:'REVISION_CONFLICT',message:'保障记录状态已变化，请重新读取后再决定。'};
+        if (!item) throw {code:'REVISION_CONFLICT',message:tr('保障记录状态已变化，请重新读取后再决定。')};
         record.warranties = (record.warranties ?? []).filter(w => w.id !== input.record_id);
         deletedWarranties.push({ id: item.id, assetId: record.asset.id, deleted_at: new Date().toISOString(), snapshot: structuredClone(item) });
       } else {
         const index = deletedWarranties.findIndex(e => e.id === input.record_id && e.assetId === record.asset.id);
-        if (index === -1) throw {code:'REVISION_CONFLICT',message:'保障记录状态已变化，请重新读取后再决定。'};
+        if (index === -1) throw {code:'REVISION_CONFLICT',message:tr('保障记录状态已变化，请重新读取后再决定。')};
         const [entry] = deletedWarranties.splice(index, 1);
         record.warranties = [...(record.warranties ?? []), structuredClone(entry.snapshot)];
       }
@@ -888,19 +889,19 @@ export async function handle(command: string, payload: unknown): Promise<unknown
     requests.set(input.request_id, previewRecord(record));
     recordTrashReceipts.set(input.request_id, JSON.stringify(input));
     // Simulates a lost response after commit so the pending/核对 flow is demoable.
-    if (params.has('record-trash-lost')) throw {message:'模拟记录删除响应丢失。'};
+    if (params.has('record-trash-lost')) throw {message:tr('模拟记录删除响应丢失。')};
     return previewRecord(record);
   }
   if (command === 'change_lifecycle') {
     const input=args.input as LifecycleChange;
-    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const record=records.find(r=>r.asset.id===input.asset_id);
-    if(!record) throw {message:'找不到虚构记录。'};
+    if(!record) throw {message:tr('找不到虚构记录。')};
     if(requests.has(input.request_id)) return previewRecord(record);
-    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请重新读取。'};
+    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:tr('资料已更改，请重新读取。')};
     const error=input.action.type==='revoke'?revokeError(record,input.action.event_id):lifecycleError(record,input.action,localDay());
     if(error) throw {code:'DATE_CONFLICT',message:error};
-    if(params.get('state')==='save-error') throw {message:'模拟状态保存失败，输入应保留。'};
+    if(params.get('state')==='save-error') throw {message:tr('模拟状态保存失败，输入应保留。')};
     const life=record.lifecycle??{state:'active',events:[]}; const action=input.action;
     if(action.type==='revoke') {life.events.pop();life.state=life.events.at(-1)?.kind==='retire'?'retired':'active';}
     else if(action.type==='append') {life.events.push({id:crypto.randomUUID(),sequence:life.events.length+1,kind:action.kind,date:action.date,notes:action.notes});life.state=action.kind==='retire'?'retired':'active';}
@@ -909,19 +910,19 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'change_sale') {
     const input=args.input as SaleChange;
-    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const record=records.find(r=>r.asset.id===input.asset_id);
-    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:'档案已删除或不可用。'};
+    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:tr('档案已删除或不可用。')};
     if(requests.has(input.request_id)) return previewRecord(record);
-    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请读取最新状态。'};
-    if(params.get('state')==='save-error') throw {message:'模拟售出保存失败，输入应保留。'};
+    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:tr('资料已更改，请读取最新状态。')};
+    if(params.get('state')==='save-error') throw {message:tr('模拟售出保存失败，输入应保留。')};
     const action=input.action;
     if(action.type==='sell') {
-      if(record.sale || record.lifecycle?.state==='sold') throw {code:'STATE_CONFLICT',message:'已经售出。'};
+      if(record.sale || record.lifecycle?.state==='sold') throw {code:'STATE_CONFLICT',message:tr('已经售出。')};
       record.sale={id:crypto.randomUUID(),previous_state:record.lifecycle?.state??'active',fields:structuredClone(action.fields)} as Sale;
       record.lifecycle={...(record.lifecycle??{events:[]}),state:'sold'};
     } else {
-      if(!record.sale || record.sale.id!==action.sale_id) throw {code:'STATE_CONFLICT',message:'售出已变化。'};
+      if(!record.sale || record.sale.id!==action.sale_id) throw {code:'STATE_CONFLICT',message:tr('售出已变化。')};
       if(action.type==='correct') record.sale.fields=structuredClone(action.fields);
       else {record.lifecycle={...(record.lifecycle??{events:[]}),state:record.sale.previous_state};record.sale=null;}
     }
@@ -929,32 +930,32 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'change_maintenance') {
     const input=args.input as MaintenanceChange;
-    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const record=records.find(r=>r.asset.id===input.asset_id);
-    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:'档案已删除或不可用。'};
+    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:tr('档案已删除或不可用。')};
     if(requests.has(input.request_id)) return previewRecord(record);
-    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请读取最新状态。'};
+    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:tr('资料已更改，请读取最新状态。')};
     const action=input.action;
     if(action.type==='add') {
       const maintenance:Maintenance={id:crypto.randomUUID(),fields:structuredClone(action.fields),photos:action.photos.ids.map(id=>({id,name:'虚构维护附件'})),created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
       record.maintenances=[...(record.maintenances??[]),maintenance];
     } else {
       const maintenance=record.maintenances?.find(item=>item.id===action.maintenance_id);
-      if(!maintenance) throw {code:'STATE_CONFLICT',message:'维护记录已变化。'};
+      if(!maintenance) throw {code:'STATE_CONFLICT',message:tr('维护记录已变化。')};
       maintenance.fields=structuredClone(action.fields);maintenance.photos=action.photos.ids.map(id=>({id,name:'虚构维护附件'}));maintenance.updated_at=new Date().toISOString();
     }
     record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));
-    if(action.fields.title==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:'模拟响应丢失。'};}
+    if(action.fields.title==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:tr('模拟响应丢失。')};}
     return previewRecord(record);
   }
   if (command === 'change_warranty') {
     const input=args.input as WarrantyChange;
-    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const record=records.find(r=>r.asset.id===input.asset_id);
-    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:'档案已删除或不可用。'};
+    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:tr('档案已删除或不可用。')};
     if(requests.has(input.request_id)) return previewRecord(record);
-    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请读取最新状态。'};
-    if(params.get('state')==='save-error') throw {message:'模拟保障保存失败，输入应保留。'};
+    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:tr('资料已更改，请读取最新状态。')};
+    if(params.get('state')==='save-error') throw {message:tr('模拟保障保存失败，输入应保留。')};
     const action=input.action;
     const now=new Date().toISOString();
     if(action.type==='add') {
@@ -962,24 +963,24 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       record.warranties=[...(record.warranties??[]),warranty];
     } else {
       const warranty=record.warranties?.find(item=>item.id===action.warranty_id);
-      if(!warranty) throw {code:'STATE_CONFLICT',message:'保障记录已变化。'};
+      if(!warranty) throw {code:'STATE_CONFLICT',message:tr('保障记录已变化。')};
       warranty.fields=structuredClone(action.fields);warranty.photos=action.photos.ids.map(id=>({id,name:'虚构保障附件'}));warranty.updated_at=now;
     }
     record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));
-    if(action.fields.notes==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:'模拟响应丢失。'};}
+    if(action.fields.notes==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:tr('模拟响应丢失。')};}
     return previewRecord(record);
   }
   if (command === 'photo_preview') {
-    if(params.has('missing-maintenance-photo') && String(args.id)==='maintenance-photo-fixture') throw {code:'PHOTO_MISSING',message:'模拟维护原图缺失。'};
+    if(params.has('missing-maintenance-photo') && String(args.id)==='maintenance-photo-fixture') throw {code:'PHOTO_MISSING',message:tr('模拟维护原图缺失。')};
     return imageBytes(String(args.id));
   }
   if (command === 'list_materials') return previewMaterials().map(({id,name,builtin}) => ({id,name,builtin}));
   if (command === 'material_upload_result') {
-    if(args.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if(args.generation!==generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     return userMaterials.find(m=>m.id===args.request) ?? null;
   }
   if (command === 'add_material') {
-    if(args.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if(args.generation!==generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const saved = userMaterials.find(m=>m.id===args.request); if(saved) return saved;
     // The real upload opens a native picker; the preview adds a fixture art
     // entry so the library flow stays demonstrable in the browser.
@@ -994,36 +995,36 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   }
   if (command === 'material_preview') {
     const found = previewMaterials().find(m => m.id === String(args.id));
-    if(!found) throw {code:'MATERIAL',message:'未知素材。'};
+    if(!found) throw {code:'MATERIAL',message:tr('未知素材。')};
     return imageBytes(found.art);
   }
   if (command === 'prepare_material') {
     // In-memory stand-in for native staging; it cannot prove native durability.
     const input = args.input as {id: string; generation: string};
-    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换，请重新打开档案。'};
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:tr('资料已切换，请重新打开档案。')};
     const material = previewMaterials().find(m => m.id === input.id);
-    if(!material) throw {code:'MATERIAL',message:'未知素材，请重新选择。'};
-    if(params.has('material-error')) throw {message:'模拟素材准备失败，输入应保留'};
+    if(!material) throw {code:'MATERIAL',message:tr('未知素材，请重新选择。')};
+    if(params.has('material-error')) throw {message:tr('模拟素材准备失败，输入应保留')};
     const id = `material-${material.id}-${++materialSequence}`;
     stagedMaterials.set(id, { art: material.art, name: material.builtin ? materialPhotoName(materialOf(material.id)!) : material.name });
     return {id, name: stagedMaterials.get(id)!.name};
   }
   if (command === 'import_photo_bytes') {
-    if (args.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    if (args.generation !== generation) throw {code:'STALE_DATASET',message:tr('资料已切换。')};
     const id = `uploaded-${++materialSequence}`;
     stagedMaterials.set(id,{art:id,name:String(args.name)});
     images.set(id,Promise.resolve(new Uint8Array(args.bytes as number[]).buffer));
     return {id,name:String(args.name)};
   }
-  if (command === 'create_backup') return params.get('mobile-state') === 'save-error' ? (() => { throw {message:'备份文件无法写入，当前资料未改变。'}; })() : {name:'物谱备份-预览.thingary',folder:'/预览'};
+  if (command === 'create_backup') return params.get('mobile-state') === 'save-error' ? (() => { throw {message:tr('备份文件无法写入，当前资料未改变。')}; })() : {name:'物谱备份-预览.thingary',folder:'/预览'};
   if (command === 'privacy_auth_available') return true;
   if (command === 'privacy_authenticate') return null;
   if (command === 'export_workbook') return {path:'/tmp/物谱表格.xlsx',files:[{name:'物品',rows:8},{name:'账户',rows:4},{name:'完整盘点',rows:8},{name:'月度收入',rows:3},{name:'盘点记录',rows:8},{name:'重要支出',rows:2},{name:'周期费用',rows:2}]};
   if (command === 'save_spreadsheet_template') return '/Users/demo/Downloads/物谱导入模板.xlsx';
   if (command === 'inspect_item_workbook') return {path:'/tmp/旧表格.xlsx',name:'旧表格.xlsx',preview:{hash:'h',valid:12,invalid:[{line:5,name:'台灯',reason:'金额「约100」须为不小于 0 的数字，最多两位小数'},{line:9,name:'',reason:'名称须为 1–200 字'}],duplicates:[{line:3,name:'降噪耳机',reason:'名称、购入日期和购入价与已有物品相同'}],new_categories:['乐器'],new_channels:['闲鱼']}};
-  if (command === 'commit_item_workbook') throw {message:'导入请在原生 App 验证。'};
+  if (command === 'commit_item_workbook') throw {message:tr('导入请在原生 App 验证。')};
   if (command === 'item_import_receipt') return null;
-  if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};
+  if (command === 'pick_photo') throw {message:tr('图片选择请在原生 App 中验证，此页面仅使用虚构示意图。')};
   if (['set_appearance','set_editing','set_library_busy','finish_close','set_page_menu'].includes(command)) return null;
   throw {message:'此操作需在原生 App 验证：'+command};
 }

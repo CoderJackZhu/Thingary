@@ -3,6 +3,7 @@ import { buildBasicCapabilities } from './plan-basic.ts';
 import { defaultRetire } from './plan.ts';
 import { emptyCore } from './plan-core.ts';
 import type { BasicFields, ProfileUpdate, PlanningSources, BasicCapabilities } from './plan-basic-contract.ts';
+import { t } from './i18n.ts';
 export const unknownBasicUpdate = {
   "request_id": "10000000-0000-4000-8000-000000000001",
   "generation": "fictional-generation",
@@ -45,9 +46,9 @@ export function basicFixtureSources(fields: BasicFields = basicInputFixtures.unk
  const generation = 'fictional-generation', { inflation_hundredths, monetary_basis_date, ...general } = fields;
  return { generation, write_version:1, today:'2026-10-12', modules:{planning:true,wealth:false},
  profile:{status:'ready',value:{generation,saved:{revision:1,updated_at:'2026-10-12T00:00:00Z',profile:{assumptions:{inflation_hundredths},retire:{...structuredClone(defaultRetire),...structuredClone(general),setup_completed:true,core:emptyCore(monetary_basis_date),simplified:{contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-05'},income_mode:'excluded',future_incomes:[],household: { mode: 'single', partner: null } }}}}}},
- snapshot:{status:'ready',value:null},accounts:{status:'ready',value:[]},incomes:{status:'ready',value:[]},review:{status:'error',value:{code:'FICTIONAL',message:'虚构历史未知'}} };
+ snapshot:{status:'ready',value:null},accounts:{status:'ready',value:[]},incomes:{status:'ready',value:[]},review:{status:'error',value:{code:'FICTIONAL',message:t('虚构历史未知')}} };
 }
 export const unknownCapabilityFixture = buildBasicCapabilities(basicFixtureSources());
 export const predictionCapabilityFixture = buildBasicCapabilities(basicFixtureSources(basicInputFixtures.prediction));
 export const missingCostCapabilityFixture = buildBasicCapabilities(basicFixtureSources());
-export const localErrorFixture = {status:'blocked',missing:[{code:'SOURCE_ERROR',capability:'funds',owner:'service',field:'snapshot',kind:'read_error',message:'虚构读取失败'}]} satisfies BasicCapabilities['funds'];
+export const localErrorFixture = {status:'blocked',missing:[{code:'SOURCE_ERROR',capability:'funds',owner:'service',field:'snapshot',kind:'read_error',message:t('虚构读取失败')}]} satisfies BasicCapabilities['funds'];

@@ -1,4 +1,5 @@
 import type { Account, Pending } from './wealth.ts';
+import { t as tr } from './i18n.ts';
 export type FileKind = 'accounts' | 'snapshots' | 'incomes';
 export type ImportFile = { kind:FileKind; name:string; csv_text:string; column_mapping:Record<string,string>; row_numbers?:number[] };
 export type ImportAction = { action:'keep'|'correct'|'exclude'; expected_revision:number|null };
@@ -25,7 +26,7 @@ export function csvHeaders(text:string):string[] {
   else if((c==='\r'||c==='\n')&&!quoted){result.push(value);return result;}
   else value+=c;
  }
- if(quoted)throw new Error('表头引号未闭合，请修正 CSV。');
+ if(quoted)throw new Error(tr('表头引号未闭合，请修正 CSV。'));
  return text.length?[...result,value]:[];
 }
 export function replaceFile<T extends Pick<ImportBatch,'files'|'actions'|'page'>>(batch:T,file:ImportFile):T {
@@ -42,7 +43,7 @@ export function importMoney(cents:string|null):string {
  return `${value<0n?'−':''}¥${(abs/100n).toLocaleString('zh-CN')}.${(abs%100n).toString().padStart(2,'0')}`;
 }
 export function receiptMetadata(input:Pick<ImportCommit,'request_id'|'batch'>):Pending {
- return {command:'financial_import_commit',input:{request_id:input.request_id,generation:input.batch.generation},label:'金融历史导入'};
+ return {command:'financial_import_commit',input:{request_id:input.request_id,generation:input.batch.generation},label:tr('金融历史导入')};
 }
 /** Keep the selected stable ID visible even when it is outside the first search page. */
 export function mappingCandidates(accounts:Account[],search:string,selectedId:string|undefined,limit=100):Account[] {

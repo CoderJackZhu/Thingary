@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FollowupIssue, FollowupRead, FollowupWriteContext, PlanningFollowupPortV1, ReviewDraftV1, ReviewPairV1, ReviewPreviewV1 } from '../planning-followup-contract.ts';
 import { reasonLabel, statusLabel } from '../investment-review/model.ts';
 import { centsFromYuanText, followupReasonText, formatCents, formatSignedCents, intervalLabel, yuanTextFromCents } from './model.ts';
-
+import { t as tr } from '../i18n.ts';
 type UIMode = 'manual' | 'movements';
 type UIDraft = { mode: UIMode; inflow: string; outflow: string; confirmed: boolean; unsupported: boolean; notes: string };
 
@@ -27,7 +27,7 @@ function NullableAmount({ label, hint, value, disabled, onChange }: { label: str
   const [raw, setRaw] = useState(() => yuanTextFromCents(value));
   useEffect(() => { if ((centsFromYuanText(raw) ?? null) !== value) setRaw(yuanTextFromCents(value)); }, [value]);
   return <label className="pfu-field-label">{label}
-    <input className="pfu-amount" aria-label={label} inputMode="decimal" placeholder="未知可先留空；零须显式填 0" disabled={disabled} value={raw}
+    <input className="pfu-amount" aria-label={label} inputMode="decimal" placeholder={tr('未知可先留空；零须显式填 0')} disabled={disabled} value={raw}
       onChange={e => { const cents = centsFromYuanText(e.target.value); if (cents === null) return; setRaw(e.target.value); onChange(cents); }}/>
     <small className="pfu-hint">{hint}</small>
   </label>;
@@ -38,14 +38,14 @@ function localIssues(d: UIDraft): FollowupIssue[] {
   if (d.mode === 'manual') {
     for (const [key, value] of [['inflow', d.inflow], ['outflow', d.outflow]] as const)
       if (value !== '' && (value === '0' ? false : !/^(0|[1-9][0-9]{0,17})$/.test(value)))
-        issues.push({ path: key, code: 'invalid_cents', message: '金额必须是规范的非负整数分。' });
+        issues.push({ path: key, code: 'invalid_cents', message: tr('金额必须是规范的非负整数分。') });
     if (d.confirmed && (d.inflow === '' || d.outflow === ''))
-      issues.push({ path: 'confirmed', code: 'confirmed_without_amount', message: '确认完整前需要两个明确的合计：未知请先留空并取消确认，零必须显式填 0。' });
+      issues.push({ path: 'confirmed', code: 'confirmed_without_amount', message: tr('确认完整前需要两个明确的合计：未知请先留空并取消确认，零必须显式填 0。') });
   }
   if (d.confirmed && d.unsupported)
-    issues.push({ path: 'confirmed', code: 'confirmed_with_unsupported', message: '存在未支持情形时不能确认简单损益完整，可保存备注后待复核。' });
+    issues.push({ path: 'confirmed', code: 'confirmed_with_unsupported', message: tr('存在未支持情形时不能确认简单损益完整，可保存备注后待复核。') });
   if ([...d.notes].length > 500)
-    issues.push({ path: 'notes', code: 'invalid_notes', message: '备注超过 500 字。' });
+    issues.push({ path: 'notes', code: 'invalid_notes', message: tr('备注超过 500 字。') });
   return issues;
 }
 
@@ -79,7 +79,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
   const reread = async () => {
     const next = await port.readReview(pair, generation);
     if (!mounted.current) return false;
-    if (next.status === 'ready' && next.value.preview.generation !== generation) { setRead({ status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请关闭后重新打开。' }); return false; }
+    if (next.status === 'ready' && next.value.preview.generation !== generation) { setRead({ status: 'error', code: 'GENERATION_MISMATCH', message: tr('资料库已变化，请关闭后重新打开。') }); return false; }
     setRead(next);
     if (next.status === 'ready') setDraft(draftOf(next.value.draft, next.value.preview.confirmation));
     return next.status === 'ready';
@@ -88,7 +88,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
     let live = true; setRead(null); setDraft(null); setIntent(null); setIssues([]); setNotice('');
     port.readReview(pair, generation).then(v => {
       if (!live) return;
-      if (v.status === 'ready' && v.value.preview.generation !== generation) { setRead({ status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请关闭后重新打开。' }); return; }
+      if (v.status === 'ready' && v.value.preview.generation !== generation) { setRead({ status: 'error', code: 'GENERATION_MISMATCH', message: tr('资料库已变化，请关闭后重新打开。') }); return; }
       setRead(v); if (v.status === 'ready') setDraft(draftOf(v.value.draft, v.value.preview.confirmation));
     }).catch(e => { if (live) setRead({ status: 'error', code: 'READ_ERROR', message: e instanceof Error ? e.message : String(e) }); });
     return () => { live = false; };
@@ -103,7 +103,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
     port.previewReview(pair, toDraft(candidate), generation).then(v => {
       if (!mounted.current) return;
       if (v.status === 'ready' && v.value.generation === generation) setIntent({ target, preview: v.value });
-      else setIssues([{ path: 'selection', code: v.status === 'error' ? v.code : 'PREVIEW_UNAVAILABLE', message: v.status === 'ready' ? '资料库已变化，请重试。' : v.status === 'error' ? v.message : v.message }]);
+      else setIssues([{ path: 'selection', code: v.status === 'error' ? v.code : 'PREVIEW_UNAVAILABLE', message: v.status === 'ready' ? tr('资料库已变化，请重试。') : v.status === 'error' ? v.message : v.message }]);
     }).catch(e => setIssues([{ path: 'selection', code: 'PREVIEW_ERROR', message: e instanceof Error ? e.message : String(e) }]))
       .finally(() => { if (mounted.current) setIntentBusy(false); });
   }
@@ -136,72 +136,72 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
   return <dialog ref={dialogRef} className="pfu-dialog pfu-review-dialog" aria-labelledby="pfu-review-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(phase === 'saved'); }}>
     <form noValidate onSubmit={e => { e.preventDefault(); if (draft) void saveDraft(draft); }}>
       <header className="pfu-dialog-head">
-        <div><p className="pfu-eyebrow">财富 · 财务复盘</p><h3 id="pfu-review-heading">核对区间资金</h3>
-          {preview && <p className="pfu-meta">区间 {intervalLabel(preview.input.from.date, preview.input.to.date)} · 投资范围 {preview.input.from.members.length} 个账户{preview.review_id !== null ? ` · 已有核对记录（${preview.saved_mode === 'movements' ? '明细汇总' : '手填合计'}）` : ' · 尚无核对记录'}</p>}</div>
-        <button type="button" className="pfu-close" aria-label="关闭区间核对" disabled={busy} onClick={() => onClose(phase === 'saved')}>×</button>
+        <div><p className="pfu-eyebrow">{tr('财富 · 财务复盘')}</p><h3 id="pfu-review-heading">{tr('核对区间资金')}</h3>
+          {preview && <p className="pfu-meta">{tr('区间 {v1} · 投资范围 {length} 个账户', { v1: intervalLabel(preview.input.from.date, preview.input.to.date), length: preview.input.from.members.length })}{preview.review_id !== null ? tr(' · 已有核对记录（{v1}）', { v1: preview.saved_mode === 'movements' ? '明细汇总' : '手填合计' }) : tr(' · 尚无核对记录')}</p>}</div>
+        <button type="button" className="pfu-close" aria-label={tr('关闭区间核对')} disabled={busy} onClick={() => onClose(phase === 'saved')}>×</button>
       </header>
-      {!read ? <p className="pfu-state" role="status">正在读取核对方式…</p>
-        : read.status === 'disabled' ? <div className="pfu-state pfu-error" role="status"><h4>区间核对暂不可用</h4><p>{read.message}</p></div>
-        : read.status === 'error' ? <div className="pfu-state pfu-error" role="alert"><h4>核对资料读取失败</h4><p>{read.message}</p><button type="button" className="pfu-btn" disabled={busy} onClick={() => setRetry(n => n + 1)}>重新读取</button></div>
+      {!read ? <p className="pfu-state" role="status">{tr('正在读取核对方式…')}</p>
+        : read.status === 'disabled' ? <div className="pfu-state pfu-error" role="status"><h4>{tr('区间核对暂不可用')}</h4><p>{read.message}</p></div>
+        : read.status === 'error' ? <div className="pfu-state pfu-error" role="alert"><h4>{tr('核对资料读取失败')}</h4><p>{read.message}</p><button type="button" className="pfu-btn" disabled={busy} onClick={() => setRetry(n => n + 1)}>{tr('重新读取')}</button></div>
         : draft && preview && <>
           <p className={`pfu-confirm ${preview.confirmation}`} role="note">{confirmationChip(preview)}</p>
-          <fieldset className="pfu-mode"><legend>核对方式（合计与明细二选一，不相加）</legend>
-            <div className="pfu-segments" role="group" aria-label="核对方式">
-              <button type="button" aria-pressed={draft.mode === 'manual'} disabled={frozen || intent !== null} onClick={() => switchMode('manual')}>手填合计</button>
-              <button type="button" aria-pressed={draft.mode === 'movements'} disabled={frozen || intent !== null || !movementsEnabled} onClick={() => switchMode('movements')}>由资金流动明细汇总</button>
+          <fieldset className="pfu-mode"><legend>{tr('核对方式（合计与明细二选一，不相加）')}</legend>
+            <div className="pfu-segments" role="group" aria-label={tr('核对方式')}>
+              <button type="button" aria-pressed={draft.mode === 'manual'} disabled={frozen || intent !== null} onClick={() => switchMode('manual')}>{tr('手填合计')}</button>
+              <button type="button" aria-pressed={draft.mode === 'movements'} disabled={frozen || intent !== null || !movementsEnabled} onClick={() => switchMode('movements')}>{tr('由资金流动明细汇总')}</button>
             </div>
-            {!movementsEnabled && <p role="status">资金流动记录已关闭；明细模式保留但暂不可用，可明确切换到手填合计。</p>}
+            {!movementsEnabled && <p role="status">{tr('资金流动记录已关闭；明细模式保留但暂不可用，可明确切换到手填合计。')}</p>}
             {draft.mode === 'manual' ? <>
-              <NullableAmount label="期间从范围外转入的资金合计（元）" hint="不含已留在范围内的利息／分红；本人投资账户之间互转在组合内抵消，不填入。" value={draft.inflow} disabled={frozen} onChange={v => patch({ inflow: v })}/>
-              <NullableAmount label="期间转到范围外的资金合计（元）" hint="包含取回资金及转出的现金收益；不含应计入损益的投资手续费／税费。" value={draft.outflow} disabled={frozen} onChange={v => patch({ outflow: v })}/>
-              <p className="pfu-muted small">明细只作旁证，不会自动修改这里的合计；新增相关明细后需要重新核对。</p>
+              <NullableAmount label={tr('期间从范围外转入的资金合计（元）')} hint={tr('不含已留在范围内的利息／分红；本人投资账户之间互转在组合内抵消，不填入。')} value={draft.inflow} disabled={frozen} onChange={v => patch({ inflow: v })}/>
+              <NullableAmount label={tr('期间转到范围外的资金合计（元）')} hint={tr('包含取回资金及转出的现金收益；不含应计入损益的投资手续费／税费。')} value={draft.outflow} disabled={frozen} onChange={v => patch({ outflow: v })}/>
+              <p className="pfu-muted small">{tr('明细只作旁证，不会自动修改这里的合计；新增相关明细后需要重新核对。')}</p>
             </> : <>
               <dl className="pfu-totals">
-                <div><dt>明细汇总合计（只读）</dt><dd>{totals(preview.selected_totals) ?? '暂不可用（未读取合计）'}</dd></div>
-                <div><dt>纳入流动条数</dt><dd>{preview.movement_count === null ? '暂不可用（未读取明细）' : `${preview.movement_count} 条`}</dd></div>
+                <div><dt>{tr('明细汇总合计（只读）')}</dt><dd>{totals(preview.selected_totals) ?? tr('暂不可用（未读取合计）')}</dd></div>
+                <div><dt>{tr('纳入流动条数')}</dt><dd>{preview.movement_count === null ? tr('暂不可用（未读取明细）') : tr('{movement_count} 条', { movement_count: preview.movement_count })}</dd></div>
               </dl>
-              <p className="pfu-muted small">合计按日期与投资范围从资金流动汇总，仅供查看；明细模式不再叠加手填数字。没有明细不能证明没有流动，空明细须明确确认后才能按 0／0 核对。</p>
+              <p className="pfu-muted small">{tr('合计按日期与投资范围从资金流动汇总，仅供查看；明细模式不再叠加手填数字。没有明细不能证明没有流动，空明细须明确确认后才能按 0／0 核对。')}</p>
             </>}
             <label className="pfu-choice"><input type="checkbox" disabled={frozen} checked={draft.unsupported} onChange={e => patch({ unsupported: e.target.checked, confirmed: false })}/>
-              <span>期间有证券实物转入转出、杠杆借款或未解释的余额调整<small className="pfu-muted">（勾选后不能确认简单损益完整）</small></span></label>
+              <span>{tr('期间有证券实物转入转出、杠杆借款或未解释的余额调整')}<small className="pfu-muted">{tr('（勾选后不能确认简单损益完整）')}</small></span></label>
             <label className="pfu-choice"><input type="checkbox" disabled={frozen || draft.unsupported || draft.mode === 'movements' && !movementsEnabled} checked={draft.confirmed && !draft.unsupported} onChange={e => patch({ confirmed: e.target.checked })}/>
-              <span>已核对本区间相关资金流动全部记全<small className="pfu-muted">（0／0 也必须经此确认；未确认只显示余额变化，不显示投资损益）</small></span></label>
-            <label className="pfu-field-label">备注（选填）<textarea aria-label="核对备注" rows={2} disabled={frozen} value={draft.notes} onChange={e => patch({ notes: e.target.value })}/></label>
+              <span>{tr('已核对本区间相关资金流动全部记全')}<small className="pfu-muted">{tr('（0／0 也必须经此确认；未确认只显示余额变化，不显示投资损益）')}</small></span></label>
+            <label className="pfu-field-label">{tr('备注（选填）')}<textarea aria-label={tr('核对备注')} rows={2} disabled={frozen} value={draft.notes} onChange={e => patch({ notes: e.target.value })}/></label>
           </fieldset>
           {intent && <div className="pfu-switch-preview" role="alert">
-            <h4>切换核对方式前请核对差额</h4>
-            <p>将从「{intent.target === 'manual' ? '明细汇总' : '手填合计'}」改为「{intent.target === 'manual' ? '手填合计' : '明细汇总'}」；原合计保留审计，不按差额自动生成流动。</p>
+            <h4>{tr('切换核对方式前请核对差额')}</h4>
+            <p>{tr('将从「')}{intent.target === 'manual' ? tr('明细汇总') : tr('手填合计')}{tr('」改为「')}{intent.target === 'manual' ? tr('手填合计') : tr('明细汇总')}{tr('」；原合计保留审计，不按差额自动生成流动。')}</p>
             <dl className="pfu-totals">
-              <div><dt>原合计（已保存）</dt><dd>{totals(intent.preview.previous_totals) ?? '无历史核对'}</dd></div>
-              <div><dt>新合计（切换后）</dt><dd>{totals(intent.preview.selected_totals) ?? '暂不可用（未读取合计）'}</dd></div>
-              <div><dt>差额（新 − 旧）</dt><dd>{intent.preview.difference.inflow_cents === null || intent.preview.difference.outflow_cents === null ? '未知（存在未知合计）' : `转入 ${formatSignedCents(intent.preview.difference.inflow_cents)} · 转出 ${formatSignedCents(intent.preview.difference.outflow_cents)}`}</dd></div>
-              <div><dt>纳入流动条数</dt><dd>{intent.preview.movement_count === null ? '暂不可用（未读取明细）' : `${intent.preview.movement_count} 条`}</dd></div>
+              <div><dt>{tr('原合计（已保存）')}</dt><dd>{totals(intent.preview.previous_totals) ?? tr('无历史核对')}</dd></div>
+              <div><dt>{tr('新合计（切换后）')}</dt><dd>{totals(intent.preview.selected_totals) ?? tr('暂不可用（未读取合计）')}</dd></div>
+              <div><dt>{tr('差额（新 − 旧）')}</dt><dd>{intent.preview.difference.inflow_cents === null || intent.preview.difference.outflow_cents === null ? tr('未知（存在未知合计）') : tr('转入 {v1} · 转出 {v2}', { v1: formatSignedCents(intent.preview.difference.inflow_cents), v2: formatSignedCents(intent.preview.difference.outflow_cents) })}</dd></div>
+              <div><dt>{tr('纳入流动条数')}</dt><dd>{intent.preview.movement_count === null ? tr('暂不可用（未读取明细）') : tr('{movement_count} 条', { movement_count: intent.preview.movement_count })}</dd></div>
             </dl>
-            <p role="status">切换后结果：{intent.preview.result.status === 'ready' ? formatSignedCents(intent.preview.result.value.profit_cents) : statusLabel[intent.preview.result.status]}</p>
-            <p className="pfu-muted small">切换后完整性确认会重置，需要重新确认；受影响结果以预览为准，保存时会检查依据是否变化。</p>
+            <p role="status">{tr('切换后结果：')}{intent.preview.result.status === 'ready' ? formatSignedCents(intent.preview.result.value.profit_cents) : statusLabel[intent.preview.result.status]}</p>
+            <p className="pfu-muted small">{tr('切换后完整性确认会重置，需要重新确认；受影响结果以预览为准，保存时会检查依据是否变化。')}</p>
             <div className="pfu-actions-row">
-              <button type="button" className="pfu-btn" disabled={busy} onClick={() => setIntent(null)}>取消（不切换）</button>
-              <button type="button" className="pfu-btn pfu-primary" disabled={busy} onClick={() => { const next = { ...draft, mode: intent.target, confirmed: false }; setDraft(next); setIntent(null); }}>确认切换（保存前需重新核对）</button>
+              <button type="button" className="pfu-btn" disabled={busy} onClick={() => setIntent(null)}>{tr('取消（不切换）')}</button>
+              <button type="button" className="pfu-btn pfu-primary" disabled={busy} onClick={() => { const next = { ...draft, mode: intent.target, confirmed: false }; setDraft(next); setIntent(null); }}>{tr('确认切换（保存前需重新核对）')}</button>
             </div>
           </div>}
-          {result && <details className="pfu-result" open><summary>核对预览（按当前表单与读取到的事实；不是已保存结果）</summary>
+          {result && <details className="pfu-result" open><summary>{tr('核对预览（按当前表单与读取到的事实；不是已保存结果）')}</summary>
             {result.status === 'ready' ? <dl className="pfu-totals">
               <div><dt>{statusLabel.ready}</dt><dd><strong>{formatSignedCents(result.value.profit_cents)}</strong></dd></div>
-              <div><dt>余额变化</dt><dd>{formatSignedCents(result.value.change_cents)}</dd></div>
-              <div><dt>计算式</dt><dd>期末 − 期初 − 转入 + 转出</dd></div>
+              <div><dt>{tr('余额变化')}</dt><dd>{formatSignedCents(result.value.change_cents)}</dd></div>
+              <div><dt>{tr('计算式')}</dt><dd>{tr('期末 − 期初 − 转入 + 转出')}</dd></div>
             </dl> : <p><span className="pfu-tag warn">{statusLabel[result.status]}</span> {result.status === 'invalid' ? result.issues.map(i => i.message).join('；') : result.reasons.map(r => reasonLabel[r] ?? r).join('；')}</p>}
             {preview.reasons.length > 0 && <ul className="pfu-reasons">{preview.reasons.map(i => <li key={i.path + i.code}>{followupReasonText[i.code] ?? i.message}</li>)}</ul>}
-            <p className="pfu-muted small">例：投资账户赚 5000、转出 8000，余额减少 3000——损益 +5000，提款不等于消费；直接从投资账户支付生活费属于投资范围流出。范围外账户另付的投资费用不自动计入所选组合净损益，结果未包含该成本。</p>
+            <p className="pfu-muted small">{tr('例：投资账户赚 5000、转出 8000，余额减少 3000——损益 +5000，提款不等于消费；直接从投资账户支付生活费属于投资范围流出。范围外账户另付的投资费用不自动计入所选组合净损益，结果未包含该成本。')}</p>
           </details>}
         </>}
       {issues.length > 0 && <div className="pfu-notice" role="alert" ref={issueRef} tabIndex={-1}>{issues.map(i => <p key={i.path + i.code}>{i.path ? `${i.path}：` : ''}{i.message}</p>)}</div>}
-      {previewError && <p className="pfu-notice" role="alert">预览失败：{previewError}。请关闭后重新读取。</p>}
-      {draft && !previewReady && !previewError && <p role="status">正在更新核对预览…</p>}
+      {previewError && <p className="pfu-notice" role="alert">{tr('预览失败：{previewError}。请关闭后重新读取。', { previewError })}</p>}
+      {draft && !previewReady && !previewError && <p role="status">{tr('正在更新核对预览…')}</p>}
       {notice && <p className="pfu-notice" role="status">{notice}</p>}
-      {phase === 'unresolved' && <p className="pfu-notice" role="status">提交结果未知，原请求已保留并冻结重复提交；请通过页面顶部的核对入口确认结果。<button type="button" className="pfu-btn" onClick={() => onClose(false)}>关闭，稍后核对</button></p>}
+      {phase === 'unresolved' && <p className="pfu-notice" role="status">{tr('提交结果未知，原请求已保留并冻结重复提交；请通过页面顶部的核对入口确认结果。')}<button type="button" className="pfu-btn" onClick={() => onClose(false)}>{tr('关闭，稍后核对')}</button></p>}
       {read?.status === 'ready' && draft && <footer className="pfu-dialog-foot">
-        <button type="button" className="pfu-btn" disabled={busy} onClick={() => onClose(phase === 'saved')}>{phase === 'saved' ? '关闭（已保存）' : phase === 'unresolved' ? '关闭（结果待核对）' : '取消（不保存本次修改）'}</button>
-        <button type="submit" className="pfu-btn pfu-primary" disabled={frozen || intent !== null || !previewReady || draft.mode === 'movements' && !movementsEnabled || result?.status === 'unavailable' || result?.status === 'invalid'}>{busy ? '保存中…' : '保存核对方式'}</button>
+        <button type="button" className="pfu-btn" disabled={busy} onClick={() => onClose(phase === 'saved')}>{phase === 'saved' ? tr('关闭（已保存）') : phase === 'unresolved' ? tr('关闭（结果待核对）') : tr('取消（不保存本次修改）')}</button>
+        <button type="submit" className="pfu-btn pfu-primary" disabled={frozen || intent !== null || !previewReady || draft.mode === 'movements' && !movementsEnabled || result?.status === 'unavailable' || result?.status === 'invalid'}>{busy ? tr('保存中…') : tr('保存核对方式')}</button>
       </footer>}
     </form>
   </dialog>;

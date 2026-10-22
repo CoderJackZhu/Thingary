@@ -6,7 +6,7 @@ import { linkMergeView } from './link';
 import type { MergeInput, MergePair, MergeView } from './link';
 import { intervalUnit } from './recurring';
 import { submit, Unresolved } from './wealth';
-
+import { t } from './i18n.ts';
 const KEY = 'thingary.merge-dismissed.v1';
 const pairKey = (p: MergePair) => `${p.asset_id}|${p.plan_id}`;
 function dismissed(): string[] { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]'); } catch { return []; } }
@@ -24,9 +24,9 @@ export function MergeNotice({ refresh, disabled, onDone }: { refresh: number; di
   const pairs = view?.pairs.filter(p => !skip.includes(pairKey(p))) ?? [];
   if (!view || !pairs.length) return null;
   return <>
-    <div className="notice" role="note">发现 {pairs.length} 对旧记录可能是同一个订阅（{pairs.map(p => p.plan_name).join('、')}）：升级前分别保存的服务档案和付款计划。
-      <button className="ui-link" disabled={disabled} onClick={() => setOpen(true)}>查看并合并…</button>
-      <button className="ui-link" onClick={() => { dismiss(pairs.map(pairKey)); setHidden(n => n + 1); }}>暂不处理</button></div>
+    <div className="notice" role="note">{t('发现 {length} 对旧记录可能是同一个订阅（', { length: pairs.length })}{pairs.map(p => p.plan_name).join('、')}{t('）：升级前分别保存的服务档案和付款计划。')}
+      <button className="ui-link" disabled={disabled} onClick={() => setOpen(true)}>{t('查看并合并…')}</button>
+      <button className="ui-link" onClick={() => { dismiss(pairs.map(pairKey)); setHidden(n => n + 1); }}>{t('暂不处理')}</button></div>
     {open && <MergeDialog generation={view.generation} pairs={pairs} onClose={saved => { setOpen(false); if (saved) setHidden(n => n + 1); }} onDone={onDone} />}
   </>;
 }
@@ -43,24 +43,24 @@ function MergeDialog({ generation, pairs, onClose, onDone }: { generation: strin
     setBusy(true); setNotice('');
     const input: MergeInput = { request_id: crypto.randomUUID(), generation, pairs: chosen.map(p => ({ asset_id: p.asset_id, asset_expected_revision: p.asset_revision, plan_id: p.plan_id, plan_expected_revision: p.plan_revision })) };
     try {
-      await submit({ command: 'link_merge', input, label: `合并 ${chosen.length} 个旧订阅` });
+      await submit({ command: 'link_merge', input, label: t('合并 {length} 个旧订阅', { length: chosen.length }) });
       onDone(`已合并 ${chosen.length} 个订阅；付款记录保持原样，没有新增或删除任何付款。`);
       onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog merge-dialog" aria-labelledby="merge-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="merge-title">合并旧订阅</h2>
-    <p className="muted">名称相同、且各自只有一条的旧记录。合并只把服务档案挂到付款计划上，不新增也不删除任何付款；没勾选的保持原样。</p>
-    {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <ul className="merge-list">
+    <h2 id="merge-title">{t('合并旧订阅')}</h2>
+    <p className="muted">{t('名称相同、且各自只有一条的旧记录。合并只把服务档案挂到付款计划上，不新增也不删除任何付款；没勾选的保持原样。')}</p>
+    {stuck ? <p className="notice" role="status">{t('保存结果未确认，请先核对上一次请求。')}</p> : <ul className="merge-list">
       {pairs.map(p => <li key={pairKey(p)}><label><input type="checkbox" checked={picked.includes(pairKey(p))} disabled={busy} onChange={e => setPicked(c => e.target.checked ? [...c, pairKey(p)] : c.filter(k => k !== pairKey(p)))} />
         <strong>{p.plan_name}</strong></label>
-        <small className="muted">付款计划：{money(p.amount_cents)}／{intervalUnit({ interval_days: p.interval_days, interval_months: p.interval_months })} · {p.paid_count ? `已记录 ${p.paid_count} 笔共 ${money(p.paid_cents)}` : '未记录付款'}</small>
-        <small className="muted">旧服务档案：{p.provider || '未填提供方'}{p.stopped_on ? ` · 已于 ${p.stopped_on} 停用（合并后需核对停用记录）` : ''}</small>
-        {(p.asset_price_cents || p.asset_expires) && <small className="warn-text">档案原有{p.asset_price_cents ? `单次价格 ${money(p.asset_price_cents)}` : ''}{p.asset_price_cents && p.asset_expires ? '、' : ''}{p.asset_expires ? `到期日 ${p.asset_expires}` : ''}：合并后不再单独计入重要支出（以付款记录为准，避免重复），原值会写进档案备注。若这笔钱不在付款记录里，请先不要合并。</small>}
+        <small className="muted">{t('付款计划：{v1}／{v2} ·', { v1: money(p.amount_cents), v2: intervalUnit({ interval_days: p.interval_days, interval_months: p.interval_months }) })} {p.paid_count ? t('已记录 {paid_count} 笔共 {v2}', { paid_count: p.paid_count, v2: money(p.paid_cents) }) : t('未记录付款')}</small>
+        <small className="muted">{t('旧服务档案：')}{p.provider || t('未填提供方')}{p.stopped_on ? t(' · 已于 {stopped_on} 停用（合并后需核对停用记录）', { stopped_on: p.stopped_on }) : ''}</small>
+        {(p.asset_price_cents || p.asset_expires) && <small className="warn-text">{t('档案原有')}{p.asset_price_cents ? t('单次价格 {v1}', { v1: money(p.asset_price_cents) }) : ''}{p.asset_price_cents && p.asset_expires ? '、' : ''}{p.asset_expires ? t('到期日 {asset_expires}', { asset_expires: p.asset_expires }) : ''}{t('：合并后不再单独计入重要支出（以付款记录为准，避免重复），原值会写进档案备注。若这笔钱不在付款记录里，请先不要合并。')}</small>}
       </li>)}
     </ul>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>取消</button><button type="button" className="primary" disabled={busy || stuck || !picked.length} onClick={() => void run()}>{busy ? '合并中…' : `合并所选 ${picked.length} 对`}</button></div>
+    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>{t('取消')}</button><button type="button" className="primary" disabled={busy || stuck || !picked.length} onClick={() => void run()}>{busy ? t('合并中…') : t('合并所选 {length} 对', { length: picked.length })}</button></div>
   </dialog>;
 }

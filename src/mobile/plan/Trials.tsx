@@ -49,7 +49,7 @@ import {
 } from "../ui";
 import { CoverageSummary } from "./CoverageSummary";
 import "./trials.css";
-
+import { t } from '../../i18n.ts';
 function MonthField({
   label,
   value,
@@ -160,14 +160,14 @@ export function MobileRunway({
     trialDateValid(anchor) &&
     (Date.parse(today) - Date.parse(anchor)) / 86400000 > 45;
   return (
-    <Section title="资金续航">
+    <Section title={t('资金续航')}>
       <Card>
         <p className="m-trial-note">
-          按当前收支，手里的钱能付几个月？无需退休目标，输入仅用于本次试算。
+          {t('按当前收支，手里的钱能付几个月？无需退休目标，输入仅用于本次试算。')}
         </p>
         {funds && (
           <Check
-            label="改用手填模拟资金"
+            label={t('改用手填模拟资金')}
             checked={manual}
             onChange={setManual}
           />
@@ -175,12 +175,12 @@ export function MobileRunway({
         {useManual ? (
           <>
             <MoneyField
-              label="当前可动用资金"
+              label={t('当前可动用资金')}
               value={start}
               onChange={setStart}
             />
             <DateField
-              label="资金截至日"
+              label={t('资金截至日')}
               value={date}
               max={today}
               onChange={setDate}
@@ -188,55 +188,55 @@ export function MobileRunway({
           </>
         ) : funds?.status === "ready" ? (
           <p className="m-trial-note">
-            截至 {funds.value.date} 可用 {moneyText(funds.value.available_cents)}（
-            {funds.value.kind === "live" ? "实际盘点" : "手填模拟"}）。
+            {t('截至 {date} 可用 {v2}（', { date: funds.value.date, v2: moneyText(funds.value.available_cents) })}
+            {funds.value.kind === "live" ? t('实际盘点') : t('手填模拟')}）。
           </p>
         ) : (
           <UnknownState
-            message="可用资金还未确认，可改用手填独立试算。"
+            message={t('可用资金还未确认，可改用手填独立试算。')}
             action={
               <Button
                 onClick={() => nav.push("plan.setup", { section: "funds" })}
               >
-                确认可用资金
+                {t('确认可用资金')}
               </Button>
             }
           />
         )}
         {stale && (
           <Notice>
-            起点已超过 45 天；计算从 {anchor}{" "}
-            开始，之后实际变化未覆盖，不能当成今天余额。
+            {t('起点已超过 45 天；计算从 {anchor}', { anchor })}{" "}
+            {t('开始，之后实际变化未覆盖，不能当成今天余额。')}
           </Notice>
         )}
         <MoneyField
-          label="每月可靠到账"
+          label={t('每月可靠到账')}
           value={income}
           disabled={noIncome}
           onChange={setIncome}
         />
         <Check
-          label="目前没有可靠到账"
+          label={t('目前没有可靠到账')}
           checked={noIncome}
           onChange={setNoIncome}
         />
-        <MoneyField label="每月必要开销" value={spend} onChange={setSpend} />
+        <MoneyField label={t('每月必要开销')} value={spend} onChange={setSpend} />
         <MoneyField
-          label="至少保留的资金（选填）"
+          label={t('至少保留的资金（选填）')}
           value={floor}
           onChange={setFloor}
         />
         <SelectField
-          label="检查期间"
+          label={t('检查期间')}
           value={String(months)}
           onChange={(v) => setMonths(Number(v))}
           options={[12, 24, 60, 120].map((n) => ({
             id: String(n),
-            label: `${n} 个月`,
+            label: t('{n} 个月', { n }),
           }))}
         />
         {result.status === "missing" ? (
-          <UnknownState title="条件待填写" message={result.message} />
+          <UnknownState title={t('条件待填写')} message={result.message} />
         ) : (
           <div aria-live="polite">
             <Notice
@@ -253,12 +253,12 @@ export function MobileRunway({
           </div>
         )}
         <details>
-          <summary>计算口径与局限</summary>
+          <summary>{t('计算口径与局限')}</summary>
           <p>
-            从截至日后按完整月检查，月初先付开销、月底再到账。不计收益、通胀、未来大额计划或月供结束。必要开销需自行包含房租、月供、社保等全部支出。资金不足以付整月不等于余额耗尽。
+            {t('从截至日后按完整月检查，月初先付开销、月底再到账。不计收益、通胀、未来大额计划或月供结束。必要开销需自行包含房租、月供、社保等全部支出。资金不足以付整月不等于余额耗尽。')}
           </p>
           <p>
-            公积金缴存不能当作到账；余额已包含在起点时，不要再次计作收入。定期提取须能持续整个检查期间。
+            {t('公积金缴存不能当作到账；余额已包含在起点时，不要再次计作收入。定期提取须能持续整个检查期间。')}
           </p>
         </details>
       </Card>
@@ -303,19 +303,19 @@ function TrialIncome({
   return (
     <>
       <SelectField
-        label="本次未来收入"
+        label={t('本次未来收入')}
         value={value.mode}
         onChange={(mode) =>
           onChange({ ...value, mode: mode as IncomeDraft["mode"] })
         }
         options={[
-          { id: "saved", label: "沿用原计划" },
-          { id: "excluded", label: "本次不计入" },
-          { id: "manual", label: "手填本次条件" },
+          { id: "saved", label: t('沿用原计划') },
+          { id: "excluded", label: t('本次不计入') },
+          { id: "manual", label: t('手填本次条件') },
         ]}
       />
       <Check
-        label="本次不计暂时取不出的钱转为可用资金"
+        label={t('本次不计暂时取不出的钱转为可用资金')}
         checked={!!value.excludePools}
         onChange={(excludePools) => onChange({ ...value, excludePools })}
       />
@@ -324,52 +324,52 @@ function TrialIncome({
           {value.items.map((x, i) => (
             <div key={x.id} className="m-trial-item">
               <Check
-                label={`计入第 ${i + 1} 笔临时收入`}
+                label={t('计入第 {v1} 笔临时收入', { v1: i + 1 })}
                 checked={x.included}
                 onChange={(included) => patch(x.id, { included })}
               />
               {x.included && (
                 <>
                   <TextField
-                    label={`第 ${i + 1} 笔收入名称`}
+                    label={t('第 {v1} 笔收入名称', { v1: i + 1 })}
                     value={x.name}
                     onChange={(name) => patch(x.id, { name })}
                   />
                   <MoneyField
-                    label={`第 ${i + 1} 笔每月收入`}
+                    label={t('第 {v1} 笔每月收入', { v1: i + 1 })}
                     value={x.monthly_cents ?? ""}
                     onChange={(v) => patch(x.id, { monthly_cents: v || null })}
                   />
                   <MonthField
-                    label={`第 ${i + 1} 笔开始月份`}
+                    label={t('第 {v1} 笔开始月份', { v1: i + 1 })}
                     value={x.start_month}
                     onChange={(start_month) => patch(x.id, { start_month })}
                   />
                   <MonthField
-                    label={`第 ${i + 1} 笔结束月份（选填）`}
+                    label={t('第 {v1} 笔结束月份（选填）', { v1: i + 1 })}
                     value={x.end_month}
                     onChange={(end_month) => patch(x.id, { end_month })}
                   />
                   <SelectField
-                    label={`第 ${i + 1} 笔金额基准`}
+                    label={t('第 {v1} 笔金额基准', { v1: i + 1 })}
                     value={x.basis}
                     onChange={(basis) =>
                       patch(x.id, { basis: basis as typeof x.basis })
                     }
                     options={[
-                      { id: "start_month", label: "开始月份的金额" },
-                      { id: "reference_month", label: "指定月份的金额" },
+                      { id: "start_month", label: t('开始月份的金额') },
+                      { id: "reference_month", label: t('指定月份的金额') },
                     ]}
                   />
                   {x.basis === "reference_month" && (
                     <MonthField
-                      label={`第 ${i + 1} 笔基准月份`}
+                      label={t('第 {v1} 笔基准月份', { v1: i + 1 })}
                       value={x.basis_month}
                       onChange={(basis_month) => patch(x.id, { basis_month })}
                     />
                   )}
                   <Check
-                    label={`第 ${i + 1} 笔保持购买力`}
+                    label={t('第 {v1} 笔保持购买力', { v1: i + 1 })}
                     checked={x.growth === "constant_purchasing_power"}
                     onChange={(v) =>
                       patch(x.id, {
@@ -390,15 +390,15 @@ function TrialIncome({
                   })
                 }
               >
-                删除此临时收入
+                {t('删除此临时收入')}
               </Button>
             </div>
           ))}
-          <Button onClick={add}>添加临时未来收入</Button>
+          <Button onClick={add}>{t('添加临时未来收入')}</Button>
         </>
       )}
       <p className="m-trial-note">
-        养老金只使用已填写的金额与月份，不测算待遇、资格或缴费变化。固定账面金额会随通胀贬值；结束月仍计入。
+        {t('养老金只使用已填写的金额与月份，不测算待遇、资格或缴费变化。固定账面金额会随通胀贬值；结束月仍计入。')}
       </p>
     </>
   );
@@ -466,34 +466,34 @@ export function MobileCareer({
     }
   };
   return (
-    <Section title="职业变化">
+    <Section title={t('职业变化')}>
       <Card>
         <p className="m-trial-note">
-          沿用已保存的目标、资金和假设。下面只改变本次条件，关闭即丢弃。
+          {t('沿用已保存的目标、资金和假设。下面只改变本次条件，关闭即丢弃。')}
         </p>
         <SelectField
-          label="想知道什么"
+          label={t('想知道什么')}
           value={question}
           onChange={(v) => {
             setQuestion(v as CareerQuestion);
             invalidate();
           }}
           options={[
-            { id: "rest", label: "我想歇一阵，能撑多久？" },
-            { id: "switch", label: "换工作后，每月要攒多少？" },
-            { id: "lower", label: "高收入还要做多久？" },
+            { id: "rest", label: t('我想歇一阵，能撑多久？') },
+            { id: "switch", label: t('换工作后，每月要攒多少？') },
+            { id: "lower", label: t('高收入还要做多久？') },
           ]}
         />
         {question !== "lower" && (
           <MonthField
-            label="开始变化的月份"
+            label={t('开始变化的月份')}
             value={draft.transition_month}
             onChange={(transition_month) => patch({ transition_month })}
           />
         )}
         {question !== "rest" && (
           <CountField
-            label="中间空窗月数"
+            label={t('中间空窗月数')}
             value={question === "lower" ? lowerGap : draft.gap_months}
             onChange={(v) => {
               if (question === "lower") {
@@ -506,21 +506,21 @@ export function MobileCareer({
         {hasGap && (
           <>
             <MoneyField
-              label="不工作期间每月总花销"
+              label={t('不工作期间每月总花销')}
               value={draft.gap.spend_cents ?? ""}
               onChange={(v) => gap({ spend_cents: v || null })}
             />
             <MoneyField
-              label="不工作期间每月到账"
+              label={t('不工作期间每月到账')}
               value={draft.gap.income_cents ?? ""}
               onChange={(v) => gap({ income_cents: v || null })}
-              hint="没有到账请明确填 0，留空表示未知。"
+              hint={t('没有到账请明确填 0，留空表示未知。')}
             />
           </>
         )}
         {question !== "lower" && (
           <MoneyField
-            label="找到新工作后每月能攒"
+            label={t('找到新工作后每月能攒')}
             value={draft.recovery.monthly_cents ?? ""}
             signed
             onChange={(v) =>
@@ -530,13 +530,13 @@ export function MobileCareer({
             }
             hint={
               defaults.from.recovery
-                ? "先沿用当前预计净投入，可改为自己的估计。"
-                : "扣除全部支出后能存下的钱，可以为 0 或负数。"
+                ? t('先沿用当前预计净投入，可改为自己的估计。')
+                : t('扣除全部支出后能存下的钱，可以为 0 或负数。')
             }
           />
         )}
         <Check
-          label="上述金额包含全部自付社保、医保等费用"
+          label={t('上述金额包含全部自付社保、医保等费用')}
           checked={
             draft.gap.insurance.included && draft.recovery.insurance.included
           }
@@ -546,7 +546,7 @@ export function MobileCareer({
           }}
         />
         <details>
-          <summary>本次收入与资金假设</summary>
+          <summary>{t('本次收入与资金假设')}</summary>
           <TrialIncome
             value={income}
             onChange={(v) => {
@@ -557,34 +557,34 @@ export function MobileCareer({
           {question !== "lower" && (
             <>
               <MoneyField
-                label="一次性补偿金（选填）"
+                label={t('一次性补偿金（选填）')}
                 value={extra.lump_cents ?? ""}
                 onChange={(v) => setExtra({ lump_cents: v || null })}
               />
               <MoneyField
-                label="失业金每月（选填）"
+                label={t('失业金每月（选填）')}
                 value={extra.benefit_monthly_cents ?? ""}
                 onChange={(v) => setExtra({ benefit_monthly_cents: v || null })}
               />
               <CountField
-                label="失业金最多领取月数"
+                label={t('失业金最多领取月数')}
                 value={extra.benefit_months}
                 onChange={(benefit_months) => setExtra({ benefit_months })}
               />
               <p className="m-trial-note">
-                补偿金在变化月月底到账；失业金复工后停止。只填税后到账，不作政策估算。
+                {t('补偿金在变化月月底到账；失业金复工后停止。只填税后到账，不作政策估算。')}
               </p>
             </>
           )}
           {lumps.map((l, i) => (
             <div className="m-trial-item" key={i}>
               <MonthField
-                label={`第 ${i + 1} 笔一次性收入月份`}
+                label={t('第 {v1} 笔一次性收入月份', { v1: i + 1 })}
                 value={l.month}
                 onChange={(v) => setLump(i, { month: v ?? "" })}
               />
               <MoneyField
-                label={`第 ${i + 1} 笔一次性收入金额`}
+                label={t('第 {v1} 笔一次性收入金额', { v1: i + 1 })}
                 value={l.cents}
                 onChange={(cents) => setLump(i, { cents })}
               />
@@ -594,7 +594,7 @@ export function MobileCareer({
                   patch({ lumps: lumps.filter((_, n) => n !== i) })
                 }
               >
-                删除这笔一次性收入
+                {t('删除这笔一次性收入')}
               </Button>
             </div>
           ))}
@@ -604,20 +604,20 @@ export function MobileCareer({
               patch({ lumps: [...lumps, { month: "", cents: "" }] })
             }
           >
-            添加一次性收入
+            {t('添加一次性收入')}
           </Button>
           <p className="m-trial-note">
-            只填未含在每月净存入内的额外税后到账，在对应月月底计入。
+            {t('只填未含在每月净存入内的额外税后到账，在对应月月底计入。')}
           </p>
           {question === "rest" && (
             <>
               <MoneyField
-                label="资金底线（选填）"
+                label={t('资金底线（选填）')}
                 value={draft.floor_cents ?? ""}
                 onChange={(v) => patch({ floor_cents: v || null })}
               />
               <Check
-                label="这些钱随时能取出来用"
+                label={t('这些钱随时能取出来用')}
                 checked={draft.liquid_funds_confirmed}
                 onChange={(liquid_funds_confirmed) =>
                   patch({ liquid_funds_confirmed })
@@ -629,8 +629,8 @@ export function MobileCareer({
             <div key={stage}>
               {!!draft[stage].costs?.length && (
                 <p>
-                  {stage === "gap" ? "不工作期间" : "复工后"}
-                  费用范围（沿用原计划）
+                  {stage === "gap" ? t('不工作期间') : t('复工后')}
+                  {t('费用范围（沿用原计划）')}
                 </p>
               )}
               {draft[stage].costs?.map((cost, i) => (
@@ -654,9 +654,9 @@ export function MobileCareer({
                     })
                   }
                   options={[
-                    { id: "included", label: "已包含在上述金额" },
-                    { id: "extra", label: "另行扣除" },
-                    { id: "excluded", label: "本次不计入" },
+                    { id: "included", label: t('已包含在上述金额') },
+                    { id: "extra", label: t('另行扣除') },
+                    { id: "excluded", label: t('本次不计入') },
                   ]}
                 />
               ))}
@@ -664,16 +664,16 @@ export function MobileCareer({
           ))}
         </details>
         <Button block variant="primary" onClick={run}>
-          计算本次职业变化
+          {t('计算本次职业变化')}
         </Button>
-        {error && <ErrorState title="试算失败" message={error} onRetry={run} />}
+        {error && <ErrorState title={t('试算失败')} message={error} onRetry={run} />}
         {!result && !error && (
           <p className="m-trial-note">
-            补充条件后点击计算；留空的金额不会按 0 处理。
+            {t('补充条件后点击计算；留空的金额不会按 0 处理。')}
           </p>
         )}
         {result?.message && (
-          <UnknownState title="条件不完整" message={result.message} />
+          <UnknownState title={t('条件不完整')} message={result.message} />
         )}
         {result?.answer && (
           <div aria-live="polite">
@@ -686,7 +686,7 @@ export function MobileCareer({
         {result?.rows && (
           <>
             <HBarChart
-              summary="比较复工后按当前净投入的零、四分之一、一半和四分之三储蓄时，高收入需要持续到什么时候；具体结论见下方。"
+              summary={t('比较复工后按当前净投入的零、四分之一、一半和四分之三储蓄时，高收入需要持续到什么时候；具体结论见下方。')}
               rows={result.rows.map((r) => ({
                 label: yuan(r.level),
                 value: Number(r.level),
@@ -695,7 +695,7 @@ export function MobileCareer({
             />
             {result.rows.map((r) => (
               <div className="m-trial-item" key={r.level}>
-                <strong>之后每月攒 {yuan(r.level)}</strong>
+                <strong>{t('之后每月攒 {v1}', { v1: yuan(r.level) })}</strong>
                 <p>{r.say.headline}</p>
                 <p className="m-trial-note">{r.say.sub}</p>
               </div>
@@ -715,7 +715,7 @@ export function MobileCareer({
                 }
               }}
             >
-              怎样才能撑得更久？
+              {t('怎样才能撑得更久？')}
             </Button>
             {levers?.map((l) => (
               <p key={l.label}>
@@ -725,9 +725,9 @@ export function MobileCareer({
           </>
         )}
         <details>
-          <summary>结果的局限</summary>
+          <summary>{t('结果的局限')}</summary>
           <p>
-            不预测失业风险、复工时间或工资变化；每月付款先后只在不工作区间检查。未来收入和受限资金是否计入，以上述本次假设为准。公积金周期缴存、提取与余额耗尽尚未推演。
+            {t('不预测失业风险、复工时间或工资变化；每月付款先后只在不工作区间检查。未来收入和受限资金是否计入，以上述本次假设为准。公积金周期缴存、提取与余额耗尽尚未推演。')}
           </p>
         </details>
       </Card>
@@ -780,38 +780,38 @@ export function MobileWishImpact({
   const total =
     ready && counted(spends).length ? impactOf(calc, counted(spends)) : null;
   return (
-    <Section title="心愿影响">
+    <Section title={t('心愿影响')}>
       <Card>
         <p className="m-trial-note">
-          只比较「考虑中」的心愿影响，不计入目标；决定后可加入大额计划。已计入的大额计划照常发生。
+          {t('只比较「考虑中」的心愿影响，不计入目标；决定后可加入大额计划。已计入的大额计划照常发生。')}
         </p>
         {error ? (
           <ErrorState
-            title="心愿读取失败"
+            title={t('心愿读取失败')}
             message={error}
             onRetry={() => setRetry((n) => n + 1)}
           />
         ) : items === null ? (
-          <Loading label="正在读取心愿…" />
+          <Loading label={t('正在读取心愿…')} />
         ) : !spends.length ? (
           <EmptyState
             icon="chart"
-            title="还没有考虑中的心愿"
-            message="添加预计价格与计划日期后，可以查看对目标的影响。"
+            title={t('还没有考虑中的心愿')}
+            message={t('添加预计价格与计划日期后，可以查看对目标的影响。')}
           />
         ) : (
           <>
             {!ready && (
               <UnknownState
-                title="暂不能估算影响"
-                message="需要已保存的明确预计投入，以及完整的预测条件。"
+                title={t('暂不能估算影响')}
+                message={t('需要已保存的明确预计投入，以及完整的预测条件。')}
                 action={
                   <Button
                     onClick={() =>
                       nav.push("plan.setup", { section: "contribution" })
                     }
                   >
-                    补充条件
+                    {t('补充条件')}
                   </Button>
                 }
               />
@@ -819,11 +819,11 @@ export function MobileWishImpact({
             {total && (
               <Notice>
                 {total.base_offset === null
-                  ? "按当前条件，终点前本来就达不到财务自由。"
+                  ? t('按当前条件，终点前本来就达不到财务自由。')
                   : total.with_offset === null
-                    ? "全部有日期的心愿发生后，终点前达不到财务自由。"
-                    : `全部有日期的心愿发生后，财务自由约推迟 ${total.delay_months} 个月。`}
-                {total.breaches_emergency ? "购买区间内会低于应急金线。" : ""}
+                    ? t('全部有日期的心愿发生后，终点前达不到财务自由。')
+                    : t('全部有日期的心愿发生后，财务自由约推迟 {delay_months} 个月。', { delay_months: total.delay_months })}
+                {total.breaches_emergency ? t('购买区间内会低于应急金线。') : ""}
               </Notice>
             )}
             {spends.map((s) => (
@@ -832,15 +832,15 @@ export function MobileWishImpact({
                   <strong>{s.name}</strong>
                   <span>
                     {s.status === "no_price"
-                      ? "价格未知"
+                      ? t('价格未知')
                       : moneyText(String(s.cents))}
                   </span>
                 </div>
                 <p className="m-trial-note">
                   {s.status === "no_price"
-                    ? "未填预计价格，未计入。"
+                    ? t('未填预计价格，未计入。')
                     : s.status === "expired"
-                      ? "计划日期已过，未计入；更新日期后重算。"
+                      ? t('计划日期已过，未计入；更新日期后重算。')
                       : ready
                         ? impactSentence(
                             s,
@@ -849,14 +849,14 @@ export function MobileWishImpact({
                             (v) => moneyText(String(v)),
                           )
                         : s.status === "today"
-                          ? "未设日期，仅作如果今天买下的单件假设，不计入合计。"
-                          : `计划 ${s.date}，条件补齐后估算。`}
+                          ? t('未设日期，仅作如果今天买下的单件假设，不计入合计。')
+                          : t('计划 {date}，条件补齐后估算。', { date: s.date })}
                 </p>
                 <Button
                   variant="plain"
                   onClick={() => nav.push("wishes.detail", { id: s.id })}
                 >
-                  查看心愿
+                  {t('查看心愿')}
                 </Button>
               </div>
             ))}
@@ -876,7 +876,7 @@ export default function Trials() {
     : "";
   return (
     <div className="m-page m-plan-trials">
-      <LargeTitle title="试算" subtitle="换个条件，看生活还有哪些可能" />
+      <LargeTitle title={t('试算')} subtitle={t('换个条件，看生活还有哪些可能')} />
       {loading ? (
         <Loading />
       ) : (
@@ -897,10 +897,10 @@ export default function Trials() {
           ) : (
             <EmptyState
               icon="chart"
-              title="先设置一个规划目标"
-              message="设置目标、预算和资金后，就能试算职业变化；资金续航可独立使用。"
+              title={t('先设置一个规划目标')}
+              message={t('设置目标、预算和资金后，就能试算职业变化；资金续航可独立使用。')}
               action={
-                <Button onClick={() => nav.push("plan.setup")}>设置条件</Button>
+                <Button onClick={() => nav.push("plan.setup")}>{t('设置条件')}</Button>
               }
             />
           )}

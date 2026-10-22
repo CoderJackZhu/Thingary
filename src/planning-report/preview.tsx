@@ -9,7 +9,7 @@ import './planning-report.css';
 import { PlanningReport, type ReportOuter } from './PlanningReport.tsx';
 import { fixtures, FIXTURE_TODAY, type FixtureKey } from './fixtures.ts';
 import { printableHtml } from './model.ts';
-
+import { t } from '../i18n.ts';
 type StateKey = 'ready' | 'loading' | 'empty' | 'error' | 'invalid';
 
 /** 预览支持 URL 参数定初始状态（?fixture=baseline&state=ready&privacy=1&dark=0），便于对照截图。 */
@@ -35,7 +35,7 @@ function Preview() {
   const outer: ReportOuter = useMemo(() => {
     if (stateKey === 'loading') return { status: 'loading' };
     if (stateKey === 'empty') return { status: 'empty' };
-    if (stateKey === 'error') return { status: 'error', code: 'read_failed', message: '（虚构）读取报告来源时发生错误，成功资料保留，可重试。' };
+    if (stateKey === 'error') return { status: 'error', code: 'read_failed', message: t('（虚构）读取报告来源时发生错误，成功资料保留，可重试。') };
     if (stateKey === 'invalid') return { status: 'ready', input: { ...report, contract_version: 99 } };
     return { status: 'ready', input: report };
   }, [stateKey, report]);
@@ -52,21 +52,21 @@ function Preview() {
 
   return <div style={{ maxWidth: 1080, margin: '0 auto', padding: '20px 22px 60px' }}>
     <div className="pr-preview-bar">
-      <span className="pr-fictional">虚构报告组件预览 · 固定日期 {FIXTURE_TODAY} · 数据均为虚构</span>
-      <label>模式 <select value={fixtureKey} onChange={e => setFixtureKey(e.target.value as FixtureKey)}>
-        <option value="current">当前方案（完整）</option>
-        <option value="baseline">历史基准（partial 不完整）</option>
-        <option value="comparison">方案比较（含恶意名称转义）</option>
+      <span className="pr-fictional">{t('虚构报告组件预览 · 固定日期 {FIXTURE_TODAY} · 数据均为虚构', { FIXTURE_TODAY })}</span>
+      <label>{t('模式')} <select value={fixtureKey} onChange={e => setFixtureKey(e.target.value as FixtureKey)}>
+        <option value="current">{t('当前方案（完整）')}</option>
+        <option value="baseline">{t('历史基准（partial 不完整）')}</option>
+        <option value="comparison">{t('方案比较（含恶意名称转义）')}</option>
       </select></label>
-      <label>状态 <select value={stateKey} onChange={e => setStateKey(e.target.value as StateKey)}>
-        <option value="ready">ready（含 complete/partial）</option>
+      <label>{t('状态')} <select value={stateKey} onChange={e => setStateKey(e.target.value as StateKey)}>
+        <option value="ready">{t('ready（含 complete/partial）')}</option>
         <option value="loading">loading</option>
         <option value="empty">empty</option>
-        <option value="error">error（读取失败）</option>
-        <option value="invalid">error（协议版本不支持）</option>
+        <option value="error">{t('error（读取失败）')}</option>
+        <option value="invalid">{t('error（协议版本不支持）')}</option>
       </select></label>
-      <label><input type="checkbox" checked={dark} onChange={e => setDark(e.target.checked)} /> 深色</label>
-      <button type="button" onClick={openPrint}>观看打印版（{privacy ? '隐私' : '完整'}）</button>
+      <label><input type="checkbox" checked={dark} onChange={e => setDark(e.target.checked)} /> {t('深色')}</label>
+      <button type="button" onClick={openPrint}>{t('观看打印版（')}{privacy ? t('隐私') : t('完整')}）</button>
     </div>
     <PlanningReport outer={outer} privacy={privacy} onPrivacyChange={setPrivacy} />
   </div>;

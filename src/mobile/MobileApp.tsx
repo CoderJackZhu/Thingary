@@ -13,7 +13,7 @@ import { Loading, Notice, SegmentedControl, Sheet } from './ui';
 import { Button } from './ui';
 import { KeyboardBar } from './ui/KeyboardBar';
 import { privacySnapshot, subscribePrivacy } from './me/privacy-runtime';
-
+import { t } from '../i18n.ts';
 /** The whole iPhone app: module switches, wealth session, per-tab page stacks, tab bar. */
 export function MobileApp({ initial }: { initial?: InitialRoute }) {
   const recovery = useRef<HTMLElement>(null);
@@ -77,7 +77,7 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
   const covered = overlays.length > 0, locked = !!session.pending;
   return <div className="m-app">
     <main id="mobile-content" className="m-main" tabIndex={-1} ref={main} inert={covered || locked} data-tab={state.tab}>
-      {baseEntry.id === stack[0].id && segments.length > 1 && !tabDef(state.tab).inlineSegments && <div className="m-segment-bar"><SegmentedControl label="分段" items={segments.map(segment => ({ id: segment.route, label: segment.label }))} value={segments.some(segment => segment.route === baseEntry.route) ? baseEntry.route : segments[0].route} onChange={route => nav.setSegment(route)}/></div>}
+      {baseEntry.id === stack[0].id && segments.length > 1 && !tabDef(state.tab).inlineSegments && <div className="m-segment-bar"><SegmentedControl label={t('分段')} items={segments.map(segment => ({ id: segment.route, label: segment.label }))} value={segments.some(segment => segment.route === baseEntry.route) ? baseEntry.route : segments[0].route} onChange={route => nav.setSegment(route)}/></div>}
       <Page key={baseEntry.id} stack={stack} index={base}/>
     </main>
     {overlays.map((entry, i) => {
@@ -89,9 +89,9 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
     })}
     <KeyboardBar/>
     {!fullscreen && <div inert={covered || locked}><TabBar tab={state.tab} modules={modules} disabled={nav.blocked} onSelect={nav.switchTab}/></div>}
-    {session.pending && <div className="m-recovery-layer"><section className="m-card m-recovery" role="alertdialog" aria-modal="true" aria-label="保存结果核对" tabIndex={-1} ref={recovery}>
-      <h2>保存结果未确定</h2><p role="status">「{session.pending.label}」的结果尚未确认。原请求已保留，核对前暂停编辑和切页。</p>
-      {session.pending.command === 'financial_import_commit' ? <p>请在桌面版的数据管理中核对金融导入。</p> : <Button variant="primary" block disabled={session.busy} onClick={() => void session.verify()}>{session.busy ? '正在核对…' : '核对结果'}</Button>}
+    {session.pending && <div className="m-recovery-layer"><section className="m-card m-recovery" role="alertdialog" aria-modal="true" aria-label={t('保存结果核对')} tabIndex={-1} ref={recovery}>
+      <h2>{t('保存结果未确定')}</h2><p role="status">{t('「{label}」的结果尚未确认。原请求已保留，核对前暂停编辑和切页。', { label: session.pending.label })}</p>
+      {session.pending.command === 'financial_import_commit' ? <p>{t('请在桌面版的数据管理中核对金融导入。')}</p> : <Button variant="primary" block disabled={session.busy} onClick={() => void session.verify()}>{session.busy ? t('正在核对…') : t('核对结果')}</Button>}
       {session.notice && <Notice>{session.notice}</Notice>}
     </section></div>}
   </div>;

@@ -2,17 +2,17 @@ import type { StoredLifeEvent, StoredSpendItem } from "../../plan.ts";
 import { pctToHundredths } from "../../plan.ts";
 import { monthChildReachesAge } from "../../planning-basic-forms.ts";
 import { validMonthV1 } from "../../plan-simplified.ts";
-
+import { t as tr } from '../../i18n.ts';
 /** UI defaults only. The shared event compiler and engine own every calculation. */
 export const eventTemplates = [
-  { id: "house", label: "买房", years: 7 },
-  { id: "car", label: "买车", years: 2 },
-  { id: "reno", label: "装修", years: 2 },
-  { id: "wedding", label: "婚礼与彩礼", years: 2 },
-  { id: "child", label: "生育与养孩子", years: 2 },
-  { id: "edu", label: "子女教育", years: 5 },
-  { id: "travel", label: "旅行", years: 1 },
-  { id: "other", label: "其他大额", years: 3 },
+  { id: "house", label: tr('买房'), years: 7 },
+  { id: "car", label: tr('买车'), years: 2 },
+  { id: "reno", label: tr('装修'), years: 2 },
+  { id: "wedding", label: tr('婚礼与彩礼'), years: 2 },
+  { id: "child", label: tr('生育与养孩子'), years: 2 },
+  { id: "edu", label: tr('子女教育'), years: 5 },
+  { id: "travel", label: tr('旅行'), years: 1 },
+  { id: "other", label: tr('其他大额'), years: 3 },
 ] as const;
 export function eventTemplate(
   key: string,
@@ -150,20 +150,20 @@ export function stageCost(input: {
   essential: boolean;
 }): StoredSpendItem {
   if (!input.label.trim() || input.label.trim().length > 40)
-    throw new Error("请填写名称（不超过 40 字）。");
+    throw new Error(tr('请填写名称（不超过 40 字）。'));
   if (!/^[1-9]\d*$/.test(input.monthly) || BigInt(input.monthly) > 99999999999n)
-    throw new Error("每月金额须大于零。");
+    throw new Error(tr('每月金额须大于零。'));
   if ([input.start, input.end].some((v) => v !== "" && !validMonthV1(v)))
-    throw new Error("请填写有效月份，或留空。");
+    throw new Error(tr('请填写有效月份，或留空。'));
   if (input.start && input.end && input.end <= input.start)
-    throw new Error("结束月份须晚于开始月份。");
+    throw new Error(tr('结束月份须晚于开始月份。'));
   const inflation =
     input.inflation.trim() === "" ? null : pctToHundredths(input.inflation);
   if (
     input.inflation.trim() !== "" &&
     (inflation === null || inflation < -1000 || inflation > 2000)
   )
-    throw new Error("每年上涨须为 -10 到 20% 之间，留空跟随通胀。");
+    throw new Error(tr('每年上涨须为 -10 到 20% 之间，留空跟随通胀。'));
   return {
     id: input.id,
     label: input.label.trim(),

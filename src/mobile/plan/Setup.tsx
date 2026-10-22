@@ -53,21 +53,21 @@ import { Assumptions, AssumptionForm, useAssumptionDraft } from "./assumptions";
 import { StageCostGroup } from "./StageCostGroup";
 import { debtSummary } from "./debts-model";
 import "./plan.css";
-
+import { t as tr } from '../../i18n.ts';
 export default function Setup({ params }: PageProps) {
   const p = usePlan(),
     section = String(params.section ?? "setup");
   if (p.loading)
     return (
       <div className="m-page mp-page">
-        <NavBar title="设置条件" />
+        <NavBar title={tr('设置条件')} />
         <Loading />
       </div>
     );
   if (p.error || !p.sources)
     return (
       <div className="m-page mp-page">
-        <NavBar title="设置条件" />
+        <NavBar title={tr('设置条件')} />
         <ErrorState message={p.error} onRetry={p.reload} />
       </div>
     );
@@ -155,7 +155,7 @@ export function Editor({
   const found = [
     ...setupIssues(d, saved, today, live),
     ...(flow && asm.invalidKey() !== null
-      ? [{ step: flowSteps.findIndex((x) => x.id === "assumptions"), field: "assumptions", message: "请填写有效百分数，例如 2 或 2.5。" }]
+      ? [{ step: flowSteps.findIndex((x) => x.id === "assumptions"), field: "assumptions", message: tr('请填写有效百分数，例如 2 或 2.5。') }]
       : []),
   ];
   const shown = attempted ? found : [];
@@ -310,7 +310,7 @@ export function Editor({
       )}
       inputMode="decimal"
       disabled={frozen || !time.reference}
-      hint="按年龄自动换算；也可在下方直接填写月份"
+      hint={tr('按年龄自动换算；也可在下方直接填写月份')}
       onChange={(v) => {
         try {
           patchTime({
@@ -328,10 +328,10 @@ export function Editor({
   return (
     <div className="m-page mp-page">
       <NavBar
-        title={flow ? "设置条件" : title}
+        title={flow ? tr('设置条件') : title}
         onCancel={cancel}
         primary={{
-          label: "保存",
+          label: tr('保存'),
           onClick: () => void save(),
           busy: saving,
           disabled: frozen,
@@ -346,7 +346,7 @@ export function Editor({
         {costs ? (
           <>
             <Notice>
-              确认哪些费用已经含在每月净投入或退休生活费里，避免重复计入。没有填写的关系保持未知。
+              {tr('确认哪些费用已经含在每月净投入或退休生活费里，避免重复计入。没有填写的关系保持未知。')}
             </Notice>
             {costRows(d, saved).map(([key, rows]) => {
               const label =
@@ -355,7 +355,7 @@ export function Editor({
                   : "已含在退休生活费里？";
               return (
               <FormGroup key={key} title={label}>
-                {rows.length === 0 && <p>没有需要核对的费用。</p>}
+                {rows.length === 0 && <p>{tr('没有需要核对的费用。')}</p>}
                 {rows.map((row) => (
                   <div key={row.id}>
                     <SelectField
@@ -373,17 +373,17 @@ export function Editor({
                         })
                       }
                       options={[
-                        { id: "", label: "待确认" },
-                        { id: "included", label: "已包含" },
-                        { id: "extra", label: "另外计入" },
+                        { id: "", label: tr('待确认') },
+                        { id: "included", label: tr('已包含') },
+                        { id: "extra", label: tr('另外计入') },
                         ...(!mustStayInLedger(row.id)
-                          ? [{ id: "excluded", label: "本次不计" }]
+                          ? [{ id: "excluded", label: tr('本次不计') }]
                           : []),
                       ]}
                     />
                     {d[key][row.id]?.treatment === "included" && (
                       <MoneyField
-                        label={`${row.label}已含金额`}
+                        label={tr('{label}已含金额', { label: row.label })}
                         value={d[key][row.id].ref}
                         onChange={(ref) =>
                           patch({
@@ -406,30 +406,30 @@ export function Editor({
           <>
             {step === 0 && (
               <>
-                <FormGroup title="目标与范围">
+                <FormGroup title={tr('目标与范围')}>
                   <SegmentedControl
-                    label="目标类型"
+                    label={tr('目标类型')}
                     value={d.mode}
                     items={[
-                      { id: "fire", label: "财务自由" },
-                      { id: "traditional", label: "按计划退休" },
+                      { id: "fire", label: tr('财务自由') },
+                      { id: "traditional", label: tr('按计划退休') },
                     ]}
                     onChange={(mode) => patch({ mode })}
                   />
                   <p className="mp-muted">
-                    财务自由按资金够用的时间停止工作；按计划退休检查固定目标月份的资金。
+                    {tr('财务自由按资金够用的时间停止工作；按计划退休检查固定目标月份的资金。')}
                   </p>
                   <SegmentedControl
-                    label="规划给谁"
+                    label={tr('规划给谁')}
                     value={h.mode}
                     items={[
-                      { id: "single", label: "一个人" },
-                      { id: "couple", label: "两个人" },
+                      { id: "single", label: tr('一个人') },
+                      { id: "couple", label: tr('两个人') },
                     ]}
                     onChange={(mode) => setH(switchHousehold(h, mode))}
                   />
                   <MonthField
-                    label="你的出生年月"
+                    label={tr('你的出生年月')}
                     value={
                       time.reference?.age_months === 0
                         ? time.reference.month
@@ -444,28 +444,28 @@ export function Editor({
                             : null,
                       })
                     }
-                    hint="修改出生年月保留已有的目标月份，请重新核对年龄"
+                    hint={tr('修改出生年月保留已有的目标月份，请重新核对年龄')}
                   />
                   {fieldError("birth")}
                   {ageField("希望多少岁停工", "target_month")}
                   {ageField("规划到多少岁", "horizon_month")}
                   <MonthField
-                    label="退休开始月份"
+                    label={tr('退休开始月份')}
                     value={time.target_month ?? ""}
                     onChange={(v) => patchTime({ target_month: v || null })}
                   />
                   {fieldError("target_month")}
                   <MonthField
-                    label="规划终点月份"
+                    label={tr('规划终点月份')}
                     value={time.horizon_month ?? ""}
                     onChange={(v) => patchTime({ horizon_month: v || null })}
                   />
                   {fieldError("horizon_month")}
                 </FormGroup>
                 {couple && (
-                  <FormGroup title="伴侣">
+                  <FormGroup title={tr('伴侣')}>
                     <MonthField
-                      label="伴侣出生年月"
+                      label={tr('伴侣出生年月')}
                       value={h.partner.birth_month}
                       max={today.slice(0, 7)}
                       onChange={(birth_month) =>
@@ -474,13 +474,13 @@ export function Editor({
                     />
                     {fieldError("partner_birth")}
                     <SelectField
-                      label="伴侣打算何时停工"
+                      label={tr('伴侣打算何时停工')}
                       value={
                         h.partner.stop_age_months === null ? "same" : "age"
                       }
                       options={[
-                        { id: "same", label: "跟我同时" },
-                        { id: "age", label: "填一个年龄" },
+                        { id: "same", label: tr('跟我同时') },
+                        { id: "age", label: tr('填一个年龄') },
                       ]}
                       onChange={(v) =>
                         setH({
@@ -496,7 +496,7 @@ export function Editor({
                     />
                     {h.partner.stop_age_months !== null && (
                       <TextField
-                        label="伴侣停工年龄"
+                        label={tr('伴侣停工年龄')}
                         value={stopAgeText(h.partner.stop_age_months)}
                         inputMode="numeric"
                         onChange={(v) =>
@@ -518,17 +518,17 @@ export function Editor({
             {step === 1 && (
               <>
                 <FormGroup
-                  title={couple ? "两人退休后的生活费" : "退休后的生活费"}
-                  footer="按今天物价填写。应急金是参考线，不另从退休资金扣除。"
+                  title={couple ? tr('两人退休后的生活费') : tr('退休后的生活费')}
+                  footer={tr('按今天物价填写。应急金是参考线，不另从退休资金扣除。')}
                 >
                   <MoneyField
-                    label="每月生活费总额"
+                    label={tr('每月生活费总额')}
                     value={d.budget}
                     onChange={(budget) => patch({ budget })}
-                    hint="未知可以留空，不会当作 0"
+                    hint={tr('未知可以留空，不会当作 0')}
                   />
                   <TextField
-                    label="应急金月数"
+                    label={tr('应急金月数')}
                     value={d.emergency}
                     inputMode="numeric"
                     onChange={(emergency) => patch({ emergency })}
@@ -545,45 +545,45 @@ export function Editor({
             )}
             {step === 2 && (
               <>
-                <FormGroup title="资金起点">
+                <FormGroup title={tr('资金起点')}>
                   <SelectField
-                    label="准备方式"
+                    label={tr('准备方式')}
                     value={d.start}
                     options={[
                       ...(live
                         ? [
                             {
                               id: "live",
-                              label: `最近完整盘点 ${snapshot!.date}`,
+                              label: tr('最近完整盘点 {date}', { date: snapshot!.date }),
                             },
                           ]
                         : []),
-                      { id: "simulation", label: "手填金额（替代盘点）" },
+                      { id: "simulation", label: tr('手填金额（替代盘点）') },
                     ]}
                     onChange={(v) => patch({ start: v as Draft["start"] })}
                   />
                   {d.start === "simulation" ? (
                     <>
                       <MoneyField
-                        label="可用资金"
+                        label={tr('可用资金')}
                         value={d.simAmount}
                         onChange={(simAmount) => patch({ simAmount })}
                       />
                       <DateField
-                        label="金额截至日期"
+                        label={tr('金额截至日期')}
                         value={d.simDate}
                         max={today}
                         allowClear
                         onChange={(simDate) => patch({ simDate })}
                       />
                       <TextAreaField
-                        label="模拟说明"
+                        label={tr('模拟说明')}
                         value={d.simNotes}
                         onChange={(simNotes) => patch({ simNotes })}
                       />
                     </>
                   ) : !live ? (
-                    <Notice>没有可用完整盘点，请改用手填金额。</Notice>
+                    <Notice>{tr('没有可用完整盘点，请改用手填金额。')}</Notice>
                   ) : (
                     <>
                       {snapshot!.entries
@@ -601,14 +601,14 @@ export function Editor({
                           return (
                             <div key={e.account_id}>
                               <SelectField
-                                label={`${name}用途`}
+                                label={tr('{name}用途', { name })}
                                 value={f?.availability ?? "restricted"}
                                 options={[
                                   ...(e.kind === "housing_fund"
                                     ? []
-                                    : [{ id: "available", label: "可以动用" }]),
-                                  { id: "restricted", label: "暂不能动用" },
-                                  { id: "excluded", label: "不参与" },
+                                    : [{ id: "available", label: tr('可以动用') }]),
+                                  { id: "restricted", label: tr('暂不能动用') },
+                                  { id: "excluded", label: tr('不参与') },
                                 ]}
                                 onChange={(v) =>
                                   patch({
@@ -625,7 +625,7 @@ export function Editor({
                                 }
                               />
                               <TextField
-                                label={`${name}计入比例（%）`}
+                                label={tr('{name}计入比例（%）', { name })}
                                 inputMode="decimal"
                                 value={
                                   shareTexts[e.account_id] ??
@@ -660,16 +660,16 @@ export function Editor({
                 </FormGroup>
                 {d.start === "live" && live && (
                   <FormGroup
-                    title="以后解锁的资金"
-                    footer="只记计划解锁，不改变账户余额。已有解锁安排会原样保留。"
+                    title={tr('以后解锁的资金')}
+                    footer={tr('只记计划解锁，不改变账户余额。已有解锁安排会原样保留。')}
                   >
                     {d.releases.map((r, i) => (
                       <div className="mp-subcard" key={r.id}>
                         <SelectField
-                          label={`解锁账户 ${i + 1}`}
+                          label={tr('解锁账户 {v1}', { v1: i + 1 })}
                           value={r.account_id}
                           options={[
-                            { id: "", label: "选择暂不能动用的账户" },
+                            { id: "", label: tr('选择暂不能动用的账户') },
                             ...(sources.accounts.status === "ready"
                               ? sources.accounts.value
                               : []
@@ -692,7 +692,7 @@ export function Editor({
                           }
                         />
                         <MonthField
-                          label={`解锁月份 ${i + 1}`}
+                          label={tr('解锁月份 {v1}', { v1: i + 1 })}
                           value={r.month}
                           onChange={(month) =>
                             patch({
@@ -703,7 +703,7 @@ export function Editor({
                           }
                         />
                         <MoneyField
-                          label={`解锁金额 ${i + 1}`}
+                          label={tr('解锁金额 {v1}', { v1: i + 1 })}
                           value={r.net_cents ?? ""}
                           onChange={(net_cents) =>
                             patch({
@@ -715,9 +715,9 @@ export function Editor({
                             })
                           }
                         />
-                        <FormRow label="这是估计金额">
+                        <FormRow label={tr('这是估计金额')}>
                           <Switch
-                            label={`解锁安排 ${i + 1} 是估计金额`}
+                            label={tr('解锁安排 {v1} 是估计金额', { v1: i + 1 })}
                             checked={r.estimated}
                             onChange={(estimated) =>
                               patch({
@@ -729,11 +729,11 @@ export function Editor({
                           />
                         </FormRow>
                         <FormRow
-                          label="确认不含未来缴存"
-                          hint="只填写已有余额的未来净到账，未来缴存另在每月能存的钱里维护"
+                          label={tr('确认不含未来缴存')}
+                          hint={tr('只填写已有余额的未来净到账，未来缴存另在每月能存的钱里维护')}
                         >
                           <Switch
-                            label={`解锁安排 ${i + 1} 不含未来缴存`}
+                            label={tr('解锁安排 {v1} 不含未来缴存', { v1: i + 1 })}
                             checked={r.excludes_future_deposits}
                             onChange={(excludes_future_deposits) =>
                               patch({
@@ -753,7 +753,7 @@ export function Editor({
                             })
                           }
                         >
-                          删除解锁安排
+                          {tr('删除解锁安排')}
                         </Button>
                       </div>
                     ))}
@@ -774,12 +774,12 @@ export function Editor({
                         })
                       }
                     >
-                      添加解锁安排
+                      {tr('添加解锁安排')}
                     </Button>
                   </FormGroup>
                 )}
                 {debts && (
-                  <ListGroup footer="每笔贷款退休前后怎么还，可以随时回来修改。">
+                  <ListGroup footer={tr('每笔贷款退休前后怎么还，可以随时回来修改。')}>
                     <ListRow
                       title={debts.text}
                       icon={
@@ -796,16 +796,16 @@ export function Editor({
             {step === 3 && (
               <>
                 <FormGroup
-                  title="退休后收入"
-                  footer="这是手填的未来收入假设；领取资格和金额请另行核实。"
+                  title={tr('退休后收入')}
+                  footer={tr('这是手填的未来收入假设；领取资格和金额请另行核实。')}
                 >
                   <SelectField
-                    label="未来收入计入方式"
+                    label={tr('未来收入计入方式')}
                     value={d.simplified.income_mode}
                     options={[
-                      { id: "excluded", label: "本次不计未来收入" },
-                      { id: "manual", label: "计入所选手填收入" },
-                      { id: "unconfirmed", label: "还没确认" },
+                      { id: "excluded", label: tr('本次不计未来收入') },
+                      { id: "manual", label: tr('计入所选手填收入') },
+                      { id: "unconfirmed", label: tr('还没确认') },
                     ]}
                     onChange={(v) =>
                       patch({
@@ -829,51 +829,51 @@ export function Editor({
                       },
                     });
                   return (
-                    <FormGroup key={income.id} title={`收入 ${i + 1}`}>
+                    <FormGroup key={income.id} title={tr('收入 {v1}', { v1: i + 1 })}>
                       <TextField
-                        label="收入名称"
+                        label={tr('收入名称')}
                         value={income.name}
                         onChange={(name) => set({ name })}
                       />
-                      <FormRow label="计入本次测算">
+                      <FormRow label={tr('计入本次测算')}>
                         <Switch
-                          label={`计入${income.name || "收入"}`}
+                          label={tr('计入{v1}', { v1: income.name || "收入" })}
                           checked={income.included}
                           onChange={(included) => set({ included })}
                         />
                       </FormRow>
                       <SelectField
-                        label="收入类型"
+                        label={tr('收入类型')}
                         value={income.role}
                         options={[
-                          { id: "pension", label: "养老金" },
-                          { id: "other", label: "其他固定收入" },
+                          { id: "pension", label: tr('养老金') },
+                          { id: "other", label: tr('其他固定收入') },
                         ]}
                         onChange={(role) =>
                           set({ role: role as typeof income.role })
                         }
                       />
                       <MoneyField
-                        label="每月收入"
+                        label={tr('每月收入')}
                         value={income.monthly_cents ?? ""}
                         onChange={(v) => set({ monthly_cents: v || null })}
                       />
                       <MonthField
-                        label="开始领取月份"
+                        label={tr('开始领取月份')}
                         value={income.start_month ?? ""}
                         onChange={(v) => set({ start_month: v || null })}
                       />
                       <MonthField
-                        label="结束月份（空为规划终点）"
+                        label={tr('结束月份（空为规划终点）')}
                         value={income.end_month ?? ""}
                         onChange={(v) => set({ end_month: v || null })}
                       />
                       <SelectField
-                        label="金额对应物价"
+                        label={tr('金额对应物价')}
                         value={income.basis}
                         options={[
-                          { id: "start_month", label: "开始领取时的金额" },
-                          { id: "reference_month", label: "指定月份的购买力" },
+                          { id: "start_month", label: tr('开始领取时的金额') },
+                          { id: "reference_month", label: tr('指定月份的购买力') },
                         ]}
                         onChange={(v) =>
                           set({ basis: v as typeof income.basis })
@@ -881,19 +881,19 @@ export function Editor({
                       />
                       {income.basis === "reference_month" && (
                         <MonthField
-                          label="金额基准月份"
+                          label={tr('金额基准月份')}
                           value={income.basis_month ?? ""}
                           onChange={(v) => set({ basis_month: v || null })}
                         />
                       )}
                       <SelectField
-                        label="之后如何增长"
+                        label={tr('之后如何增长')}
                         value={income.growth}
                         options={[
-                          { id: "fixed_nominal", label: "固定账面金额" },
+                          { id: "fixed_nominal", label: tr('固定账面金额') },
                           {
                             id: "constant_purchasing_power",
-                            label: "保持购买力（跟随通胀）",
+                            label: tr('保持购买力（跟随通胀）'),
                           },
                         ]}
                         onChange={(v) =>
@@ -901,19 +901,19 @@ export function Editor({
                         }
                       />
                       <TextField
-                        label="信息来源"
+                        label={tr('信息来源')}
                         value={income.source ?? ""}
                         onChange={(v) => set({ source: v || null })}
                       />
                       <DateField
-                        label="来源核对日期"
+                        label={tr('来源核对日期')}
                         value={income.source_checked_on ?? ""}
                         allowClear
                         max={today}
                         onChange={(v) => set({ source_checked_on: v || null })}
                       />
                       <TextAreaField
-                        label="收入备注"
+                        label={tr('收入备注')}
                         value={income.notes}
                         onChange={(notes) => set({ notes })}
                       />
@@ -931,7 +931,7 @@ export function Editor({
                           })
                         }
                       >
-                        删除这笔收入
+                        {tr('删除这笔收入')}
                       </Button>
                     </FormGroup>
                   );
@@ -949,27 +949,27 @@ export function Editor({
                     })
                   }
                 >
-                  添加未来收入
+                  {tr('添加未来收入')}
                 </Button>
               </>
             )}
             {step === 4 && (
               <FormGroup
-                title={couple ? "两人每月一共能存" : "每月能存多少"}
-                footer="到账减去全部开销后剩下的钱；买基金等投入也算，投资涨跌不算。空白是未知，0 表示不存钱，负数表示取用存款。"
+                title={couple ? tr('两人每月一共能存') : tr('每月能存多少')}
+                footer={tr('到账减去全部开销后剩下的钱；买基金等投入也算，投资涨跌不算。空白是未知，0 表示不存钱，负数表示取用存款。')}
               >
                 <MoneyField
-                  label="你估计每月能存"
+                  label={tr('你估计每月能存')}
                   signed
                   value={d.contribution}
                   onChange={(contribution) => patch({ contribution })}
                 />
                 {couple && h.partner.stop_age_months !== null && (
                   <MoneyField
-                    label="其中伴侣每月存多少"
+                    label={tr('其中伴侣每月存多少')}
                     signed
                     value={h.partner.monthly_cents ?? ""}
-                    hint="已包含在两人总额里，不是另外加的；不确定可留空"
+                    hint={tr('已包含在两人总额里，不是另外加的；不确定可留空')}
                     onChange={(v) =>
                       setH({
                         ...h,
@@ -980,7 +980,7 @@ export function Editor({
                 )}
                 {fieldError("partner_monthly")}
                 <Button onClick={() => patch({ contribution: "0" })}>
-                  明确按每月存 0 元
+                  {tr('明确按每月存 0 元')}
                 </Button>
               </FormGroup>
             )}
@@ -998,32 +998,32 @@ export function Editor({
         <Notice tone="danger">{notice || saver.notice}</Notice>
       )}
       <p className="mp-muted">
-        没想好的条件可以先留空。点「保存」才会写入；取消不保存。
+        {tr('没想好的条件可以先留空。点「保存」才会写入；取消不保存。')}
       </p>
       {flow && (
         <ActionBar>
           {step > 0 && (
             <Button disabled={frozen} onClick={() => jump(step - 1)}>
-              上一步
+              {tr('上一步')}
             </Button>
           )}
           {step < flowSteps.length - 1 ? (
             <Button variant="primary" disabled={frozen} onClick={() => jump(step + 1)}>
-              下一步
+              {tr('下一步')}
             </Button>
           ) : (
             <Button variant="primary" disabled={frozen} onClick={() => void save()}>
-              保存
+              {tr('保存')}
             </Button>
           )}
         </ActionBar>
       )}
       {confirmCancel && (
-        <Sheet title="放弃这次修改？" cancelLabel="继续编辑" onClose={() => setConfirmCancel(false)}>
+        <Sheet title={tr('放弃这次修改？')} cancelLabel={tr('继续编辑')} onClose={() => setConfirmCancel(false)}>
           <div className="m-confirm">
-            <p className="m-confirm-text">已填的内容还没有保存，放弃后会丢失。</p>
+            <p className="m-confirm-text">{tr('已填的内容还没有保存，放弃后会丢失。')}</p>
             <Button variant="danger" block onClick={() => nav.pop()}>
-              放弃
+              {tr('放弃')}
             </Button>
           </div>
         </Sheet>

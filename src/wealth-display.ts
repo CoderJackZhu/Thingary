@@ -1,4 +1,5 @@
 import type { Account, CompareRow } from './wealth.ts';
+import { t } from './i18n.ts';
 export type AccountView = 'active' | 'closed' | 'all';
 export const accountVisible = (a: Account, view: AccountView) => view === 'all' || (view === 'closed') === !!a.fields.closed_on;
 /** Historical changes must retain closed accounts with money, unknown entries or a scope change. */
@@ -43,12 +44,12 @@ export function accountGroupTotals(accounts: Account[], groups: import('./accoun
 export function accountBalanceView(account: Account, date?: string | null, entries?: import('./wealth').Entry[]) {
   const entry = date && entries ? entries.find(row => row.account_id === account.id) : undefined;
   if (entry) {
-    if (entry.amount_cents === null || entry.state === 'missing') return { fact: { ...entry, amount_cents: null }, date: date!, state: 'unknown' as const, label: '这次金额待填写' };
+    if (entry.amount_cents === null || entry.state === 'missing') return { fact: { ...entry, amount_cents: null }, date: date!, state: 'unknown' as const, label: t('这次金额待填写') };
     return { fact: entry, date: date!, state: entry.state === 'unchanged' ? 'carried' as const : 'entered' as const,
-      label: entry.state === 'unchanged' ? `沿用旧金额 · ${account.last_entered_on ? `最近填写 ${account.last_entered_on}` : '原填写日期待核对'}` : '这次填写' };
+      label: entry.state === 'unchanged' ? t('沿用旧金额 · {v1}', { v1: account.last_entered_on ? `最近填写 ${account.last_entered_on}` : '原填写日期待核对' }) : t('这次填写') };
   }
   return { fact: account.latest, date: account.latest?.date, state: account.latest ? 'other' as const : 'unknown' as const,
-    label: account.latest ? date && entries ? '其他日期记录 · 未列入这次小计' : '最近已知记录' : ['property', 'vehicle'].includes(account.fields.kind) ? '尚未估值' : '尚未填写金额' };
+    label: account.latest ? date && entries ? t('其他日期记录 · 未列入这次小计') : t('最近已知记录') : ['property', 'vehicle'].includes(account.fields.kind) ? t('尚未估值') : t('尚未填写金额') };
 }
 
 /** Stable endpoints from a saved complete snapshot; never substitute a different period. */

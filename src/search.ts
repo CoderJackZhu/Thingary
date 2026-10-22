@@ -1,5 +1,5 @@
 import type { SourceTarget } from './source';
-
+import { t as tr } from './i18n.ts';
 /** 九类结果，顺序即后端固定类型顺序（§6.2）。 */
 export type SearchKind = 'asset' | 'wish' | 'account' | 'snapshot' | 'expense' | 'plan' | 'payment' | 'virtual' | 'topup';
 export const searchKindOrder: SearchKind[] = ['asset', 'wish', 'account', 'snapshot', 'expense', 'plan', 'payment', 'virtual', 'topup'];
@@ -19,7 +19,7 @@ export const searchPageSize = 30;
 
 /** 面板可用的类型筛选：全部 + 已开启模块的类型，带计数。 */
 export function searchFilterList(typeCounts: [string, number][] | null, modulesOn: (kind: SearchKind) => boolean): { value: string; label: string; count: number | null }[] {
-  const list = [{ value: 'all', label: '全部', count: typeCounts ? typeCounts.reduce((t, [, n]) => t + n, 0) : null }];
+  const list = [{ value: 'all', label: tr('全部'), count: typeCounts ? typeCounts.reduce((t, [, n]) => t + n, 0) : null }];
   for (const kind of searchKindOrder) {
     if (!modulesOn(kind)) continue;
     const hit = typeCounts?.find(([k]) => k === kind);

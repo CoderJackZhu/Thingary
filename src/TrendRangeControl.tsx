@@ -5,7 +5,7 @@ import { DateInput } from './DateInput';
 import { customRangeError, periodChange, rangePoints, rangeUsable, recallTrendSelection, rememberTrendRange, trendRanges } from './review';
 import type { CustomTrendRange, TrendRange, TrendSelection } from './review';
 import './dual-line-chart.css';
-
+import { t } from './i18n.ts';
 /** Draft custom dates never replace the last valid, usable range. */
 export function useTrendSelection(generation: string, points: Point[], today: string) {
   const [selection, setSelection] = useState<TrendSelection>(() => recallTrendSelection(generation));
@@ -37,15 +37,15 @@ export function useTrendSelection(generation: string, points: Point[], today: st
 }
 export function TrendChange({ points, hidden = false }: { points: Point[]; hidden?: boolean }) {
   const result = periodChange(points);
-  return <span className="trend-period-change">{result.status === 'scope_changed' ? '账户计入范围有变化，不直接比较' : result.status === 'insufficient' ? '完整盘点不足两次，暂无较期初变化' : <>较期初 {hidden ? '******' : changeText(result.cents)}{result.rate_hundredths === null ? '' : hidden ? '（******）' : `（${rateText(result.rate_hundredths)}）`}</>}</span>;
+  return <span className="trend-period-change">{result.status === 'scope_changed' ? t('账户计入范围有变化，不直接比较') : result.status === 'insufficient' ? t('完整盘点不足两次，暂无较期初变化') : <>{t('较期初')} {hidden ? '******' : changeText(result.cents)}{result.rate_hundredths === null ? '' : hidden ? '（******）' : `（${rateText(result.rate_hundredths)}）`}</>}</span>;
 }
 export function TrendRangeControl({ selection, points, today, hidden = false }: { selection: ReturnType<typeof useTrendSelection>; points: Point[]; today: string; hidden?: boolean }) {
   const errorId = useId();
   return <div className="trend-range-control">
-    <div className="trend-range-row"><div className="ui-seg" role="group" aria-label="曲线时间范围">{trendRanges.map(([key, label]) => {
+    <div className="trend-range-row"><div className="ui-seg" role="group" aria-label={t('曲线时间范围')}>{trendRanges.map(([key, label]) => {
       const usable = key === 'custom' || rangeUsable(points, key, today);
-      return <button type="button" key={key} disabled={!usable} title={usable ? undefined : '这个范围内完整盘点不足两次'} aria-pressed={key === 'custom' ? selection.editing : !selection.editing && selection.applied.range === key} onClick={() => selection.select(key)}>{label}</button>;
+      return <button type="button" key={key} disabled={!usable} title={usable ? undefined : t('这个范围内完整盘点不足两次')} aria-pressed={key === 'custom' ? selection.editing : !selection.editing && selection.applied.range === key} onClick={() => selection.select(key)}>{label}</button>;
     })}</div><TrendChange points={selection.points} hidden={hidden}/></div>
-    {selection.editing && <><div className="trend-custom-dates"><label>开始日期<DateInput label="曲线开始日期" min="0001-01-01" max={today} value={selection.draft.from} onChange={from => selection.edit({ ...selection.draft, from })} invalid={!!selection.error} describedBy={selection.error ? errorId : undefined}/></label><label>结束日期<DateInput label="曲线结束日期" min="0001-01-01" max={today} value={selection.draft.to} onChange={to => selection.edit({ ...selection.draft, to })} invalid={!!selection.error} describedBy={selection.error ? errorId : undefined}/></label></div>{selection.error && <p className="error-text" role="alert" id={errorId}>{selection.error.replace(/。$/, '')}。当前曲线保留上一次合法范围。</p>}</>}
+    {selection.editing && <><div className="trend-custom-dates"><label>{t('开始日期')}<DateInput label={t('曲线开始日期')} min="0001-01-01" max={today} value={selection.draft.from} onChange={from => selection.edit({ ...selection.draft, from })} invalid={!!selection.error} describedBy={selection.error ? errorId : undefined}/></label><label>{t('结束日期')}<DateInput label={t('曲线结束日期')} min="0001-01-01" max={today} value={selection.draft.to} onChange={to => selection.edit({ ...selection.draft, to })} invalid={!!selection.error} describedBy={selection.error ? errorId : undefined}/></label></div>{selection.error && <p className="error-text" role="alert" id={errorId}>{t('{v1}。当前曲线保留上一次合法范围。', { v1: selection.error.replace(/。$/, '') })}</p>}</>}
   </div>;
 }

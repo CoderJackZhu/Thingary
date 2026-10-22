@@ -22,32 +22,33 @@ import {
 import { usePlan } from "./data";
 import { budgetComparisons, fundsChart, stepMonth, yearCard } from "./detail-model";
 import "./plan.css";
+import { t } from '../../i18n.ts';
 export default function Detail() {
   const p = usePlan(),
     nav = useNav();
   if (p.loading)
     return (
       <div className="m-page mp-page">
-        <LargeTitle title="测算详情" />
+        <LargeTitle title={t('测算详情')} />
         <Loading />
       </div>
     );
   if (p.error)
     return (
       <div className="m-page mp-page">
-        <LargeTitle title="测算详情" />
+        <LargeTitle title={t('测算详情')} />
         <ErrorState message={p.error} onRetry={p.reload} />
       </div>
     );
   if (!p.saved?.profile.retire.basic)
     return (
       <div className="m-page mp-page">
-        <LargeTitle title="测算详情" />
+        <LargeTitle title={t('测算详情')} />
         <EmptyState
           icon="chart"
-          title="先设置一个目标"
+          title={t('先设置一个目标')}
           action={
-            <Button onClick={() => nav.push("plan.setup")}>设置条件</Button>
+            <Button onClick={() => nav.push("plan.setup")}>{t('设置条件')}</Button>
           }
         />
       </div>
@@ -55,16 +56,16 @@ export default function Detail() {
   if (p.capabilities?.prediction.status !== "ready")
     return (
       <div className="m-page mp-page">
-        <LargeTitle title="测算详情" />
+        <LargeTitle title={t('测算详情')} />
         <EmptyState
           icon="chart"
-          title="还不能展示预测"
+          title={t('还不能展示预测')}
           message={
             p.capabilities?.prediction.status === "blocked"
               ? p.capabilities.prediction.missing
                   .map((m) => m.message)
                   .join("；")
-              : "规划条件未就绪"
+              : t('规划条件未就绪')
           }
           action={
             <Button
@@ -72,7 +73,7 @@ export default function Detail() {
                 nav.push("plan.setup", { section: "contribution" })
               }
             >
-              补充条件
+              {t('补充条件')}
             </Button>
           }
         />
@@ -111,10 +112,10 @@ function Ready({
   return (
     <div className="m-page mp-page">
       <LargeTitle
-        title="测算详情"
+        title={t('测算详情')}
         actions={
           <Button variant="primary" onClick={() => nav.push("plan.setup")}>
-            调整条件
+            {t('调整条件')}
           </Button>
         }
       />
@@ -122,55 +123,54 @@ function Ready({
         <ListRow
           icon="chart"
           tone="positive"
-          title="假设分析"
-          subtitle="压力测试、市场路径与敏感性"
+          title={t('假设分析')}
+          subtitle={t('压力测试、市场路径与敏感性')}
           onClick={() => nav.push("plan.whatif")}
         />
       </ListGroup>
       <SegmentedControl
-        label="金额显示方式"
+        label={t('金额显示方式')}
         value={mode}
         onChange={setMode}
         items={[
-          { id: "today", label: "按今天物价" },
-          { id: "nominal", label: "未来账面金额" },
+          { id: "today", label: t('按今天物价') },
+          { id: "nominal", label: t('未来账面金额') },
         ]}
       />
-      <Card label="预计资金变化">
-        <h2>预计资金变化</h2>
+      <Card label={t('预计资金变化')}>
+        <h2>{t('预计资金变化')}</h2>
         <p>{conclusion}</p>
         <LineChart
           height={210}
-          summary={`预计资金实线，所需资金虚线。${conclusion}`}
+          summary={t('预计资金实线，所需资金虚线。{conclusion}', { conclusion })}
           {...chart}
           tip={(i) => ({ title: points[i].label, rows: [{ name: "预计资金", value: forecastMoneyText(points[i].projected), color: "var(--accent)" }, { name: "所需资金", value: forecastMoneyText(points[i].required), color: "var(--muted)" }] })}
         />
         <p className="mp-muted">
-          实线：预计资金 ·
-          虚线：此时停止工作所需资金。假设推演，不是证券行情或历史收益。
+          {t('实线：预计资金 · 虚线：此时停止工作所需资金。假设推演，不是证券行情或历史收益。')}
         </p>
       </Card>
-      <Section title="不同生活预算比较">
-        <ListGroup footer="均沿用已保存的收益及收入；停止追加存钱只取消正向投入，取用存款仍保留。">
+      <Section title={t('不同生活预算比较')}>
+        <ListGroup footer={t('均沿用已保存的收益及收入；停止追加存钱只取消正向投入，取用存款仍保留。')}>
           {comparisons.map((c) => (
             <ListRow
               key={c.label}
               title={c.label}
               subtitle={
                 c.stop
-                  ? `预计停工 ${c.stop} · ${c.success ? "所选期间可覆盖" : "尚未满足完整目标"}`
-                  : "规划终点前尚未达成"
+                  ? t('预计停工 {stop} · {v2}', { stop: c.stop, v2: c.success ? "所选期间可覆盖" : "尚未满足完整目标" })
+                  : t('规划终点前尚未达成')
               }
               value={forecastMoneyText(c.required)}
-              valueSub="停止工作所需资金"
+              valueSub={t('停止工作所需资金')}
             />
           ))}
         </ListGroup>
       </Section>
       <Card>
         <details>
-          <summary>逐年表（共 {rows.length} 行）</summary>
-          <p className="mp-muted">点一年可看全部字段。支出含大额付款，缺口单列。</p>
+          <summary>{t('逐年表（共 {length} 行）', { length: rows.length })}</summary>
+          <p className="mp-muted">{t('点一年可看全部字段。支出含大额付款，缺口单列。')}</p>
           <ul className="mp-years">
             {rows.map((r, i) => {
               const y = yearCard(r);
@@ -184,8 +184,8 @@ function Ready({
                         {y.age && <small>{y.age}</small>}
                       </span>
                       <span className="mp-year-nums">
-                        <span>期末资金 <b>{forecastMoneyText(y.end)}</b></span>
-                        {y.hasGap && <span className="mp-year-gap">缺口 <b>{forecastMoneyText(y.unfunded)}</b></span>}
+                        <span>{t('期末资金')} <b>{forecastMoneyText(y.end)}</b></span>
+                        {y.hasGap && <span className="mp-year-gap">{t('缺口')} <b>{forecastMoneyText(y.unfunded)}</b></span>}
                       </span>
                       </span>
                     </summary>
@@ -197,7 +197,7 @@ function Ready({
                         </div>
                       ))}
                       <div>
-                        <dt>缺口</dt>
+                        <dt>{t('缺口')}</dt>
                         <dd>{forecastMoneyText(y.unfunded)}</dd>
                       </div>
                     </dl>
@@ -209,18 +209,18 @@ function Ready({
         </details>
       </Card>
       <Card>
-        <h2>退休生活费由什么覆盖</h2>
+        <h2>{t('退休生活费由什么覆盖')}</h2>
         <div className="mp-month-picker">
           <p className="mp-month-label" id="mp-coverage-month-label" aria-live="polite">
             {timeLabel(pred.plan, selected)}
           </p>
-          <div className="mp-month-steps" role="group" aria-label="调整查看月份">
+          <div className="mp-month-steps" role="group" aria-label={t('调整查看月份')}>
             {([["−1年", -12], ["−1月", -1], ["+1月", 1], ["+1年", 12]] as const).map(([label, delta]) => (
               <button
                 key={label}
                 type="button"
                 disabled={stepMonth(selected, delta, minMonth, maxMonth) === selected}
-                aria-label={delta % 12 === 0 ? `${delta < 0 ? "前移" : "后移"}一年` : `${delta < 0 ? "前移" : "后移"}一个月`}
+                aria-label={delta % 12 === 0 ? t('{v1}一年', { v1: delta < 0 ? "前移" : "后移" }) : t('{v1}一个月', { v1: delta < 0 ? "前移" : "后移" })}
                 onClick={() => setSelected(stepMonth(selected, delta, minMonth, maxMonth))}
               >
                 {label}
@@ -239,15 +239,14 @@ function Ready({
           />
         </div>
         <p>
-          {cover.calendar_month}，每月生活费 {forecastMoneyText(cover.spend)}
-          ，其中无资金支持{" "}
+          {t('{calendar_month}，每月生活费 {v2}，其中无资金支持', { calendar_month: cover.calendar_month, v2: forecastMoneyText(cover.spend) })}{" "}
           {forecastMoneyText(
             cover.segments.find((s) => s.kind === "unfunded")?.monthly ?? 0,
           )}
           。
         </p>
         <HBarChart
-          summary="生活费由收入、组合提取和无资金部分构成"
+          summary={t('生活费由收入、组合提取和无资金部分构成')}
           rows={cover.segments.map((s) => ({
             label: s.label,
             value: s.monthly,
@@ -255,7 +254,7 @@ function Ready({
           }))}
         />
       </Card>
-      <Notice>预测取决于填写的条件和假设，实际结果可能不同。</Notice>
+      <Notice>{t('预测取决于填写的条件和假设，实际结果可能不同。')}</Notice>
     </div>
   );
 }

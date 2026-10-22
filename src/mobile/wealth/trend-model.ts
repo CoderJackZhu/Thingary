@@ -1,9 +1,9 @@
 // 财富页趋势图的数据：一次只画一条线（净资产／资产／负债），只画完整盘点。
 import type { Point } from '../../wealth.ts';
 import { moneyText } from '../format.ts';
-
+import { t } from '../../i18n.ts';
 export type TrendKind = 'net' | 'assets' | 'liabilities';
-export const trendKinds: { id: TrendKind; label: string }[] = [{ id: 'net', label: '净资产' }, { id: 'assets', label: '资产' }, { id: 'liabilities', label: '负债' }];
+export const trendKinds: { id: TrendKind; label: string }[] = [{ id: 'net', label: t('净资产') }, { id: 'assets', label: t('资产') }, { id: 'liabilities', label: t('负债') }];
 const field = { net: 'net_cents', assets: 'assets_cents', liabilities: 'liabilities_cents' } as const;
 const num = (value: string | null | undefined): number | null => value === null || value === undefined ? null : Number(value);
 
@@ -13,7 +13,7 @@ export function trendValues(points: Point[], kind: TrendKind): (number | null)[]
 /** Scrub label: all three values of that date, or why the date has none. */
 export function trendTip(point: Point, hidden: boolean): { title: string; rows: { name: string; value: string }[]; note?: string } {
   const show = (value: string | null | undefined) => hidden ? '******' : value === null || value === undefined ? '未知' : moneyText(value);
-  if (!point.complete) return { title: point.date, rows: [], note: `缺 ${point.missing} 个账户，金额未知，不画在曲线上` };
+  if (!point.complete) return { title: point.date, rows: [], note: t('缺 {missing} 个账户，金额未知，不画在曲线上', { missing: point.missing }) };
   return { title: point.date, rows: [{ name: '净资产', value: show(point.net_cents) }, { name: '资产', value: show(point.assets_cents) }, { name: '负债', value: show(point.liabilities_cents) }] };
 }
 export function trendSummary(points: Point[], kind: TrendKind, hidden: boolean): string {

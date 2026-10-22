@@ -25,7 +25,7 @@ const validSigned = (s: string) => /^-?(0|[1-9]\d*)$/.test(s) && Number.isSafeIn
 export type BasicCompile = ((amount: number, before: number, after: number, future?: boolean) => Plan) & { household_share_cents?: number };
 export function solveBasicRequirement(compile: BasicCompile, before: number, after: number, contributionFrom?: number): RequirementResult {
   const rates = { before_hundredths: before, after_hundredths: after };
-  if (before < -1000 || before > 2000 || after < -1000 || after > 2000) return { ...rates, status: 'out_of_bounds', message: '调整后的实际收益超出允许范围，本条件未应用。' };
+  if (before < -1000 || before > 2000 || after < -1000 || after > 2000) return { ...rates, status: 'out_of_bounds', message: t('调整后的实际收益超出允许范围，本条件未应用。') };
   type Solved = { status: 'payment_constraint' } | { status: 'not_applicable'; required_now: number }
     | { status: 'no_positive_contribution'; monthly_cents: '0' } | { status: 'found'; monthly_cents: string }
     | { status: 'search_not_found'; search_limit_cents: string };
@@ -33,8 +33,8 @@ export function solveBasicRequirement(compile: BasicCompile, before: number, aft
   const base = compile(0, before, after), solverPlan = compile.household_share_cents ? { ...base, saving_cents: 0 } : base;
   const solved = engineRequest<Solved>({ op: 'solve_contribution', plan: enginePlan(solverPlan), contribution_from_month: contributionFrom, search_limit_cents: BASIC_SEARCH_LIMIT_CENTS });
   if (solved.status === 'payment_constraint') return { ...rates, status: solved.status, message: contributionFrom === undefined
-    ? '起点已有资金不足以支付首月付款；月底投入不能补月初支付，请补现有资金或调整付款时间。'
-    : '开始这段投入前的已知付款不足；之后的投入不能补救，请核对现有资金和付款时间。' };
+    ? t('起点已有资金不足以支付首月付款；月底投入不能补月初支付，请补现有资金或调整付款时间。')
+    : t('开始这段投入前的已知付款不足；之后的投入不能补救，请核对现有资金和付款时间。') };
   if (solved.status === 'not_applicable') return { ...rates, status: solved.status, message: '没有目标前积累区间；当前退休所需 ' + Math.ceil(solved.required_now) + ' 分，需核对现有资金。' };
   // Household split (couple, partner works longer than me): the engine solves
   // the plan's own saving_cents, i.e. "my part". The result is reported as the
@@ -66,6 +66,7 @@ export type BasicPlanPreparation = Pick<BasicCapabilities, 'context' | 'funds' |
 };
 
 import { validateSimplifiedPlanningV1, validMonthV1 } from './plan-simplified.ts';
+import { t } from './i18n.ts';
 /** Only current explicit calendar months and general cash flows reach the ledger. */
 export function prepareBasicPlan(sources: PlanningSources, temporaryContribution?: string, scope: 'complete' | 'accumulation' = 'complete', options: { includePools?: boolean } = {}): BasicPlanPreparation {
   const state = sources.profile.status === 'ready' ? sources.profile.value : null;
@@ -101,14 +102,14 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   if (f.income_mode === 'unconfirmed' && scope === 'complete') reqMissing.push(missing('INCOME_UNCONFIRMED', 'requirement', 'basic', 'income_mode', '请选择本次不计收入或填写预计收入。'));
   const selected = f.income_mode === 'manual' ? f.future_incomes.filter(i => i.included) : [];
   const incomplete = selected.filter(i => i.monthly_cents === null || i.start_month === null);
-  for (const i of incomplete) annotations.push({ id: `income:${i.id}`, reason_code: 'INCOME_INCOMPLETE', message: `${i.name}金额或开始月未知，该项未计入；结果仅覆盖其余条件。`, effect: 'requirement_higher', treatment: 'omitted', source_ids: [i.id], missing_fields: ['金额／开始月'], refinement: { owner: 'basic', field: `future_incomes.${i.id}` } });
+  for (const i of incomplete) annotations.push({ id: `income:${i.id}`, reason_code: 'INCOME_INCOMPLETE', message: t('{name}金额或开始月未知，该项未计入；结果仅覆盖其余条件。', { name: i.name }), effect: 'requirement_higher', treatment: 'omitted', source_ids: [i.id], missing_fields: ['金额／开始月'], refinement: { owner: 'basic', field: `future_incomes.${i.id}` } });
   const pension: BasicCapabilities['pension'] = f.income_mode === 'unconfirmed' ? blocked([missing('INCOME_UNCONFIRMED', 'pension', 'basic', 'income_mode', '未来收入未确认。')]) : { status: 'ready', value: { included: selected.some(i => i.role === 'pension'), start_month: null, monthly_cents: null, incomplete_ids: incomplete.map(i => i.id) } };
   const active = r.life_events.filter(e => e.included || core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred'));
   const eventReview = eventCoverage(active, core, snap, sources.today, saved?.reference_issues ?? [], {targetMonth:f.time.target_month ?? undefined,horizonMonth:f.time.horizon_month ?? undefined,accounts:sources.accounts.status==='ready'?sources.accounts.value:[]});
   annotations.push(...eventReview.annotations);
   const debtRows = snap ? debtReview(snap, core, active).rows : [];
-  for (const i of r.spend_items.filter(i => i.time_unconfirmed)) annotations.push({ id:`spend:${i.id}:time`, reason_code:'TIME_PENDING', message:`${i.label}的起止月份待重设，该额外费用未计入。`,effect:'requirement_lower',treatment:'omitted',source_ids:[i.id],missing_fields:['起止月份'],refinement:{owner:'budget',field:`spend_items.${i.id}`} });
-  for (const e of active.filter(e => e.time_unconfirmed)) annotations.push({ id:`event:${e.id}:time`, reason_code:'TIME_PENDING', message:`${e.label}的持有／循环终点待重设，该部分未计入。`,effect:'requirement_lower',treatment:'omitted',source_ids:[e.id],missing_fields:['终点月份'],refinement:{owner:'events',field:`life_events.${e.id}`,event_id:e.id} });
+  for (const i of r.spend_items.filter(i => i.time_unconfirmed)) annotations.push({ id:`spend:${i.id}:time`, reason_code:'TIME_PENDING', message:t('{label}的起止月份待重设，该额外费用未计入。', { label: i.label }),effect:'requirement_lower',treatment:'omitted',source_ids:[i.id],missing_fields:['起止月份'],refinement:{owner:'budget',field:`spend_items.${i.id}`} });
+  for (const e of active.filter(e => e.time_unconfirmed)) annotations.push({ id:`event:${e.id}:time`, reason_code:'TIME_PENDING', message:t('{label}的持有／循环终点待重设，该部分未计入。', { label: e.label }),effect:'requirement_lower',treatment:'omitted',source_ids:[e.id],missing_fields:['终点月份'],refinement:{owner:'events',field:`life_events.${e.id}`,event_id:e.id} });
   const sourceRows = costSources(active).filter(s => {
     const event = active.find(e => s.id === `event:${e.id}:loan` || s.id === `event:${e.id}:holding`);
     if (!event) return true;
@@ -128,7 +129,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       if(c.treatment==='included' && (c.reference_cents===null || (pre && c.source_id.startsWith('event:') && !occurred))) reqMissing.push(missing('COST_SCOPE_INVALID','requirement','budget',field,'已含费用缺参考额或尚未发生。'));
       if(c.treatment==='excluded' && mustStayInLedger(c.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID','requirement','events',field,'贷款必须计入。','constraint'));
     }
-    for(const id of ids) if(!scopes.some(c=>c.source_id===id)) annotations.push({id:`cost:${field}:${id}`,reason_code:'COST_ASSUMED_EXTRA',message:'请确认费用是否已包含；暂按额外费用计入，可能重复包含。',effect:'requirement_higher',treatment:'assumed_extra',source_ids:[id],missing_fields:['费用包含关系'],refinement:{owner:'budget',field}});
+    for(const id of ids) if(!scopes.some(c=>c.source_id===id)) annotations.push({id:`cost:${field}:${id}`,reason_code:'COST_ASSUMED_EXTRA',message:t('请确认费用是否已包含；暂按额外费用计入，可能重复包含。'),effect:'requirement_higher',treatment:'assumed_extra',source_ids:[id],missing_fields:['费用包含关系'],refinement:{owner:'budget',field}});
   };
   check(sourcesPre,b.contribution_costs,'basic.contribution_costs',true);
   if(scope==='complete') check(sourcesPost,b.retirement_costs,'basic.retirement_costs',false);
@@ -143,11 +144,11 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   const now=0, target=Math.max(0,monthIndex(f.time.target_month)-monthIndex(anchor)), horizon=monthIndex(f.time.horizon_month)-monthIndex(anchor)+1;
   const basisFactor=(1+p.assumptions.inflation_hundredths/10000)**((Date.parse(anchor)-Date.parse(core.monetary_basis_date))/(86400000*365.25));
   const days=new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate(), fraction=(days-+anchor.slice(8,10))/days;
-  const items:SpendItem[]=[{id:'living',label:'总预算其他部分',monthly_cents:(scope==='complete'?Number(r.spend_cents):0)-refs,start_age:null,end_age:null,inflation_hundredths:null,essential:true},...r.spend_items.filter(s=>scope==='complete' && !s.time_unconfirmed && allowed(`spend:${s.id}`,b.retirement_costs)).map(s=>({id:s.id,label:s.label,monthly_cents:Number(s.monthly_cents),start_age:s.start_month===null?null:(monthIndex(s.start_month)-monthIndex(anchor))/12,end_age:s.end_month===null?null:(monthIndex(s.end_month)-monthIndex(anchor)+1)/12,inflation_hundredths:s.inflation_hundredths,essential:s.essential}))];
-  const flows:Flow[]=scope==='complete' && Number(r.rent_cents)>0 && allowed('rent',b.retirement_costs)?[{source_id:'rent',label:'房租',from_month:0,to_month:null,cents:Number(r.rent_cents),nominal:false,essential:true,prorate_first:true}]:[];
+  const items:SpendItem[]=[{id:'living',label:t('总预算其他部分'),monthly_cents:(scope==='complete'?Number(r.spend_cents):0)-refs,start_age:null,end_age:null,inflation_hundredths:null,essential:true},...r.spend_items.filter(s=>scope==='complete' && !s.time_unconfirmed && allowed(`spend:${s.id}`,b.retirement_costs)).map(s=>({id:s.id,label:s.label,monthly_cents:Number(s.monthly_cents),start_age:s.start_month===null?null:(monthIndex(s.start_month)-monthIndex(anchor))/12,end_age:s.end_month===null?null:(monthIndex(s.end_month)-monthIndex(anchor)+1)/12,inflation_hundredths:s.inflation_hundredths,essential:s.essential}))];
+  const flows:Flow[]=scope==='complete' && Number(r.rent_cents)>0 && allowed('rent',b.retirement_costs)?[{source_id:'rent',label:t('房租'),from_month:0,to_month:null,cents:Number(r.rent_cents),nominal:false,essential:true,prorate_first:true}]:[];
   const savingFlows:Flow[]=[];
   for(const row of debtRows){const d=row.saved;if(!d || row.linked || row.zero || row.entry.amount_cents===null || d.monthly_cents===null || d.last_month===null)continue;
-    const flow={source_id:`debt:${d.account_id}`,label:`${row.name}还款`,from_month:Math.max(1,debtMonthIndex(d.start_month)-monthIndex(anchor)),to_month:debtMonthIndex(d.last_month)-monthIndex(anchor)+1,nominal:true,essential:true,timing:'start' as const};
+    const flow={source_id:`debt:${d.account_id}`,label:t('{name}还款', { name: row.name }),from_month:Math.max(1,debtMonthIndex(d.start_month)-monthIndex(anchor)),to_month:debtMonthIndex(d.last_month)-monthIndex(anchor)+1,nominal:true,essential:true,timing:'start' as const};
     if(d.before==='scheduled')savingFlows.push({...flow,cents:-Number(d.monthly_cents)});
     if(scope==='complete' && d.after==='scheduled')flows.push({...flow,cents:Number(d.monthly_cents)});
   }
@@ -157,7 +158,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     const rule=core.fund_rules.find(f=>f.account_id===release.account_id);
     const amount=release.net_cents===null?null:Number(release.net_cents), balance=entry?.amount_cents==null?null:Number(entry.amount_cents)*(rule?.share_hundredths??0)/10000;
     if(!entry || rule?.availability!=='restricted' || amount===null || balance===null || release.month<anchor.slice(0,7) || !release.excludes_future_deposits || (amount>balance && !release.estimated)) {
-      annotations.push({id:`release:${release.id}`,reason_code:'TRANSFER_PENDING',message:'暂时取不出的钱的金额、时间、现有余额或资金来源待确认，该转移未计入。',effect:'uncertain',treatment:'omitted',source_ids:[release.account_id],missing_fields:['通用可用安排'],refinement:{owner:'funds',field:`core.releases.${release.id}`}});continue;
+      annotations.push({id:`release:${release.id}`,reason_code:'TRANSFER_PENDING',message:t('暂时取不出的钱的金额、时间、现有余额或资金来源待确认，该转移未计入。'),effect:'uncertain',treatment:'omitted',source_ids:[release.account_id],missing_fields:['通用可用安排'],refinement:{owner:'funds',field:`core.releases.${release.id}`}});continue;
     }
     transfers.push({id:release.id,account_id:release.account_id,month:monthIndex(release.month)-monthIndex(anchor),cents:amount,nominal_cents:amount});
   }
@@ -170,9 +171,9 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   if(partner && partner.stop_age_months!==null){
     partnerStop=monthTextV1(monthIndexV1(partner.birth_month)+partner.stop_age_months);
     if(monthIndexV1(partnerStop)<=monthIndexV1(anchor)){
-      annotations.push({id:'household:partner-stopped',reason_code:'HOUSEHOLD_PARTNER_STOPPED',message:'伴侣停工月份已过，伴侣存款不再单独计算；请确认每月一共能存多少已不含伴侣。',effect:'uncertain',treatment:'omitted',source_ids:[],missing_fields:['每月一共能存'],refinement:{owner:'basic',field:'household.partner.stop_age_months'}});
+      annotations.push({id:'household:partner-stopped',reason_code:'HOUSEHOLD_PARTNER_STOPPED',message:t('伴侣停工月份已过，伴侣存款不再单独计算；请确认每月一共能存多少已不含伴侣。'),effect:'uncertain',treatment:'omitted',source_ids:[],missing_fields:['每月一共能存'],refinement:{owner:'basic',field:'household.partner.stop_age_months'}});
     } else if(partner.monthly_cents===null){
-      annotations.push({id:'household:share-unknown',reason_code:'HOUSEHOLD_SHARE_UNKNOWN',message:'伴侣每月存多少未填，暂按两人同时停工计算。',effect:'uncertain',treatment:'omitted',source_ids:[],missing_fields:['伴侣每月存款'],refinement:{owner:'basic',field:'household.partner.monthly_cents'}});
+      annotations.push({id:'household:share-unknown',reason_code:'HOUSEHOLD_SHARE_UNKNOWN',message:t('伴侣每月存多少未填，暂按两人同时停工计算。'),effect:'uncertain',treatment:'omitted',source_ids:[],missing_fields:['伴侣每月存款'],refinement:{owner:'basic',field:'household.partner.monthly_cents'}});
     } else share=Number(partner.monthly_cents);
   }
   const anchorMonth=anchor.slice(0,7);
@@ -186,7 +187,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       if (!Number.isFinite(flow.from_month) || (flow.to_month !== null && !Number.isFinite(flow.to_month))) return true;
       return flow.to_month === null || (flow.to_month > now && flow.to_month !== flow.from_month);
     };
-    const built={...withEvents,saving_flows:[...(withEvents.saving_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id,b.contribution_costs))),{label:'投入里已含费用',from_month:now,to_month:null,cents:preRefs,nominal:false,essential:false,prorate_first:true}],spend_flows:(withEvents.spend_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id,b.retirement_costs)))};
+    const built={...withEvents,saving_flows:[...(withEvents.saving_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id,b.contribution_costs))),{label:t('投入里已含费用'),from_month:now,to_month:null,cents:preRefs,nominal:false,essential:false,prorate_first:true}],spend_flows:(withEvents.spend_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id,b.retirement_costs)))};
     return partnerIncome?{...built,future_incomes:[...built.future_incomes??[],partnerIncome]}:built;
   };
   if(share!==null)compile.household_share_cents=share;

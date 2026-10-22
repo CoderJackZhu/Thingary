@@ -9,7 +9,7 @@ import type { CloseIntent } from './AssetEditor';
 import { DateInput } from './DateInput';
 import { saleError, saleAction, saleKey, settlement, incompleteCostReason } from './sales';
 import type { SaleDraft, SaleChange, SaleForm } from './sales';
-
+import { t } from './i18n.ts';
 export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: { initial: SaleDraft; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void }) {
   const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
   const [draft, setDraft] = useState(initial), [busy, setBusy] = useState(false);
@@ -69,18 +69,18 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
   const action = !validation && draft.mode !== 'revoke' ? saleAction(draft) : null;
   const preview = action && 'fields' in action ? settlement(draft.record, action.fields) : null;
   return <dialog ref={dialog} className="editor sale-editor" aria-labelledby="sale-title" onCancel={e => { e.preventDefault(); askClose('form'); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><h2 id="sale-title">{title}</h2><CloseButton type="button" aria-label="关闭售出表单" onClick={() => askClose('form')}/><div className="editor-header-actions">{!draft.pending && !conflict && draft.mode !== 'sell' && <button type="button" className={draft.mode === 'correct' ? 'danger' : undefined} disabled={busy} onClick={() => { setNotice(''); remember({ ...draft, mode: draft.mode === 'correct' ? 'revoke' : 'correct' }); }}>{draft.mode === 'correct' ? '撤销误记售出' : '返回修改'}</button>}{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对售出保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>读取最新状态</button> : <button className="primary" disabled={busy}>{busy ? '正在保存…' : draft.mode === 'revoke' ? '确认撤销误记售出' : '保存售出记录'}</button>}</div></header>
+    <header><h2 id="sale-title">{title}</h2><CloseButton type="button" aria-label={t('关闭售出表单')} onClick={() => askClose('form')}/><div className="editor-header-actions">{!draft.pending && !conflict && draft.mode !== 'sell' && <button type="button" className={draft.mode === 'correct' ? 'danger' : undefined} disabled={busy} onClick={() => { setNotice(''); remember({ ...draft, mode: draft.mode === 'correct' ? 'revoke' : 'correct' }); }}>{draft.mode === 'correct' ? t('撤销误记售出') : t('返回修改')}</button>}{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>{t('核对售出保存结果')}</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>{t('读取最新状态')}</button> : <button className="primary" disabled={busy}>{busy ? t('正在保存…') : draft.mode === 'revoke' ? t('确认撤销误记售出') : t('保存售出记录')}</button>}</div></header>
     <p>{draft.record.asset.name}</p>
-    {draft.mode === 'revoke' ? <p>确认这是误记的售出？撤销后恢复为<strong>{draft.record.sale?.previous_state === 'retired' ? '已退役' : '使用中'}</strong>，保留原档案和图片，持有天数重新计算到今天。真实卖出后又买回，请新增另一件物品。</p> : <>
-      <p className="muted">售出后持有天数截止到售出日。实际售价必填，可为 0；购入资料未知时仍可记录售出。</p>
-      <div className="field"><label htmlFor="sale-date">售出日期（必填）</label><DateInput yearIntent="past" id="sale-date" value={draft.fields.date} disabled={busy || !!draft.pending} min={draft.record.asset.purchase_date ?? undefined} max={localDay()} onChange={value => edit('date', value)}/></div>
-      <label className="field">实际售价（元，必填）<input id="sale-price" inputMode="decimal" value={draft.fields.price} disabled={busy || !!draft.pending} onChange={e => edit('price',e.target.value)}/></label>
-      <FormRow label="售出渠道"><ChoiceField kind="sale_channel" label="售出渠道" generation={draft.generation} value={draft.fields.platform||null} disabled={busy||!!draft.pending} byName onChange={v=>edit('platform',v||'')}/></FormRow>
-      <label className="field">买家（可选）<input value={draft.fields.buyer} disabled={busy || !!draft.pending} onChange={e => edit('buyer',e.target.value)}/></label>
-      <label className="field">备注（可选）<textarea rows={2} value={draft.fields.notes} disabled={busy || !!draft.pending} onChange={e => edit('notes',e.target.value)}/></label>
-      <div className="sale-preview" aria-label="售出结算预览"><span>购入金额 {money(draft.record.asset.price_cents)}</span>{preview && <><p>净生命周期成本 {money(preview.net)} · 净日均 {unitMoney(preview.daily)}{preview.daily !== null ? ' / 天' : ''}</p><p>{preview.days === null ? '购入日期未知，持有天数待补充。' : `截至售出日持有 ${preview.days} 天`}</p>{preview.net === null && <p>{incompleteCostReason(draft.record)}</p>}</>}</div>
+    {draft.mode === 'revoke' ? <p>{t('确认这是误记的售出？撤销后恢复为')}<strong>{draft.record.sale?.previous_state === 'retired' ? t('已退役') : t('使用中')}</strong>{t('，保留原档案和图片，持有天数重新计算到今天。真实卖出后又买回，请新增另一件物品。')}</p> : <>
+      <p className="muted">{t('售出后持有天数截止到售出日。实际售价必填，可为 0；购入资料未知时仍可记录售出。')}</p>
+      <div className="field"><label htmlFor="sale-date">{t('售出日期（必填）')}</label><DateInput yearIntent="past" id="sale-date" value={draft.fields.date} disabled={busy || !!draft.pending} min={draft.record.asset.purchase_date ?? undefined} max={localDay()} onChange={value => edit('date', value)}/></div>
+      <label className="field">{t('实际售价（元，必填）')}<input id="sale-price" inputMode="decimal" value={draft.fields.price} disabled={busy || !!draft.pending} onChange={e => edit('price',e.target.value)}/></label>
+      <FormRow label={t('售出渠道')}><ChoiceField kind="sale_channel" label={t('售出渠道')} generation={draft.generation} value={draft.fields.platform||null} disabled={busy||!!draft.pending} byName onChange={v=>edit('platform',v||'')}/></FormRow>
+      <label className="field">{t('买家（可选）')}<input value={draft.fields.buyer} disabled={busy || !!draft.pending} onChange={e => edit('buyer',e.target.value)}/></label>
+      <label className="field">{t('备注（可选）')}<textarea rows={2} value={draft.fields.notes} disabled={busy || !!draft.pending} onChange={e => edit('notes',e.target.value)}/></label>
+      <div className="sale-preview" aria-label={t('售出结算预览')}><span>{t('购入金额 {v1}', { v1: money(draft.record.asset.price_cents) })}</span>{preview && <><p>{t('净生命周期成本 {v1} · 净日均 {v2}', { v1: money(preview.net), v2: unitMoney(preview.daily) })}{preview.daily !== null ? t(' / 天') : ''}</p><p>{preview.days === null ? t('购入日期未知，持有天数待补充。') : t('截至售出日持有 {days} 天', { days: preview.days })}</p>{preview.net === null && <p>{incompleteCostReason(draft.record)}</p>}</>}</div>
     </>}
-    {draft.record.sale && <details><summary>当前有效售出记录</summary><p>{draft.record.sale.fields.date} · {money(draft.record.sale.fields.price_cents)} · 售出前{draft.record.sale.previous_state === 'retired' ? '已退役' : '使用中'}</p></details>}
+    {draft.record.sale && <details><summary>{t('当前有效售出记录')}</summary><p>{t('{date} · {v2} · 售出前', { date: draft.record.sale.fields.date, v2: money(draft.record.sale.fields.price_cents) })}{draft.record.sale.previous_state === 'retired' ? t('已退役') : t('使用中')}</p></details>}
     {notice && <p className="notice" role="status">{notice}</p>}
 
   </form></dialog>;

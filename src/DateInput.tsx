@@ -5,7 +5,7 @@ import { calendarDate, calendarValue, clampCalendar, moveCalendar, outsideCalend
 import { YearSelect } from './YearSelect';
 import { useFormHint, useFormLabel } from './form-hint';
 import './date-input.css';
-
+import { t } from './i18n.ts';
 type Props = {
   id?: string; label?: string; value: string; onChange: (value: string) => void;
   disabled?: boolean; min?: string; max?: string; allowClear?: boolean;
@@ -96,26 +96,26 @@ function CalendarInput({ id, label: suppliedLabel, value, onChange, disabled = f
   const next = precision === 'month' ? calendarValue(calendarDate(year + 1, 0), precision) : calendarValue(calendarDate(year, month + 1));
   const blanks = (calendarDate(year, month).getDay() + 6) % 7;
   const count = precision === 'month' ? 12 : calendarDate(year, month + 1, 0).getDate();
-  const picker = open && !disabled && <div ref={panel} id={panelId} className={'date-calendar' + (precision === 'month' ? ' month-calendar' : '')} style={position} role="dialog" aria-label={label ? `选择${label}` : '选择日期'} onKeyDown={panelKeys}>
+  const picker = open && !disabled && <div ref={panel} id={panelId} className={'date-calendar' + (precision === 'month' ? ' month-calendar' : '')} style={position} role="dialog" aria-label={label ? t('选择{label}', { label }) : t('选择日期')} onKeyDown={panelKeys}>
     <div className="date-calendar-heading">
-      <button type="button" aria-label={precision === 'day' ? '上个月' : '上一年'} disabled={previous < min} onClick={() => changeMonth(precision === 'day' ? year : year - 1, precision === 'day' ? month - 1 : month)}><Chevron direction="left"/></button>
+      <button type="button" aria-label={precision === 'day' ? t('上个月') : t('上一年')} disabled={previous < min} onClick={() => changeMonth(precision === 'day' ? year : year - 1, precision === 'day' ? month - 1 : month)}><Chevron direction="left"/></button>
       <YearSelect value={year} todayYear={Number(today.slice(0, 4))} intent={yearIntent} min={firstYear} max={lastYear} onChange={y => changeMonth(y, month)} disabled={disabled}/>
-      {precision === 'day' && <select aria-label="月份" value={month} onChange={e => changeMonth(year, Number(e.target.value))}>{Array.from({length: 12}, (_, m) => <option key={m} value={m} disabled={calendarValue(calendarDate(year, m + 1, 0)) < min || !!max && calendarValue(calendarDate(year, m)) > max}>{m + 1} 月</option>)}</select>}
-      <button type="button" aria-label={precision === 'day' ? '下个月' : '下一年'} disabled={year === 9999 && (precision === 'month' || month === 11) || !!max && next > max} onClick={() => changeMonth(precision === 'day' ? year : year + 1, precision === 'day' ? month + 1 : month)}><Chevron direction="right"/></button>
+      {precision === 'day' && <select aria-label={t('月份')} value={month} onChange={e => changeMonth(year, Number(e.target.value))}>{Array.from({length: 12}, (_, m) => <option key={m} value={m} disabled={calendarValue(calendarDate(year, m + 1, 0)) < min || !!max && calendarValue(calendarDate(year, m)) > max}>{m + 1} {t('月')}</option>)}</select>}
+      <button type="button" aria-label={precision === 'day' ? t('下个月') : t('下一年')} disabled={year === 9999 && (precision === 'month' || month === 11) || !!max && next > max} onClick={() => changeMonth(precision === 'day' ? year : year + 1, precision === 'day' ? month + 1 : month)}><Chevron direction="right"/></button>
     </div>
-    <div className="date-calendar-grid" role="group" aria-label={precision === 'day' ? `${year} 年 ${month + 1} 月` : `${year} 年`} onKeyDown={gridKeys}>
+    <div className="date-calendar-grid" role="group" aria-label={precision === 'day' ? t('{year} 年 {v2} 月', { year, v2: month + 1 }) : t('{year} 年', { year })} onKeyDown={gridKeys}>
       {precision === 'day' && <>{['一','二','三','四','五','六','日'].map(day => <span className="weekday" key={day}>{day}</span>)}{Array.from({length: blanks}, (_, i) => <span aria-hidden="true" key={'blank'+i}/>)}</>}
       {Array.from({length: count}, (_, i) => {
         const v = calendarValue(calendarDate(year, precision === 'day' ? month : i, precision === 'day' ? i + 1 : 1), precision);
-        return <button type="button" key={v} data-value={v} aria-label={v} aria-pressed={value === v} aria-current={v === today ? 'date' : undefined} tabIndex={cursor === v ? 0 : -1} disabled={!inRange(v)} onFocus={() => setCursor(v)} onClick={() => choose(v)}>{precision === 'day' ? i + 1 : `${i + 1} 月`}</button>;
+        return <button type="button" key={v} data-value={v} aria-label={v} aria-pressed={value === v} aria-current={v === today ? 'date' : undefined} tabIndex={cursor === v ? 0 : -1} disabled={!inRange(v)} onFocus={() => setCursor(v)} onClick={() => choose(v)}>{precision === 'day' ? i + 1 : t('{v1} 月', { v1: i + 1 })}</button>;
       })}
     </div>
-    <div className="date-calendar-actions"><button type="button" disabled={!inRange(today)} onClick={() => choose(today)}>{precision === 'day' ? '今天' : '本月'}</button>{allowClear && <button type="button" onClick={() => choose('')}>{precision === 'day' ? '清空日期' : '清空月份'}</button>}</div>
+    <div className="date-calendar-actions"><button type="button" disabled={!inRange(today)} onClick={() => choose(today)}>{precision === 'day' ? t('今天') : t('本月')}</button>{allowClear && <button type="button" onClick={() => choose('')}>{precision === 'day' ? t('清空日期') : t('清空月份')}</button>}</div>
   </div>;
   return <div className="date-input" ref={root} onKeyDown={keys}>
     <div className="date-input-row">
       <input id={id} aria-label={label} type="text" inputMode="numeric" placeholder={precision === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM'} maxLength={precision === 'day' ? 10 : 7} autoComplete="off" value={value} disabled={disabled} aria-invalid={invalid} aria-describedby={help} onChange={e => onChange(e.target.value)}/>
-      <button ref={trigger} type="button" className="date-picker-toggle" aria-label={label ? `选择${label}` : precision === 'day' ? '打开日期选择器' : '打开月份选择器'} aria-haspopup="dialog" aria-controls={open ? panelId : undefined} aria-expanded={open} disabled={disabled} onClick={() => { focusGrid.current = true; setCursor(initial()); setPosition({visibility:'hidden'}); setOpen(!open); }}><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4.5" width="14" height="13" rx="2"/><path d="M6.5 2.5v4M13.5 2.5v4M3 8.5h14M7 12h2M11 12h2"/></svg></button>
+      <button ref={trigger} type="button" className="date-picker-toggle" aria-label={label ? t('选择{label}', { label }) : precision === 'day' ? t('打开日期选择器') : t('打开月份选择器')} aria-haspopup="dialog" aria-controls={open ? panelId : undefined} aria-expanded={open} disabled={disabled} onClick={() => { focusGrid.current = true; setCursor(initial()); setPosition({visibility:'hidden'}); setOpen(!open); }}><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4.5" width="14" height="13" rx="2"/><path d="M6.5 2.5v4M13.5 2.5v4M3 8.5h14M7 12h2M11 12h2"/></svg></button>
     </div>
     {picker && createPortal(picker, root.current?.closest('dialog') ?? document.body)}
   </div>;

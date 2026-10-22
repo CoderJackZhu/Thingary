@@ -36,7 +36,7 @@ import type { Income, IncomeSave, Mark, ProfileState, Reasons, StoredProfile } f
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 import type { SavingsGoal, SavingsRead, SavingsObservation, SavingsSave, SavingsTrash } from './savings-goals';
-
+import { t as tr } from './i18n.ts';
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 let previewModules: RuntimeModules = { ...allModules, planning: params.get('plan-module') !== 'off', wealth: params.get('plan-wealth') !== 'off', incomes: params.get('income-module') !== 'off', movements: params.get('movement-module') !== 'off', finance_status: 'ready', finance_revision: 1 };
@@ -389,7 +389,7 @@ function basicScenarioProfile(kind: string): ProfileState['saved'] {
   const contribution = { unknown: null, zero: '0', negative: '-200000', saved: '500000', 'terminal-zero': '500000' }[kind as 'unknown'] ?? null;
   b.contribution.monthly_cents = contribution;
   if (kind === 'manual') { r.simplified.income_mode = 'manual'; r.simplified.future_incomes = [{ id:'fx-annuity',name:'企业年金',role:'other',included:true,monthly_cents:'120000',start_month:r.simplified.time.target_month,end_month:null,basis:'start_month',basis_month:null,growth:'fixed_nominal',source:null,source_checked_on:null,notes:'' }]; }
-  if (kind === 'missing-costs') { r.rent_cents = '100000'; r.spend_items = [{ id:'fx-health',label:'医疗',monthly_cents:'100000',start_month:null,end_month:null,time_unconfirmed:false,inflation_hundredths:400,essential:true }]; }
+  if (kind === 'missing-costs') { r.rent_cents = '100000'; r.spend_items = [{ id:'fx-health',label:tr('医疗'),monthly_cents:'100000',start_month:null,end_month:null,time_unconfirmed:false,inflation_hundredths:400,essential:true }]; }
   if (params.get('plan-start') === 'live') b.start = { kind: 'live' };
   return { revision: 1, updated_at: new Date().toISOString(), profile: p };
 }
@@ -407,7 +407,7 @@ if (coreScenario && planProfile && snapshots.length) {
   r.core = { ...emptyCore(s.date), fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' : 'restricted', share_hundredths: 10000 })) };
   if (['occurred','partial','overdue'].includes(coreScenario)) {
     const date = shifted(1).slice(0, 7);
-    r.life_events = [{ id: 'fx-occurred', label: '虚构已购住宅', kind: 'house', date, included: false, price_cents: '40000000', down_cents: '30000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 30, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }];
+    r.life_events = [{ id: 'fx-occurred', label: tr('虚构已购住宅'), kind: 'house', date, included: false, price_cents: '40000000', down_cents: '30000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 30, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }];
     if (coreScenario === 'overdue') r.life_events[0].included = true;
     else {
       r.core.occurrences = [{ id: 'fx-occurrence', event_id: 'fx-occurred', status: 'occurred', actual_date: date + '-01', payments_complete: coreScenario === 'occurred', payments: [{ id: 'fx-payment', date: date + '-01', amount_cents: '30000000', account_id: cash.id, absorbed_snapshot_id: s.id, absorbed_revision: s.revision, source_kind: null, source_id: null }], loan: { account_id: debt.id, as_of: s.date, principal_cents: '10000000', remaining_months: 50 } }];
@@ -454,7 +454,7 @@ if (reviewFixture && snapshots.length >= 2) {
       r.core.fund_rules = s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'housing_fund' ? 'restricted' as const : 'available' as const, share_hundredths: 10000 }));
       if (r.basic) r.basic.contribution.monthly_cents = null;
     }
-    r.life_events = reviewFixture === 'pending' ? [{ id: 'review-event', label: '虚构大额安排', kind: 'other', date: shifted(1).slice(0,7), included: true, price_cents: '10000', down_cents: '10000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }] : [];
+    r.life_events = reviewFixture === 'pending' ? [{ id: 'review-event', label: tr('虚构大额安排'), kind: 'other', date: shifted(1).slice(0,7), included: true, price_cents: '10000', down_cents: '10000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }] : [];
   }
 }
 if (params.get('plan-usability') === '1' && planProfile?.profile.retire.basic) {
@@ -501,7 +501,7 @@ const readError = (message: string, code = 'READ_FAILED') => ({ status: 'error' 
 const planningSources = (args: Record<string, unknown>): PlanningSources => {
   if (completionScenario) return { ...completionBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
   if (debtScenario) return { ...debtBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
-  if (nonblockingScenario) return { ...nonblockingBatch, generation, write_version: planWriteVersion, profile: nonblockingScenario === 'error' ? { status: 'error', value: { code: 'READ_FAILED', message: '虚构规划资料读取失败' } } : { status: 'ready', value: { generation, saved: planProfile } } };
+  if (nonblockingScenario) return { ...nonblockingBatch, generation, write_version: planWriteVersion, profile: nonblockingScenario === 'error' ? { status: 'error', value: { code: 'READ_FAILED', message: tr('虚构规划资料读取失败') } } : { status: 'ready', value: { generation, saved: planProfile } } };
   const planning = args.planningEnabled !== false, wealth = args.wealthEnabled !== false;
   const disabled = readError('资产与盘点已关闭', 'MODULE_DISABLED');
   const point = [...summary().points].reverse().find(p => p.complete), found = point ? snapshots.find(x => x.id === point.snapshot_id) : null;
@@ -517,7 +517,7 @@ const planningSources = (args: Record<string, unknown>): PlanningSources => {
 /** Mirrors the native section merge for preview only. Whole-profile writes never reach it. */
 function mergeSection(old: StoredProfile | null, u: ProfileUpdate): StoredProfile {
   const p: StoredProfile = old ? structuredClone(old) : { assumptions: { inflation_hundredths: 0 }, retire: structuredClone(defaultRetire) };
-  const core = (basis: string) => { if (p.retire.core && p.retire.core.monetary_basis_date !== basis) throw { code: 'PLANNING_BASIS', message: '已有金额基准固定' }; return (p.retire.core ??= { ...emptyCore(basis) }); };
+  const core = (basis: string) => { if (p.retire.core && p.retire.core.monetary_basis_date !== basis) throw { code: 'PLANNING_BASIS', message: tr('已有金额基准固定') }; return (p.retire.core ??= { ...emptyCore(basis) }); };
   if (u.section === 'setup') {
     let next = mergeSection(old, { ...u, section: 'basic', fields: u.fields.basic });
     if (u.fields.budget) next = mergeSection(next, { ...u, section: 'budget', fields: u.fields.budget });
@@ -527,7 +527,7 @@ function mergeSection(old: StoredProfile | null, u: ProfileUpdate): StoredProfil
   }
   if (u.section === 'basic') {
     const f = u.fields;
-    if (old?.retire.basic && old.retire.basic.contribution.id !== f.basic.contribution.id) throw { code: 'PLANNING_BASIC', message: '投入稳定ID不能替换' };
+    if (old?.retire.basic && old.retire.basic.contribution.id !== f.basic.contribution.id) throw { code: 'PLANNING_BASIC', message: tr('投入稳定ID不能替换') };
     for (const key of ["saving_phases","route_id","route_from_age","gap_share_hundredths","gap_keeps_paying","legacy_definition"]) delete (p.retire as Record<string, unknown>)[key];
     core(f.monetary_basis_date); p.assumptions.inflation_hundredths = f.inflation_hundredths;
     Object.assign(p.retire, { basic: f.basic, spend_cents: f.spend_cents, mode: f.mode, real_return_before_hundredths: f.real_return_before_hundredths, real_return_after_hundredths: f.real_return_after_hundredths, volatility_hundredths: f.volatility_hundredths, emergency_months: f.emergency_months, setup_completed: true });
@@ -535,12 +535,12 @@ function mergeSection(old: StoredProfile | null, u: ProfileUpdate): StoredProfil
     const f = u.fields;
     Object.assign(core(f.monetary_basis_date), { fund_rules: f.fund_rules, releases: f.releases });
   } else if (u.section === 'debt_repayments') {
-    if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: '先确认资金起点' };
+    if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: tr('先确认资金起点') };
     p.retire.core.debt_repayments = mergeDebtRepayments(p.retire.core.debt_repayments ?? [], u.fields.updates, u.fields.remove);
   } else if (u.section === 'events') {
     const f = u.fields;
-    if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: '先确认金额基准' };
-    if ('costs' in f) throw { code: 'PLANNING_BASIC', message: '旧阶段费用不能保存' };
+    if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: tr('先确认金额基准') };
+    if ('costs' in f) throw { code: 'PLANNING_BASIC', message: tr('旧阶段费用不能保存') };
     p.retire.life_events = f.life_events; p.retire.core.occurrences = f.occurrences;
   } else if (u.section === 'simplified') p.retire.simplified = structuredClone(u.fields);
   else if (u.section === 'budget') Object.assign(p.retire, u.fields);
@@ -551,12 +551,12 @@ let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;
   const input = args.input as { keyword: string; type_filter: string; offset: number; limit: number; generation: string };
-  if (params.get('search') === 'error-once' && searchPreviewAttempts++ === 0) throw { message: '虚构读取失败，请重新搜索。' };
+  if (params.get('search') === 'error-once' && searchPreviewAttempts++ === 0) throw { message: tr('虚构读取失败，请重新搜索。') };
   const fold = (value: string) => value.replace(/[A-Z]/g, c => c.toLowerCase());
   const keyword = fold(input.keyword.trim());
-  if ([...input.keyword.trim()].length > 200 || input.keyword.includes('\0')) throw { message: '关键词最多 200 个字符且不能包含空字符。' };
-  if (!keyword) throw { code: 'QUERY', message: '空关键词不查询' };
-  if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已变化，请返回后重新读取。' };
+  if ([...input.keyword.trim()].length > 200 || input.keyword.includes('\0')) throw { message: tr('关键词最多 200 个字符且不能包含空字符。') };
+  if (!keyword) throw { code: 'QUERY', message: tr('空关键词不查询') };
+  if (input.generation !== generation) throw { code: 'STALE_DATASET', message: tr('资料库已变化，请返回后重新读取。') };
   type Row = { kind: string; id: string; title: string; date: string | null; status: string; matched_field: string; context: string; target: unknown; at: string; primary: boolean };
   const rows: Row[] = [];
   const push = (row: Omit<Row, 'context' | 'matched_field'>, fields: [string, string | null | undefined, boolean][]) => {
@@ -602,8 +602,8 @@ export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function previewPurgeLinkGroup(id: string) { return previewGroups.delete(id); }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command === 'wealth_account_availability') {
-    if (!previewModules.wealth) throw { code: 'MODULE_DISABLED', message: '账户与盘点已关闭' };
-    if (params.get('account-availability') === 'error') throw { message: '虚构账户读取失败。' };
+    if (!previewModules.wealth) throw { code: 'MODULE_DISABLED', message: tr('账户与盘点已关闭') };
+    if (params.get('account-availability') === 'error') throw { message: tr('虚构账户读取失败。') };
     const day = typeof args.today === 'string' ? args.today : todayIso;
     return { value: { total: accounts.length, due_today: accounts.filter(a => due(a, day)).length } };
   }
@@ -611,19 +611,19 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'privacy_auth_available') return { value: ['success', 'cancel'].includes(params.get('privacy-auth') ?? '') };
   if (command === 'privacy_authenticate') {
     if (params.get('privacy-auth') === 'success') return { value: null };
-    throw { code: 'AUTH_FAILED', message: '虚构身份验证已取消，请点解锁重试。' };
+    throw { code: 'AUTH_FAILED', message: tr('虚构身份验证已取消，请点解锁重试。') };
   }
   if(command==='savings_goals_read') {
-    if(params.get('savings')==='error') throw {message:'虚构目标读取失败'};
-    if(!previewModules.wealth) throw {code:'MODULE_DISABLED',message:'账户与盘点已关闭'};
+    if(params.get('savings')==='error') throw {message:tr('虚构目标读取失败')};
+    if(!previewModules.wealth) throw {code:'MODULE_DISABLED',message:tr('账户与盘点已关闭')};
     return {value:savingsRead(typeof args.year==='number'?args.year:now.getFullYear())};
   }
   if(command==='savings_goals_save') {
-    if(params.get('state')==='save-error') throw {message:'虚构保存失败，输入保留'};
+    if(params.get('state')==='save-error') throw {message:tr('虚构保存失败，输入保留')};
     const input=args.input as SavingsSave,old=savingsGoals.find(g=>g.id===input.id),id=input.id??crypto.randomUUID();
     const next:SavingsGoal={id,fields:input.fields,account_ids:input.account_ids,position:old?.position??savingsGoals.length,revision:(old?.revision??0)+1,created_on:old?.created_on??todayIso,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null};
     savingsGoals=old?savingsGoals.map(g=>g.id===id?next:g):[...savingsGoals,next];receipts.set(input.request_id,id);planWriteVersion++;
-    if(params.get('state')==='unresolved') throw {message:'虚构响应丢失'};
+    if(params.get('state')==='unresolved') throw {message:tr('虚构响应丢失')};
     return {value:next};
   }
   if(command==='savings_goals_trash') {
@@ -635,14 +635,14 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'investment_review_read') {
     const fixture = reviewFixtures[params.get('investment') as keyof typeof reviewFixtures];
     if (fixture) return { value: { generation, ...structuredClone(fixture), from_value_key: 'fictional-preview-only', to_value_key: 'fictional-preview-only', records: [] } satisfies InvestmentReviewRead };
-    throw { code: 'PREVIEW_NATIVE_ONLY', message: '浏览器预览不执行原生投资计算。可用 investment=ready-profit 等显式虚构夹具查看状态；实际资料请在原生应用核对。' };
+    throw { code: 'PREVIEW_NATIVE_ONLY', message: tr('浏览器预览不执行原生投资计算。可用 investment=ready-profit 等显式虚构夹具查看状态；实际资料请在原生应用核对。') };
   }
-  if (command === 'investment_review_save' || command === 'investment_review_trash') throw { code: 'PREVIEW_NATIVE_ONLY', message: '此处为固定虚构输出，未保存。真实投资核对须在原生应用中进行。' };
+  if (command === 'investment_review_save' || command === 'investment_review_trash') throw { code: 'PREVIEW_NATIVE_ONLY', message: tr('此处为固定虚构输出，未保存。真实投资核对须在原生应用中进行。') };
   if (command === 'notification_permission') return { value: null };
   // ---- 关联订阅命令的内存桩----
   if (command === 'link_view') {
     const kind = args.kind as 'virtual' | 'plan', id = args.id as string;
-    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    if (params.get('link') === 'error') throw { message: tr('虚构读取失败，用于验证错误状态。') };
     const asset = virtuals.find(v => (kind === 'virtual' ? v.id === id : v.fields.plan_id === id));
     const plan = plans.find(p => (kind === 'plan' ? p.id === id : p.id === asset?.fields.plan_id));
     const paid = payments.filter(p => p.plan_id === plan?.id && p.state === 'paid');
@@ -650,7 +650,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: { generation, relation, asset: asset ? { id: asset.id, name: asset.fields.name, revision: asset.revision, deleted: false, billing: 'subscription', stopped_on: asset.fields.stopped_on ?? null, provider: asset.fields.provider, label_name: null } : null, plan: plan ? { id: plan.id, name: plan.fields.name, revision: plan.revision, deleted: false, category: plan.fields.category, end_date: plan.fields.end_date ?? null, auto_renew: plan.fields.auto_renew ?? true, paused: plan.fields.paused, service_start: plan.fields.service_start ?? null } : null, paid_count: paid.length, skipped_count: 0, paid_cents: String(paid.reduce((t, p) => t + BigInt(p.amount_cents ?? '0'), 0n)), paid_until: paid.map(p => p.coverage_end ?? p.due_date).sort().at(-1) ?? null, needs_review: !!asset?.fields.stopped_on && (plan?.fields.end_date ?? null) === null, occupied_by: null, candidates: [], group: null, reminder: null } };
   }
   if (command === 'link_delete_preview' || command === 'link_restore_preview') {
-    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    if (params.get('link') === 'error') throw { message: tr('虚构读取失败，用于验证错误状态。') };
     if (command === 'link_delete_preview') {
       const side = args.side as 'virtual' | 'plan', id = args.id as string;
       const asset = virtuals.find(v => (side === 'virtual' ? v.id === id : v.fields.plan_id === id));
@@ -667,7 +667,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const input = args.input as { request_id: string; side: 'virtual' | 'plan'; id: string; asset_expected_revision: number; plan_expected_revision: number };
     const asset = virtuals.find(v => (input.side === 'virtual' ? v.id === input.id : v.fields.plan_id === input.id));
     const plan = plans.find(p => (input.side === 'plan' ? p.id === input.id : p.id === asset?.fields.plan_id));
-    if (!asset || !plan) throw { message: '找不到这组关联订阅' };
+    if (!asset || !plan) throw { message: tr('找不到这组关联订阅') };
     virtuals = virtuals.filter(v => v.id !== asset.id);
     plans = plans.filter(p => p.id !== plan.id);
     payments = payments.filter(p => p.plan_id !== plan.id);
@@ -677,15 +677,15 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: groupId };
   }
   if (command === 'link_purge_preview') {
-    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    if (params.get('link') === 'error') throw { message: tr('虚构读取失败，用于验证错误状态。') };
     const groupId = args.groupId as string, g = previewGroups.get(groupId);
-    if (!g) throw { message: '这组记录已恢复或已清除，请重新读取最近删除' };
+    if (!g) throw { message: tr('这组记录已恢复或已清除，请重新读取最近删除') };
     return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: g.assetName, plan_name: g.planName, payments_total: 3, payments_live: 2, payments_deleted: 1, rate_segments: 2, rule_segments: 1, period_ends: 0, reminders: 1, external_refs: [], blockers: [] } };
   }
   if (command === 'link_restore') {
     const input = args.input as { group_id: string };
     const g = previewGroups.get(input.group_id);
-    if (!g) throw { message: '这组记录已恢复或已清除，请重新读取最近删除' };
+    if (!g) throw { message: tr('这组记录已恢复或已清除，请重新读取最近删除') };
     previewGroups.delete(input.group_id);
     const plan = g ? recurringOverview().plans.find(() => false) : null;
     void plan;
@@ -701,7 +701,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: '1' };
   }
   if (command === 'link_save' || command === 'link_create' || command === 'link_reconcile') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as { request_id: string; fields?: import('./recurring').PlanFields };
     if (input.fields?.name && input.fields.amount_cents) {
       plans = plans.map(p => p.fields.name === input.fields!.name || p.id === (args.input as { plan_id?: string }).plan_id ? { ...p, fields: { ...p.fields, ...input.fields! }, revision: p.revision + 1 } : p);
@@ -710,7 +710,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: 'link' };
   }
   if (command === 'virtual_reminder_save') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as ReminderSave;
     if (input.reminder) renewalReminders.set(input.asset_id, { ...input.reminder, repeat_every_period: input.repeat_every_period ?? false, lead_days: input.lead_days ?? 3 });
     else renewalReminders.delete(input.asset_id);
@@ -719,13 +719,13 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: virtualOverview().items.find(v => v.id === input.asset_id) };
   }
   if (command === 'recurring_detail') {
-    if (params.get('subscription-history') === 'error') throw { message: '虚构付款记录读取失败。' };
+    if (params.get('subscription-history') === 'error') throw { message: tr('虚构付款记录读取失败。') };
     const o = recurringOverview(), p = o.plans.find(p => p.id === args.planId);
-    if (!p) throw { message: '找不到这项计划' };
+    if (!p) throw { message: tr('找不到这项计划') };
     return { value: { generation, plan: p, payments: o.payments.filter(r => r.plan_id === p.id) } };
   }
   if (command === 'recurring_resume') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as import('./recurring').ResumeSave, p = plans.find(p => p.id === input.plan_id)!;
     if (!subscriptionPreviewRates.has(p.id)) subscriptionPreviewRates.set(p.id, [{ from: p.fields.service_start!, amount: p.fields.amount_cents }]);
     subscriptionPreviewRates.get(p.id)!.push({ from: input.start_date, amount: input.amount_cents });
@@ -738,8 +738,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     virtuals = virtuals.map(v => v.id === input.asset_id ? { ...v, fields: { ...v.fields, stopped_on: null }, revision: v.revision + 1 } : v);
     receipts.set(input.request_id,p.id); return { value: p.id };
   }
-  if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: recurringOverview() }; }  if (command === 'recurring_plan_save') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+  if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: tr('虚构读取失败，用于验证错误状态。') }; return { value: recurringOverview() }; }  if (command === 'recurring_plan_save') {
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as PlanSave, id = input.id ?? crypto.randomUUID(), old = plans.find(p => p.id === id);
     const next: Plan = { ...old, id, fields: input.fields, revision: (old?.revision ?? 0) + 1, active_from: old ? (old.fields.paused && !input.fields.paused ? todayIso : old.active_from) : input.fields.service_start ? (todayIso > input.fields.first_due ? todayIso : input.fields.first_due) : input.fields.first_due, next_due: null };
     plans = old ? plans.map(p => p.id === id ? next : p) : [...plans, next];
@@ -747,15 +747,15 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: next };
   }
   if (command === 'recurring_payment_save') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as PaymentSave, p = plans.find(x => x.id === input.plan_id)!;
-    if (!input.id && payments.some(x => x.plan_id === input.plan_id && x.due_date === input.due_date)) throw { code: 'PAYMENT_EXISTS', message: '这一期已经记录过，请打开原记录更正' };
+    if (!input.id && payments.some(x => x.plan_id === input.plan_id && x.due_date === input.due_date)) throw { code: 'PAYMENT_EXISTS', message: tr('这一期已经记录过，请打开原记录更正') };
     if (input.state === 'paid') {
       const day = input.paid_date ?? '';
-      if (!day) throw { code: 'PAYMENT_DATE', message: '请填写实付日期' };
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) !== day) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
-      if (day > todayIso) throw { code: 'PAYMENT_DATE', message: '实付日期不能晚于今天' };
-      if (!/^\d+$/.test(input.amount_cents ?? '') || BigInt(input.amount_cents!) <= 0n) throw { code: 'PAYMENT_AMOUNT', message: '实付金额须为正数' };
+      if (!day) throw { code: 'PAYMENT_DATE', message: tr('请填写实付日期') };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) !== day) throw { code: 'DATE', message: tr('日期须为有效的 YYYY-MM-DD') };
+      if (day > todayIso) throw { code: 'PAYMENT_DATE', message: tr('实付日期不能晚于今天') };
+      if (!/^\d+$/.test(input.amount_cents ?? '') || BigInt(input.amount_cents!) <= 0n) throw { code: 'PAYMENT_AMOUNT', message: tr('实付金额须为正数') };
     }
     const id = input.id ?? crypto.randomUUID(), old = payments.find(x => x.id === id);
     const next: Payment = { coverage_start: old?.coverage_start ?? coverageFor(p.fields,input.due_date)?.[0], coverage_end: old?.coverage_end ?? coverageFor(p.fields,input.due_date)?.[1], id, plan_id: p.id, plan_name: p.fields.name, due_date: input.due_date, state: input.state, paid_date: input.paid_date, amount_cents: input.amount_cents, notes: input.notes, revision: (old?.revision ?? 0) + 1, off_schedule: false };
@@ -764,16 +764,16 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: next };
   }
   if (command === 'recurring_payment_range_save') {
-    if (params.get('state') === 'save-error') throw {message:'模拟保存失败，输入应保留。'};
+    if (params.get('state') === 'save-error') throw {message:tr('模拟保存失败，输入应保留。')};
     const input=args.input as PaymentRangeSave, p=plans.find(x=>x.id===input.plan_id)!;
-    if (!input.confirmed) throw {message:'请明确确认实际已付'};
+    if (!input.confirmed) throw {message:tr('请明确确认实际已付')};
     for (const d of schedule(p,input.from_due,input.to_due)) {
       if (payments.some(x=>x.plan_id===p.id&&x.due_date===d)) continue;
       payments.push({id:crypto.randomUUID(),plan_id:p.id,plan_name:p.fields.name,due_date:d,state:'paid',paid_date:d,amount_cents:input.amount_cents,notes:'虚构范围补记',revision:1,off_schedule:false,coverage_start:coverageFor(p.fields,d)?.[0],coverage_end:coverageFor(p.fields,d)?.[1]});
     }
     receipts.set(input.request_id,p.id);return {value:p.id};
   }
-  if (command === 'virtual_overview') { if (params.get('virtual') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: virtualOverview() }; }
+  if (command === 'virtual_overview') { if (params.get('virtual') === 'error') throw { message: tr('虚构读取失败，用于验证错误状态。') }; return { value: virtualOverview() }; }
   if (command === 'wealth_trash') {
     const input = args.input as { kind: string; id: string; deleted: boolean };
     if (input.kind === 'topup') {
@@ -798,38 +798,38 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return { value: null };
   }
   if (command === 'virtual_topup_save') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as TopupSave;
-    if (input.fields.topup_date && !previewDay(input.fields.topup_date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
-    if (input.fields.topup_date && input.fields.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: '充值日期不能晚于今天' };
-    if (!input.fields.paid_cents && !input.fields.gift_cents && !input.fields.credit_cents) throw { code: 'TOPUP_EMPTY', message: '请至少填写实付、赠送或到账额度中的一项' };
+    if (input.fields.topup_date && !previewDay(input.fields.topup_date)) throw { code: 'DATE', message: tr('日期须为有效的 YYYY-MM-DD') };
+    if (input.fields.topup_date && input.fields.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: tr('充值日期不能晚于今天') };
+    if (!input.fields.paid_cents && !input.fields.gift_cents && !input.fields.credit_cents) throw { code: 'TOPUP_EMPTY', message: tr('请至少填写实付、赠送或到账额度中的一项') };
     topups = [...topups.filter(t => t.id !== input.id), { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, fields: input.fields, revision: 1 }];
     receipts.set(input.request_id, input.asset_id);
     return { value: { id: input.id ?? '', asset_id: input.asset_id, fields: input.fields, revision: 1 } };
   }
   if (command === 'virtual_balance_save') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as BalanceSave;
-    if (!previewDay(input.recorded_on)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
-    if (input.recorded_on > todayIso) throw { code: 'BALANCE_DATE', message: '记录日期不能晚于今天' };
+    if (!previewDay(input.recorded_on)) throw { code: 'DATE', message: tr('日期须为有效的 YYYY-MM-DD') };
+    if (input.recorded_on > todayIso) throw { code: 'BALANCE_DATE', message: tr('记录日期不能晚于今天') };
     balances = [...balances.filter(b => b.id !== input.id), { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 }];
     receipts.set(input.request_id, input.asset_id);
     return { value: { id: input.id ?? '', asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 } };
   }
   if (command === 'virtual_save') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as VirtualSave, id = input.id ?? crypto.randomUUID(), old = virtuals.find(v => v.id === id);
     {
       const f = input.fields;
-      if (!f.name.trim() || [...f.name.trim()].length > 80) throw { code: 'VIRTUAL_NAME', message: '名称须为 1–80 字' };
-      for (const d of [f.purchase_date, f.expires, f.stopped_on, input.first_topup?.topup_date]) if (d && !previewDay(d)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
-      if (f.purchase_date && f.purchase_date > todayIso) throw { code: 'VIRTUAL_DATE', message: '购买日期不能晚于今天' };
-      if (f.stopped_on && f.stopped_on > todayIso) throw { code: 'VIRTUAL_STOP', message: '停用日期不能晚于今天' };
-      if (f.stopped_on && f.purchase_date && f.stopped_on < f.purchase_date) throw { code: 'VIRTUAL_STOP', message: '停用日期不能早于购买日期' };
-      if (input.first_topup?.topup_date && input.first_topup.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: '充值日期不能晚于今天' };
+      if (!f.name.trim() || [...f.name.trim()].length > 80) throw { code: 'VIRTUAL_NAME', message: tr('名称须为 1–80 字') };
+      for (const d of [f.purchase_date, f.expires, f.stopped_on, input.first_topup?.topup_date]) if (d && !previewDay(d)) throw { code: 'DATE', message: tr('日期须为有效的 YYYY-MM-DD') };
+      if (f.purchase_date && f.purchase_date > todayIso) throw { code: 'VIRTUAL_DATE', message: tr('购买日期不能晚于今天') };
+      if (f.stopped_on && f.stopped_on > todayIso) throw { code: 'VIRTUAL_STOP', message: tr('停用日期不能晚于今天') };
+      if (f.stopped_on && f.purchase_date && f.stopped_on < f.purchase_date) throw { code: 'VIRTUAL_STOP', message: tr('停用日期不能早于购买日期') };
+      if (input.first_topup?.topup_date && input.first_topup.topup_date > todayIso) throw { code: 'TOPUP_DATE', message: tr('充值日期不能晚于今天') };
     }
     const taken = input.fields.plan_id && virtuals.find(v => v.fields.plan_id === input.fields.plan_id && v.id !== id);
-    if (taken) throw { code: 'VIRTUAL_PLAN_TAKEN', message: `这项计划已关联「${taken.fields.name}」` };
+    if (taken) throw { code: 'VIRTUAL_PLAN_TAKEN', message: tr('这项计划已关联「{name}」', { name: taken.fields.name }) };
     if(input.plan) {
       const pid=input.plan.id??crypto.randomUUID(), oldPlan=plans.find(x=>x.id===pid);
       const pf=input.plan.fields;
@@ -849,23 +849,23 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id, id);
     return { value: virtualOverview().items.find(v => v.id === id) };
   }
-  if (command === 'expense_view') { if (params.get('expenses') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: expenseView((args.year as number | null) ?? null) }; }
+  if (command === 'expense_view') { if (params.get('expenses') === 'error') throw { message: tr('虚构读取失败，用于验证错误状态。') }; return { value: expenseView((args.year as number | null) ?? null) }; }
   if (command === 'expense') return { value: expenses.find(e => e.id === args.id) ?? null };
   if (command === 'expense_save') {
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
     const input = args.input as ExpenseSave, id = input.id ?? crypto.randomUUID(), old = expenses.find(e => e.id === id);
     {
       const f = input.fields, day = iso(now), valid = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v && v >= '1900-01-01';
-      if (!f.title.trim() || [...f.title.trim()].length > 80) throw { code: 'EXPENSE_TITLE', message: '名称须为 1–80 字' };
-      if (!valid(f.date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
-      if (f.date > day) throw { code: 'EXPENSE_DATE', message: '支出日期不能晚于今天' };
-      if (!/^\d+$/.test(f.amount_cents) || BigInt(f.amount_cents) <= 0n) throw { code: 'EXPENSE_AMOUNT', message: '金额须为正数' };
-      if ((f.refund_cents === null) !== (f.refund_date === null)) throw { code: 'EXPENSE_REFUND', message: '退款须同时填写金额和日期' };
+      if (!f.title.trim() || [...f.title.trim()].length > 80) throw { code: 'EXPENSE_TITLE', message: tr('名称须为 1–80 字') };
+      if (!valid(f.date)) throw { code: 'DATE', message: tr('日期须为有效的 YYYY-MM-DD') };
+      if (f.date > day) throw { code: 'EXPENSE_DATE', message: tr('支出日期不能晚于今天') };
+      if (!/^\d+$/.test(f.amount_cents) || BigInt(f.amount_cents) <= 0n) throw { code: 'EXPENSE_AMOUNT', message: tr('金额须为正数') };
+      if ((f.refund_cents === null) !== (f.refund_date === null)) throw { code: 'EXPENSE_REFUND', message: tr('退款须同时填写金额和日期') };
       if (f.refund_cents !== null && f.refund_date !== null) {
-        if (!/^\d+$/.test(f.refund_cents) || BigInt(f.refund_cents) <= 0n) throw { code: 'EXPENSE_REFUND', message: '退款金额须为正数' };
-        if (BigInt(f.refund_cents) > BigInt(f.amount_cents)) throw { code: 'EXPENSE_REFUND', message: '退款不能超过支出金额' };
-        if (!valid(f.refund_date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
-        if (f.refund_date < f.date || f.refund_date > day) throw { code: 'EXPENSE_REFUND', message: '退款日期须在支出日期与今天之间' };
+        if (!/^\d+$/.test(f.refund_cents) || BigInt(f.refund_cents) <= 0n) throw { code: 'EXPENSE_REFUND', message: tr('退款金额须为正数') };
+        if (BigInt(f.refund_cents) > BigInt(f.amount_cents)) throw { code: 'EXPENSE_REFUND', message: tr('退款不能超过支出金额') };
+        if (!valid(f.refund_date)) throw { code: 'DATE', message: tr('日期须为有效的 YYYY-MM-DD') };
+        if (f.refund_date < f.date || f.refund_date > day) throw { code: 'EXPENSE_REFUND', message: tr('退款日期须在支出日期与今天之间') };
       }
     }
     const next: Expense = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, asset_name: input.fields.asset_id ? demoAssets.find(a => a.key === input.fields.asset_id)?.name ?? '虚构物品' : null, asset_deleted: false };
@@ -876,7 +876,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'modules_get') return { value: previewModules };
   if (command === 'modules_set') { previewModules = { ...previewModules, ...(args.modules as Partial<RuntimeModules>), ...(typeof args.incomes === 'boolean' ? { incomes: args.incomes } : {}), ...(typeof args.movements === 'boolean' ? { movements: args.movements } : {}), finance_revision: previewModules.finance_revision + 1, finance_status: 'ready' }; return { value: previewModules }; }
   if (command === 'finance_sources') {
-    if (params.get('finance') === 'error') throw { message: '虚构财务读取失败，用于验证重试。' };
+    if (params.get('finance') === 'error') throw { message: tr('虚构财务读取失败，用于验证重试。') };
     const period = args.period as FinancePeriod;
     const disabled = <T,>():FinanceRead<T> => ({ status:'disabled', reason:'功能已关闭，本次未读取' });
     const read = <T,>(enabled:boolean, name:string, fn:()=>T):FinanceRead<T> => {
@@ -913,11 +913,11 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (command === 'movement_accounts') return { value:{generation,accounts:accounts.map(a=>({id:a.id,name:a.fields.name,kind:a.fields.kind,selectable:!a.fields.closed_on}))} };
   if (command === 'movement_list') {
-    if (!previewModules.movements || !previewModules.wealth) throw {code:'MODULE_DISABLED',message:'资金流动已关闭'};
-    if (params.get('movement') === 'error') throw {message:'虚构资金流动读取失败'};
+    if (!previewModules.movements || !previewModules.wealth) throw {code:'MODULE_DISABLED',message:tr('资金流动已关闭')};
+    if (params.get('movement') === 'error') throw {message:tr('虚构资金流动读取失败')};
     const records: MovementRecordV1[] = params.get('movement') === 'populated' ? [
       { id:'preview-transfer', revision:1, deleted:false, fields:{date:todayIso,amount_cents:'100050',from:{kind:'account',account_id:'w-cash'},to:{kind:'account',account_id:'w-broker'},purpose:'own_transfer',source:null,notes:'虚构：本月投资转入'},source_status:'unlinked' },
-      { id:'preview-payment', revision:1, deleted:false, fields:{date:todayIso,amount_cents:'8800',from:{kind:'account',account_id:'w-cash'},to:{kind:'external',label:'虚构服务商'},purpose:'living_payment',source:{kind:'expense',key:'preview-expense-source'},notes:'虚构：来源更正后待核对'},source_status:'needs_review' },
+      { id:'preview-payment', revision:1, deleted:false, fields:{date:todayIso,amount_cents:'8800',from:{kind:'account',account_id:'w-cash'},to:{kind:'external',label:tr('虚构服务商')},purpose:'living_payment',source:{kind:'expense',key:'preview-expense-source'},notes:'虚构：来源更正后待核对'},source_status:'needs_review' },
     ] : [];
     const query = args.query as {from_date?:string;to_date?:string;account_id?:string;deleted?:string};
     return {value:{generation,records:records.filter(r=>(!query.from_date||r.fields.date>=query.from_date)&&(!query.to_date||r.fields.date<=query.to_date)&&(!query.account_id||r.fields.from.kind==='account'&&r.fields.from.account_id===query.account_id||r.fields.to.kind==='account'&&r.fields.to.account_id===query.account_id)),next_cursor:null}};
@@ -925,60 +925,60 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'movement_sources') return {value:{generation,options:[],next_cursor:null}};
   if (command === 'followup_review_list') return {value:{generation,records:[]}};
   if (command === 'followup_review_read' || command === 'followup_review_preview') {
-    if (params.get('investment') === 'error') throw {message:'虚构投资复盘读取失败'};
+    if (params.get('investment') === 'error') throw {message:tr('虚构投资复盘读取失败')};
     const pair = args.pair as {from_snapshot_id:string,to_snapshot_id:string};
     const from=snapshots.find(s=>s.id===pair.from_snapshot_id), to=snapshots.find(s=>s.id===pair.to_snapshot_id);
-    if (!from||!to) throw {code:'NOT_FOUND',message:'虚构盘点不存在'};
+    if (!from||!to) throw {code:'NOT_FOUND',message:tr('虚构盘点不存在')};
     const endpoint=(s:Stored)=>({snapshot_id:s.id,revision:s.revision,date:s.date,members:s.entries.filter(e=>['investment','mixed','fund','bond'].includes(e.kind)).map(e=>({account_id:e.account_id,kind:e.kind as 'investment'|'mixed'|'fund'|'bond',counted:e.counted,amount_cents:e.amount_cents}))});
     // Fixed unavailable result: this visual fixture intentionally performs no profit calculation.
     const preview:ReviewPreviewV1={generation,pair,review_id:null,revision:null,input:{contract_version:1,from:endpoint(from),to:endpoint(to),flow:null,overlapping_active_flow_ids:[]},result:{status:'needs_review',reasons:['incomplete_flow'],change_cents:null},saved_mode:null,selected:{mode:'manual',inflow_cents:null,outflow_cents:null},previous_totals:null,selected_totals:{inflow_cents:null,outflow_cents:null},difference:{inflow_cents:null,outflow_cents:null},movement_count:0,confirmation:'unconfirmed',reasons:[],basis_key:'fictional-preview-only'};
     return {value:command==='followup_review_read'?{draft:{selection:preview.selected,confirmed_complete:false,unsupported_movements:false,notes:''},preview}:preview};
   }
-  if (['movement_save','movement_trash','followup_review_save','followup_review_trash'].includes(command)) throw {code:'PREVIEW_NATIVE_ONLY',message:'虚构浏览器预览不提交资金记录；原生保存另行验证。'};
+  if (['movement_save','movement_trash','followup_review_save','followup_review_trash'].includes(command)) throw {code:'PREVIEW_NATIVE_ONLY',message:tr('虚构浏览器预览不提交资金记录；原生保存另行验证。')};
   // Development-only read fixture. It never confirms or writes a native profile.
   if (command === 'plan_assumptions_read') {
-    if (params.get('assumptions') === 'error') throw { code: 'PREVIEW_READ_ERROR', message: '虚构假设读取失败，请重试。' };
-    if (!previewModules.planning) throw { code: 'MODULE_DISABLED', message: '目标模块已关闭。' };
+    if (params.get('assumptions') === 'error') throw { code: 'PREVIEW_READ_ERROR', message: tr('虚构假设读取失败，请重试。') };
+    if (!previewModules.planning) throw { code: 'MODULE_DISABLED', message: tr('目标模块已关闭。') };
     const p = planProfile?.profile;
     const values = { real_return_before_hundredths: p?.retire.real_return_before_hundredths ?? 0, real_return_after_hundredths: p?.retire.real_return_after_hundredths ?? 0, inflation_hundredths: p?.assumptions.inflation_hundredths ?? 200, volatility_hundredths: p?.retire.volatility_hundredths ?? 500 };
     const confirmation = params.get('assumptions') === 'confirmed' ? 'confirmed' : params.get('assumptions') === 'needs_review' ? 'needs_review' : 'unconfirmed';
     return { value: { generation, revision: planProfile?.revision ?? null, values, confirmation, confirmed_values: confirmation === 'unconfirmed' ? null : { ...values } } satisfies AssumptionReadV1 };
   }
-  if (command === 'plan_assumptions_save') throw { code: 'PREVIEW_NATIVE_ONLY', message: '虚构浏览器预览不提交假设核对；原生保存另行验证。' };
-  if (command === 'planning_sources') { if (params.get('plan') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: planningSources(args) }; }
+  if (command === 'plan_assumptions_save') throw { code: 'PREVIEW_NATIVE_ONLY', message: tr('虚构浏览器预览不提交假设核对；原生保存另行验证。') };
+  if (command === 'planning_sources') { if (params.get('plan') === 'error') throw { message: tr('虚构读取失败，用于验证错误状态。') }; return { value: planningSources(args) }; }
   if (command === 'plan_profile_update') {
     const input = args.input as ProfileUpdate;
     if (updateResults.has(input.request_id)) return { value: updateResults.get(input.request_id) };
-    if (params.get('state') === 'save-error' || debtScenario === 'error') throw { message: '模拟保存失败，输入应保留。' };
-    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '虚构资料库已变化。' };
-    if (input.expected_revision !== (planProfile?.revision ?? null)) throw { code: 'REVISION_CONFLICT', message: '虚构个人资料已变化，请重新读取。' };
+    if (params.get('state') === 'save-error' || debtScenario === 'error') throw { message: tr('模拟保存失败，输入应保留。') };
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: tr('虚构资料库已变化。') };
+    if (input.expected_revision !== (planProfile?.revision ?? null)) throw { code: 'REVISION_CONFLICT', message: tr('虚构个人资料已变化，请重新读取。') };
     planProfile = { profile: mergeSection(planProfile?.profile ?? null, input), revision: (planProfile?.revision ?? 0) + 1, updated_at: new Date().toISOString() };
     planWriteVersion += 1; updateResults.set(input.request_id, planProfile); receipts.set(input.request_id, 'profile');
-    if (params.get('state') === 'unknown-result' && !lostOnce) { lostOnce = true; throw { message: '连接中断，保存结果未知。' }; }
-    if (params.get('state') === 'unresolved') throw { message: '连接中断，保存结果未知。' };
+    if (params.get('state') === 'unknown-result' && !lostOnce) { lostOnce = true; throw { message: tr('连接中断，保存结果未知。') }; }
+    if (params.get('state') === 'unresolved') throw { message: tr('连接中断，保存结果未知。') };
     return { value: planProfile };
   }
   if (command.startsWith('plan_')) {
-    if (params.get('plan') === 'error' && command !== 'plan_income_save' && command !== 'plan_baseline_mark') throw { message: '虚构读取失败，用于验证错误状态。' };
-    if (planFail('profile') && command === 'plan_profile') throw { message: '虚构个人资料读取失败，用于验证首页摘要的局部降级。' };
-    if (planFail('review') && command === 'plan_review') throw { message: '虚构储蓄统计读取失败，用于验证首页摘要的局部降级。' };
-    if (planFail('income') && command === 'plan_income_list') throw { message: '虚构收入列表读取失败，用于验证首页摘要的局部降级。' };
+    if (params.get('plan') === 'error' && command !== 'plan_income_save' && command !== 'plan_baseline_mark') throw { message: tr('虚构读取失败，用于验证错误状态。') };
+    if (planFail('profile') && command === 'plan_profile') throw { message: tr('虚构个人资料读取失败，用于验证首页摘要的局部降级。') };
+    if (planFail('review') && command === 'plan_review') throw { message: tr('虚构储蓄统计读取失败，用于验证首页摘要的局部降级。') };
+    if (planFail('income') && command === 'plan_income_list') throw { message: tr('虚构收入列表读取失败，用于验证首页摘要的局部降级。') };
     if (command === 'plan_profile') return { value: { generation, saved: planProfile } satisfies ProfileState };
     if (command === 'plan_profile_save') {
-      throw { code: 'PLANNING_SCOPED', message: '请使用分区更新；旧完整请求不能覆盖当前资料。' };
+      throw { code: 'PLANNING_SCOPED', message: tr('请使用分区更新；旧完整请求不能覆盖当前资料。') };
     }
     if (command === 'plan_income_defaults') {
-      if (params.has('income-default-error')) throw { message: '虚构默认金额读取失败。' };
+      if (params.has('income-default-error')) throw { message: tr('虚构默认金额读取失败。') };
       const latest = [...planIncomes].filter(row => !['interest', 'cash_dividend', 'other_investment'].includes(row.fields.category ?? 'unclassified')).sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id))[0];
       return { value: { generation, hpf_cents: latest?.fields.hpf_cents ?? null } };
     }
     if (command === 'plan_income_list') return { value: { generation, rows: [...planIncomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id)) } };
     if (command === 'plan_income_save') {
-      if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+      if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
       const input = args.input as IncomeSave, id = input.id ?? crypto.randomUUID(), old = planIncomes.find(i => i.id === id);
-      if (!previewDay(input.fields.date)) throw { code: 'DATE', message: '日期须为有效的 YYYY-MM-DD' };
-      if (input.fields.date > todayIso) throw { code: 'INCOME_DATE', message: '到账日期不能晚于今天' };
-      if ([...(input.fields.notes ?? '')].length > 500) throw { code: 'INCOME_NOTES', message: '备注最多 500 字，且不能含空字符' };
+      if (!previewDay(input.fields.date)) throw { code: 'DATE', message: tr('日期须为有效的 YYYY-MM-DD') };
+      if (input.fields.date > todayIso) throw { code: 'INCOME_DATE', message: tr('到账日期不能晚于今天') };
+      if ([...(input.fields.notes ?? '')].length > 500) throw { code: 'INCOME_NOTES', message: tr('备注最多 500 字，且不能含空字符') };
       const next: Income = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, classification_changed: old?.classification_changed === true || !!old && (old.fields.category ?? 'unclassified') !== (input.fields.category ?? 'unclassified') };
       planIncomes = old ? planIncomes.map(i => i.id === id ? next : i) : [...planIncomes, next];
       receipts.set(input.request_id, id);
@@ -987,17 +987,17 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (command === 'plan_review') return { value: computeReview(summary().points, planIncomes, planMarks, generation) };
     if (command === 'plan_baseline_mark') {
       const input = args.input as Mark;
-      if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+      if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
       if (input.excluded) planMarks.add(input.snapshot_id); else planMarks.delete(input.snapshot_id);
       receipts.set(input.request_id, input.snapshot_id);
       return { value: null };
     }
     if (command === 'plan_interval_reasons') {
-      if (params.get('plan') === 'reasons-error') throw { message: '虚构读取失败，用于验证原因区的局部错误。' };
+      if (params.get('plan') === 'reasons-error') throw { message: tr('虚构读取失败，用于验证原因区的局部错误。') };
       const point = summary().points.find(p => p.snapshot_id === String(args.snapshotId) && p.complete && p.compared_to);
-      if (!point) throw { code: 'NOT_FOUND', message: '找不到这次盘点' };
+      if (!point) throw { code: 'NOT_FOUND', message: tr('找不到这次盘点') };
       const from = point.compared_to!;
-      const lines = [...expenseView(null).lines, { source: 'purchase' as const, id: 'review-unknown', asset_id: null, title: '虚构金额待补的购入', category: null, date: point.date, amount_cents: null, notes: null, plan_id: null }].filter(l => l.date !== null && l.date > from && l.date <= point.date)
+      const lines = [...expenseView(null).lines, { source: 'purchase' as const, id: 'review-unknown', asset_id: null, title: tr('虚构金额待补的购入'), category: null, date: point.date, amount_cents: null, notes: null, plan_id: null }].filter(l => l.date !== null && l.date > from && l.date <= point.date)
         .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || a.source.localeCompare(b.source) || a.id.localeCompare(b.id));
       const reasons: Reasons = { generation, snapshot_id: point.snapshot_id, from, to: point.date, notes: point.notes, lines };
       return { value: reasons };
@@ -1005,45 +1005,45 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return null;
   }
   if (!command.startsWith('wealth_') && !command.startsWith('account_group')) return null;
-  if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
-  if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; return { value: summary() }; }
+  if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: tr('虚构读取失败，用于验证错误状态。') };
+  if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: tr('虚构盘点读取失败。') }; return { value: summary() }; }
   if (command === 'account_groups_list') {
-    if (params.get('groups') === 'error') throw { message: '虚构分组读取失败，请重试' };
+    if (params.get('groups') === 'error') throw { message: tr('虚构分组读取失败，请重试') };
     return { value: { generation, groups: accountGroups.map(g => ({ ...g, accounts: accounts.filter(a => a.fields.group_id === g.id).length })) } };
   }
   if (['account_group_save', 'account_group_delete', 'account_groups_reorder'].includes(command)) {
     const input = args.input as GroupSave | GroupDelete | GroupReorder;
-    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已切换' };
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: tr('资料库已切换') };
     const fingerprint = JSON.stringify([command, input]), oldReceipt = groupReceipts.get(input.request_id);
-    if (oldReceipt) { if (oldReceipt.fingerprint !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: '请求标识已用于不同内容' }; return { value: oldReceipt.value }; }
-    if (params.get('state') === 'save-error') throw { message: '虚构分组保存失败，输入已保留' };
+    if (oldReceipt) { if (oldReceipt.fingerprint !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: tr('请求标识已用于不同内容') }; return { value: oldReceipt.value }; }
+    if (params.get('state') === 'save-error') throw { message: tr('虚构分组保存失败，输入已保留') };
     let value: unknown = null;
     if (command === 'account_group_save') {
       const request = input as GroupSave, name = request.name.trim(), old = accountGroups.find(g => g.id === request.id);
-      if (!name || [...name].length > 40 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) throw { code: 'GROUP_NAME', message: '分组名称须为 1–40 字，不能含控制字符' };
-      if (accountGroups.some(g => g.name === name && g.id !== request.id)) throw { code: 'GROUP_NAME', message: '已有同名分组' };
-      if ((request.id !== null && !old) || (old?.revision ?? null) !== request.expected_revision) throw { code: 'REVISION_CONFLICT', message: '分组已变化，请重新读取' };
+      if (!name || [...name].length > 40 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) throw { code: 'GROUP_NAME', message: tr('分组名称须为 1–40 字，不能含控制字符') };
+      if (accountGroups.some(g => g.name === name && g.id !== request.id)) throw { code: 'GROUP_NAME', message: tr('已有同名分组') };
+      if ((request.id !== null && !old) || (old?.revision ?? null) !== request.expected_revision) throw { code: 'REVISION_CONFLICT', message: tr('分组已变化，请重新读取') };
       const next = { id: old?.id ?? crypto.randomUUID(), name, position: old?.position ?? (Math.max(-1, ...accountGroups.map(g => g.position)) + 1), revision: (old?.revision ?? 0) + 1, accounts: old ? accounts.filter(a => a.fields.group_id === old.id).length : 0 };
       accountGroups = old ? accountGroups.map(g => g.id === old.id ? next : g) : [...accountGroups, next]; value = next;
     } else if (command === 'account_group_delete') {
       const request = input as GroupDelete, old = accountGroups.find(g => g.id === request.id), count = accounts.filter(a => a.fields.group_id === request.id).length;
-      if (!old || old.revision !== request.expected_revision || count !== request.expected_accounts) throw { code: 'REVISION_CONFLICT', message: '分组或关联账户已变化，请重新读取' };
+      if (!old || old.revision !== request.expected_revision || count !== request.expected_accounts) throw { code: 'REVISION_CONFLICT', message: tr('分组或关联账户已变化，请重新读取') };
       accounts = accounts.map(a => a.fields.group_id === request.id ? { ...a, revision: a.revision + 1, fields: { ...a.fields, group_id: null } } : a);
       accountGroups = accountGroups.filter(g => g.id !== request.id);
     } else {
       const request = input as GroupReorder;
-      if (new Set(request.ids).size !== request.ids.length || request.ids.length !== accountGroups.length || accountGroups.some(g => !request.ids.includes(g.id))) throw { code: 'GROUP_ORDER', message: '分组列表已变化，请重新读取后排序' };
+      if (new Set(request.ids).size !== request.ids.length || request.ids.length !== accountGroups.length || accountGroups.some(g => !request.ids.includes(g.id))) throw { code: 'GROUP_ORDER', message: tr('分组列表已变化，请重新读取后排序') };
       accountGroups = request.ids.map((id, position) => { const g = accountGroups.find(g => g.id === id)!; return { ...g, position, revision: g.revision + 1 }; });
     }
     groupReceipts.set(input.request_id, { fingerprint, value }); receipts.set(input.request_id, 'account-groups');
-    if (params.get('group-write') === 'unknown') { groupUnknownChecks.add(input.request_id); throw { message: '虚构分组响应丢失，请核对结果' }; }
-    if (params.get('state') === 'unresolved') throw { message: '虚构分组响应丢失，请核对结果' };
+    if (params.get('group-write') === 'unknown') { groupUnknownChecks.add(input.request_id); throw { message: tr('虚构分组响应丢失，请核对结果') }; }
+    if (params.get('state') === 'unresolved') throw { message: tr('虚构分组响应丢失，请核对结果') };
     return { value };
   }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
-  if (command === 'wealth_request_result') { const request = String(args.request); if (receipts.get(request) === 'account-groups' && groupUnknownChecks.has(request)) { groupUnknownChecks.delete(request); throw { message: '虚构首次分组回执查询暂不可用，原请求保留，请再次核对' }; } if (params.get('state') === 'unresolved' || params.get('quick') === 'unknown') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
+  if (command === 'wealth_request_result') { const request = String(args.request); if (receipts.get(request) === 'account-groups' && groupUnknownChecks.has(request)) { groupUnknownChecks.delete(request); throw { message: tr('虚构首次分组回执查询暂不可用，原请求保留，请再次核对') }; } if (params.get('state') === 'unresolved' || params.get('quick') === 'unknown') throw { message: tr('暂时无法核对。') }; return { value: receipts.get(String(args.request)) ?? null }; }
   // 只读详情：按稳定 ID 读取一次盘点（§5.2），浏览不写资料。
-  if (command === 'wealth_snapshot') { if (planFail('snapshot')) throw { message: '虚构盘点明细读取失败，用于验证首页摘要的局部降级。' }; const found = snapshots.find(s => s.id === String(args.id)); return { value: found ? view(found) : null }; }
+  if (command === 'wealth_snapshot') { if (planFail('snapshot')) throw { message: tr('虚构盘点明细读取失败，用于验证首页摘要的局部降级。') }; const found = snapshots.find(s => s.id === String(args.id)); return { value: found ? view(found) : null }; }
   if (command === 'wealth_snapshot_draft') {
     const date = String(args.date), existing = snapshots.find(s => s.date === date);
     const draft: Draft = { generation, date, existing: existing ? view(existing) : null, rows: accounts.filter(a => due(a, date)).map(a => ({ account: withLatest(a), previous: latestBefore(a.id, date) })) };
@@ -1053,10 +1053,10 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   // U20 账户变化：预览模拟，规则与 Rust wealth_compare 一致（产品设计 17.14.4）。
   if (command === 'wealth_compare') {
-    if (params.get('wealth') === 'compare-error') throw { message: '虚构账户变化读取失败，用于验证局部错误。' };
+    if (params.get('wealth') === 'compare-error') throw { message: tr('虚构账户变化读取失败，用于验证局部错误。') };
     const from = snapshots.find(s => s.id === String(args.from)), to = snapshots.find(s => s.id === String(args.to));
-    if (!from || !to) throw { code: 'NOT_FOUND', message: '找不到起点或终点盘点' };
-    if (from.date >= to.date) throw { code: 'WEALTH_COMPARE_RANGE', message: '起点盘点须早于终点' };
+    if (!from || !to) throw { code: 'NOT_FOUND', message: tr('找不到起点或终点盘点') };
+    if (from.date >= to.date) throw { code: 'WEALTH_COMPARE_RANGE', message: tr('起点盘点须早于终点') };
     const fv = view(from), tv = view(to);
     const cellOf = (a: Account, s: Stored): CompareCell => {
       const e = s.entries.find(x => x.account_id === a.id);
@@ -1087,7 +1087,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     let netChange: string | null = null, assetsChange: string | null = null, liabChange: string | null = null, netRate: number | null = null;
     if (reconciled) {
       const fromNet = netOf(fv)('asset') - netOf(fv)('liability'), toNet = netOf(tv)('asset') - netOf(tv)('liability'), diff = toNet - fromNet;
-      if (diff !== knownEffect) throw { code: 'WEALTH_COMPARE_MISMATCH', message: '账户变化与净资产变化对不上，请反馈' };
+      if (diff !== knownEffect) throw { code: 'WEALTH_COMPARE_MISMATCH', message: tr('账户变化与净资产变化对不上，请反馈') };
       netChange = diff.toString();
       assetsChange = (netOf(tv)('asset') - netOf(fv)('asset')).toString();
       liabChange = (netOf(tv)('liability') - netOf(fv)('liability')).toString();
@@ -1115,7 +1115,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (command === 'wealth_account_history') {
     const a = accounts.find(x => x.id === String(args.account));
-    if (!a) throw { code: 'NOT_FOUND', message: '找不到账户' };
+    if (!a) throw { code: 'NOT_FOUND', message: tr('找不到账户') };
     const rows: HistoryRow[] = [...snapshots].filter(s => s.entries.some(e => e.account_id === a.id)).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id)).map(s => {
       const e = s.entries.find(x => x.account_id === a.id)!;
       return { snapshot_id: s.id, date: s.date, state: e.state, amount_cents: e.amount_cents, ...(e.original_minor!=null?{original_minor:e.original_minor,fx_rate_micro:e.fx_rate_micro}:{}),...(e.quantity_e8!=null?{quantity_e8:e.quantity_e8,unit_price_e6:e.unit_price_e6}:{}), counted: e.counted, change_cents: null };
@@ -1124,28 +1124,28 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     for (let i = 1; i < rows.length; i++) { const p = rows[i - 1], c = rows[i]; if (p.amount_cents !== null && c.amount_cents !== null) c.change_cents = (BigInt(c.amount_cents) - BigInt(p.amount_cents)).toString(); }
     return { value: { generation, account: withLatest(a), rows } };
   }
-  if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+  if (params.get('state') === 'save-error') throw { message: tr('模拟保存失败，输入应保留。') };
   if (command === 'wealth_account_save') {
     const input = args.input as AccountSave;
     if (receipts.has(input.request_id)) return { value: withLatest(accounts.find(a => a.id === receipts.get(input.request_id))!) };
-    if (input.fields.kind === 'property' && input.fields.counted) throw { code: 'PROPERTY_COUNTED', message: '房产仅单独记录估值，不能计入金融净资产' };
-    if (input.fields.group_id && !accountGroups.some(g => g.id === input.fields.group_id)) throw { code: 'GROUP_NOT_FOUND', message: '分组已删除，请重新选择' };
+    if (input.fields.kind === 'property' && input.fields.counted) throw { code: 'PROPERTY_COUNTED', message: tr('房产仅单独记录估值，不能计入金融净资产') };
+    if (input.fields.group_id && !accountGroups.some(g => g.id === input.fields.group_id)) throw { code: 'GROUP_NOT_FOUND', message: tr('分组已删除，请重新选择') };
     const id = input.id ?? crypto.randomUUID(), old = accounts.find(a => a.id === id);
     const f = input.fields;
-    if((f.holding_mode&&!holdingSupported(f.kind))||(!f.holding_mode&&f.holding_unit!=null)||(f.holding_unit!=null&&(!f.holding_unit.trim()||[...f.holding_unit].length>8||/[\u0000-\u001f\u007f-\u009f]/.test(f.holding_unit))))throw {code:'ACCOUNT_HOLDING',message:'仅投资类账户可按持仓记录，单位须为1–8字'};
-    if(!validCurrency(currencyCode(f.currency)))throw {code:'ACCOUNT_CURRENCY',message:'币种须为三位大写字母'};
-    if(old&&currencyCode(old.fields.currency)!==currencyCode(f.currency)&&snapshots.some(s=>s.entries.some(e=>e.account_id===old.id)))throw {code:'ACCOUNT_CURRENCY',message:'已有记录的账户不能更改币种，请新建一个外币账户，再停用旧账户。'};
-    if (old && !['property','vehicle'].includes(f.kind) && (old.fields.purchase_cents != null || old.fields.purchased_on != null)) throw { code: 'ACCOUNT_PURCHASE', message: '请先清空并保存购入价和购入日期，再更改类型' };
-    if ((f.purchase_cents != null || f.purchased_on != null) && !['property','vehicle'].includes(f.kind)) throw { code: 'ACCOUNT_PURCHASE', message: '只有房产和车辆可以填写购入价和购入日期' };
-    if (f.purchase_cents != null && (!/^\d+$/.test(f.purchase_cents) || BigInt(f.purchase_cents) > 99999999999n)) throw { code: 'ACCOUNT_PURCHASE', message: '购入价超出可保存的金额范围' };
-    if (f.purchased_on != null && (!/^\d{4}-\d{2}-\d{2}$/.test(f.purchased_on) || Number.isNaN(Date.parse(f.purchased_on)) || new Date(f.purchased_on).toISOString().slice(0,10) !== f.purchased_on || f.purchased_on < '1900-01-01' || f.purchased_on > iso(now))) throw { code: 'ACCOUNT_PURCHASE', message: '购入日期须在 1900-01-01 至今天之间' };
+    if((f.holding_mode&&!holdingSupported(f.kind))||(!f.holding_mode&&f.holding_unit!=null)||(f.holding_unit!=null&&(!f.holding_unit.trim()||[...f.holding_unit].length>8||/[\u0000-\u001f\u007f-\u009f]/.test(f.holding_unit))))throw {code:'ACCOUNT_HOLDING',message:tr('仅投资类账户可按持仓记录，单位须为1–8字')};
+    if(!validCurrency(currencyCode(f.currency)))throw {code:'ACCOUNT_CURRENCY',message:tr('币种须为三位大写字母')};
+    if(old&&currencyCode(old.fields.currency)!==currencyCode(f.currency)&&snapshots.some(s=>s.entries.some(e=>e.account_id===old.id)))throw {code:'ACCOUNT_CURRENCY',message:tr('已有记录的账户不能更改币种，请新建一个外币账户，再停用旧账户。')};
+    if (old && !['property','vehicle'].includes(f.kind) && (old.fields.purchase_cents != null || old.fields.purchased_on != null)) throw { code: 'ACCOUNT_PURCHASE', message: tr('请先清空并保存购入价和购入日期，再更改类型') };
+    if ((f.purchase_cents != null || f.purchased_on != null) && !['property','vehicle'].includes(f.kind)) throw { code: 'ACCOUNT_PURCHASE', message: tr('只有房产和车辆可以填写购入价和购入日期') };
+    if (f.purchase_cents != null && (!/^\d+$/.test(f.purchase_cents) || BigInt(f.purchase_cents) > 99999999999n)) throw { code: 'ACCOUNT_PURCHASE', message: tr('购入价超出可保存的金额范围') };
+    if (f.purchased_on != null && (!/^\d{4}-\d{2}-\d{2}$/.test(f.purchased_on) || Number.isNaN(Date.parse(f.purchased_on)) || new Date(f.purchased_on).toISOString().slice(0,10) !== f.purchased_on || f.purchased_on < '1900-01-01' || f.purchased_on > iso(now))) throw { code: 'ACCOUNT_PURCHASE', message: tr('购入日期须在 1900-01-01 至今天之间') };
     const validDay = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day) && new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) === day && day >= '1900-01-01';
-    if (!validDay(f.opened_on)) throw { code: 'ACCOUNT_DATE', message: '启用日期须为 1900-01-01 之后的有效日期' };
-    if (f.opened_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: '启用日期不能晚于今天' };
+    if (!validDay(f.opened_on)) throw { code: 'ACCOUNT_DATE', message: tr('启用日期须为 1900-01-01 之后的有效日期') };
+    if (f.opened_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: tr('启用日期不能晚于今天') };
     if (f.closed_on != null) {
-      if (!validDay(f.closed_on)) throw { code: 'ACCOUNT_DATE', message: '停用日期须为有效日期' };
-      if (f.closed_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: '停用日期不能晚于今天' };
-      if (f.closed_on <= f.opened_on) throw { code: 'ACCOUNT_DATE', message: '停用日期须晚于启用日期' };
+      if (!validDay(f.closed_on)) throw { code: 'ACCOUNT_DATE', message: tr('停用日期须为有效日期') };
+      if (f.closed_on > iso(now)) throw { code: 'ACCOUNT_DATE', message: tr('停用日期不能晚于今天') };
+      if (f.closed_on <= f.opened_on) throw { code: 'ACCOUNT_DATE', message: tr('停用日期须晚于启用日期') };
     }
     const next: Account = { id, fields: input.fields, position: old?.position ?? accounts.length, revision: (old?.revision ?? 0) + 1, latest: null };
     accounts = old ? accounts.map(a => a.id === id ? next : a) : [...accounts, next];
@@ -1154,10 +1154,10 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (command === 'wealth_quick_update') {
     const input = args.input as import('./wealth').QuickUpdate;
-    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已切换。' };
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: tr('资料库已切换。') };
     const fingerprint = JSON.stringify(input);
     if (receipts.has(input.request_id)) {
-      if (quickFingerprints.get(input.request_id) !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: '请求标识已用于不同内容。' };
+      if (quickFingerprints.get(input.request_id) !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: tr('请求标识已用于不同内容。') };
       return { value: view(snapshots.find(s => s.id === receipts.get(input.request_id))!) };
     }
     const fail = (code: string, message: string): never => { throw { code, message }; };
@@ -1207,19 +1207,19 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const stored: Stored = { id: existing?.id ?? crypto.randomUUID(), date: input.date, notes: [existing?.notes ?? '', extra].filter(Boolean).join('\n'), revision: (existing?.revision ?? 0) + 1, entries };
     snapshots = existing ? snapshots.map(s => s.id === stored.id ? stored : s) : [...snapshots, stored];
     receipts.set(input.request_id, stored.id); quickFingerprints.set(input.request_id, fingerprint);
-    if (params.get('quick') === 'unknown') throw { message: '虚构保存响应丢失，原请求已保留。' };
+    if (params.get('quick') === 'unknown') throw { message: tr('虚构保存响应丢失，原请求已保留。') };
     return { value: view(stored) };
   }
   if (command === 'wealth_snapshot_save') {
     const input = args.input as SnapshotSave;
     if (receipts.has(input.request_id)) return { value: view(snapshots.find(s => s.id === receipts.get(input.request_id))!) };
-    if (snapshots.some(s => s.date === input.date && s.id !== input.id)) throw { code: 'SNAPSHOT_DATE_TAKEN', message: '这一天已有盘点，请打开原盘点更正' };
+    if (snapshots.some(s => s.date === input.date && s.id !== input.id)) throw { code: 'SNAPSHOT_DATE_TAKEN', message: tr('这一天已有盘点，请打开原盘点更正') };
     for (const c of input.close_accounts ?? []) {
       const acc = accounts.find(x => x.id === c.account_id);
-      if (!acc) throw { code: 'NOT_FOUND', message: '要停用的账户已不存在，请重新读取' };
-      if (acc.revision !== c.expected_revision) throw { code: 'REVISION_CONFLICT', message: '账户已变化，请重新读取' };
-      if (input.entries.some(e => e.account_id === acc.id)) throw { code: 'SNAPSHOT_ACCOUNT', message: '停用的账户不能同时填写金额' };
-      if (snapshots.some(s => s.entries.some(e => e.account_id === acc.id) && s.date >= input.date)) throw { code: 'ACCOUNT_DATE', message: '该账户在这一天或之后已有盘点记录，不能从这次起停用' };
+      if (!acc) throw { code: 'NOT_FOUND', message: tr('要停用的账户已不存在，请重新读取') };
+      if (acc.revision !== c.expected_revision) throw { code: 'REVISION_CONFLICT', message: tr('账户已变化，请重新读取') };
+      if (input.entries.some(e => e.account_id === acc.id)) throw { code: 'SNAPSHOT_ACCOUNT', message: tr('停用的账户不能同时填写金额') };
+      if (snapshots.some(s => s.entries.some(e => e.account_id === acc.id) && s.date >= input.date)) throw { code: 'ACCOUNT_DATE', message: tr('该账户在这一天或之后已有盘点记录，不能从这次起停用') };
     }
     accounts = accounts.map(a => (input.close_accounts ?? []).some(c => c.account_id === a.id) ? { ...a, revision: a.revision + 1, fields: { ...a.fields, closed_on: input.date } } : a);
     const id = input.id ?? crypto.randomUUID(), old = snapshots.find(s => s.id === id);
@@ -1230,12 +1230,12 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       const fx=source?.original_minor!=null?{original_minor:source.original_minor,fx_rate_micro:source.fx_rate_micro}:{};
       const holdingFields=source?.quantity_e8!=null?{quantity_e8:source.quantity_e8,unit_price_e6:source.unit_price_e6}:{};
       if(a.fields.holding_mode||e.quantity_e8!=null||e.unit_price_e6!=null||source?.quantity_e8!=null){
-        if(e.state==='entered'&&!sameHoldingFact(kept,e)&&!!a.fields.holding_mode!==(e.quantity_e8!=null))throw {code:'HOLDING_MISMATCH',message:'请按当前录入方式填写'};
-        if(e.state==='unchanged'&&((e.quantity_e8!=null&&e.quantity_e8!==source?.quantity_e8)||(e.unit_price_e6!=null&&e.unit_price_e6!==source?.unit_price_e6)))throw {code:'HOLDING_MISMATCH',message:'沿用须保留份额和单价'};
-        try{validateHoldingFact(currencyCode(a.fields.currency),{amount_cents:cents,...fx,...holdingFields});}catch{throw {code:'HOLDING_MISMATCH',message:'份额与单价不一致'};}
+        if(e.state==='entered'&&!sameHoldingFact(kept,e)&&!!a.fields.holding_mode!==(e.quantity_e8!=null))throw {code:'HOLDING_MISMATCH',message:tr('请按当前录入方式填写')};
+        if(e.state==='unchanged'&&((e.quantity_e8!=null&&e.quantity_e8!==source?.quantity_e8)||(e.unit_price_e6!=null&&e.unit_price_e6!==source?.unit_price_e6)))throw {code:'HOLDING_MISMATCH',message:tr('沿用须保留份额和单价')};
+        try{validateHoldingFact(currencyCode(a.fields.currency),{amount_cents:cents,...fx,...holdingFields});}catch{throw {code:'HOLDING_MISMATCH',message:tr('份额与单价不一致')};}
       }
-      if(e.state==='unchanged'&&((e.original_minor!=null&&e.original_minor!==source?.original_minor)||(e.fx_rate_micro!=null&&e.fx_rate_micro!==source?.fx_rate_micro)))throw {code:'FX_MISMATCH',message:'沿用须保留原币金额和汇率'};
-      try { validateCurrencyFact(currencyCode(a.fields.currency),{amount_cents:cents,...fx}); } catch { throw {code:'FX_MISMATCH',message:'原币金额与汇率折算不一致'}; }
+      if(e.state==='unchanged'&&((e.original_minor!=null&&e.original_minor!==source?.original_minor)||(e.fx_rate_micro!=null&&e.fx_rate_micro!==source?.fx_rate_micro)))throw {code:'FX_MISMATCH',message:tr('沿用须保留原币金额和汇率')};
+      try { validateCurrencyFact(currencyCode(a.fields.currency),{amount_cents:cents,...fx}); } catch { throw {code:'FX_MISMATCH',message:tr('原币金额与汇率折算不一致')}; }
       return { ...fx, ...holdingFields, account_id: a.id, state: e.state, amount_cents: cents, side: kept?.side ?? a.fields.side, kind: kept?.kind ?? a.fields.kind, counted: kept?.counted ?? a.fields.counted };
     });
     const stored = { id, date: input.date, notes: input.notes, revision: (old?.revision ?? 0) + 1, entries };
@@ -1359,11 +1359,11 @@ function wishWrite(requestId: string, input: { generation?: string }, change: (f
   next.revision = (found?.revision ?? 0) + 1; next.updated_at = new Date().toISOString();
   wishes = found ? wishes.map(w => w.id === next.id ? next : w) : [next, ...wishes];
   wishReceipts.set(requestId, structuredClone(next));
-  if (lose && params.get('mobile-state') === 'unknown' && !wishLost) { wishLost = true; throw new Error('虚构保存响应丢失。'); }
+  if (lose && params.get('mobile-state') === 'unknown' && !wishLost) { wishLost = true; throw new Error(tr('虚构保存响应丢失。')); }
   return structuredClone(next);
 }
 function wishCheck(requestId: string): WishlistItem | null {
-  if (params.get('mobile-state') === 'unknown' && wishLost && !wishCheckFailed) { wishCheckFailed = true; throw new Error('虚构回执暂不可用。'); }
+  if (params.get('mobile-state') === 'unknown' && wishLost && !wishCheckFailed) { wishCheckFailed = true; throw new Error(tr('虚构回执暂不可用。')); }
   const saved = wishReceipts.get(requestId);
   return saved ? structuredClone(saved) : null;
 }
@@ -1413,7 +1413,7 @@ export type PreviewEvent = { id: string; kind: string; date: string | null; asse
 export function financialTimelineEvents(): PreviewEvent[] {
   const events: PreviewEvent[] = summary().points.map(p => ({
     id: 'snapshot:' + p.snapshot_id, kind: 'snapshot', date: p.date, asset_id: null, wishlist_id: null,
-    title: '财富盘点', note: '', amount_cents: p.complete ? p.net_cents : null,
+    title: tr('财富盘点'), note: '', amount_cents: p.complete ? p.net_cents : null,
     target: { kind: 'snapshot', id: p.snapshot_id }, domain: 'wealth', missing: p.missing,
   }));
   for (const e of expenses) {
@@ -1426,7 +1426,7 @@ export function financialTimelineEvents(): PreviewEvent[] {
   return events;
 }
 export function validatePreviewSource(target: SourceTarget): void {
-  const fail = () => { throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' }; };
+  const fail = () => { throw { code: 'NOT_FOUND', message: tr('这条来源记录已删除或失效，请返回后重新读取。') }; };
   if (target.kind === 'income') { if (!previewModules.incomes || !planIncomes.some(i=>i.id===target.id)) fail(); return; }
   if (target.kind === 'account') { if (!accounts.some(a => a.id === target.id)) fail(); return; }
   if (target.kind === 'topup') { if (!topups.some(t => t.id === target.id && t.asset_id === target.asset_id) || !virtuals.some(v => v.id === target.asset_id)) fail(); return; }

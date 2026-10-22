@@ -7,14 +7,15 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { handle } from '../preview-ipc';
 import { routeDef, tabs } from './routes';
 import type { Params, RouteName, TabId } from './routes';
+import { t } from '../i18n.ts';
 const params = new URLSearchParams(location.search);
 let lostReply = false, failedLookup = false;
 mockIPC(async (command, args) => {
   const state = params.get('mobile-state');
-  if (state === 'save-error' && (command === 'wealth_quick_update' || command === 'wealth_account_save')) throw { code: 'PREVIEW_ERROR', message: '虚构保存失败，请核对输入后重试。' };
-  if (state === 'unknown' && command === 'wealth_request_result' && lostReply && !failedLookup) { failedLookup = true; throw new Error('虚构回执暂不可用。'); }
+  if (state === 'save-error' && (command === 'wealth_quick_update' || command === 'wealth_account_save')) throw { code: 'PREVIEW_ERROR', message: t('虚构保存失败，请核对输入后重试。') };
+  if (state === 'unknown' && command === 'wealth_request_result' && lostReply && !failedLookup) { failedLookup = true; throw new Error(t('虚构回执暂不可用。')); }
   const value = await handle(command, args);
-  if (state === 'unknown' && !lostReply && (command === 'wealth_quick_update' || command === 'wealth_account_save')) { lostReply = true; throw new Error('虚构保存响应丢失。'); }
+  if (state === 'unknown' && !lostReply && (command === 'wealth_quick_update' || command === 'wealth_account_save')) { lostReply = true; throw new Error(t('虚构保存响应丢失。')); }
   return value;
 }, { shouldMockEvents: true });
 const { startMobile } = await import('./start');

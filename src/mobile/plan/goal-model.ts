@@ -21,6 +21,7 @@ import type { GoalProgressEntry } from "../../goal-progress.ts";
 import { affectingAnnotations } from "../../plan-annotations.ts";
 import { coverageItems } from "./coverage-model.ts";
 import type { CoverageTarget } from "./coverage-model.ts";
+import { t as tr } from '../../i18n.ts';
 export function goalView(
   saved: NonNullable<ProfileState["saved"]>,
   caps: BasicCapabilities,
@@ -75,7 +76,7 @@ export function goalView(
           forecastMoneyText,
         ).text
       : "请核对下方注意事项",
-    subtitle: `希望 ${t.target_month ?? "尚未确定"} 停工，规划到 ${t.horizon_month ?? "尚未确定"}`,
+    subtitle: tr('希望 {v1} 停工，规划到 {v2}', { v1: t.target_month ?? "尚未确定", v2: t.horizon_month ?? "尚未确定" }),
     uncertain: (caps.annotations ?? []).some((a) => a.effect !== "none"),
   };
 }
@@ -163,7 +164,7 @@ export function confirmItems(
   for (const item of coverageItems(annotations.filter((a) => !covered(a))))
     out.push({
       id: `note:${item.key}`,
-      title: item.count > 1 ? `${item.message}（共 ${item.count} 项）` : item.message,
+      title: item.count > 1 ? tr('{message}（共 {count} 项）', { message: item.message, count: item.count }) : item.message,
       detail: item.direction,
       action: item.target,
       required: false,

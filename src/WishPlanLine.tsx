@@ -6,7 +6,7 @@ import { buildRetireCalc } from './plan-retire-calc';
 import { classifyWishes, impactOf, impactSentence, isReady } from './plan-wishes';
 import { needsContribution, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
 import type { WishlistItem } from './wishlist';
-
+import { t } from './i18n.ts';
 /** 心愿详情里的只读一行：这笔支出对 FIRE 日期的影响。规划关闭或资料不全时不显示；不改变心愿状态。 */
 export function WishPlanLine({ item, today }: { item: WishlistItem; today: string }) {
   const [text, setText] = useState('');
@@ -33,5 +33,5 @@ export function WishPlanLine({ item, today }: { item: WishlistItem; today: strin
     })().catch(() => { /* 规划读取失败时不影响心愿详情 */ });
     return () => { live = false; };
   }, [item.id, item.fields.estimated_price_cents, item.fields.target_date, item.decision_state, today]);
-  return text ? <div className="wish-plan-line"><p className="muted small" role="note">规划：{text}</p><CoverageNote annotations={annotations} compact/></div> : null;
+  return text ? <div className="wish-plan-line"><p className="muted small" role="note">{t('规划：{text}', { text })}</p><CoverageNote annotations={annotations} compact/></div> : null;
 }

@@ -2,7 +2,7 @@ import type { BasicCapabilities, PlanningAnnotation, PlanningSources, Requiremen
 import { timeLabel } from '../plan-ledger.ts';
 import type { Assumption, ContributionDirection, CurrentSummary, CurrentSummaryMode, CurrentSummaryOutcome, FundRow, MissingItem, Money, ReportInputV1 } from './model.ts';
 import { parseReportInput, validDate, validMonth } from './model.ts';
-
+import { t } from '../i18n.ts';
 const money = (cents: string | null, basis: Money['basis'] = 'estimated'): Money => ({ kind: 'money', cents, basis: cents === null ? 'unknown' : basis });
 const requirementAmount = (result: RequirementResult): string | null => result.status === 'found' || result.status === 'no_positive_contribution' ? result.monthly_cents : null;
 const monthEnd = (month: string | null): string | null => month && validDate(`${month}-01`) ? `${month}-${String(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()).padStart(2, '0')}` : null;
@@ -18,8 +18,8 @@ const annotationLabels: Record<PlanningAnnotation['reason_code'], string> = {
 /** Pure projection of one saved calculation context. No reads, writes or invented historical results. */
 export function currentReportInput(sources: PlanningSources, caps: BasicCapabilities, generatedOn: string): ReportInputV1 {
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
-  if (!sources.modules.planning || !saved?.profile.retire.basic) throw new Error('请先保存当前规划条件，再查看报告。');
-  if (caps.context.generation !== sources.generation || caps.context.write_version !== sources.write_version || caps.context.revision !== saved.revision || caps.context.source !== 'saved') throw new Error('报告来源已变化，请重新读取当前规划。');
+  if (!sources.modules.planning || !saved?.profile.retire.basic) throw new Error(t('请先保存当前规划条件，再查看报告。'));
+  if (caps.context.generation !== sources.generation || caps.context.write_version !== sources.write_version || caps.context.revision !== saved.revision || caps.context.source !== 'saved') throw new Error(t('报告来源已变化，请重新读取当前规划。'));
   const p = saved.profile, r = p.retire, b = r.basic!;
   const limitedCoverage = (caps.annotations ?? []).some(item => item.effect !== 'none' && item.treatment !== 'included');
   const missing: MissingItem[] = [];
@@ -40,13 +40,13 @@ export function currentReportInput(sources: PlanningSources, caps: BasicCapabili
   add('return-after', '目标后实际年收益条件', { kind: 'ratio', hundredths: r.real_return_after_hundredths });
   add('inflation', '年通胀条件', { kind: 'ratio', hundredths: p.assumptions.inflation_hundredths });
   add('volatility', '市场模拟年度波动条件（不参与本报告确定性结果）', { kind: 'ratio', hundredths: r.volatility_hundredths });
-  add('income-mode', '未来收入计入方式', { kind: 'text', text: r.simplified.income_mode === 'excluded' ? '本次不计未来收入' : r.simplified.income_mode === 'manual' ? '仅计选定手填未来收入' : '尚未选择' }, r.simplified.income_mode === 'excluded' ? 'excluded' : r.simplified.income_mode === 'unconfirmed' ? 'unknown' : 'estimated');
+  add('income-mode', '未来收入计入方式', { kind: 'text', text: r.simplified.income_mode === 'excluded' ? t('本次不计未来收入') : r.simplified.income_mode === 'manual' ? t('仅计选定手填未来收入') : t('尚未选择') }, r.simplified.income_mode === 'excluded' ? 'excluded' : r.simplified.income_mode === 'unconfirmed' ? 'unknown' : 'estimated');
   for (const [index, income] of (r.simplified.income_mode === 'manual' ? r.simplified.future_incomes.filter(row => row.included) : []).entries()) {
     add(`income-${index + 1}`, `未来收入 ${index + 1}／月`, money(income.monthly_cents), income.monthly_cents === null ? 'unknown' : 'estimated');
-    add(`income-time-${index + 1}`, `未来收入 ${index + 1}适用条件`, { kind: 'text', text: `开始 ${income.start_month ?? '未知'}；结束 ${income.end_month ?? '至规划终点'}；${income.growth === 'fixed_nominal' ? '固定名义金额' : '保持购买力'}；金额基准 ${income.basis === 'start_month' ? income.start_month ?? '未知' : income.basis_month ?? '未知'}` });
+    add(`income-time-${index + 1}`, `未来收入 ${index + 1}适用条件`, { kind: 'text', text: t('开始 {v1}；结束 {v2}；{v3}；金额基准 {v4}', { v1: income.start_month ?? '未知', v2: income.end_month ?? '至规划终点', v3: income.growth === 'fixed_nominal' ? '固定名义金额' : '保持购买力', v4: income.basis === 'start_month' ? income.start_month ?? '未知' : income.basis_month ?? '未知' }) });
   }
   for (const [phase, rows] of [['净投入', b.contribution_costs], ['退休预算', b.retirement_costs]] as const) for (const [index, row] of rows.entries()) {
-    add(`${phase}-cost-${index + 1}`, `${phase}费用 ${index + 1}包含方式`, { kind: 'text', text: row.treatment === 'included' ? '已包含，按参考额还原后扣实际排期' : row.treatment === 'extra' ? '额外计入' : '本次排除' }, row.treatment === 'excluded' ? 'excluded' : 'estimated');
+    add(`${phase}-cost-${index + 1}`, `${phase}费用 ${index + 1}包含方式`, { kind: 'text', text: row.treatment === 'included' ? t('已包含，按参考额还原后扣实际排期') : row.treatment === 'extra' ? t('额外计入') : t('本次排除') }, row.treatment === 'excluded' ? 'excluded' : 'estimated');
     if (row.treatment === 'included') add(`${phase}-reference-${index + 1}`, `${phase}费用 ${index + 1}参考额`, money(row.reference_cents));
   }
   if (caps.requirement.status === 'ready') for (const [label, result] of [['所设收益', caps.requirement.value.set], ['偏低收益', caps.requirement.value.lower], ['偏高收益', caps.requirement.value.upper]] as const) {
@@ -56,7 +56,7 @@ export function currentReportInput(sources: PlanningSources, caps: BasicCapabili
     if (amount === null) addMissing(`requirement-${label}`, `${label}条件下尚无可用的所需投入结果。`, 'degrades', 'message' in result ? result.message : '在所选搜索范围内未找到结果。');
   }
   const funds: FundRow[] = [];
-  if (b.start.kind === 'simulation') funds.push({ id: 'simulation', name: '模拟起点', availability: 'available', amount: money(b.start.available_cents), note: '手填规划假设，不是实际账户盘点。' });
+  if (b.start.kind === 'simulation') funds.push({ id: 'simulation', name: '模拟起点', availability: 'available', amount: money(b.start.available_cents), note: t('手填规划假设，不是实际账户盘点。') });
   else if (sources.modules.wealth && sources.snapshot.status === 'ready' && sources.snapshot.value) {
     const snapshot = sources.snapshot.value;
     const entries = [...snapshot.entries].filter(row => row.counted).sort((a, c) => a.account_id < c.account_id ? -1 : a.account_id > c.account_id ? 1 : 0);
@@ -66,7 +66,7 @@ export function currentReportInput(sources: PlanningSources, caps: BasicCapabili
       if (row.side === 'asset' && !rule) { addMissing(`unconfirmed-${index + 1}-purpose`, `待核对来源 ${index + 1}的规划用途未确认，本预览未将其列为可用资金或暂时取不出的钱。`); continue; }
       const cents = row.amount_cents === null ? null : row.side === 'liability' ? row.amount_cents : (BigInt(row.amount_cents) * BigInt(rule?.share_hundredths ?? 10000) / 10000n).toString();
       const alias = funds.length + 1;
-      funds.push({ id: `account-${alias}`, name: `账户 ${alias}`, availability: row.side === 'liability' ? 'debt' : rule?.availability === 'available' ? 'available' : 'restricted', amount: money(cents, 'known'), note: `截至 ${snapshot.date}的盘点名义金额${row.side === 'asset' ? `；采用份额 ${(rule?.share_hundredths ?? 10000) / 100}%` : '；本金不再从可用现金重复扣除'}。` });
+      funds.push({ id: `account-${alias}`, name: `账户 ${alias}`, availability: row.side === 'liability' ? 'debt' : rule?.availability === 'available' ? 'available' : 'restricted', amount: money(cents, 'known'), note: t('截至 {date}的盘点名义金额{v2}。', { date: snapshot.date, v2: row.side === 'asset' ? `；采用份额 ${(rule?.share_hundredths ?? 10000) / 100}%` : '；本金不再从可用现金重复扣除' }) });
     }
   }
   // v1 cannot label a month-only gap or retain the ledger's payment timing. Omit these rather than invent a day or zero-filled series.
@@ -76,7 +76,7 @@ export function currentReportInput(sources: PlanningSources, caps: BasicCapabili
   if (caps.prediction.status === 'ready') {
     const prediction = caps.prediction.value;
     add('terminal', '所选终点的预计可用资金（所设金额基准）', money(Number.isSafeInteger(Math.round(prediction.outcome.at_horizon)) ? String(Math.round(prediction.outcome.at_horizon)) : null));
-    add('coverage', '所选条件覆盖判定', { kind: 'text', text: prediction.outcome.success ? limitedCoverage ? '已纳入条件在所选有限期间可覆盖；仍有影响计算的待核对项' : '所选有限期间完整预算已覆盖' : '所选条件未满足完整目标' });
+    add('coverage', '所选条件覆盖判定', { kind: 'text', text: prediction.outcome.success ? limitedCoverage ? t('已纳入条件在所选有限期间可覆盖；仍有影响计算的待核对项') : t('所选有限期间完整预算已覆盖') : t('所选条件未满足完整目标') });
     if (prediction.outcome.success && prediction.terminal === 'surplus' && !limitedCoverage) headline = { status: 'ok', amount: money(null), date: monthEnd(r.simplified.time.horizon_month) };
     else if (prediction.terminal === 'no_margin') addMissing('terminal-no-margin', '所选有限期间预算可覆盖，但终点没有余量，不代表终点以后安全。', 'blocks_headline');
     else if (!prediction.outcome.success) addMissing('target-not-covered', '按已保存净投入，所选条件未满足完整目标。', 'blocks_headline', '本预览不把月度缺口伪装为某个具体日期或单一缺口金额。');
@@ -121,8 +121,8 @@ export function currentReportInput(sources: PlanningSources, caps: BasicCapabili
     before_return: { kind: 'ratio', hundredths: r.real_return_before_hundredths },
     after_return: { kind: 'ratio', hundredths: r.real_return_after_hundredths },
   };
-  const input: ReportInputV1 = { contract_version: 1, kind: 'current', status: 'partial', subject_name: '当前规划', other_name: null, generated_on: generatedOn, source_date: caps.context.start.date, monetary_basis_date: caps.context.monetary_basis_date, scenario_revision: null, model_version: caps.context.model_version, headline, next_step: { label: '核对当前目标的条件与结果', detail: '需求金额和未来净投入是不同条件；报告仅保留生成时的只读快照。' }, current_summary: currentSummary, funds, goals: [], assumptions, series: [], differences: [], missing };
+  const input: ReportInputV1 = { contract_version: 1, kind: 'current', status: 'partial', subject_name: '当前规划', other_name: null, generated_on: generatedOn, source_date: caps.context.start.date, monetary_basis_date: caps.context.monetary_basis_date, scenario_revision: null, model_version: caps.context.model_version, headline, next_step: { label: t('核对当前目标的条件与结果'), detail: '需求金额和未来净投入是不同条件；报告仅保留生成时的只读快照。' }, current_summary: currentSummary, funds, goals: [], assumptions, series: [], differences: [], missing };
   const parsed = parseReportInput(input);
-  if (!parsed.ok) throw new Error('当前报告数据无法识别，请重新读取规划。');
+  if (!parsed.ok) throw new Error(t('当前报告数据无法识别，请重新读取规划。'));
   return parsed.report;
 }

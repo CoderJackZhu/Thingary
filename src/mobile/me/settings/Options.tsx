@@ -8,10 +8,10 @@ import { useTaxonomy } from '../../../useTaxonomy';
 import { Button, ChipRow, EmptyState, ErrorState, FormGroup, ListGroup, ListRow, Loading, Notice, SegmentedControl, Sheet, Switch, TextField } from '../../ui';
 import { MeIcon } from '../icons';
 import { SettingsShell } from './Shell';
-
+import { t as tr } from '../../../i18n.ts';
 type Kind = 'category' | 'channel' | 'label' | 'sale_channel';
-const tabs: { id: Kind; label: string }[] = [{ id: 'category', label: '分类' }, { id: 'channel', label: '渠道' }, { id: 'label', label: '标签' }, { id: 'sale_channel', label: '售出' }];
-const names: Record<Kind, string> = { category: '分类', channel: '购买渠道', label: '标签', sale_channel: '售出渠道' };
+const tabs: { id: Kind; label: string }[] = [{ id: 'category', label: tr('分类') }, { id: 'channel', label: tr('渠道') }, { id: 'label', label: tr('标签') }, { id: 'sale_channel', label: tr('售出') }];
+const names: Record<Kind, string> = { category: '分类', channel: '购买渠道', label: tr('标签'), sale_channel: '售出渠道' };
 const scopeLabels = { physical: '实物', virtual: '虚拟', both: '通用' } as const;
 type Scope = keyof typeof scopeLabels;
 
@@ -92,46 +92,46 @@ function OptionList({ kind, a }: { kind: Kind; a: Adapter }) {
   const validation = editing && editing.mode !== 'remove' ? a.nameError(name, editing.mode === 'edit' ? editing.id : undefined) : null;
   const index = row ? rows.findIndex(item => item.id === row.id) : -1;
   return <>
-    {a.notice && <Notice tone="danger">{a.notice} <Button variant="plain" onClick={a.reload}>重新加载</Button></Notice>}
-    {a.rows === null ? (a.loadError ? <ErrorState title={`${names[kind]}读取失败`} message={a.loadError} onRetry={a.reload}/> : <Loading/>)
-      : !rows.length ? <EmptyState icon="tag" title={`还没有${names[kind]}`} message={kind === 'label' ? '可按用途分组，例如「工作用」；也可按位置分组，例如「书房」。' : '新增后，记录物品时就能选择它。'} action={<Button variant="primary" disabled={a.locked} onClick={() => open({ mode: 'add' })}>新增{names[kind]}</Button>}/>
-      : <ListGroup title={names[kind]} footer={kind === 'label' || kind === 'sale_channel' ? '点一项可排序、重命名、停用或删除。停用后不再出现在选择里，已有记录不受影响。' : '点一项可排序、重命名或移除。移除时引用会迁移到你指定的目标，不会删除任何物品。'}>
+    {a.notice && <Notice tone="danger">{a.notice} <Button variant="plain" onClick={a.reload}>{tr('重新加载')}</Button></Notice>}
+    {a.rows === null ? (a.loadError ? <ErrorState title={tr('{v1}读取失败', { v1: names[kind] })} message={a.loadError} onRetry={a.reload}/> : <Loading/>)
+      : !rows.length ? <EmptyState icon="tag" title={tr('还没有{v1}', { v1: names[kind] })} message={kind === 'label' ? tr('可按用途分组，例如「工作用」；也可按位置分组，例如「书房」。') : tr('新增后，记录物品时就能选择它。')} action={<Button variant="primary" disabled={a.locked} onClick={() => open({ mode: 'add' })}>{tr('新增{v1}', { v1: names[kind] })}</Button>}/>
+      : <ListGroup title={names[kind]} footer={kind === 'label' || kind === 'sale_channel' ? tr('点一项可排序、重命名、停用或删除。停用后不再出现在选择里，已有记录不受影响。') : tr('点一项可排序、重命名或移除。移除时引用会迁移到你指定的目标，不会删除任何物品。')}>
         {rows.map(item => <ListRow key={item.id} icon={item.icon ? <MeIcon name="box"/> : 'tag'} title={item.name} subtitle={item.sub} disabled={a.locked} onClick={() => open({ mode: 'edit', id: item.id })}/>)}
       </ListGroup>}
-    {rows.length > 0 && <Button block disabled={a.locked} onClick={() => open({ mode: 'add' })}>新增{names[kind]}</Button>}
-    {editing && editing.mode !== 'remove' && <Sheet title={editing.mode === 'add' ? `新增${names[kind]}` : names[kind]} doneLabel="关闭" onClose={close}>
+    {rows.length > 0 && <Button block disabled={a.locked} onClick={() => open({ mode: 'add' })}>{tr('新增{v1}', { v1: names[kind] })}</Button>}
+    {editing && editing.mode !== 'remove' && <Sheet title={editing.mode === 'add' ? tr('新增{v1}', { v1: names[kind] }) : names[kind]} doneLabel={tr('关闭')} onClose={close}>
       <div className="m-page">
-        <FormGroup><TextField label="名称" value={name} maxLength={80} onChange={setName} disabled={a.busy}/></FormGroup>
+        <FormGroup><TextField label={tr('名称')} value={name} maxLength={80} onChange={setName} disabled={a.busy}/></FormGroup>
         {validation && name.trim() && <Notice tone="danger">{validation}</Notice>}
-        {kind === 'category' && <section className="m-form-group"><h2 className="m-group-title">图标</h2><ChipRow label="分类图标" items={CATEGORY_ICONS.map(item => ({ id: item.value, label: item.label }))} value={icon} onChange={value => { setIcon(value as CategoryIcon); }}/></section>}
-        {kind === 'label' && editing.mode === 'add' && <section className="m-form-group"><h2 className="m-group-title">适用范围</h2><ChipRow label="适用范围" items={Object.entries(scopeLabels).map(([id, label]) => ({ id, label }))} value={scope} onChange={value => setScope(value as Scope)}/></section>}
+        {kind === 'category' && <section className="m-form-group"><h2 className="m-group-title">{tr('图标')}</h2><ChipRow label={tr('分类图标')} items={CATEGORY_ICONS.map(item => ({ id: item.value, label: item.label }))} value={icon} onChange={value => { setIcon(value as CategoryIcon); }}/></section>}
+        {kind === 'label' && editing.mode === 'add' && <section className="m-form-group"><h2 className="m-group-title">{tr('适用范围')}</h2><ChipRow label={tr('适用范围')} items={Object.entries(scopeLabels).map(([id, label]) => ({ id, label }))} value={scope} onChange={value => setScope(value as Scope)}/></section>}
         {editing.mode === 'add'
-          ? <Button variant="primary" block disabled={a.busy || !!validation} onClick={() => void apply(() => a.create(name, icon, scope))}>{a.busy ? '正在保存…' : '添加'}</Button>
+          ? <Button variant="primary" block disabled={a.busy || !!validation} onClick={() => void apply(() => a.create(name, icon, scope))}>{a.busy ? tr('正在保存…') : tr('添加')}</Button>
           : row && <>
             <Button variant="primary" block disabled={a.busy || !!validation || (name === row.name && icon === row.icon)} onClick={() => void apply(async () => {
               if (name !== row.name) { const failure = await a.rename(row.id, name); if (failure) return failure; }
               if (kind === 'category' && icon !== row.icon && a.setIcon) { const failure = await a.setIcon(row.id, icon); if (failure) return failure; }
               return null;
-            })}>{a.busy ? '正在保存…' : '保存'}</Button>
-            {kind === 'label' && row.scope && a.setScope && <section className="m-form-group"><h2 className="m-group-title">适用范围</h2><ChipRow label="适用范围" items={Object.entries(scopeLabels).map(([id, label]) => ({ id, label }))} value={row.scope} onChange={value => void apply(() => a.setScope!(row.id, value as Scope), false)}/></section>}
-            {a.enable && <ListGroup><ListRow title="启用" subtitle="停用后不再出现在选择里" trailing={<Switch label={'启用' + row.name} checked={!!row.enabled} disabled={a.locked} onChange={on => void apply(() => a.enable!(row.id, on), false)}/>}/></ListGroup>}
-            <ListGroup title="顺序">
-              <ListRow icon={<MeIcon name="arrowUp"/>} title="上移" disabled={a.locked || index <= 0} onClick={() => void apply(() => a.move(row.id, index - 1), false)}/>
-              <ListRow icon={<MeIcon name="arrowDown"/>} title="下移" disabled={a.locked || index >= rows.length - 1} onClick={() => void apply(() => a.move(row.id, index + 1), false)}/>
+            })}>{a.busy ? tr('正在保存…') : tr('保存')}</Button>
+            {kind === 'label' && row.scope && a.setScope && <section className="m-form-group"><h2 className="m-group-title">{tr('适用范围')}</h2><ChipRow label={tr('适用范围')} items={Object.entries(scopeLabels).map(([id, label]) => ({ id, label }))} value={row.scope} onChange={value => void apply(() => a.setScope!(row.id, value as Scope), false)}/></section>}
+            {a.enable && <ListGroup><ListRow title={tr('启用')} subtitle={tr('停用后不再出现在选择里')} trailing={<Switch label={'启用' + row.name} checked={!!row.enabled} disabled={a.locked} onChange={on => void apply(() => a.enable!(row.id, on), false)}/>}/></ListGroup>}
+            <ListGroup title={tr('顺序')}>
+              <ListRow icon={<MeIcon name="arrowUp"/>} title={tr('上移')} disabled={a.locked || index <= 0} onClick={() => void apply(() => a.move(row.id, index - 1), false)}/>
+              <ListRow icon={<MeIcon name="arrowDown"/>} title={tr('下移')} disabled={a.locked || index >= rows.length - 1} onClick={() => void apply(() => a.move(row.id, index + 1), false)}/>
             </ListGroup>
-            <Button variant="danger" block disabled={a.locked} onClick={() => open({ mode: 'remove', id: row.id })}>移除…</Button>
+            <Button variant="danger" block disabled={a.locked} onClick={() => open({ mode: 'remove', id: row.id })}>{tr('移除…')}</Button>
           </>}
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
     </Sheet>}
-    {editing?.mode === 'remove' && row && <Sheet title={`移除「${row.name}」`} cancelLabel="取消" onClose={close}>
+    {editing?.mode === 'remove' && row && <Sheet title={tr('移除「{name}」', { name: row.name })} cancelLabel={tr('取消')} onClose={close}>
       <div className="m-page">
-        <Notice>{row.refs ? `有 ${row.refs} 条引用（含最近删除与心愿）。选择它们改成什么；不会删除任何物品。` : '没有记录使用它。'}</Notice>
-        {row.refs > 0 && <ListGroup title="引用改为">
+        <Notice>{row.refs ? tr('有 {refs} 条引用（含最近删除与心愿）。选择它们改成什么；不会删除任何物品。', { refs: row.refs }) : tr('没有记录使用它。')}</Notice>
+        {row.refs > 0 && <ListGroup title={tr('引用改为')}>
           <ListRow icon={<MeIcon name={target === '' ? 'check' : 'tag'}/>} tone={target === '' ? 'positive' : 'neutral'} title={a.nullLabel} onClick={() => setTarget('')}/>
           {rows.filter(item => item.id !== row.id && item.enabled !== false).map(item => <ListRow key={item.id} icon={<MeIcon name={target === item.id ? 'check' : 'tag'}/>} tone={target === item.id ? 'positive' : 'neutral'} title={item.name} onClick={() => setTarget(item.id)}/>)}
         </ListGroup>}
-        <Button variant="danger" block disabled={a.busy} onClick={() => void apply(() => a.remove(row.id, target || null))}>{a.busy ? '正在移除…' : '确认移除'}</Button>
+        <Button variant="danger" block disabled={a.busy} onClick={() => void apply(() => a.remove(row.id, target || null))}>{a.busy ? tr('正在移除…') : tr('确认移除')}</Button>
         {error && <Notice tone="danger">{error}</Notice>}
       </div>
     </Sheet>}
@@ -153,9 +153,9 @@ export default function OptionsPage() {
   // Choice lists need the library generation, which the taxonomy snapshot provides; read it once through the first tab.
   const probe = useTaxonomy(() => undefined);
   const gen = generation ?? probe.snapshot?.generation;
-  return <SettingsShell title="选项管理" lead="整理分类、购买与售出渠道，以及给物品分组用的标签。">
-    <SegmentedControl label="选项类型" items={tabs} value={kind} onChange={setKind}/>
+  return <SettingsShell title={tr('选项管理')} lead={tr('整理分类、购买与售出渠道，以及给物品分组用的标签。')}>
+    <SegmentedControl label={tr('选项类型')} items={tabs} value={kind} onChange={setKind}/>
     {kind === 'category' || kind === 'channel' ? <TaxonomyPane key={kind} kind={kind} onGeneration={setGeneration}/>
-      : gen ? <ChoicePane key={kind + gen} kind={kind} generation={gen}/> : probe.loadError ? <ErrorState title="选项读取失败" message={probe.loadError} onRetry={() => void probe.reload().catch(() => undefined)}/> : <Loading/>}
+      : gen ? <ChoicePane key={kind + gen} kind={kind} generation={gen}/> : probe.loadError ? <ErrorState title={tr('选项读取失败')} message={probe.loadError} onRetry={() => void probe.reload().catch(() => undefined)}/> : <Loading/>}
   </SettingsShell>;
 }

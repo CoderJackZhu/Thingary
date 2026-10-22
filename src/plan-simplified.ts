@@ -1,12 +1,13 @@
 import type { HouseholdV1, FieldIssueV1, TimeInputV1, FutureIncomeV1, SimplifiedPlanningFieldsV1 } from './plan-simplified-contract.ts';
+import { t } from './i18n.ts';
 export const simplifiedEmpty = (): SimplifiedPlanningFieldsV1 => ({ contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [], household: { mode: 'single', partner: null } });
 export const monthIndexV1 = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1;
 export const monthTextV1 = (m: number): string => `${String(Math.floor(m / 12)).padStart(4, '0')}-${String(m % 12 + 1).padStart(2, '0')}`;
 export const validMonthV1 = (m: unknown): m is string => typeof m === 'string' && /^(19\d\d|[2-9]\d{3})-(0[1-9]|1[0-2])$/.test(m);
 export function ageToMonthV1(reference: TimeInputV1['reference'], ageMonths: number): string {
-  if (!reference || !validMonthV1(reference.month) || !Number.isInteger(reference.age_months) || reference.age_months < 0 || reference.age_months > 1440 || !Number.isInteger(ageMonths) || ageMonths < 0 || ageMonths > 1440) throw new Error('请新确认年龄参考或使用年月');
+  if (!reference || !validMonthV1(reference.month) || !Number.isInteger(reference.age_months) || reference.age_months < 0 || reference.age_months > 1440 || !Number.isInteger(ageMonths) || ageMonths < 0 || ageMonths > 1440) throw new Error(t('请新确认年龄参考或使用年月'));
   const result = monthTextV1(monthIndexV1(reference.month) + ageMonths - reference.age_months);
-  if (!validMonthV1(result)) throw new Error('换算月份超出范围');
+  if (!validMonthV1(result)) throw new Error(t('换算月份超出范围'));
   return result;
 }
 const validDate = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && validMonthV1(v.slice(0, 7)) && Number.isFinite(Date.parse(v + 'T00:00:00Z')) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;

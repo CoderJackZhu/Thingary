@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 
 /** Pages whose topbar search box is backed by the App's session search words. */
 export const searchSections = ['assets', 'wealth', 'expenses', 'finance-records', 'recurring', 'virtual', 'wishlist', 'timeline', 'materials', 'trash'] as const;
@@ -31,7 +32,7 @@ export function buildNewMenu(modules: { physical?: boolean; wishlist: boolean; w
     ['recurring', '新增计划', modules.recurring],
     ['virtual', '新增虚拟资产', modules.virtual],
   ];
-  return { label: '新增记录', items: defs.filter(([, , on]) => on).map(([key, label]) => ({ key, label, run: () => run(key) })) };
+  return { label: t('新增记录'), items: defs.filter(([, , on]) => on).map(([key, label]) => ({ key, label, run: () => run(key) })) };
 }
 
 /** Return focus to the page heading after a modal closes — only when the

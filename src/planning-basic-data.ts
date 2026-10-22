@@ -8,7 +8,7 @@ import { planningReadSession, readPlanningSources, savePlanningSection } from '.
 import { readCapabilities } from './planning-basic-port.ts';
 import type { CapabilityOptions, CapabilityResult } from './planning-basic-port.ts';
 import { Unresolved, storedPending } from './wealth.ts';
-
+import { t } from './i18n.ts';
 export type Load = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; sources: PlanningSources };
 /**
  * Reloading keeps the last good sources visible; an error replaces them so stale data is never shown as current.
@@ -25,7 +25,7 @@ export function usePlanningSources(refreshKey?: string) {
       const next = baseline.current === null ? await readPlanningSources(wanted) : await session.load(baseline.current, wanted);
       if (!live) return;
       if (next && baseline.current === null) baseline.current = next.generation;
-      setLoad(next ? { status: 'ready', sources: next } : { status: 'error', message: '资料库已变化，请重新读取。' });
+      setLoad(next ? { status: 'ready', sources: next } : { status: 'error', message: t('资料库已变化，请重新读取。') });
     })().catch(e => { if (live) setLoad({ status: 'error', message: errorMessage(e) }); });
     return () => { live = false; session.invalidate(); };
   }, [attempt, session, refreshKey]);

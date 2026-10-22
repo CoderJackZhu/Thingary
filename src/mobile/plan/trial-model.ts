@@ -19,7 +19,7 @@ import type { Say } from "../../career-preview/guided-model.ts";
 import { runway } from "../../plan-runway.ts";
 import { runwayLines } from "../../planning-basic-view.ts";
 import { moneyText } from "../format.ts";
-
+import { t } from '../../i18n.ts';
 export type CareerQuestion = "rest" | "switch" | "lower";
 export const trialDateValid = (s: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(s) &&
@@ -37,19 +37,19 @@ export function runwayTrial(input: {
 }) {
   const { start, date, today, income, noIncome, spend, floor, months } = input;
   if (start === null || start === "")
-    return { status: "missing" as const, message: "请提供可用资金起点。" };
+    return { status: "missing" as const, message: t('请提供可用资金起点。') };
   if (!trialDateValid(date) || date > today)
     return {
       status: "missing" as const,
-      message: "请选择有效的截至日，不能晚于今天。",
+      message: t('请选择有效的截至日，不能晚于今天。'),
     };
   if (!noIncome && income === "")
     return {
       status: "missing" as const,
-      message: "请填写每月可靠到账，或明确选择目前没有可靠到账。",
+      message: t('请填写每月可靠到账，或明确选择目前没有可靠到账。'),
     };
   if (spend === "")
-    return { status: "missing" as const, message: "请填写每月必要开销。" };
+    return { status: "missing" as const, message: t('请填写每月必要开销。') };
   const result = runway({
     start_cents: Number(start),
     income_cents: noIncome ? 0 : Number(income),
@@ -87,10 +87,10 @@ export function careerTrial(
   const missing = missingItems(checked, question === "rest");
   if (question === "rest" || checked.gap_months !== 0) {
     if (checked.gap.spend_cents === null || checked.gap.spend_cents === "")
-      missing.unshift({ label: "不工作期间每月总共花多少", assumable: false });
+      missing.unshift({ label: t('不工作期间每月总共花多少'), assumable: false });
     if (checked.gap.income_cents === null || checked.gap.income_cents === "")
       missing.unshift({
-        label: "不工作期间每月还有多少收入",
+        label: t('不工作期间每月还有多少收入'),
         assumable: false,
       });
   }

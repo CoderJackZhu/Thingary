@@ -1,5 +1,5 @@
 import { supportsUpdateChecks } from './update-check.ts';
-
+import { t } from './i18n.ts';
 /** Update discovery (D5): shared display state derived from the backend's
  * machine-local preference/cache view, plus the small local markers that
  * coordinate the one-time ask. Pure logic only; the React controller lives in
@@ -96,9 +96,9 @@ export type ManualOutcome =
 /** What a finished manual round should say, from the shared state. */
 export function manualOutcome(state: UpdateDiscoveryState, task: UpdateTaskResult | null, error: string | null): ManualOutcome {
   if (error) return { kind: 'failed', message: error };
-  if (task?.cancelled) return { kind: 'failed', message: '自动检查已取消，可点击手动检查。' };
+  if (task?.cancelled) return { kind: 'failed', message: t('自动检查已取消，可点击手动检查。') };
   if (task && !task.applied && task.error) return { kind: 'failed', message: task.error };
-  if (state.last_unreachable.length === 2) return { kind: 'failed', message: '上次检查未能连接 Gitee 和 GitHub，请重新检查；已有发现仅供历史参考。' };
+  if (state.last_unreachable.length === 2) return { kind: 'failed', message: t('上次检查未能连接 Gitee 和 GitHub，请重新检查；已有发现仅供历史参考。') };
   if (state.update_available && state.candidate) {
     return {
       kind: 'update',

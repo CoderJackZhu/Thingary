@@ -8,6 +8,7 @@ type Choice = { id:string; name:string; enabled:boolean };
 import { chooseSort, sortOptions } from './list-model';
 import { resetItemQuery, setItemQuery, useItemQuery } from './list-store';
 import './items.css';
+import { t as tr } from '../../i18n.ts';
 export default function ItemFilter() {
   const query=useItemQuery();
   const draft=query, setDraft=setItemQuery;
@@ -19,19 +20,19 @@ export default function ItemFilter() {
   useEffect(()=>{ let live=true; invoke<Page>('list_assets',{query:{...query,offset:0}}).then(r=>{if(live)setTotal(r.total);}).catch(()=>{if(live)setTotal(null);}); return()=>{live=false;};},[JSON.stringify(query)]);
   const categoryId=draft.category?.mode==='category'?draft.category.id:draft.category?.mode==='uncategorized'?'none':'all';
   return <div className="mi-filter">
-    <FormGroup title="筛选">
-      <SelectField label="分类" value={categoryId} onChange={id=>setDraft({...draft,category:id==='all'?{mode:'all'}:id==='none'?{mode:'uncategorized'}:{mode:'category',id}})} options={[{id:'all',label:'全部'},...categories.map(c=>({id:c.id,label:c.name})),{id:'none',label:'未分类'}]}/>
-      <SelectField label="保障" value={draft.warranty??'all'} onChange={warranty=>setDraft({...draft,warranty})} options={[['all','全部'],['covered','有有效保障'],['expiring','即将到期'],['lapsed','有记录，当前无有效保障'],['none','无保障记录']].map(([id,label])=>({id,label}))}/>
-      <SelectField label="缺失资料" value={['missing_price','missing_date'].includes(draft.filter)?draft.filter:'all'} onChange={filter=>setDraft({...draft,filter:filter==='all' ? (['missing_price','missing_date'].includes(query.filter)?'all':query.filter) : filter})} options={[{id:'all',label:'不限'},{id:'missing_price',label:'金额未知'},{id:'missing_date',label:'日期未知'}]}/>
-      <SelectField label="标签" value={draft.label??''} onChange={label=>setDraft({...draft,label:label||null})} options={[{id:'',label:'全部'},{id:'none',label:'无标签'},...labelFilterOptions(tags).map(t=>({id:t.id,label:t.text}))]}/>
+    <FormGroup title={tr('筛选')}>
+      <SelectField label={tr('分类')} value={categoryId} onChange={id=>setDraft({...draft,category:id==='all'?{mode:'all'}:id==='none'?{mode:'uncategorized'}:{mode:'category',id}})} options={[{id:'all',label:tr('全部')},...categories.map(c=>({id:c.id,label:c.name})),{id:'none',label:tr('未分类')}]}/>
+      <SelectField label={tr('保障')} value={draft.warranty??'all'} onChange={warranty=>setDraft({...draft,warranty})} options={[['all','全部'],['covered','有有效保障'],['expiring','即将到期'],['lapsed','有记录，当前无有效保障'],['none','无保障记录']].map(([id,label])=>({id,label}))}/>
+      <SelectField label={tr('缺失资料')} value={['missing_price','missing_date'].includes(draft.filter)?draft.filter:'all'} onChange={filter=>setDraft({...draft,filter:filter==='all' ? (['missing_price','missing_date'].includes(query.filter)?'all':query.filter) : filter})} options={[{id:'all',label:tr('不限')},{id:'missing_price',label:tr('金额未知')},{id:'missing_date',label:tr('日期未知')}]}/>
+      <SelectField label={tr('标签')} value={draft.label??''} onChange={label=>setDraft({...draft,label:label||null})} options={[{id:'',label:tr('全部')},{id:'none',label:tr('无标签')},...labelFilterOptions(tags).map(t=>({id:t.id,label:t.text}))]}/>
     </FormGroup>
     {error&&<ErrorState message={error} onRetry={()=>{setError('');setRetry(n=>n+1);}}/>}
-    <Notice>不计入统计的物品仍保留在列表和详情中。总金额、日均、统计和时间轴分别遵循每件物品的设置。</Notice>
-    <FormGroup title="排序方式">
-      <div className="mi-sort-options" role="group" aria-label="排序方式">{sortOptions.map(([id,label])=><button key={id} aria-pressed={draft.sort===id} onClick={()=>setDraft(chooseSort(draft,id))}>{label}</button>)}</div>
-      <SelectField label="顺序" value={draft.descending?'desc':'asc'} onChange={v=>setDraft({...draft,descending:v==='desc'})} options={[{id:'asc',label:'升序 ↑'},{id:'desc',label:'降序 ↓'}]}/>
+    <Notice>{tr('不计入统计的物品仍保留在列表和详情中。总金额、日均、统计和时间轴分别遵循每件物品的设置。')}</Notice>
+    <FormGroup title={tr('排序方式')}>
+      <div className="mi-sort-options" role="group" aria-label={tr('排序方式')}>{sortOptions.map(([id,label])=><button key={id} aria-pressed={draft.sort===id} onClick={()=>setDraft(chooseSort(draft,id))}>{label}</button>)}</div>
+      <SelectField label={tr('顺序')} value={draft.descending?'desc':'asc'} onChange={v=>setDraft({...draft,descending:v==='desc'})} options={[{id:'asc',label:tr('升序 ↑')},{id:'desc',label:tr('降序 ↓')}]}/>
     </FormGroup>
-    <p className="mi-caption">未知值在升序、降序下都放最后，置顶优先。按次或资料不全的物品不显示日均。持有时长截至今天，已售出截至售出日。</p>
-    <div className="mi-filter-foot"><span role="status" aria-live="polite">{total===null?'':`共 ${total} 件`}</span><Button onClick={resetItemQuery}>清除条件</Button></div>
+    <p className="mi-caption">{tr('未知值在升序、降序下都放最后，置顶优先。按次或资料不全的物品不显示日均。持有时长截至今天，已售出截至售出日。')}</p>
+    <div className="mi-filter-foot"><span role="status" aria-live="polite">{total===null?'':tr('共 {total} 件', { total })}</span><Button onClick={resetItemQuery}>{tr('清除条件')}</Button></div>
   </div>;
 }

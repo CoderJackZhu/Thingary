@@ -24,7 +24,7 @@ import {
 import { MonthField } from "./fields";
 import { usePlan, usePlanSaver } from "./data";
 import "./events.css";
-
+import { t } from '../../i18n.ts';
 /**
  * 已有贷款还款安排, reached from 待你确认 and from the funds step of the setup flow. Same refinement as desktop's
  * debt dialog: for each loan say how it is repaid before and after retirement. Nothing is guessed for the user.
@@ -34,7 +34,7 @@ export default function DebtsPage() {
     nav = useNav();
   return (
     <div className="m-page mp-page">
-      <NavBar title="贷款还款安排" />
+      <NavBar title={t('贷款还款安排')} />
       {p.loading ? (
         <Loading />
       ) : p.error || !p.sources ? (
@@ -42,11 +42,11 @@ export default function DebtsPage() {
       ) : !p.saved?.profile.retire.basic ? (
         <EmptyState
           icon="chart"
-          title="先设置一个目标"
-          message="设置目标与时间后，才能安排贷款还款。"
+          title={t('先设置一个目标')}
+          message={t('设置目标与时间后，才能安排贷款还款。')}
           action={
             <Button variant="primary" onClick={() => nav.push("plan.setup")}>
-              设置条件
+              {t('设置条件')}
             </Button>
           }
         />
@@ -147,7 +147,7 @@ export function DebtEditor({
       );
       for (const d of updates) validateDebtRepayment(d);
       if (!updates.length && !remove.length)
-        throw new Error("请先修改或确认至少一份还款安排，或取消修改。");
+        throw new Error(t('请先修改或确认至少一份还款安排，或取消修改。'));
       setError("");
       if (
         await saver.save(
@@ -161,13 +161,13 @@ export function DebtEditor({
     }
   }
   if (!snapshot || sources.accounts.status !== "ready")
-    return <Notice>需要完整盘点后才能安排贷款；未知余额不会当作零。</Notice>;
+    return <Notice>{t('需要完整盘点后才能安排贷款；未知余额不会当作零。')}</Notice>;
   return (
     <div className="mp-debts">
       <p className="mp-event-help">
-        还款已经含在开销里、另外计算或暂不考虑，都由你明确选择。
+        {t('还款已经含在开销里、另外计算或暂不考虑，都由你明确选择。')}
       </p>
-      {!review.rows.length && <p>这次盘点没有需要安排的负债账户。</p>}
+      {!review.rows.length && <p>{t('这次盘点没有需要安排的负债账户。')}</p>}
       {inactive.map((d) => (
         <FormRow
           key={d.account_id}
@@ -175,7 +175,7 @@ export function DebtEditor({
           stacked
         >
           <Switch
-            label={`移除旧还款${d.account_id}`}
+            label={t('移除旧还款{account_id}', { account_id: d.account_id })}
             checked={remove.includes(d.account_id)}
             disabled={frozen}
             onChange={(checked) =>
@@ -194,36 +194,35 @@ export function DebtEditor({
         return (
           <FormGroup key={row.entry.account_id} title={row.name}>
             <p className="mp-event-help">
-              截至 {snapshot.date}，余额{" "}
+              {t('截至 {date}，余额', { date: snapshot.date })}{" "}
               {row.entry.amount_cents === null
-                ? "未知"
+                ? t('未知')
                 : moneyText(row.entry.amount_cents)}
               。
             </p>
             {row.changed && (
               <Notice>
-                余额明显变化，请复核原安排。
-                {row.zero && "余额已归零，独立还款已停用。"}
+                {t('余额明显变化，请复核原安排。')}
+                {row.zero && t('余额已归零，独立还款已停用。')}
               </Notice>
             )}
             {row.linked ? (
               <Notice>
-                已在「{row.linked.label}
-                」中安排，不重复计算，请核对该大额计划。
+                {t('已在「{label}」中安排，不重复计算，请核对该大额计划。', { label: row.linked.label })}
               </Notice>
             ) : (
               <>
                 {(["before", "after"] as const).map((phase) => (
                   <SelectField
                     key={phase}
-                    label={`${row.name}${phase === "before" ? "退休前" : "退休后"}还款方式`}
+                    label={t('{name}{v2}还款方式', { name: row.name, v2: phase === "before" ? "退休前" : "退休后" })}
                     value={d[phase] ?? ""}
                     disabled={frozen || row.entry.amount_cents === null}
                     options={[
-                      { id: "", label: "尚未处理" },
-                      { id: "scheduled", label: "每月还一笔，单独计算" },
-                      { id: "included", label: "已含在每月开销里" },
-                      { id: "excluded", label: "这次先不考虑" },
+                      { id: "", label: t('尚未处理') },
+                      { id: "scheduled", label: t('每月还一笔，单独计算') },
+                      { id: "included", label: t('已含在每月开销里') },
+                      { id: "excluded", label: t('这次先不考虑') },
                     ]}
                     onChange={(value) =>
                       patch(row.entry.account_id, {
@@ -235,9 +234,9 @@ export function DebtEditor({
                 {(d.before === "scheduled" || d.after === "scheduled") && (
                   <>
                     <MoneyField
-                      label={`${row.name}每月还款`}
+                      label={t('{name}每月还款', { name: row.name })}
                       value={d.monthly_cents ?? ""}
-                      hint="本金和利息合计，每月实际付出；空表示未知。"
+                      hint={t('本金和利息合计，每月实际付出；空表示未知。')}
                       disabled={frozen}
                       onChange={(v) =>
                         patch(row.entry.account_id, {
@@ -246,7 +245,7 @@ export function DebtEditor({
                       }
                     />
                     <MonthField
-                      label={`${row.name}首期月份`}
+                      label={t('{name}首期月份', { name: row.name })}
                       value={d.start_month}
                       disabled={frozen}
                       onChange={(start_month) =>
@@ -254,7 +253,7 @@ export function DebtEditor({
                       }
                     />
                     <MonthField
-                      label={`${row.name}最后一期`}
+                      label={t('{name}最后一期', { name: row.name })}
                       value={d.last_month ?? ""}
                       disabled={frozen}
                       onChange={(v) =>
@@ -266,13 +265,13 @@ export function DebtEditor({
                   </>
                 )}
                 {(d.before === "excluded" || d.after === "excluded") && (
-                  <Notice>这部分还款未计入，结果可能偏乐观。</Notice>
+                  <Notice>{t('这部分还款未计入，结果可能偏乐观。')}</Notice>
                 )}
                 <Button
                   disabled={frozen || row.entry.amount_cents === null}
                   onClick={() => patch(row.entry.account_id, {})}
                 >
-                  确认这份安排仍适用
+                  {t('确认这份安排仍适用')}
                 </Button>
               </>
             )}
@@ -283,7 +282,7 @@ export function DebtEditor({
       {error && <Notice tone="danger">{error}</Notice>}
       <div className="mp-event-actions">
         <Button disabled={frozen} onClick={onDone}>
-          取消
+          {t('取消')}
         </Button>
         <Button
           variant="primary"
@@ -293,7 +292,7 @@ export function DebtEditor({
           }
           onClick={() => void save()}
         >
-          保存还款安排
+          {t('保存还款安排')}
         </Button>
       </div>
       {saver.notice && <Notice tone="danger">{saver.notice}</Notice>}

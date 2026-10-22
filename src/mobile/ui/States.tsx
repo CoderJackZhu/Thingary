@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
-
+import { t } from '../../i18n.ts';
 /** Nothing here yet: icon, one-line title, one sentence of help and an optional first action. */
 export function EmptyState({ icon = 'box', title, message, action }: { icon?: IconName; title: string; message?: string; action?: ReactNode }) {
   return <section className="m-state"><span className="m-state-icon"><Icon name={icon} size={26}/></span><h2>{title}</h2>{message && <p>{message}</p>}{action}</section>;
@@ -12,7 +12,7 @@ export function UnknownState({ title = '未知', message, action }: { title?: st
 }
 /** A read or save failed. `message` is shown as-is; `onRetry` adds a 重试 button. */
 export function ErrorState({ title = '读取失败', message, onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
-  return <section className="m-state m-state-error" role="alert"><span className="m-state-icon"><Icon name="warning" size={26}/></span><h2>{title}</h2>{message && <p>{message}</p>}{onRetry && <button type="button" className="m-button m-button-secondary" onClick={onRetry}>重试</button>}</section>;
+  return <section className="m-state m-state-error" role="alert"><span className="m-state-icon"><Icon name="warning" size={26}/></span><h2>{title}</h2>{message && <p>{message}</p>}{onRetry && <button type="button" className="m-button m-button-secondary" onClick={onRetry}>{t('重试')}</button>}</section>;
 }
 /** Spinner with a status message, for pages that are reading data. */
 export function Loading({ label = '正在读取…' }: { label?: string }) {

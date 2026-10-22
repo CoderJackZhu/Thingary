@@ -1,6 +1,6 @@
 import type { FieldIssueV1, HouseholdV1, SimplifiedPlanningFieldsV1, TimeInputV1 } from '../plan-simplified-contract.ts';
 import { monthIndexV1, validMonthV1, validateSimplifiedPlanningV1 } from '../plan-simplified.ts';
-
+import { t as tr } from '../i18n.ts';
 /** Household view helpers: pure, shared by the setup fields and the result lines. */
 export const SINGLE: HouseholdV1 = { mode: 'single', partner: null };
 export const PARTNER_STOP_MIN_YEARS = 18, PARTNER_STOP_MAX_YEARS = 100;
@@ -28,8 +28,8 @@ export const stopAgeText = (months: number | null): string => months === null ||
 /** Household issues only, with a friendlier age message than the contract's month range. */
 export function householdIssues(f: SimplifiedPlanningFieldsV1, today: string): FieldIssueV1[] {
   return validateSimplifiedPlanningV1(f, today).filter(i => i.path.startsWith('household')).map(i =>
-    i.path === 'household.partner.stop_age_months' ? { ...i, message: `伴侣停工年龄请填 ${PARTNER_STOP_MIN_YEARS} 到 ${PARTNER_STOP_MAX_YEARS} 的整岁数。` }
-      : i.path === 'household.partner.birth_month' ? { ...i, message: '请填写有效的伴侣出生年月，不能晚于当前月份。' } : i);
+    i.path === 'household.partner.stop_age_months' ? { ...i, message: tr('伴侣停工年龄请填 {PARTNER_STOP_MIN_YEARS} 到 {PARTNER_STOP_MAX_YEARS} 的整岁数。', { PARTNER_STOP_MIN_YEARS, PARTNER_STOP_MAX_YEARS }) }
+      : i.path === 'household.partner.birth_month' ? { ...i, message: tr('请填写有效的伴侣出生年月，不能晚于当前月份。') } : i);
 }
 
 /** The partner's birth month as an age-zero reference, for converting an age into a month. */

@@ -1,3 +1,4 @@
+import { t } from '../i18n.ts';
 // 投资区间复盘组件的纯函数层（规则见 docs/PRODUCT_RULES.md）。
 // 本模块只做载荷边界校验与展示格式化：不读取数据库、不查询重叠、不持久化，
 // 也不实现损益公式——损益与余额变化永远来自注入端口返回的领域结果。
@@ -152,12 +153,12 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const intAtLeast = (v: unknown, min: number) => typeof v === 'number' && Number.isSafeInteger(v) && v >= min;
 const checkId = (v: unknown, path: string, issues: FieldIssueV1[]) => {
   if (typeof v !== 'string' || v.length === 0 || [...v].length > MAX_ID_CHARS)
-    issues.push({ path, code: 'invalid_id', message: 'ID 必须是非空且不超过 100 字符的稳定字符串' });
+    issues.push({ path, code: 'invalid_id', message: t('ID 必须是非空且不超过 100 字符的稳定字符串') });
 };
 const checkCentsField = (v: unknown, path: string, issues: FieldIssueV1[]) => {
   if (v === null) return;
   if (!validCents(v))
-    issues.push({ path, code: 'invalid_cents', message: '金额必须是规范的非负整数分字符串（如 "1200"）或 null' });
+    issues.push({ path, code: 'invalid_cents', message: t('金额必须是规范的非负整数分字符串（如 "1200"）或 null') });
 };
 
 export type ParseOk<T> = { ok: true; value: T };
@@ -165,22 +166,22 @@ export type ParseFail = { ok: false; issues: FieldIssueV1[] };
 
 function checkEndpoint(raw: unknown, label: string, issues: FieldIssueV1[]): void {
   if (!isObj(raw)) {
-    issues.push({ path: label, code: 'not_an_object', message: `${label} 必须是对象` });
+    issues.push({ path: label, code: 'not_an_object', message: t('{label} 必须是对象', { label }) });
     return;
   }
   checkId(raw.snapshot_id, `${label}.snapshot_id`, issues);
-  if (!intAtLeast(raw.revision, 0)) issues.push({ path: `${label}.revision`, code: 'invalid_revision', message: '修订号必须是非负整数' });
-  if (typeof raw.date !== 'string' || !validDate(raw.date)) issues.push({ path: `${label}.date`, code: 'invalid_date', message: '日期必须是真实的 YYYY-MM-DD' });
+  if (!intAtLeast(raw.revision, 0)) issues.push({ path: `${label}.revision`, code: 'invalid_revision', message: t('修订号必须是非负整数') });
+  if (typeof raw.date !== 'string' || !validDate(raw.date)) issues.push({ path: `${label}.date`, code: 'invalid_date', message: t('日期必须是真实的 YYYY-MM-DD') });
   if (!Array.isArray(raw.members)) {
-    issues.push({ path: `${label}.members`, code: 'invalid_array', message: 'members 必须是数组' });
+    issues.push({ path: `${label}.members`, code: 'invalid_array', message: t('members 必须是数组') });
     return;
   }
   if (raw.members.length > MAX_SCOPE_MEMBERS)
-    issues.push({ path: `${label}.members`, code: 'too_many_members', message: `投资范围成员超过 ${MAX_SCOPE_MEMBERS} 个` });
+    issues.push({ path: `${label}.members`, code: 'too_many_members', message: t('投资范围成员超过 {MAX_SCOPE_MEMBERS} 个', { MAX_SCOPE_MEMBERS }) });
   const seen = new Set<string>();
   raw.members.forEach((m: unknown, index: number) => {
     if (!isObj(m)) {
-      issues.push({ path: `${label}.members[${index}]`, code: 'not_an_object', message: '成员必须是对象' });
+      issues.push({ path: `${label}.members[${index}]`, code: 'not_an_object', message: t('成员必须是对象') });
       return;
     }
     const base = typeof m.account_id === 'string' && m.account_id ? `${label}.members.${m.account_id}` : `${label}.members[${index}]`;
@@ -189,13 +190,13 @@ function checkEndpoint(raw: unknown, label: string, issues: FieldIssueV1[]): voi
       issues.push({
         path: `${base}.kind`,
         code: 'unsupported_kind',
-        message: `账户类型必须是 investment/mixed/fund/bond；现金／存款、公积金和负债不混入投资范围`,
+        message: t('账户类型必须是 investment/mixed/fund/bond；现金／存款、公积金和负债不混入投资范围'),
       });
-    if (typeof m.counted !== 'boolean') issues.push({ path: `${base}.counted`, code: 'invalid_counted', message: 'counted 必须是布尔值' });
+    if (typeof m.counted !== 'boolean') issues.push({ path: `${base}.counted`, code: 'invalid_counted', message: t('counted 必须是布尔值') });
     checkCentsField(m.amount_cents, `${base}.amount_cents`, issues);
     if (typeof m.account_id === 'string' && m.account_id) {
       if (seen.has(m.account_id))
-        issues.push({ path: `${label}.members`, code: 'duplicate_account', message: `投资范围中账户 ${m.account_id} 重复出现` });
+        issues.push({ path: `${label}.members`, code: 'duplicate_account', message: t('投资范围中账户 {account_id} 重复出现', { account_id: m.account_id }) });
       seen.add(m.account_id);
     }
   });
@@ -203,49 +204,49 @@ function checkEndpoint(raw: unknown, label: string, issues: FieldIssueV1[]): voi
 
 function checkFlow(raw: unknown, issues: FieldIssueV1[]): void {
   if (!isObj(raw)) {
-    issues.push({ path: 'flow', code: 'not_an_object', message: 'flow 必须是对象或 null' });
+    issues.push({ path: 'flow', code: 'not_an_object', message: t('flow 必须是对象或 null') });
     return;
   }
   checkId(raw.id, 'flow.id', issues);
   if (!intAtLeast(raw.revision, 0) || !intAtLeast(raw.from_revision, 0) || !intAtLeast(raw.to_revision, 0))
-    issues.push({ path: 'flow.revision', code: 'invalid_revision', message: '流动记录的修订号必须是非负整数' });
+    issues.push({ path: 'flow.revision', code: 'invalid_revision', message: t('流动记录的修订号必须是非负整数') });
   checkId(raw.from_snapshot_id, 'flow.from_snapshot_id', issues);
   checkId(raw.to_snapshot_id, 'flow.to_snapshot_id', issues);
   for (const key of ['from_value_key', 'to_value_key'] as const) {
     if (typeof raw[key] !== 'string' || raw[key].length === 0)
-      issues.push({ path: `flow.${key}`, code: 'invalid_value_key', message: '计算内容键由领域函数生成及复核，不能为空或由界面拼接' });
+      issues.push({ path: `flow.${key}`, code: 'invalid_value_key', message: t('计算内容键由领域函数生成及复核，不能为空或由界面拼接') });
   }
   for (const key of ['from_date', 'to_date'] as const) {
     if (typeof raw[key] !== 'string' || !validDate(raw[key]))
-      issues.push({ path: `flow.${key}`, code: 'invalid_date', message: '日期必须是真实的 YYYY-MM-DD' });
+      issues.push({ path: `flow.${key}`, code: 'invalid_date', message: t('日期必须是真实的 YYYY-MM-DD') });
   }
   if (typeof raw.from_date === 'string' && typeof raw.to_date === 'string' && validDate(raw.from_date) && validDate(raw.to_date) && raw.from_date >= raw.to_date)
-    issues.push({ path: 'flow.to_date', code: 'invalid_interval', message: '流动区间同样要求 (期初, 期末]，期末必须晚于期初' });
+    issues.push({ path: 'flow.to_date', code: 'invalid_interval', message: t('流动区间同样要求 (期初, 期末]，期末必须晚于期初') });
   checkCentsField(raw.inflow_cents, 'flow.inflow_cents', issues);
   checkCentsField(raw.outflow_cents, 'flow.outflow_cents', issues);
   if (typeof raw.confirmed_complete !== 'boolean')
-    issues.push({ path: 'flow.confirmed_complete', code: 'invalid_flag', message: '确认标记必须是布尔值' });
+    issues.push({ path: 'flow.confirmed_complete', code: 'invalid_flag', message: t('确认标记必须是布尔值') });
   if (typeof raw.unsupported_movements !== 'boolean')
-    issues.push({ path: 'flow.unsupported_movements', code: 'invalid_flag', message: '未支持情形标记必须是布尔值' });
+    issues.push({ path: 'flow.unsupported_movements', code: 'invalid_flag', message: t('未支持情形标记必须是布尔值') });
   if (raw.confirmed_complete === true) {
     for (const [key, has] of [['inflow_cents', raw.inflow_cents !== null], ['outflow_cents', raw.outflow_cents !== null]] as const)
       if (!has)
         issues.push({
           path: `flow.${key}`,
           code: 'confirmed_without_amount',
-          message: '已确认完整时金额必须明确：未知请先留空并取消确认，零必须显式填 0',
+          message: t('已确认完整时金额必须明确：未知请先留空并取消确认，零必须显式填 0'),
         });
   }
   if (typeof raw.notes !== 'string' || [...raw.notes].length > MAX_FLOW_NOTE_CHARS)
-    issues.push({ path: 'flow.notes', code: 'invalid_notes', message: `备注必须是不超过 ${MAX_FLOW_NOTE_CHARS} 字的字符串` });
+    issues.push({ path: 'flow.notes', code: 'invalid_notes', message: t('备注必须是不超过 {MAX_FLOW_NOTE_CHARS} 字的字符串', { MAX_FLOW_NOTE_CHARS }) });
   if (!Array.isArray(raw.scope_account_ids)) {
-    issues.push({ path: 'flow.scope_account_ids', code: 'invalid_array', message: 'scope_account_ids 必须是数组' });
+    issues.push({ path: 'flow.scope_account_ids', code: 'invalid_array', message: t('scope_account_ids 必须是数组') });
   } else {
     const seen = new Set<string>();
     for (const id of raw.scope_account_ids) {
       checkId(id, 'flow.scope_account_ids', issues);
       if (typeof id === 'string' && id) {
-        if (seen.has(id)) issues.push({ path: 'flow.scope_account_ids', code: 'duplicate_account', message: `流动记录的投资范围中账户 ${id} 重复出现` });
+        if (seen.has(id)) issues.push({ path: 'flow.scope_account_ids', code: 'duplicate_account', message: t('流动记录的投资范围中账户 {id} 重复出现', { id }) });
         seen.add(id);
       }
     }
@@ -257,10 +258,10 @@ function checkFlow(raw: unknown, issues: FieldIssueV1[]): void {
  * 提前给出可读错误，后端验证不可省略）。通过时返回输入的深拷贝；不把本函数当作持久化白名单。
  */
 export function parseReviewInput(raw: unknown): ParseOk<InvestmentReviewInputV1> | ParseFail {
-  if (!isObj(raw)) return { ok: false, issues: [{ path: '', code: 'not_an_object', message: '输入必须是对象' }] };
+  if (!isObj(raw)) return { ok: false, issues: [{ path: '', code: 'not_an_object', message: t('输入必须是对象') }] };
   const issues: FieldIssueV1[] = [];
   if (raw.contract_version !== CONTRACT_VERSION)
-    issues.push({ path: 'contract_version', code: 'unsupported_contract_version', message: `不支持的协议版本 ${String(raw.contract_version)}，本组件只接受 1` });
+    issues.push({ path: 'contract_version', code: 'unsupported_contract_version', message: t('不支持的协议版本 {v1}，本组件只接受 1', { v1: String(raw.contract_version) }) });
   checkEndpoint(raw.from, 'from', issues);
   checkEndpoint(raw.to, 'to', issues);
   const from = isObj(raw.from) ? raw.from : null;
@@ -270,10 +271,10 @@ export function parseReviewInput(raw: unknown): ParseOk<InvestmentReviewInputV1>
     typeof from.date === 'string' && typeof to.date === 'string' &&
     validDate(from.date) && validDate(to.date) && from.date >= to.date
   )
-    issues.push({ path: 'to.date', code: 'invalid_interval', message: `期末日期 ${to.date} 必须晚于期初日期 ${from.date}；区间为 (期初, 期末]` });
+    issues.push({ path: 'to.date', code: 'invalid_interval', message: t('期末日期 {date} 必须晚于期初日期 {v2}；区间为 (期初, 期末]', { date: to.date, v2: from.date }) });
   if (raw.flow !== null) checkFlow(raw.flow, issues);
   if (!Array.isArray(raw.overlapping_active_flow_ids))
-    issues.push({ path: 'overlapping_active_flow_ids', code: 'invalid_array', message: 'overlapping_active_flow_ids 必须是数组' });
+    issues.push({ path: 'overlapping_active_flow_ids', code: 'invalid_array', message: t('overlapping_active_flow_ids 必须是数组') });
   else for (const id of raw.overlapping_active_flow_ids) checkId(id, 'overlapping_active_flow_ids', issues);
   if (issues.length) return { ok: false, issues };
   return { ok: true, value: structuredClone(raw) as InvestmentReviewInputV1 };
@@ -281,32 +282,32 @@ export function parseReviewInput(raw: unknown): ParseOk<InvestmentReviewInputV1>
 
 /** 结果载荷形状检查：只看形状与规范金额字符串，不复算任何数值。 */
 export function parseReviewResult(raw: unknown): ParseOk<InvestmentReviewResultV1> | ParseFail {
-  if (!isObj(raw)) return { ok: false, issues: [{ path: '', code: 'not_an_object', message: '结果必须是对象' }] };
+  if (!isObj(raw)) return { ok: false, issues: [{ path: '', code: 'not_an_object', message: t('结果必须是对象') }] };
   const issues: FieldIssueV1[] = [];
   if (raw.status === 'ready') {
     const v = raw.value;
     if (!isObj(v)) {
-      issues.push({ path: 'value', code: 'not_an_object', message: 'ready 结果必须带 value' });
+      issues.push({ path: 'value', code: 'not_an_object', message: t('ready 结果必须带 value') });
     } else {
       for (const key of ['opening_cents', 'closing_cents', 'inflow_cents', 'outflow_cents'] as const)
-        if (!validCents(v[key], false, BigInt(MAX_CENTS) * BigInt(key === 'opening_cents' || key === 'closing_cents' ? MAX_SCOPE_MEMBERS : 1))) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: `${key} 必须是规范的非负整数分字符串` });
+        if (!validCents(v[key], false, BigInt(MAX_CENTS) * BigInt(key === 'opening_cents' || key === 'closing_cents' ? MAX_SCOPE_MEMBERS : 1))) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: t('{key} 必须是规范的非负整数分字符串', { key }) });
       for (const key of ['change_cents', 'profit_cents'] as const)
-        if (!validCents(v[key], true, BigInt(MAX_CENTS) * BigInt(MAX_SCOPE_MEMBERS + (key === 'profit_cents' ? 1 : 0)))) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: `${key} 必须是规范的整数分字符串（可带负号）` });
+        if (!validCents(v[key], true, BigInt(MAX_CENTS) * BigInt(MAX_SCOPE_MEMBERS + (key === 'profit_cents' ? 1 : 0)))) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: t('{key} 必须是规范的整数分字符串（可带负号）', { key }) });
     }
   } else if (raw.status === 'not_recorded' || raw.status === 'needs_review' || raw.status === 'not_comparable') {
     if (!Array.isArray(raw.reasons) || raw.reasons.length === 0 || raw.reasons.some(r => typeof r !== 'string' || !r))
-      issues.push({ path: 'reasons', code: 'invalid_reasons', message: 'reasons 必须是非空字符串数组' });
+      issues.push({ path: 'reasons', code: 'invalid_reasons', message: t('reasons 必须是非空字符串数组') });
     if (raw.change_cents !== null && !validCents(raw.change_cents, true, BigInt(MAX_CENTS) * BigInt(MAX_SCOPE_MEMBERS)))
-      issues.push({ path: 'change_cents', code: 'invalid_cents', message: 'change_cents 必须是规范的整数分字符串（可带负号）或 null' });
+      issues.push({ path: 'change_cents', code: 'invalid_cents', message: t('change_cents 必须是规范的整数分字符串（可带负号）或 null') });
   } else if (raw.status === 'unavailable') {
     if (!Array.isArray(raw.reasons) || raw.reasons.length === 0 || raw.reasons.some(r => typeof r !== 'string' || !r))
-      issues.push({ path: 'reasons', code: 'invalid_reasons', message: 'reasons 必须是非空字符串数组' });
-    if ('change_cents' in raw || 'value' in raw) issues.push({ path: '', code: 'unavailable_amount', message: '不可用结果不得带金额' });
+      issues.push({ path: 'reasons', code: 'invalid_reasons', message: t('reasons 必须是非空字符串数组') });
+    if ('change_cents' in raw || 'value' in raw) issues.push({ path: '', code: 'unavailable_amount', message: t('不可用结果不得带金额') });
   } else if (raw.status === 'invalid') {
     if (!Array.isArray(raw.issues) || raw.issues.length === 0 || raw.issues.some(i => !isObj(i) || typeof i.path !== 'string' || typeof i.code !== 'string' || typeof i.message !== 'string'))
-      issues.push({ path: 'issues', code: 'invalid_issues', message: 'invalid 结果必须带字段问题数组' });
+      issues.push({ path: 'issues', code: 'invalid_issues', message: t('invalid 结果必须带字段问题数组') });
   } else {
-    issues.push({ path: 'status', code: 'invalid_status', message: `未知结果状态 ${String(raw.status)}` });
+    issues.push({ path: 'status', code: 'invalid_status', message: t('未知结果状态 {v1}', { v1: String(raw.status) }) });
   }
   if (issues.length) return { ok: false, issues };
   return { ok: true, value: structuredClone(raw) as InvestmentReviewResultV1 };
@@ -397,20 +398,20 @@ export function draftIssues(draft: FlowDraft): FieldIssueV1[] {
   const issues: FieldIssueV1[] = [];
   for (const [key, value] of [['inflow', draft.inflow], ['outflow', draft.outflow]] as const)
     if (value !== '' && !validCents(value))
-      issues.push({ path: key, code: 'invalid_cents', message: '金额必须是规范的非负整数分字符串' });
+      issues.push({ path: key, code: 'invalid_cents', message: t('金额必须是规范的非负整数分字符串') });
   if ([...draft.notes].length > MAX_FLOW_NOTE_CHARS)
-    issues.push({ path: 'notes', code: 'invalid_notes', message: `备注超过 ${MAX_FLOW_NOTE_CHARS} 字` });
+    issues.push({ path: 'notes', code: 'invalid_notes', message: t('备注超过 {MAX_FLOW_NOTE_CHARS} 字', { MAX_FLOW_NOTE_CHARS }) });
   if (draft.confirmed && (draft.inflow === '' || draft.outflow === ''))
     issues.push({
       path: 'confirmed',
       code: 'confirmed_without_amount',
-      message: '确认完整前需要两个金额：未知请先留空并取消确认，零必须显式填 0',
+      message: t('确认完整前需要两个金额：未知请先留空并取消确认，零必须显式填 0'),
     });
   if (draft.confirmed && draft.unsupported)
     issues.push({
       path: 'confirmed',
       code: 'confirmed_with_unsupported',
-      message: '存在未支持情形时不能确认简单损益完整，可保存备注后待复核',
+      message: t('存在未支持情形时不能确认简单损益完整，可保存备注后待复核'),
     });
   return issues;
 }

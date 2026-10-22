@@ -5,6 +5,7 @@ import { StartChoice } from './StartChoice';
 import { selectedUsage, usageModules } from './start-choice';
 import { Switch } from './FormControls';
 import { moduleList, type Modules, type RuntimeModules } from './modules';
+import { t } from './i18n.ts';
 export function ModuleSettings({ modules, onChange, onBusyChange }: { onBusyChange?: (busy: boolean) => void; modules: Modules & Partial<RuntimeModules>; onChange: (m: RuntimeModules) => void }) {
   const [choosing, setChoosing] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null), chooserButton = useRef<HTMLButtonElement>(null), restoreChooserFocus = useRef(false);
@@ -33,18 +34,18 @@ export function ModuleSettings({ modules, onChange, onBusyChange }: { onBusyChan
   }
   const toggle = (key: keyof Modules, on: boolean) => update({ modules: { ...modules, [key]: on } });
   return <section className="ui-card ui-content module-settings" aria-labelledby="module-heading">
-    <div className="data-heading"><div><p className="eyebrow">界面</p><h2 id="module-heading">功能模块</h2></div><span>总览与设置始终可用</span></div>
-    <p className="data-intro">关掉不用的模块，会隐藏相关入口，已有资料保留。心愿、订阅续期和盘点提醒随对应模块暂停；保障提醒不受影响，重新开启后按原设置安排。</p>
-    <div className="usage-settings-entry"><div><strong>按用途整理界面</strong><p className="muted">选择你常用的功能，可以多选，也可以全部使用。</p></div><button ref={chooserButton} className="ui-btn" disabled={busy} onClick={() => setChoosing(true)}>重新选择用途</button></div>
+    <div className="data-heading"><div><p className="eyebrow">{t('界面')}</p><h2 id="module-heading">{t('功能模块')}</h2></div><span>{t('总览与设置始终可用')}</span></div>
+    <p className="data-intro">{t('关掉不用的模块，会隐藏相关入口，已有资料保留。心愿、订阅续期和盘点提醒随对应模块暂停；保障提醒不受影响，重新开启后按原设置安排。')}</p>
+    <div className="usage-settings-entry"><div><strong>{t('按用途整理界面')}</strong><p className="muted">{t('选择你常用的功能，可以多选，也可以全部使用。')}</p></div><button ref={chooserButton} className="ui-btn" disabled={busy} onClick={() => setChoosing(true)}>{t('重新选择用途')}</button></div>
     <ul className="module-list">{moduleList.map(([key, name, hint]) => <li key={key}><div><strong>{name}</strong><span className="muted">{hint}</span></div><Switch label={'启用' + name} value={modules[key]} disabled={busy || (key === 'stats' && !modules.physical)} onChange={on => void toggle(key, on)}/></li>)}</ul>
     <ul className="module-list">{([['incomes', '收入记录', '记录实际到账，与目标开关独立'], ['movements', '资金流动', '记录资金转入转出；需要开启账户与盘点']] as const).map(([key, name, hint]) => <li key={key}><div><strong>{name}</strong><span className="muted">{hint}</span></div><Switch label={'启用' + name} value={ready && !!modules[key]} disabled={busy || !ready} onChange={on => void update({ modules, [key]: on })}/></li>)}</ul>
-    {ready && modules.movements && !modules.wealth && <p className="notice">资金流动偏好已保留；开启账户与盘点后恢复使用。</p>}
-    {!ready && <div className="notice" role="alert"><p>收入与资金流动开关暂不可用，财务资料没有删除。{modules.finance_status === 'unsupported_version' ? '偏好版本较新，请使用支持该版本的应用。' : '请重新读取，或明确选择修复后的开关状态。'}</p><button disabled={busy} onClick={() => { setBusy(true); void invoke<RuntimeModules>('modules_get').then(onChange).catch(e => setError(errorMessage(e))).finally(() => setBusy(false)); }}>重新读取开关</button>{modules.finance_status && modules.finance_status !== 'unsupported_version' && <><label><input type="checkbox" checked={repairIncome} disabled={busy} onChange={e => setRepairIncome(e.target.checked)}/>修复后启用收入记录</label><label><input type="checkbox" checked={repairMovements} disabled={busy} onChange={e => setRepairMovements(e.target.checked)}/>修复后启用资金流动</label><button disabled={busy} onClick={() => void update({ modules, repair: true, incomes: repairIncome, movements: repairMovements })}>按以上选择修复开关</button></>}</div>}
-    {!modules.physical && modules.stats && <p className="notice">物品统计的偏好已保留，开启物品档案后恢复入口。</p>}
-    {choosing && <dialog ref={dialog} className="usage-settings-dialog" aria-labelledby="start-choice-title" onCancel={event => { event.preventDefault(); if (!busy) setChoosing(false); }}><StartChoice initial={selectedUsage(modules as RuntimeModules)} ready={ready && !!modules.finance_revision} error={error || (!ready || !modules.finance_revision ? '功能偏好暂不可用，请重新读取；也可以取消后在下方修复。' : '')} onBusyChange={setBusy} onReload={() => { void invoke<RuntimeModules>('modules_get').then(onChange).catch(e => setError(errorMessage(e))); }} onSkip={() => setChoosing(false)} onApply={async selection => {
-      if (!ready) throw new Error('功能偏好尚未可靠读取，请先重新读取。');
+    {ready && modules.movements && !modules.wealth && <p className="notice">{t('资金流动偏好已保留；开启账户与盘点后恢复使用。')}</p>}
+    {!ready && <div className="notice" role="alert"><p>{t('收入与资金流动开关暂不可用，财务资料没有删除。')}{modules.finance_status === 'unsupported_version' ? t('偏好版本较新，请使用支持该版本的应用。') : t('请重新读取，或明确选择修复后的开关状态。')}</p><button disabled={busy} onClick={() => { setBusy(true); void invoke<RuntimeModules>('modules_get').then(onChange).catch(e => setError(errorMessage(e))).finally(() => setBusy(false)); }}>{t('重新读取开关')}</button>{modules.finance_status && modules.finance_status !== 'unsupported_version' && <><label><input type="checkbox" checked={repairIncome} disabled={busy} onChange={e => setRepairIncome(e.target.checked)}/>{t('修复后启用收入记录')}</label><label><input type="checkbox" checked={repairMovements} disabled={busy} onChange={e => setRepairMovements(e.target.checked)}/>{t('修复后启用资金流动')}</label><button disabled={busy} onClick={() => void update({ modules, repair: true, incomes: repairIncome, movements: repairMovements })}>{t('按以上选择修复开关')}</button></>}</div>}
+    {!modules.physical && modules.stats && <p className="notice">{t('物品统计的偏好已保留，开启物品档案后恢复入口。')}</p>}
+    {choosing && <dialog ref={dialog} className="usage-settings-dialog" aria-labelledby="start-choice-title" onCancel={event => { event.preventDefault(); if (!busy) setChoosing(false); }}><StartChoice initial={selectedUsage(modules as RuntimeModules)} ready={ready && !!modules.finance_revision} error={error || (!ready || !modules.finance_revision ? t('功能偏好暂不可用，请重新读取；也可以取消后在下方修复。') : '')} onBusyChange={setBusy} onReload={() => { void invoke<RuntimeModules>('modules_get').then(onChange).catch(e => setError(errorMessage(e))); }} onSkip={() => setChoosing(false)} onApply={async selection => {
+      if (!ready) throw new Error(t('功能偏好尚未可靠读取，请先重新读取。'));
       const payload = usageModules(modules as RuntimeModules, ready, selection);
-      if (!payload) throw new Error('功能偏好尚未可靠读取，请先重新读取。');
+      if (!payload) throw new Error(t('功能偏好尚未可靠读取，请先重新读取。'));
       try { onChange(await invoke<RuntimeModules>('modules_set', payload)); setChoosing(false); }
       catch (e) { try { onChange(await invoke<RuntimeModules>('modules_get')); } catch { /* Keep the failed draft open for retry. */ } throw new Error(errorMessage(e)); }
     }}/></dialog>}

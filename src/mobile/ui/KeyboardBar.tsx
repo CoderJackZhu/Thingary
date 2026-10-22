@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { advanceFocus, needsAccessory } from './field-advance';
-
+import { t } from '../../i18n.ts';
 /**
  * 下一项 / 完成 bar above the iOS number pad, which has no Return key. 下一项 sends Return to the focused field
  * (so a page can route it, e.g. the check-in jumps to the next unfilled account) and otherwise moves to the next field;
@@ -32,8 +32,8 @@ export function KeyboardBar() {
     const handled = !el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     if (!handled) advanceFocus(el);
   };
-  return <div className="m-kbbar" role="toolbar" aria-label="键盘工具栏">
-    <button type="button" className="m-navbar-button" onMouseDown={event => event.preventDefault()} onClick={next}>下一项</button>
-    <button type="button" className="m-navbar-button m-navbar-primary" onMouseDown={event => event.preventDefault()} onClick={() => field()?.blur()}>完成</button>
+  return <div className="m-kbbar" role="toolbar" aria-label={t('键盘工具栏')}>
+    <button type="button" className="m-navbar-button" onMouseDown={event => event.preventDefault()} onClick={next}>{t('下一项')}</button>
+    <button type="button" className="m-navbar-button m-navbar-primary" onMouseDown={event => event.preventDefault()} onClick={() => field()?.blur()}>{t('完成')}</button>
   </div>;
 }

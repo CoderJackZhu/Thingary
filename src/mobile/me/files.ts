@@ -1,7 +1,7 @@
 // Everything that hands a file to or takes a file from the person goes through this module, so the iOS
 // native share sheet, document picker and report hand-off have one platform boundary.
 import { invoke, isTauri } from '@tauri-apps/api/core';
-
+import { t } from '../../i18n.ts';
 type ShareOutcome = { completed: boolean; error: string | null };
 type Platform = { native_file_sharing: boolean };
 let platform: Promise<Platform> | undefined;
@@ -67,5 +67,5 @@ export async function downloadText(name: string, text: string): Promise<boolean>
 }
 export const recoveryKeyFile = (key: string, recipientId: string): { name: string; text: string } => ({
   name: `物谱恢复密钥-${recipientId.slice(0, 8)}.txt`,
-  text: `# 物谱备份恢复密钥。请与备份文件分开保管，丢失后无法找回。\n# 公钥标识 ${recipientId}\n${key}\n`,
+  text: t('# 物谱备份恢复密钥。请与备份文件分开保管，丢失后无法找回。\n# 公钥标识 {recipientId}\n{key}\n', { recipientId, key }),
 });

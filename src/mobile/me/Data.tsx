@@ -22,7 +22,7 @@ import { autoBackupLabel, countLocalWork, restoreClearKeys, restoreLines, restor
 import { browserStorage } from './shared';
 import Security from './Security';
 import './me.css';
-
+import { t } from '../../i18n.ts';
 type Task = { kind: 'idle' } | { kind: 'running'; label: string } | { kind: 'done'; text: string } | { kind: 'error'; text: string };
 const localKeys = (): string[] => { const keys: string[] = []; try { for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key) keys.push(key); } } catch { /* storage unavailable: nothing to clear */ } return keys; };
 
@@ -54,41 +54,41 @@ export default function Data({ params }: PageProps) {
 
   async function backup(plaintext: boolean) {
     if (locked) return;
-    setCandidate(null); setState({ kind: 'running', label: plaintext ? '正在导出未加密副本…' : '正在生成并校验完整备份…' });
+    setCandidate(null); setState({ kind: 'running', label: plaintext ? t('正在导出未加密副本…') : t('正在生成并校验完整备份…') });
     try {
       const done = await task.withTask(taskId => shareBackup(plaintext, taskId));
       if (done) writeLastBackup(browserStorage(), new Date());
-      setState(done ? { kind: 'done', text: plaintext ? `已导出未加密副本「${done.name}」。仅本次例外；自动备份仍按已开启的加密策略执行。` : `已保存并校验「${done.name}」。` } : { kind: 'idle' });
-    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? '已取消，原成品保留。' : '备份未完成，当前资料未改变：' + errorMessage(cause) }); }
+      setState(done ? { kind: 'done', text: plaintext ? t('已导出未加密副本「{name}」。仅本次例外；自动备份仍按已开启的加密策略执行。', { name: done.name }) : t('已保存并校验「{name}」。', { name: done.name }) } : { kind: 'idle' });
+    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : '备份未完成，当前资料未改变：' + errorMessage(cause) }); }
   }
   async function inspect() {
     if (locked) return;
-    setCandidate(null); setState({ kind: 'running', label: '正在检查备份，当前资料不会改变…' });
+    setCandidate(null); setState({ kind: 'running', label: t('正在检查备份，当前资料不会改变…') });
     try {
       const found = await task.withTask(taskId => pickBackupFile(taskId));
       if (!alive.current) { if (found?.token) void invoke('cancel_backup_session', { token: found.token }).catch(() => undefined); return; }
       if (found) { candidateRef.current = found; setCandidate(found); setUnlockKey(''); }
       setState({ kind: 'idle' });
-    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? '已取消，原成品保留。' : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(cause) }); }
+    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(cause) }); }
   }
   async function inspectAuto(name: string) {
     if (locked) return;
-    setCandidate(null); setState({ kind: 'running', label: '正在检查自动备份，当前资料不会改变…' });
+    setCandidate(null); setState({ kind: 'running', label: t('正在检查自动备份，当前资料不会改变…') });
     try {
       const found = await task.withTask(taskId => invoke<Inspected>('inspect_auto_backup', { name, taskId }));
       if (!alive.current) { if (found.token) void invoke('cancel_backup_session', { token: found.token }).catch(() => undefined); return; }
       candidateRef.current = found; setCandidate(found); setUnlockKey(''); setState({ kind: 'idle' });
-    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? '已取消，原成品保留。' : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(cause) }); }
+    } catch (cause) { if (alive.current) setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : '这个备份不能用于恢复，当前资料未改变：' + errorMessage(cause) }); }
   }
   async function unlock() {
     if (!candidate?.encrypted || !candidate.token) return;
     const token = candidate.token;
-    setState({ kind: 'running', label: '正在用恢复密钥解密并检查备份…' });
+    setState({ kind: 'running', label: t('正在用恢复密钥解密并检查备份…') });
     try {
       const unlocked = await task.withTask(taskId => invoke<Inspected>('unlock_backup_session', { token, keyText: unlockKey, taskId }));
       if (!alive.current || candidateRef.current?.token !== token) return;
       setCandidate({ ...candidate, encrypted: false, summary: unlocked.summary }); setUnlockKey(''); setState({ kind: 'idle' });
-    } catch (cause) { if (alive.current) { setUnlockKey(''); setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? '已取消，原成品保留。' : '无法解密，请核对恢复密钥或备份完整性。当前资料未改变。' }); } }
+    } catch (cause) { if (alive.current) { setUnlockKey(''); setState({ kind: 'error', text: code(cause) === 'CANCELLED' ? t('已取消，原成品保留。') : t('无法解密，请核对恢复密钥或备份完整性。当前资料未改变。') }); } }
   }
   async function cancelCandidate() {
     if (restoreUnknown || restoreLock.current) return;
@@ -103,7 +103,7 @@ export default function Data({ params }: PageProps) {
   async function restore() {
     if (restoreUnknown || restoreLock.current || securityBusy || !candidate?.token || !candidate.summary || !generation || busy || demo || storedPending()) return;
     restoreLock.current = true;
-    setState({ kind: 'running', label: '正在恢复：先保护当前资料，再整体切换…' });
+    setState({ kind: 'running', label: t('正在恢复：先保护当前资料，再整体切换…') });
     try { await invoke<string>('restore_backup_session', { token: candidate.token }); completeRestore(); }
     catch (cause) { if (alive.current) { setRestoreUnknown(true); setState({ kind: 'error', text: '恢复结果尚未确认：' + errorMessage(cause) + ' 请只读核对原检查会话，不要重新恢复。' }); } }
     finally { restoreLock.current = false; }
@@ -111,11 +111,11 @@ export default function Data({ params }: PageProps) {
   async function verifyRestore() {
     if (!candidate?.token || restoreLock.current || busy) return;
     restoreLock.current = true;
-    setState({ kind: 'running', label: '正在只读核对原恢复会话…' });
+    setState({ kind: 'running', label: t('正在只读核对原恢复会话…') });
     try {
       const result = await invoke<string | null>('backup_session_result', { token: candidate.token });
       if (!alive.current) return;
-      if (result) completeRestore(); else { setRestoreUnknown(false); setState({ kind: 'done', text: '核对完成：原会话尚未恢复。可取消，或重新明确确认替换。' }); }
+      if (result) completeRestore(); else { setRestoreUnknown(false); setState({ kind: 'done', text: t('核对完成：原会话尚未恢复。可取消，或重新明确确认替换。') }); }
     } catch (cause) { if (alive.current) setState({ kind: 'error', text: '暂时无法确认恢复结果；原会话已保留，请重新启动后核对当前资料。' + errorMessage(cause) }); }
     finally { restoreLock.current = false; }
   }
@@ -129,75 +129,75 @@ export default function Data({ params }: PageProps) {
   const encrypted = security?.state === 'enabled';
   return <div className="m-page">
     <NavBar/>
-    <LargeTitle title="数据管理" subtitle="主资料保存在这台手机"/>
-    {readError ? <ErrorState title="资料库读取失败" message={readError} onRetry={load}/> : !gate ? <Loading/> : <>
-      {demo && <Notice>当前是独立样例库。切换到「我的资料」后可备份、恢复与导出。</Notice>}
-      {blocked && !demo && <Notice>请先处理正在编辑或待核对的内容，再进行备份或恢复。</Notice>}
-      <p className="m-group-footer me-help-link"><SupportLink target="backup">备份与恢复说明</SupportLink></p>
+    <LargeTitle title={t('数据管理')} subtitle={t('主资料保存在这台手机')}/>
+    {readError ? <ErrorState title={t('资料库读取失败')} message={readError} onRetry={load}/> : !gate ? <Loading/> : <>
+      {demo && <Notice>{t('当前是独立样例库。切换到「我的资料」后可备份、恢复与导出。')}</Notice>}
+      {blocked && !demo && <Notice>{t('请先处理正在编辑或待核对的内容，再进行备份或恢复。')}</Notice>}
+      <p className="m-group-footer me-help-link"><SupportLink target="backup">{t('备份与恢复说明')}</SupportLink></p>
 
-      <section id="data-backup" className="m-list-group" aria-label="完整备份">
-        <Card label="完整备份">
-          <div className="me-card-head"><span className="m-row-icon m-tone-accent"><MeIcon name="database"/></span><div><h2>完整备份</h2><p>保存物品、财富记录和图片等全部资料。{encrypted ? '已按备份安全设置加密导出。' : ''}</p></div></div>
+      <section id="data-backup" className="m-list-group" aria-label={t('完整备份')}>
+        <Card label={t('完整备份')}>
+          <div className="me-card-head"><span className="m-row-icon m-tone-accent"><MeIcon name="database"/></span><div><h2>{t('完整备份')}</h2><p>{t('保存物品、财富记录和图片等全部资料。')}{encrypted ? t('已按备份安全设置加密导出。') : ''}</p></div></div>
           <div className="me-stack">
-            <Button variant="primary" block disabled={locked} onClick={() => void backup(false)}>立即备份并分享…</Button>
-            {encrypted && <Button block disabled={locked} onClick={() => void backup(true)}>导出未加密副本…</Button>}
+            <Button variant="primary" block disabled={locked} onClick={() => void backup(false)}>{t('立即备份并分享…')}</Button>
+            {encrypted && <Button block disabled={locked} onClick={() => void backup(true)}>{t('导出未加密副本…')}</Button>}
           </div>
         </Card>
       </section>
 
-      <ListGroup title="自动备份" footer="有改动时自动保存在这台手机，保留最近 7 份。与手动备份格式相同，都可用于恢复。">
-        <ListRow icon="refresh" tone="positive" title="自动备份" subtitle={auto ? autoBackupSummary(auto) : autoError ? '状态读取失败' : '正在读取…'} trailing={auto ? <Switch label="自动备份" checked={auto.enabled} disabled={autoBusy} onChange={on => void toggleAuto(on)}/> : undefined}/>
-        {auto?.items.map(item => { const label = autoBackupLabel(item, session.today); return <ListRow key={item.name} icon="clock" tone="neutral" title={label.title} subtitle={[label.sub, formatBytes(item.size)].filter(Boolean).join(' · ')} value="恢复…" disabled={locked} onClick={() => void inspectAuto(item.name)}/>; })}
+      <ListGroup title={t('自动备份')} footer={t('有改动时自动保存在这台手机，保留最近 7 份。与手动备份格式相同，都可用于恢复。')}>
+        <ListRow icon="refresh" tone="positive" title={t('自动备份')} subtitle={auto ? autoBackupSummary(auto) : autoError ? t('状态读取失败') : t('正在读取…')} trailing={auto ? <Switch label={t('自动备份')} checked={auto.enabled} disabled={autoBusy} onChange={on => void toggleAuto(on)}/> : undefined}/>
+        {auto?.items.map(item => { const label = autoBackupLabel(item, session.today); return <ListRow key={item.name} icon="clock" tone="neutral" title={label.title} subtitle={[label.sub, formatBytes(item.size)].filter(Boolean).join(' · ')} value={t('恢复…')} disabled={locked} onClick={() => void inspectAuto(item.name)}/>; })}
       </ListGroup>
       {pause && <Notice>{pause}</Notice>}
-      {auto?.last_error && <Notice tone="danger">上次自动备份未完成（{formatWhen(auto.last_error.at)}）：{auto.last_error.message}。已有备份保留，稍后自动重试。</Notice>}
+      {auto?.last_error && <Notice tone="danger">{t('上次自动备份未完成（{v1}）：{message}。已有备份保留，稍后自动重试。', { v1: formatWhen(auto.last_error.at), message: auto.last_error.message })}</Notice>}
       {auto?.extra_dir && <Notice>{extraSummary(auto)}</Notice>}
-      {autoError && <Notice tone="danger">自动备份状态读取失败：{autoError}</Notice>}
+      {autoError && <Notice tone="danger">{t('自动备份状态读取失败：{autoError}', { autoError })}</Notice>}
 
-      <section id="data-restore" className="m-list-group" aria-label="从备份恢复">
-        <Card label="从备份恢复">
-          <div className="me-card-head"><span className="m-row-icon m-tone-warn"><MeIcon name="download"/></span><div><h2>从备份恢复</h2><p>先检查文件，再确认是否替换当前资料。</p></div></div>
-          <Button block disabled={locked} onClick={() => void inspect()}>选择备份文件…</Button>
+      <section id="data-restore" className="m-list-group" aria-label={t('从备份恢复')}>
+        <Card label={t('从备份恢复')}>
+          <div className="me-card-head"><span className="m-row-icon m-tone-warn"><MeIcon name="download"/></span><div><h2>{t('从备份恢复')}</h2><p>{t('先检查文件，再确认是否替换当前资料。')}</p></div></div>
+          <Button block disabled={locked} onClick={() => void inspect()}>{t('选择备份文件…')}</Button>
         </Card>
       </section>
 
       <Security demo={demo} blocked={busy || restoreUnknown || blocked || !!candidate} onStatusChange={setSecurity} onBusyChange={setSecurityBusy}/>
 
-      <ListGroup title="更多">
-        <ListRow icon="trash" tone="danger" title="最近删除" subtitle="找回误删的物品、心愿、记录与账户" disabled={locked && !demo && (busy || restoreUnknown)} onClick={() => nav.push('me.settings', { page: 'trash' }, { title: settingsTitles.trash })}/>
-        <ListRow icon={<MeIcon name="table"/>} tone="positive" title="导出表格" subtitle="一份 Excel 工作簿，不能用于恢复" onClick={() => nav.push('me.settings', { page: 'export' }, { title: settingsTitles.export })}/>
-        <ListRow icon={<MeIcon name="sparkles"/>} tone="accent" title="样例体验" onClick={() => nav.push('me.settings', { page: 'demo' }, { title: settingsTitles.demo })}/>
+      <ListGroup title={t('更多')}>
+        <ListRow icon="trash" tone="danger" title={t('最近删除')} subtitle={t('找回误删的物品、心愿、记录与账户')} disabled={locked && !demo && (busy || restoreUnknown)} onClick={() => nav.push('me.settings', { page: 'trash' }, { title: settingsTitles.trash })}/>
+        <ListRow icon={<MeIcon name="table"/>} tone="positive" title={t('导出表格')} subtitle={t('一份 Excel 工作簿，不能用于恢复')} onClick={() => nav.push('me.settings', { page: 'export' }, { title: settingsTitles.export })}/>
+        <ListRow icon={<MeIcon name="sparkles"/>} tone="accent" title={t('样例体验')} onClick={() => nav.push('me.settings', { page: 'demo' }, { title: settingsTitles.demo })}/>
       </ListGroup>
 
-      {task.activeTask && <div className="me-pad"><Button disabled={!!task.notice} onClick={() => void task.cancel()}>取消本次备份操作</Button>{task.notice && <p role="status" className="me-hint">{task.notice}</p>}</div>}
+      {task.activeTask && <div className="me-pad"><Button disabled={!!task.notice} onClick={() => void task.cancel()}>{t('取消本次备份操作')}</Button>{task.notice && <p role="status" className="me-hint">{task.notice}</p>}</div>}
       {state.kind === 'running' && <Notice>{state.label}</Notice>}
       {state.kind === 'done' && <Notice tone="positive">{state.text}</Notice>}
       {state.kind === 'error' && <Notice tone="danger">{state.text}</Notice>}
-      {restoreUnknown && <Button block disabled={busy} onClick={() => void verifyRestore()}>核对恢复结果</Button>}
-      <p className="m-group-footer">完整备份包含物品、维护、保障、心愿、账户与盘点、支出、周期计划、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p>
+      {restoreUnknown && <Button block disabled={busy} onClick={() => void verifyRestore()}>{t('核对恢复结果')}</Button>}
+      <p className="m-group-footer">{t('完整备份包含物品、维护、保障、心愿、账户与盘点、支出、周期计划、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。')}</p>
     </>}
 
-    {candidate?.encrypted && <Sheet title="加密备份" cancelLabel="取消" onClose={() => { if (!busy) void cancelCandidate(); }}>
+    {candidate?.encrypted && <Sheet title={t('加密备份')} cancelLabel={t('取消')} onClose={() => { if (!busy) void cancelCandidate(); }}>
       <div className="m-page">
-        <Notice>「{candidate.name}」是加密备份。输入对应的恢复密钥后才能检查内容；密钥只在本次解密中使用，不会保存。</Notice>
-        <FormGroup><TextAreaField label="恢复密钥" rows={2} value={unlockKey} disabled={busy} placeholder="AGE-SECRET-KEY-1…" onChange={setUnlockKey}/></FormGroup>
+        <Notice>{t('「{name}」是加密备份。输入对应的恢复密钥后才能检查内容；密钥只在本次解密中使用，不会保存。', { name: candidate.name })}</Notice>
+        <FormGroup><TextAreaField label={t('恢复密钥')} rows={2} value={unlockKey} disabled={busy} placeholder="AGE-SECRET-KEY-1…" onChange={setUnlockKey}/></FormGroup>
         {unlockKey && !looksLikeRecoveryKey(unlockKey).ok && <Notice tone="danger">{looksLikeRecoveryKey(unlockKey).reason}</Notice>}
-        <Button variant="primary" block disabled={busy || !looksLikeRecoveryKey(unlockKey).ok} onClick={() => void unlock()}>解密并检查</Button>
+        <Button variant="primary" block disabled={busy || !looksLikeRecoveryKey(unlockKey).ok} onClick={() => void unlock()}>{t('解密并检查')}</Button>
         {state.kind === 'running' && <Notice>{state.label}</Notice>}
         {state.kind === 'error' && <Notice tone="danger">{state.text}</Notice>}
       </div>
     </Sheet>}
-    {candidate && !candidate.encrypted && candidate.summary && <Sheet title="替换当前资料？" cancelLabel="取消" onClose={() => { if (!busy && !restoreUnknown) void cancelCandidate(); }}>
+    {candidate && !candidate.encrypted && candidate.summary && <Sheet title={t('替换当前资料？')} cancelLabel={t('取消')} onClose={() => { if (!busy && !restoreUnknown) void cancelCandidate(); }}>
       <div className="m-page">
-        <Notice tone="danger">用「{candidate.name}」替换当前全部资料？备份时间 {restoreTime(candidate.summary)} · 格式版本 {candidate.summary.schema}</Notice>
-        <ListGroup title="这个备份包含">{restoreLines(candidate.summary).map(line => <ListRow key={line} title={line}/>)}</ListGroup>
-        <p className="m-group-footer">检查已通过。当前资料会先保存保护副本，失败时保持原样。{pendingWork > 0 && `本机还有 ${pendingWork} 份属于当前资料的草稿或待核对操作，恢复后旧输入失效；结果未知的导入请求仍保留供核对。`}</p>
+        <Notice tone="danger">{t('用「{name}」替换当前全部资料？备份时间 {v2} · 格式版本 {schema}', { name: candidate.name, v2: restoreTime(candidate.summary), schema: candidate.summary.schema })}</Notice>
+        <ListGroup title={t('这个备份包含')}>{restoreLines(candidate.summary).map(line => <ListRow key={line} title={line}/>)}</ListGroup>
+        <p className="m-group-footer">{t('检查已通过。当前资料会先保存保护副本，失败时保持原样。')}{pendingWork > 0 && t('本机还有 {pendingWork} 份属于当前资料的草稿或待核对操作，恢复后旧输入失效；结果未知的导入请求仍保留供核对。', { pendingWork })}</p>
         <p className="m-group-footer">{RESTORE_DISCLOSURE}</p>
-        {candidate.summary.planning_conditions_reset && <Notice>恢复时会保留物品、账户、盘点及实际发生记录；旧退休政策资料会移除，规划时间和未来收入请重新确认。</Notice>}
-        <Button variant="danger" block disabled={busy || restoreUnknown} onClick={() => void restore()}>确认替换当前资料</Button>
+        {candidate.summary.planning_conditions_reset && <Notice>{t('恢复时会保留物品、账户、盘点及实际发生记录；旧退休政策资料会移除，规划时间和未来收入请重新确认。')}</Notice>}
+        <Button variant="danger" block disabled={busy || restoreUnknown} onClick={() => void restore()}>{t('确认替换当前资料')}</Button>
         {state.kind === 'running' && <Notice>{state.label}</Notice>}
         {state.kind === 'error' && <Notice tone="danger">{state.text}</Notice>}
-        {restoreUnknown && <Button block disabled={busy} onClick={() => void verifyRestore()}>核对恢复结果</Button>}
+        {restoreUnknown && <Button block disabled={busy} onClick={() => void verifyRestore()}>{t('核对恢复结果')}</Button>}
       </div>
     </Sheet>}
   </div>;

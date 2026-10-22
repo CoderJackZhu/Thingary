@@ -6,24 +6,24 @@ import { pctToHundredths, rateText } from './plan';
 import type { StoredSpendItem } from './plan';
 import { monthChildReachesAge, withSpendItem, withoutSpendItem } from './planning-basic-forms';
 import type { Draft } from './planning-basic-forms';
-
+import { t as tr } from './i18n.ts';
 const MAX_ITEMS = 20;
 type Template = { key: string; label: string; hint: string; start?: string };
 const templates: Template[] = [
-  { key: 'child', label: '子女教育', hint: '退休后仍要负担的学费、生活费；按预计需要负担的起止月份填写。' },
-  { key: 'parents', label: '赡养父母', hint: '按预计支出的月份填写；不确定结束时间可以留空，算到规划终点。' },
-  { key: 'care', label: '医疗与护理', hint: '按预计需要支出的月份填写；医疗费用可能涨得比通胀快，可以填更高的每年上涨（这是假设）。', start: '' },
+  { key: 'child', label: tr('子女教育'), hint: tr('退休后仍要负担的学费、生活费；按预计需要负担的起止月份填写。') },
+  { key: 'parents', label: tr('赡养父母'), hint: tr('按预计支出的月份填写；不确定结束时间可以留空，算到规划终点。') },
+  { key: 'care', label: tr('医疗与护理'), hint: tr('按预计需要支出的月份填写；医疗费用可能涨得比通胀快，可以填更高的每年上涨（这是假设）。'), start: '' },
 ];
 const ageText = (i: StoredSpendItem) => `${i.start_month ?? '目标月份起'} → ${i.end_month ?? '规划终点'}${i.time_unconfirmed ? ' · 请确认起止月份' : ''}`;
 
 /** 退休后的阶段性支出：只在退休后计入，按「额外」叠加在生活费总额之上；退休前的花费已在每月能存多少里。 */
 export function SpendItems({ d, setD, frozen, today }: { d: Draft; setD: React.Dispatch<React.SetStateAction<Draft>>; frozen: boolean; today: string }) {
   const [adding, setAdding] = useState(false);
-  return <details className="form-block" open={d.spendItems.length > 0 || adding}><summary>退休后另有阶段性支出（选填）</summary>
-    <p className="muted small">例如退休后还要供孩子上学、赡养父母或护理费用。这些按“额外”计入，生活费总额里不要再包含；只计算退休后的月份，使用明确月份。</p>
-    {d.spendItems.length > 0 && <ul className="rs-list">{d.spendItems.map(i => <li key={i.id}><span>{i.label}<small>{ageText(i)} · {i.essential ? '必需' : '灵活'}{i.inflation_hundredths === null ? '' : ` · 每年上涨 ${rateText(i.inflation_hundredths)}`}</small></span><b>{money(i.monthly_cents)}/月</b><button type="button" className="ui-link" disabled={frozen} onClick={() => setD(x => withoutSpendItem(x, i.id))}>删除</button></li>)}</ul>}
-    {!adding && <button type="button" className="ui-btn" disabled={frozen || d.spendItems.length >= MAX_ITEMS} onClick={() => setAdding(true)}>+ 添加一笔阶段性支出</button>}
-    {d.spendItems.length >= MAX_ITEMS && <p className="muted small">最多 {MAX_ITEMS} 项。</p>}
+  return <details className="form-block" open={d.spendItems.length > 0 || adding}><summary>{tr('退休后另有阶段性支出（选填）')}</summary>
+    <p className="muted small">{tr('例如退休后还要供孩子上学、赡养父母或护理费用。这些按“额外”计入，生活费总额里不要再包含；只计算退休后的月份，使用明确月份。')}</p>
+    {d.spendItems.length > 0 && <ul className="rs-list">{d.spendItems.map(i => <li key={i.id}><span>{i.label}<small>{ageText(i)} · {i.essential ? tr('必需') : tr('灵活')}{i.inflation_hundredths === null ? '' : tr(' · 每年上涨 {v1}', { v1: rateText(i.inflation_hundredths) })}</small></span><b>{tr('{v1}/月', { v1: money(i.monthly_cents) })}</b><button type="button" className="ui-link" disabled={frozen} onClick={() => setD(x => withoutSpendItem(x, i.id))}>{tr('删除')}</button></li>)}</ul>}
+    {!adding && <button type="button" className="ui-btn" disabled={frozen || d.spendItems.length >= MAX_ITEMS} onClick={() => setAdding(true)}>{tr('+ 添加一笔阶段性支出')}</button>}
+    {d.spendItems.length >= MAX_ITEMS && <p className="muted small">{tr('最多 {MAX_ITEMS} 项。', { MAX_ITEMS })}</p>}
     {adding && <NewSpend target={d.simplified.time.target_month ?? ''} today={today} frozen={frozen} onCancel={() => setAdding(false)} onAdd={item => { setD(x => withSpendItem(x, item)); setAdding(false); }}/>}
   </details>;
 }
@@ -45,21 +45,21 @@ function NewSpend({ target, today: _today, frozen, onAdd, onCancel }: { target: 
     if (rate === null && infl.trim() !== '' || rate !== null && (rate < -1000 || rate > 2000)) return setErr('每年上涨请填 -10 到 20 之间的百分数，或留空跟随通胀。');
     onAdd({ id: crypto.randomUUID(), label: label.trim(), monthly_cents: cents, start_month: s, end_month: e, time_unconfirmed: false, inflation_hundredths: rate, essential });
   }
-  return <div className="plan-new-income" role="group" aria-label="添加阶段性支出">
+  return <div className="plan-new-income" role="group" aria-label={tr('添加阶段性支出')}>
     <span className="plan-goal-actions plan-return-presets">{templates.map(t => <button key={t.key} type="button" className="ui-btn" aria-pressed={template?.key === t.key} disabled={frozen} onClick={() => pick(t)}>{t.label}</button>)}</span>
     {template && <p className="muted small">{template.hint}</p>}
-    <FormRow label="名称"><input aria-label="支出名称" value={label} disabled={frozen} onChange={e => setLabel(e.target.value)}/></FormRow>
-    <FormRow label="每月金额" hint="今天的钱"><CentInput label="阶段性支出每月金额" value={cents} disabled={frozen} onChange={setCents}/></FormRow>
+    <FormRow label={tr('名称')}><input aria-label={tr('支出名称')} value={label} disabled={frozen} onChange={e => setLabel(e.target.value)}/></FormRow>
+    <FormRow label={tr('每月金额')} hint={tr('今天的钱')}><CentInput label={tr('阶段性支出每月金额')} value={cents} disabled={frozen} onChange={setCents}/></FormRow>
     {template?.key === 'child' && <>
-      <FormRow label="孩子出生年月" hint="只用来换算结束月份，不会保存。"><MonthInput yearIntent="long" label="孩子出生年月" value={birth} disabled={frozen} allowClear onChange={v => helper(v, age)}/></FormRow>
-      <FormRow label="负担到孩子几岁" hint="1 到 40 之间的整数，默认 22；填好后自动算出结束月份，仍可手动修改。"><input aria-label="负担到孩子几岁" inputMode="numeric" value={age} disabled={frozen} onChange={e => helper(birth, e.target.value)}/></FormRow>
+      <FormRow label={tr('孩子出生年月')} hint={tr('只用来换算结束月份，不会保存。')}><MonthInput yearIntent="long" label={tr('孩子出生年月')} value={birth} disabled={frozen} allowClear onChange={v => helper(v, age)}/></FormRow>
+      <FormRow label={tr('负担到孩子几岁')} hint={tr('1 到 40 之间的整数，默认 22；填好后自动算出结束月份，仍可手动修改。')}><input aria-label={tr('负担到孩子几岁')} inputMode="numeric" value={age} disabled={frozen} onChange={e => helper(birth, e.target.value)}/></FormRow>
     </>}
-    <FormRow label="开始月份" hint="留空：从目标月份起"><MonthInput yearIntent="long" label="支出开始月份" value={start} disabled={frozen} allowClear onChange={setStart}/></FormRow>
-    <FormRow label="结束月份" hint="留空：到规划终点"><MonthInput yearIntent="long" label="支出结束月份" value={end} disabled={frozen} allowClear onChange={setEnd}/></FormRow>
-    <FormRow label="每年上涨（%）" hint="留空跟随通胀；这是假设"><input aria-label="支出每年上涨" inputMode="decimal" value={infl} disabled={frozen} onChange={e => setInfl(e.target.value)}/></FormRow>
-    <FormRow label="必需支出" hint="关掉表示可以压缩的灵活支出"><Switch label="必需支出" value={essential} disabled={frozen} onChange={setEssential}/></FormRow>
-    {beforeRetire && <p className="notice" role="status">这笔支出在目标月份 {target} 前就结束了，不会影响结果：退休前的花费请算进每月能存多少里。</p>}
+    <FormRow label={tr('开始月份')} hint={tr('留空：从目标月份起')}><MonthInput yearIntent="long" label={tr('支出开始月份')} value={start} disabled={frozen} allowClear onChange={setStart}/></FormRow>
+    <FormRow label={tr('结束月份')} hint={tr('留空：到规划终点')}><MonthInput yearIntent="long" label={tr('支出结束月份')} value={end} disabled={frozen} allowClear onChange={setEnd}/></FormRow>
+    <FormRow label={tr('每年上涨（%）')} hint={tr('留空跟随通胀；这是假设')}><input aria-label={tr('支出每年上涨')} inputMode="decimal" value={infl} disabled={frozen} onChange={e => setInfl(e.target.value)}/></FormRow>
+    <FormRow label={tr('必需支出')} hint={tr('关掉表示可以压缩的灵活支出')}><Switch label={tr('必需支出')} value={essential} disabled={frozen} onChange={setEssential}/></FormRow>
+    {beforeRetire && <p className="notice" role="status">{tr('这笔支出在目标月份 {target} 前就结束了，不会影响结果：退休前的花费请算进每月能存多少里。', { target })}</p>}
     {err && <p className="notice" role="alert">{err}</p>}
-    <div className="rs-actions"><button type="button" className="ui-btn" onClick={onCancel}>取消</button><button type="button" className="primary" disabled={frozen} onClick={add}>加入列表</button></div>
+    <div className="rs-actions"><button type="button" className="ui-btn" onClick={onCancel}>{tr('取消')}</button><button type="button" className="primary" disabled={frozen} onClick={add}>{tr('加入列表')}</button></div>
   </div>;
 }

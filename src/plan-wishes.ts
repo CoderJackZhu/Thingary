@@ -5,7 +5,7 @@ import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Plan } from './plan-ledger.ts';
 import type { Spend } from './plan-fire.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
-
+import { t } from './i18n.ts';
 /** 心愿里规划用到的字段（来自 WishlistItem）。 */
 export type WishLike = { id: string; name: string; price_cents: string | null; target_date: string | null; decision_state: string };
 
@@ -52,7 +52,7 @@ export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && cal
 
 /** 一组一次性支出（带月份的，含「按今天」的假设）对 FIRE 日期的影响：与「没有这些支出」的基线比较。合计请传 counted(...)。 */
 export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
-  if (!isReady(calc)) throw new Error('心愿影响需要已保存的明确预计投入。');
+  if (!isReady(calc)) throw new Error(t('心愿影响需要已保存的明确预计投入。'));
   const P = calc.plan, now = P.now_months;
   const events = spends.filter(s => s.offset_months !== null).map(s => ({ ...toSpend(s), offset_months: P.anchor_date ? monthIndex(s.date ?? P.calculation_date ?? P.anchor_date) - monthIndex(P.anchor_date) : s.offset_months! }));
   // 基线是「已计入的大额计划都发生、这些心愿不发生」；心愿叠加在其上。

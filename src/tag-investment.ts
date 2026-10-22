@@ -2,7 +2,7 @@
 // 数据来自 tag_investment_view（Rust 全量聚合）；本模块只做展示计算，
 // 金额不求和、不浮点累加，占比用 BigInt 精确整数比（ADR-001 25.5）。
 import { errorMessage, money } from './asset.ts';
-
+import { t as tr } from './i18n.ts';
 export type TagScope = 'all' | 'held';
 
 /** 分析子视图的会话内状态（组件与 App 共享；切库/离开物品区即失效）。 */
@@ -166,7 +166,7 @@ export function labelFilterOptions(tags: { id: string; name: string; enabled: bo
     id: tag.id,
     name: tag.name,
     inactive: !tag.enabled,
-    text: tag.enabled ? tag.name : `${tag.name}（已停用）`,
+    text: tag.enabled ? tag.name : tr('{name}（已停用）', { name: tag.name }),
   }));
 }
 

@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 // D19 selection rules and batch-table facts, kept pure for tests.
 export type BatchRow = { id: string; name: string; revision: number; state: 'active' | 'retired' | 'sold'; price_cents: string | null; purchase_date: string | null; last_event_date: string | null; category_id: string | null; channel_id: string | null; label_id: string | null; exclude: { total: boolean; daily: boolean; statistics: boolean; timeline: boolean }; maintenance_cents: string };
 export type Modifiers = { meta: boolean; shift: boolean; toggle: boolean };
@@ -64,11 +65,11 @@ export function warrantyDefault(row: BatchRow, today: string, years = 1) {
 const dayNumber = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000;
 /** Status line and elapsed share for the preview column; mirrors the inclusive end day. */
 export function warrantyPreview(start: string, end: string, today: string): { text: string; percent: number | null } {
-  if (end < start) return { text: '结束日期早于开始日期', percent: null };
-  if (today < start) return { text: `尚未开始 · ${start} 起`, percent: 0 };
-  if (today > end) return { text: '已过期', percent: 100 };
+  if (end < start) return { text: t('结束日期早于开始日期'), percent: null };
+  if (today < start) return { text: t('尚未开始 · {start} 起', { start }), percent: 0 };
+  if (today > end) return { text: t('已过期'), percent: 100 };
   const total = dayNumber(end) - dayNumber(start) + 1, left = dayNumber(end) - dayNumber(today);
-  return { text: `保障中 · 还剩 ${left} 天`, percent: Math.round(((total - left - 1) / total) * 100) };
+  return { text: t('保障中 · 还剩 {left} 天', { left }), percent: Math.round(((total - left - 1) / total) * 100) };
 }
 
 /** Net cost after a sale, or null when the purchase price is unknown. */

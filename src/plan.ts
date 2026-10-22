@@ -7,7 +7,7 @@ import type { Point } from './wealth.ts';
 import type { BasicInputs } from './plan-basic-contract.ts';
 export type * from './plan-basic-contract.ts';
 import type { PlanningCore } from './plan-core.ts';
-
+import { t as tr } from './i18n.ts';
 export type IncomeCategory = 'unclassified' | 'non_investment' | 'interest' | 'cash_dividend' | 'other_investment';
 export type IncomeFields = { date: string; net_cents: string; hpf_cents: string | null; notes: string; category?: IncomeCategory; source_account_id?: string | null; destination?: 'retained' | 'transferred' | 'unknown' | null; receiving_account_id?: string | null };
 export type Income = { id: string; fields: IncomeFields; revision: number; classification_changed?: boolean };
@@ -123,7 +123,7 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     if (p.scope_changed) iv.status = 'scope_changed';
     else if (!rows.length) iv.status = 'no_income';
     else {
-      if (p.change_cents == null) throw new Error('资料格式不兼容或损坏');
+      if (p.change_cents == null) throw new Error(tr('资料格式不兼容或损坏'));
       const delta = BigInt(p.change_cents), dh = p.hpf_change_cents === null ? null : BigInt(p.hpf_change_cents);
       // 公积金账户有计入时只扣它的余额变化（提取进现金的算现金）；没有时缴存从未进过净资产，不扣。
       const saving = dh === null ? delta : delta - dh, spend = dh === null ? income - delta : hpf === null ? null : income + hpf - delta, out = dh === null || hpf === null ? null : hpf - dh;

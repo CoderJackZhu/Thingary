@@ -12,7 +12,7 @@ import { FollowupSection } from '../FollowupSection.tsx';
 import '../../theme.css';
 import '../planning-followup-ui.css';
 import './preview.css';
-
+import { t } from '../../i18n.ts';
 const GENERATION = 'preview-generation';
 const states = ['normal', 'no-accounts', 'no-pair', 'disabled', 'read-error', 'needs-review', 'conflict', 'unresolved'] as const;
 type State = typeof states[number];
@@ -25,17 +25,17 @@ const accounts = [
 ];
 const movements: MovementRecordV1[] = [
   { id: 'fx-transfer', revision: 1, deleted: false, fields: { date: '2026-10-15', amount_cents: '800000', from: { kind: 'account', account_id: 'fx-inv' }, to: { kind: 'account', account_id: 'fx-cash' }, purpose: 'own_transfer', source: null, notes: '虚构：取回资金，是否消费未记录' }, source_status: 'unlinked' },
-  { id: 'fx-funding', revision: 1, deleted: false, fields: { date: '2026-10-02', amount_cents: '1000000', from: { kind: 'external', label: '虚构工资结余转入' }, to: { kind: 'account', account_id: 'fx-inv' }, purpose: 'external_funding', source: null, notes: '虚构：外部投入本金' }, source_status: 'unlinked' },
-  { id: 'fx-living', revision: 1, deleted: false, fields: { date: '2026-10-20', amount_cents: '50000', from: { kind: 'account', account_id: 'fx-inv' }, to: { kind: 'external', label: '虚构房租' }, purpose: 'living_payment', source: null, notes: '虚构：直接从投资账户支付生活费' }, source_status: 'unlinked' },
+  { id: 'fx-funding', revision: 1, deleted: false, fields: { date: '2026-10-02', amount_cents: '1000000', from: { kind: 'external', label: t('虚构工资结余转入') }, to: { kind: 'account', account_id: 'fx-inv' }, purpose: 'external_funding', source: null, notes: '虚构：外部投入本金' }, source_status: 'unlinked' },
+  { id: 'fx-living', revision: 1, deleted: false, fields: { date: '2026-10-20', amount_cents: '50000', from: { kind: 'account', account_id: 'fx-inv' }, to: { kind: 'external', label: t('虚构房租') }, purpose: 'living_payment', source: null, notes: '虚构：直接从投资账户支付生活费' }, source_status: 'unlinked' },
   { id: 'fx-dividend', revision: 2, deleted: false, fields: { date: '2026-10-25', amount_cents: '30000', from: { kind: 'account', account_id: 'fx-inv' }, to: { kind: 'account', account_id: 'fx-cash' }, purpose: 'income_distribution', source: { kind: 'income', key: 'fx-income-key-1' }, notes: '虚构：分红转出，已关联收入记录' }, source_status: 'matched' },
   { id: 'fx-deleted', revision: 1, deleted: true, fields: { date: '2026-09-30', amount_cents: '200000', from: { kind: 'account', account_id: 'fx-cash' }, to: { kind: 'account', account_id: 'fx-inv' }, purpose: 'own_transfer', source: null, notes: '虚构：误记后删除' }, source_status: 'unlinked' },
 ];
 const sourceOptions: Record<'income' | 'expense', MovementSourceOptionV1[]> = {
   income: [
-    { ref: { kind: 'income', key: 'fx-income-key-1' }, label: '虚构现金分红入账', date: '2026-10-25', amount_cents: '30000', available: true, unavailable_reason: null },
-    { ref: { kind: 'income', key: 'fx-income-key-2' }, label: '虚构利息入账', date: '2026-10-05', amount_cents: '12000', available: false, unavailable_reason: '已关联其他资金流动' },
+    { ref: { kind: 'income', key: 'fx-income-key-1' }, label: t('虚构现金分红入账'), date: '2026-10-25', amount_cents: '30000', available: true, unavailable_reason: null },
+    { ref: { kind: 'income', key: 'fx-income-key-2' }, label: t('虚构利息入账'), date: '2026-10-05', amount_cents: '12000', available: false, unavailable_reason: '已关联其他资金流动' },
   ],
-  expense: [{ ref: { kind: 'expense', key: 'fx-expense-key-1' }, label: '虚构年度保险费', date: '2026-10-12', amount_cents: '360000', available: true, unavailable_reason: null }],
+  expense: [{ ref: { kind: 'expense', key: 'fx-expense-key-1' }, label: t('虚构年度保险费'), date: '2026-10-12', amount_cents: '360000', available: true, unavailable_reason: null }],
 };
 const assumptions: AssumptionReadV1 = {
   generation: GENERATION, revision: 2,
@@ -47,12 +47,12 @@ const savedDraft: ReviewDraftV1 = { selection: { mode: 'manual', inflow_cents: '
 /** 虚构内存端口：脚本化各方法返回，仅供本预览页使用。 */
 function fictionalPort(state: State): PlanningFollowupPortV1 {
   const write = (): FollowupWriteResult =>
-    state === 'conflict' ? { status: 'rejected', issues: [{ path: '', code: 'revision_conflict', message: '虚构：记录已变化，请重新读取。' }] }
+    state === 'conflict' ? { status: 'rejected', issues: [{ path: '', code: 'revision_conflict', message: t('虚构：记录已变化，请重新读取。') }] }
       : state === 'unresolved' ? { status: 'unresolved', request_id: 'fx-original-request' }
         : { status: 'saved', id: 'fx-saved-record', revision: 2 };
   const read = <T,>(value: T): FollowupRead<T> =>
-    state === 'disabled' ? { status: 'disabled', message: '虚构：规划模块已关闭，资金流动与假设暂不可用。' }
-      : state === 'read-error' ? { status: 'error', code: 'FICTIONAL_READ_ERROR', message: '虚构：读取失败样例。' }
+    state === 'disabled' ? { status: 'disabled', message: t('虚构：规划模块已关闭，资金流动与假设暂不可用。') }
+      : state === 'read-error' ? { status: 'error', code: 'FICTIONAL_READ_ERROR', message: t('虚构：读取失败样例。') }
         : { status: 'ready', value };
   /** 虚构预览：result 固定回显夹具（余额 −300000、损益 +5000），totals 只回显草稿数字，绝不重算损益。 */
   const previewOf = (draft: ReviewDraftV1, needsReview: boolean): ReviewPreviewV1 => ({
@@ -71,7 +71,7 @@ function fictionalPort(state: State): PlanningFollowupPortV1 {
     difference: { inflow_cents: null, outflow_cents: null },
     movement_count: draft.selection.mode === 'movements' ? 2 : 0,
     confirmation: needsReview ? 'needs_review' : 'unconfirmed',
-    reasons: needsReview ? [{ path: 'movements', code: 'stale_movements', message: '虚构：相关流动已更正，请重新核对' }] : [],
+    reasons: needsReview ? [{ path: 'movements', code: 'stale_movements', message: t('虚构：相关流动已更正，请重新核对') }] : [],
     basis_key: 'fx-preview-only-not-a-domain-key',
   });
   const needsReview = state === 'needs-review';
@@ -111,12 +111,12 @@ function App() {
   const port = useMemo(() => fictionalPort(states.includes(state) ? state : 'normal'), [state]);
   const pairOrNull = state === 'no-pair' ? null : pair;
   return <main className="pfu-preview">
-    <h1>规划假设与资金流动 · 独立组件预览</h1>
-    <p className="pfu-muted">全部为虚构资料与内存驱动：提交只改内存，不保存、不重新计算损益；真实端口接入前不代表原生行为。刷新重置。</p>
-    <nav aria-label="预览状态">{states.map(s => <a key={s} href={`?state=${s}&theme=${query.get('theme') ?? 'light'}`}>{s}</a>)}</nav>
+    <h1>{t('规划假设与资金流动 · 独立组件预览')}</h1>
+    <p className="pfu-muted">{t('全部为虚构资料与内存驱动：提交只改内存，不保存、不重新计算损益；真实端口接入前不代表原生行为。刷新重置。')}</p>
+    <nav aria-label={t('预览状态')}>{states.map(s => <a key={s} href={`?state=${s}&theme=${query.get('theme') ?? 'light'}`}>{s}</a>)}</nav>
     <div className="pfu-toolbar">
-      <button type="button" className="pfu-btn pfu-primary" onClick={() => { setNotice(''); setAssumptionsOpen(true); }}>打开假设核对编辑器</button>
-      <button type="button" className="pfu-btn" onClick={() => setWriteVersion(v => v + 1)}>模拟资料版本变化（重读）</button>
+      <button type="button" className="pfu-btn pfu-primary" onClick={() => { setNotice(''); setAssumptionsOpen(true); }}>{t('打开假设核对编辑器')}</button>
+      <button type="button" className="pfu-btn" onClick={() => setWriteVersion(v => v + 1)}>{t('模拟资料版本变化（重读）')}</button>
       {notice && <p role="status" className="pfu-notice">{notice}</p>}
     </div>
     {assumptionsOpen && <AssumptionsEditor port={port} generation={GENERATION} onPending={() => setNotice('虚构：原请求已保留，请核对结果。')} onClose={saved => { setAssumptionsOpen(false); setNotice(saved ? '虚构：假设已保存（内存）。' : ''); }}/>}

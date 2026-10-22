@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 // Public contracts for the T06a classification and purchase-channel UI.
 //
 // The integration target in T06b will own the canonical snapshot and the
@@ -21,12 +22,12 @@ export interface CategoryIconDescriptor {
 }
 
 export const CATEGORY_ICONS: readonly CategoryIconDescriptor[] = [
-  { value: "box", label: "箱子" },
-  { value: "computer", label: "电脑" },
-  { value: "phone", label: "手机" },
-  { value: "camera", label: "摄影" },
-  { value: "audio", label: "音频" },
-  { value: "home", label: "家电" },
+  { value: "box", label: t('箱子') },
+  { value: "computer", label: t('电脑') },
+  { value: "phone", label: t('手机') },
+  { value: "camera", label: t('摄影') },
+  { value: "audio", label: t('音频') },
+  { value: "home", label: t('家电') },
 ];
 
 export function findCategoryIcon(value: CategoryIcon): CategoryIconDescriptor {
@@ -171,16 +172,16 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
     if (error) throw new Error(error);
   }
   if (command.type === "create") {
-    if (!newId || entries.some(e => e.id === newId)) throw new Error("新建标识无效。");
+    if (!newId || entries.some(e => e.id === newId)) throw new Error(t('新建标识无效。'));
     entries.push({ id: newId, name: normalizeName(command.name), ...(kind === "category" ? { icon: command.icon ?? "box" } : {}), references: { activeAssets: 0, deletedAssets: 0 } });
     return catalog;
   }
   if (command.type === 'reorder') {
-    if(command.ids.length!==entries.length||new Set(command.ids).size!==entries.length||command.ids.some(id=>!entries.some(e=>e.id===id)))throw new Error('排序列表已变化，请重新加载。');
+    if(command.ids.length!==entries.length||new Set(command.ids).size!==entries.length||command.ids.some(id=>!entries.some(e=>e.id===id)))throw new Error(t('排序列表已变化，请重新加载。'));
     catalog[key]=command.ids.map(id=>entries.find(e=>e.id===id)!);return catalog;
   }
   const index = entries.findIndex(e => e.id === command.id);
-  if (index < 0) throw new Error("目标已不可用，请重新加载。");
+  if (index < 0) throw new Error(t('目标已不可用，请重新加载。'));
   switch (command.type) {
     case "rename": entries[index].name = normalizeName(command.name); break;
     case "set-icon": entries[index].icon = command.icon; break;
@@ -190,7 +191,7 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
       break;
     }
     case "remove": {
-      if (command.targetId === command.id || (command.targetId !== null && !entries.some(e => e.id === command.targetId))) throw new Error("请选择有效的迁移目标。");
+      if (command.targetId === command.id || (command.targetId !== null && !entries.some(e => e.id === command.targetId))) throw new Error(t('请选择有效的迁移目标。'));
       const field = kind === "category" ? "categoryId" : "channelId";
       for (const asset of catalog.assets) if (asset[field] === command.id) asset[field] = command.targetId;
       entries.splice(index, 1);

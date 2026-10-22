@@ -12,7 +12,7 @@ import type { PageProps } from '../routes';
 import { keywordError } from './model';
 import { openRoute, targetRoute } from './shared';
 import './me.css';
-
+import { t } from '../../i18n.ts';
 // 再次打开保留本轮关键词、类型与分页，不落盘（与桌面搜索面板一致）；资料库或模块开关变化时清空。
 let memory: { key: string; session: SearchSession } | null = null;
 
@@ -89,23 +89,23 @@ export default function Search(_props: PageProps) {
   const totalPages = results ? Math.max(1, Math.ceil(results.total / searchPageSize)) : 1, pageNo = Math.floor(session.offset / searchPageSize) + 1;
   return <div className="m-page">
     <NavBar/>
-    <LargeTitle title="搜索全部资料" subtitle="仅搜索当前资料库已开启的模块"/>
-    <SearchField subject="全部资料" inputRef={input} value={session.keyword} disabled={!generation}
+    <LargeTitle title={t('搜索全部资料')} subtitle={t('仅搜索当前资料库已开启的模块')}/>
+    <SearchField subject={t('全部资料')} inputRef={input} value={session.keyword} disabled={!generation}
       onChange={setKeyword}
       onCompositionStart={() => { ticket.current++; setComposing(true); }}
       onCompositionEnd={event => { setKeyword(event.currentTarget.value); setComposing(false); }}/>
-    {keyword && <ChipRow label="类型筛选" items={filters.map(item => ({ id: item.value, label: item.count === null ? item.label : `${item.label} ${item.count}` }))} value={session.typeFilter} onChange={setFilter}/>}
-    {genError ? <ErrorState title="资料库读取失败" message={genError} onRetry={() => window.location.reload()}/>
+    {keyword && <ChipRow label={t('类型筛选')} items={filters.map(item => ({ id: item.value, label: item.count === null ? item.label : `${item.label} ${item.count}` }))} value={session.typeFilter} onChange={setFilter}/>}
+    {genError ? <ErrorState title={t('资料库读取失败')} message={genError} onRetry={() => window.location.reload()}/>
       : notice ? <Notice tone="danger">{notice}</Notice> : null}
-    {!keyword ? <><EmptyState icon="user" title="输入关键词开始搜索" message="英文字母不区分大小写，按字面子串匹配。"/><details className="me-details"><summary>查看搜索范围</summary><p>{searchScopeText}</p></details></>
-      : loading ? <Loading label="正在搜索…"/>
-      : error ? <ErrorState title="搜索失败" message={error} onRetry={() => setRefresh(n => n + 1)}/>
-      : !results || !results.total ? <EmptyState icon="user" title="没有找到匹配的记录" message="换个关键词，或在类型里选「全部」再试。"/>
+    {!keyword ? <><EmptyState icon="user" title={t('输入关键词开始搜索')} message={t('英文字母不区分大小写，按字面子串匹配。')}/><details className="me-details"><summary>{t('查看搜索范围')}</summary><p>{searchScopeText}</p></details></>
+      : loading ? <Loading label={t('正在搜索…')}/>
+      : error ? <ErrorState title={t('搜索失败')} message={error} onRetry={() => setRefresh(n => n + 1)}/>
+      : !results || !results.total ? <EmptyState icon="user" title={t('没有找到匹配的记录')} message={t('换个关键词，或在类型里选「全部」再试。')}/>
       : <>
-        <p className="me-count" role="status">找到 {results.total} 条</p>
-        <ListGroup title="搜索结果">{results.items.map(item => <ListRow key={item.id} icon={<span className="me-kind">{searchKindLabel(item.kind).slice(0, 2)}</span>} tone="accent" disabled={opening}
+        <p className="me-count" role="status">{t('找到 {total} 条', { total: results.total })}</p>
+        <ListGroup title={t('搜索结果')}>{results.items.map(item => <ListRow key={item.id} icon={<span className="me-kind">{searchKindLabel(item.kind).slice(0, 2)}</span>} tone="accent" disabled={opening}
           title={item.title} subtitle={`${[searchKindLabel(item.kind), item.date, item.status].filter(Boolean).join(' · ')}\n${item.matched_field}：${item.context}`} onClick={() => void open(item)}/>)}</ListGroup>
-        {results.total > searchPageSize && <nav className="me-pager" aria-label="搜索结果分页"><Button disabled={session.offset === 0} onClick={() => turn(-1)}>上一页</Button><span>第 {pageNo} / {totalPages} 页</span><Button disabled={session.offset + searchPageSize >= results.total} onClick={() => turn(1)}>下一页</Button></nav>}
+        {results.total > searchPageSize && <nav className="me-pager" aria-label={t('搜索结果分页')}><Button disabled={session.offset === 0} onClick={() => turn(-1)}>{t('上一页')}</Button><span>{t('第 {pageNo} / {totalPages} 页', { pageNo, totalPages })}</span><Button disabled={session.offset + searchPageSize >= results.total} onClick={() => turn(1)}>{t('下一页')}</Button></nav>}
       </>}
   </div>;
 }

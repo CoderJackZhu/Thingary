@@ -8,11 +8,11 @@ import { actionableAnnotations, annotationSummary } from '../../plan-annotations
 import type { PlanningAnnotation } from '../../plan-basic-contract.ts';
 import { wishDecisionLabel } from '../../wishlist.ts';
 import type { WishlistDraft, WishlistFilter, WishlistItem, WishlistPage, WishlistQuery } from '../../wishlist.ts';
-
+import { t } from '../../i18n.ts';
 export const pageSize = 100;
 export const initialQuery: WishlistQuery = { search: '', filter: 'all', sort: 'created', descending: true, offset: 0 };
-export const filterItems: { id: WishlistFilter; label: string }[] = [{ id: 'all', label: '全部' }, { id: 'considering', label: '考虑中' }, { id: 'purchased', label: '已购入' }, { id: 'dropped', label: '不再考虑' }];
-export const sortItems: { id: WishlistQuery['sort']; label: string }[] = [{ id: 'created', label: '加入日期' }, { id: 'price', label: '预计价格' }, { id: 'target', label: '计划日期' }, { id: 'name', label: '名称' }];
+export const filterItems: { id: WishlistFilter; label: string }[] = [{ id: 'all', label: t('全部') }, { id: 'considering', label: t('考虑中') }, { id: 'purchased', label: t('已购入') }, { id: 'dropped', label: t('不再考虑') }];
+export const sortItems: { id: WishlistQuery['sort']; label: string }[] = [{ id: 'created', label: t('加入日期') }, { id: 'price', label: t('预计价格') }, { id: 'target', label: t('计划日期') }, { id: 'name', label: t('名称') }];
 
 /** 换排序字段时的默认方向，与电脑端一致：计划日期与优先级升序，其余降序。 */
 export const defaultDescending = (sort: WishlistQuery['sort']): boolean => !(sort === 'priority' || sort === 'target');
@@ -77,7 +77,7 @@ export function overdueBanner(items: WishlistItem[], today: string): { id: strin
   const late = items.filter(item => planOverdue(item, today)).sort((a, b) => a.fields.target_date.localeCompare(b.fields.target_date));
   if (!late.length) return null;
   const first = late[0];
-  return { id: first.id, count: late.length, title: late.length > 1 ? `${late.length} 条心愿的计划日期已过` : first.fields.name, text: late.length > 1 ? `最早的是「${first.fields.name}」（${dayLabel(first.fields.target_date, today)}），不会自动购买` : `计划日期 ${dayLabel(first.fields.target_date, today)} 已过，不会自动购买` };
+  return { id: first.id, count: late.length, title: late.length > 1 ? t('{length} 条心愿的计划日期已过', { length: late.length }) : first.fields.name, text: late.length > 1 ? t('最早的是「{name}」（{v2}），不会自动购买', { name: first.fields.name, v2: dayLabel(first.fields.target_date, today) }) : t('计划日期 {v1} 已过，不会自动购买', { v1: dayLabel(first.fields.target_date, today) }) };
 }
 
 export type DetailActions = { record: boolean; link: boolean; drop: boolean; reconsider: boolean; viewAsset: boolean; trashHint: boolean; verify: boolean };

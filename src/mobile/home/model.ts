@@ -15,7 +15,7 @@ import type { DailyCostSummary } from '../../DailyCostMetric.tsx';
 import type { TimelineEvent } from '../../Timeline.tsx';
 import type { Params, RouteName } from '../routes.ts';
 import { dayText, daysBetween, eventTarget, mask } from '../me/shared.ts';
-
+import { t } from '../../i18n.ts';
 export type PlanProgress = { percent: number; have: string; need: string; gap: string | null };
 /** `lead` 是一句话：before + 强调的时长 + after；没有时长时只有 before。 */
 export type Hero = { state: 'ready' | 'setup' | 'blocked' | 'error'; eyebrow: string; title: string; subtitle: string | null; lead: { before: string; strong: string; after: string } | null; progress: PlanProgress | null; warn: string | null };
@@ -82,7 +82,7 @@ export function dailyView(summary: DailyCostSummary): DailyView {
   if (summary.per_use_count) notes.push(`${summary.per_use_count} 件按次计费`);
   if (summary.excluded_count) notes.push(`${summary.excluded_count} 件已排除`);
   if (summary.unknown_count > 0 && summary.included_count > 0) notes.push('仅已知部分');
-  return { value: summary.known_cents === null ? '—' : unitMoneyText(summary.known_cents), unknown: summary.known_cents === null, sub: notes.join(' · '), note: '持有成本摊算，不是每天实际付款；账户、订阅和房租不参与。' };
+  return { value: summary.known_cents === null ? '—' : unitMoneyText(summary.known_cents), unknown: summary.known_cents === null, sub: notes.join(' · '), note: t('持有成本摊算，不是每天实际付款；账户、订阅和房租不参与。') };
 }
 
 /** Warranty facts for the 待处理 list: desktop `list_assets` with the 即将到期 filter, status per desktop deriveStatus. */
@@ -114,8 +114,8 @@ export function pendingEntries({ today, modules, review, warranty, wishes }: Pen
   if (warranty && warranty.count > 0) {
     const first = warranty.first;
     out.push({
-      id: 'warranty', icon: 'shield', tone: 'warn', title: `保修 30 天内到期 ${warranty.count} 件`,
-      subtitle: first ? `${first.name} · ${dayText(first.end)}到期${warranty.count > 1 ? ` 等` : ''}` : '查看即将到期的物品',
+      id: 'warranty', icon: 'shield', tone: 'warn', title: t('保修 30 天内到期 {count} 件', { count: warranty.count }),
+      subtitle: first ? t('{name} · {v2}到期{v3}', { name: first.name, v2: dayText(first.end), v3: warranty.count > 1 ? ` 等` : '' }) : t('查看即将到期的物品'),
       route: warranty.count === 1 && first ? 'items.detail' : 'items.list', params: warranty.count === 1 && first ? { id: first.id } : undefined,
     });
   }
@@ -131,12 +131,12 @@ export function pendingEntries({ today, modules, review, warranty, wishes }: Pen
   const wealth = modules.wealth && review ? ready(review.wealth) : undefined;
   if (wealth) {
     const last = wealth.points.at(-1), latest = latestComplete(wealth.points);
-    if (last && !last.complete) out.push({ id: 'snapshot-incomplete', icon: 'warning', tone: 'warn', title: '最新盘点尚未完整', subtitle: `${dayText(last.date)} · 缺 ${last.missing} 个账户`, route: 'wealth.snapshots', params: { id: last.snapshot_id } });
-    if (!latest || latest.date.slice(0, 7) < today.slice(0, 7)) out.push({ id: 'checkin', icon: 'doc', tone: 'warn', title: '本月还没盘点', subtitle: latest ? `上次完整盘点 ${dayText(latest.date)}` : '还没有完整盘点', route: 'wealth.checkin', action: '去盘点' });
+    if (last && !last.complete) out.push({ id: 'snapshot-incomplete', icon: 'warning', tone: 'warn', title: t('最新盘点尚未完整'), subtitle: t('{v1} · 缺 {missing} 个账户', { v1: dayText(last.date), missing: last.missing }), route: 'wealth.snapshots', params: { id: last.snapshot_id } });
+    if (!latest || latest.date.slice(0, 7) < today.slice(0, 7)) out.push({ id: 'checkin', icon: 'doc', tone: 'warn', title: t('本月还没盘点'), subtitle: latest ? t('上次完整盘点 {v1}', { v1: dayText(latest.date) }) : t('还没有完整盘点'), route: 'wealth.checkin', action: '去盘点' });
   }
   const overdue = modules.wishlist && wishes ? overdueWishes(wishes, today) : [];
   if (overdue.length) out.push({
-    id: 'wish', icon: 'heart', tone: 'danger', title: `心愿计划日期已过 ${overdue.length} 条`, subtitle: `${overdue[0].name} · 计划 ${dayText(overdue[0].target_date!)}`,
+    id: 'wish', icon: 'heart', tone: 'danger', title: t('心愿计划日期已过 {length} 条', { length: overdue.length }), subtitle: t('{name} · 计划 {v2}', { name: overdue[0].name, v2: dayText(overdue[0].target_date!) }),
     route: overdue.length === 1 ? 'wishes.detail' : 'wishes.list', params: overdue.length === 1 ? { id: overdue[0].id } : undefined,
   });
   const virtual = modules.virtual && review ? ready(review.virtual_assets) : undefined;
@@ -144,7 +144,7 @@ export function pendingEntries({ today, modules, review, warranty, wishes }: Pen
     const items = virtual.items.filter(item => (item.status === 'expired' || item.status === 'expiring') && !(item.status === 'expired' && (item.fields.kind === 'subscription' || item.fields.billing === 'subscription' || item.plan?.fields.category === 'subscription')) && item.valid_until);
     if (items.length) {
       const soonest = [...items].sort((a, b) => a.valid_until!.localeCompare(b.valid_until!))[0];
-      out.push({ id: 'virtual', icon: 'warning', tone: 'warn', title: `虚拟资产 ${items.length} 项权益到期或即将到期`, subtitle: `${soonest.fields.name} · ${dayText(soonest.valid_until!)}`, route: 'spending.virtual', params: items.length === 1 ? { id: soonest.id } : undefined });
+      out.push({ id: 'virtual', icon: 'warning', tone: 'warn', title: t('虚拟资产 {length} 项权益到期或即将到期', { length: items.length }), subtitle: `${soonest.fields.name} · ${dayText(soonest.valid_until!)}`, route: 'spending.virtual', params: items.length === 1 ? { id: soonest.id } : undefined });
     }
   }
   return out;

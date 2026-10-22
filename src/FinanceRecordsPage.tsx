@@ -24,7 +24,7 @@ import { useRestored } from './undo';
 import './wealth.css';
 import './planning.css';
 import './planning-followup-ui/planning-followup-ui.css';
-
+import { t } from './i18n.ts';
 type RecordsRoute = Extract<FinanceRoute, { page: 'records' }>;
 export type FinanceRecordsPageProps = SourceProps & {
   generation: string; today: string; modules: RuntimeModules; route: RecordsRoute;
@@ -95,8 +95,8 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
     finally { if (ticket === openTicket.current) { openingRef.current = false; setOpening(false); } }
   }
   const newDisabled = frozen || !!editing || childEditing || opening || !tab || !sources || (tab === 'income' ? sources.incomes.status !== 'ready' : tab === 'expenses' ? sources.expenses.status !== 'ready' : false);
-  const action = tab ? { label: tab === 'income' ? opening ? '正在准备收入…' : '记一笔收入' : tab === 'expenses' ? '记一笔支出' : '记一笔资金流动', plus: true, disabled: newDisabled, run: () => void openNew() } : undefined;
-  usePageBar('finance-records', { primary: action, newRecord: action, search: tab ? { key: 'finance-records', placeholder: `搜索${labels[tab]}` } : undefined });
+  const action = tab ? { label: tab === 'income' ? opening ? t('正在准备收入…') : t('记一笔收入') : tab === 'expenses' ? t('记一笔支出') : t('记一笔资金流动'), plus: true, disabled: newDisabled, run: () => void openNew() } : undefined;
+  usePageBar('finance-records', { primary: action, newRecord: action, search: tab ? { key: 'finance-records', placeholder: t('搜索{v1}', { v1: labels[tab] }) } : undefined });
   const autoConsumed = useRef(false);
   useEffect(() => {
     if (!autoNew) { autoConsumed.current = false; return; }
@@ -105,7 +105,7 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
   }, [autoNew, newDisabled, tab]);
   const incomeSourceError = useSource({ source: activeSource?.target.kind === 'income' ? activeSource : null, onSourceDone }, tab === 'income' && capabilities.incomeRecords ? generation : undefined, async (target, alive) => {
     if (target.kind !== 'income') return false;
-    if (frozen || editing || childEditing || openingRef.current) throw new Error('请先关闭表单或核对上次保存结果，再打开来源收入。');
+    if (frozen || editing || childEditing || openingRef.current) throw new Error(t('请先关闭表单或核对上次保存结果，再打开来源收入。'));
     const expected = ++openTicket.current;
     openingRef.current = true; setOpening(true);
     try {
@@ -124,21 +124,21 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
   useEffect(() => { if (tab === null && activeSource && failedSource.current !== activeSource.token) { failedSource.current = activeSource.token; onSourceDone?.('来源所属的记录模块已关闭，无法打开这条来源。'); } }, [tab, activeSource?.token, onSourceDone]);
   const setPeriod = (next: FinancePeriod) => onRouteChange({ ...route, period: next });
   async function verifyOriginal() { await verify(); if (!storedPending()) setReceiptResolutionVersion(n => n + 1); }
-  return <section className="stats-section wealth-section planning-section" aria-label="收支记录">
-    <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="记录类型">{tabs.map(value => <button key={value} type="button" aria-pressed={tab === value} disabled={frozen || !!editing || childEditing || opening} onClick={() => { onRouteChange({ ...route, tab: value, source: undefined }); }}>{labels[value]}</button>)}</div></HeaderSlot><FinancePeriodControl recordedYears={sources?.record_years.status === 'ready' ? sources.record_years.value : undefined} value={period} today={today} disabled={frozen || !!editing || childEditing || opening} onChange={setPeriod}/>
-    {sources?.record_years.status === 'error' && <p className="notice" role="alert">历史年份读取失败：{sources.record_years.message}。仍可通过“其他年份”选择。<button onClick={reload}>重试</button></p>}
-    {pending && <p className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对上次金融导入结果。</span> : <button disabled={busy} onClick={() => void verifyOriginal()}>核对结果</button>}</p>}
+  return <section className="stats-section wealth-section planning-section" aria-label={t('收支记录')}>
+    <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label={t('记录类型')}>{tabs.map(value => <button key={value} type="button" aria-pressed={tab === value} disabled={frozen || !!editing || childEditing || opening} onClick={() => { onRouteChange({ ...route, tab: value, source: undefined }); }}>{labels[value]}</button>)}</div></HeaderSlot><FinancePeriodControl recordedYears={sources?.record_years.status === 'ready' ? sources.record_years.value : undefined} value={period} today={today} disabled={frozen || !!editing || childEditing || opening} onChange={setPeriod}/>
+    {sources?.record_years.status === 'error' && <p className="notice" role="alert">{t('历史年份读取失败：{message}。仍可通过“其他年份”选择。', { message: sources.record_years.message })}<button onClick={reload}>{t('重试')}</button></p>}
+    {pending && <p className="notice" role="status">{t('上次「{label}」的保存结果未确认。', { label: pending.label })}{pending.command === 'financial_import_commit' ? <span>{t('请到设置的数据管理核对上次金融导入结果。')}</span> : <button disabled={busy} onClick={() => void verifyOriginal()}>{t('核对结果')}</button>}</p>}
     {notice && <p className="notice" role="status">{notice}</p>}
     {(openError || incomeSourceError) && <p className="notice" role="alert">{openError || incomeSourceError}</p>}
-    {tab === null ? <p className="notice" role="status">{explicit ? '来源所属的记录模块已关闭，无法打开这条来源。' : '收支记录模块已关闭。请在设置中启用需要的功能。'}</p> : <>
-      {tab !== 'movements' && <p className="muted small">当前搜索范围：{labels[tab]}明细；搜索不改变期间合计。</p>}
-      {load.status === 'loading' && <p role="status">正在读取收支资料…</p>}
-      {load.status === 'error' && <p className="notice" role="alert">读取失败：{load.message}<button onClick={reload}>重试</button></p>}
-      {tab === 'income' && sources && (sources.incomes.status === 'ready' ? <IncomeRecords incomes={{ generation, rows: sources.incomes.value }} period={period} search={search} disabled={frozen || !!editing || opening} onOpen={income => { if (!frozen && !editing && !openingRef.current) { ++openTicket.current; rememberOpener(); setEditing(income); } }} onNew={() => void openNew()}/> : <p className="notice" role={sources.incomes.status === 'error' ? 'alert' : 'status'}>{sources.incomes.status === 'error' ? `收入读取失败：${sources.incomes.message}` : sources.incomes.reason}<button onClick={reload}>重新读取</button></p>)}
+    {tab === null ? <p className="notice" role="status">{explicit ? t('来源所属的记录模块已关闭，无法打开这条来源。') : t('收支记录模块已关闭。请在设置中启用需要的功能。')}</p> : <>
+      {tab !== 'movements' && <p className="muted small">{t('当前搜索范围：{v1}明细；搜索不改变期间合计。', { v1: labels[tab] })}</p>}
+      {load.status === 'loading' && <p role="status">{t('正在读取收支资料…')}</p>}
+      {load.status === 'error' && <p className="notice" role="alert">{t('读取失败：{message}', { message: load.message })}<button onClick={reload}>{t('重试')}</button></p>}
+      {tab === 'income' && sources && (sources.incomes.status === 'ready' ? <IncomeRecords incomes={{ generation, rows: sources.incomes.value }} period={period} search={search} disabled={frozen || !!editing || opening} onOpen={income => { if (!frozen && !editing && !openingRef.current) { ++openTicket.current; rememberOpener(); setEditing(income); } }} onNew={() => void openNew()}/> : <p className="notice" role={sources.incomes.status === 'error' ? 'alert' : 'status'}>{sources.incomes.status === 'error' ? t('收入读取失败：{message}', { message: sources.incomes.message }) : sources.incomes.reason}<button onClick={reload}>{t('重新读取')}</button></p>)}
       {tab === 'expenses' && pending?.command !== 'financial_import_commit' && <ExpensesPage key={`expenses-${receiptResolutionVersion}`} embedded generation={generation} today={today} period={period} onPeriodChange={setPeriod} controlledView={sources?.expenses.status === 'ready' ? sources.expenses.value : null} controlledError={load.status === 'error' ? load.message : sources?.expenses.status === 'error' ? sources.expenses.message : sources?.expenses.status === 'disabled' ? sources.expenses.reason : ''} onRefresh={reload} blocked={frozen} onEditingChange={childEditingRef.current} onOpenAsset={onOpenAsset} onOpenSource={onOpenSource} search={search} onSearch={onSearch} autoNew={newForChild} onAutoNewDone={childNewDoneRef.current} source={activeSource} onSourceDone={onSourceDone} restoreScroll={restoreScroll}/>}
       {tab === 'movements' && <MovementsList embedded port={port} generation={generation} writeVersion={sources?.write_version ?? 0} today={today} period={period} accountIds={route.movementAccountIds} search={search} blocked={frozen} onPending={onPendingRef.current} onEditingChange={childEditingRef.current} onSaved={reload} autoNew={newForChild} onAutoNewDone={childNewDoneRef.current} onNewAccount={onNewAccount} receiptResolutionVersion={receiptResolutionVersion} source={activeSource} onSourceDone={onSourceDone}/>}
     </>}
-    {outside && <p className="notice" role="status">已保存收入（{outside.fields.date}），不在当前期间内。<button disabled={frozen} onClick={() => { setPeriod({ kind: 'all' }); setOutside(null); onSearch(''); }}>查看全部收入</button></p>}
+    {outside && <p className="notice" role="status">{t('已保存收入（{date}），不在当前期间内。', { date: outside.fields.date })}<button disabled={frozen} onClick={() => { setPeriod({ kind: 'all' }); setOutside(null); onSearch(''); }}>{t('查看全部收入')}</button></p>}
     {editing && <IncomeDialog key={editing === 'new' ? 'new' : editing.id} income={editing === 'new' ? null : editing} generation={generation} today={today} hpfDefault={defaultHpf} hpfDefaultNotice={editing === 'new' ? defaultNotice : undefined} accountsEnabled={modules.wealth} accounts={sources?.accounts.status === 'ready' ? sources.accounts.value : []} onSavedIncome={saved => { if (!financePeriodContains(period, saved.fields.date)) setOutside(saved); }} onClose={saved => { setEditing(null); setPending(storedPending()); if (saved) reload(); requestAnimationFrame(() => { if (opener.current?.isConnected && !opener.current.matches(':disabled')) opener.current.focus(); else refocusHeading(); }); }}/ >}
   </section>;
 }

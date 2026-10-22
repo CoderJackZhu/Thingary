@@ -7,7 +7,7 @@ import { activeStack, initialNav, navReducer } from './nav';
 import type { Entry, NavState } from './nav';
 import { routeDef, routeKind, tabRoot } from './routes';
 import type { ModuleFlags, Params, RouteName, TabId } from './routes';
-
+import { t } from '../i18n.ts';
 /** Navigation commands for pages. All are ignored while navigation is blocked (saving or an unknown receipt). */
 export type Nav = {
   tab: TabId;
@@ -91,7 +91,7 @@ export function NavProvider({ children, modules, blocked, initial }: { children:
   const value = useMemo(() => ({ state, nav }), [state, nav]);
   const discard = () => { setAsking(false); nav.pop(); };
   return <NavContext.Provider value={value}><DirtyContext.Provider value={dirty.current}>{children}
-    {asking && <ConfirmSheet title={discardTitle} message={discardMessage} confirm="放弃" cancelLabel="继续编辑" danger busy={false} onConfirm={discard} onClose={() => setAsking(false)}/>}
+    {asking && <ConfirmSheet title={discardTitle} message={discardMessage} confirm={t('放弃')} cancelLabel={t('继续编辑')} danger busy={false} onConfirm={discard} onClose={() => setAsking(false)}/>}
   </DirtyContext.Provider></NavContext.Provider>;
 }
 

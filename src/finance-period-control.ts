@@ -1,5 +1,5 @@
 import { normalizeFinancePeriod, type FinancePeriod } from './finance-contract.ts';
-
+import { t } from './i18n.ts';
 /** Editable period kinds; mirrors FinancePeriod without introducing new settlement semantics. */
 export type FinancePeriodKind = 'all' | 'year' | 'month' | 'range';
 
@@ -14,10 +14,10 @@ export type FinancePeriodDraft = {
 };
 
 export const FINANCE_PERIOD_KINDS: readonly { value: FinancePeriodKind; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'year', label: '年度' },
-  { value: 'month', label: '月度' },
-  { value: 'range', label: '自选日期' },
+  { value: 'all', label: t('全部') },
+  { value: 'year', label: t('年度') },
+  { value: 'month', label: t('月度') },
+  { value: 'range', label: t('自选日期') },
 ];
 
 export type FinancePeriodDraftResult =
@@ -31,12 +31,12 @@ export type FinancePeriodDraftResult =
 export type ReviewPeriodPreset = '30d' | '6m' | '1y' | 'ytd' | 'all' | 'custom';
 
 export const REVIEW_PERIOD_PRESETS: readonly { value: ReviewPeriodPreset; label: string }[] = [
-  { value: '30d', label: '近 30 天' },
-  { value: '6m', label: '近 6 个月' },
-  { value: '1y', label: '近 1 年' },
-  { value: 'ytd', label: '今年以来' },
-  { value: 'all', label: '全部' },
-  { value: 'custom', label: '自定义' },
+  { value: '30d', label: t('近 30 天') },
+  { value: '6m', label: t('近 6 个月') },
+  { value: '1y', label: t('近 1 年') },
+  { value: 'ytd', label: t('今年以来') },
+  { value: 'all', label: t('全部') },
+  { value: 'custom', label: t('自定义') },
 ];
 
 export const DEFAULT_REVIEW_PRESET: Exclude<ReviewPeriodPreset, 'custom'> = '1y';

@@ -13,7 +13,7 @@ import { useSession } from '../session';
 import { useReveal } from '../nav-context';
 import { ErrorState, Loading, Notice } from '../ui';
 import './wealth.css';
-
+import { t } from '../../i18n.ts';
 /** Hide old values while a key or generation changes; cancel every late response. */
 export function useRead<T>(key: string, read: () => Promise<T>) {
   const reveal = useReveal(), [retry, setRetry] = useState(0);
@@ -30,7 +30,7 @@ export function useGroups() {
   });
 }
 export function ReadState({ error, reload, loading }: { error?: string; reload: () => void; loading?: boolean }) {
-  return error ? <ErrorState title="资料读取失败" message={error} onRetry={reload}/> : loading ? <Loading label="正在读取账户资料…"/> : null;
+  return error ? <ErrorState title={t('资料读取失败')} message={error} onRetry={reload}/> : loading ? <Loading label={t('正在读取账户资料…')}/> : null;
 }
 export function WealthGate({ children }: { children: ReactNode }) {
   const s = useSession();

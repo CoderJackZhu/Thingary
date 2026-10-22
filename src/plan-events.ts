@@ -4,7 +4,7 @@ import { project, savingsOf, nominalFactor } from './plan-ledger.ts';
 import type { Flow, Plan, LoanSchedule } from './plan-ledger.ts';
 import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Spend } from './plan-fire.ts';
-
+import { t as tr } from './i18n.ts';
 export type EventKind = 'house' | 'car' | 'other';
 /** 金额一律是今天的钱（分）。house：总价、首付、贷款、每月物业维修、买房后不再付的月房租。car：总价、每月养车费、换车周期、每次卖旧车回收。 */
 export type LifeEvent = {
@@ -60,8 +60,8 @@ export function eventParts(c: Ctx, e: LifeEvent, offset: number): EventParts {
   const until = e.until_month && c.anchor_date ? c.now_months + offsetOf(e.until_month, c.anchor_date) + 1 : null;
   if (!e.time_unconfirmed && (!coverage || coverage.holding) && e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? '养车' : e.kind === 'other' ? '持续支出' : '持有成本'}`, m0, e.kind === 'house' ? null : until, e.holding_cents, false, e.kind === 'house');
   // 退休后的房租在计划里是一条持续的必需支出；买房之后不再付，取消额不超过房租本身。
-  if ((!coverage || coverage.holding) && e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: `${e.label}后不再付房租`, from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
-  if (!occurrence && e.rent_saved_cents > 0) saving_flows.push({ label: `${e.label}省下的房租`, from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });
+  if ((!coverage || coverage.holding) && e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: tr('{label}后不再付房租', { label: e.label }), from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
+  if (!occurrence && e.rent_saved_cents > 0) saving_flows.push({ label: tr('{label}省下的房租', { label: e.label }), from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });
   if (!e.time_unconfirmed && (!coverage || coverage.cycle) && e.cycle_years !== null && e.cycle_years > 0) {
     const end = until ?? c.horizon_months, step = e.cycle_years * 12;
     for (let k = 1; c.now_months + originOffset + k * step < end; k++) if (originOffset + k * step > 0) spends.push({ offset_months: originOffset + k * step, cents: Math.max(0, e.price_cents - e.resale_cents) });
@@ -100,7 +100,7 @@ export function eventImpact(P0: Plan, e: LifeEvent, offset: number, emergencyCen
   let earliest: number | null = null;
   for (let t = 0; t < base.assets.length; t++) if (base.assets[t] >= need) { earliest = t; break; }
   const parts = eventParts(P0, e, offset), P1 = applyEvents(P0, [{ e, offset }]);
-  if (parts.payment_cents === null) throw new Error('还差贷款后续还款资料，补齐后可比较这件计划的完整影响。');
+  if (parts.payment_cents === null) throw new Error(tr('还差贷款后续还款资料，补齐后可比较这件计划的完整影响。'));
   const sv = savingsOf(P1), after = sv[Math.min(offset, sv.length - 1)] ?? 0;
   return {
     annotations: P0.annotations ?? [],

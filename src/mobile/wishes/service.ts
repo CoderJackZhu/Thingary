@@ -9,7 +9,7 @@ import { wishlistDecisionKey, wishlistDraftKey } from '../../wishlist.ts';
 import type { WishLink, WishPlanSave, WishVerify, WishlistChange, WishlistItem, WishlistPage, WishlistQuery } from '../../wishlist.ts';
 import { loadAssetCandidates } from '../../asset-picker.ts';
 import { consideringCount, pageSize } from './model.ts';
-
+import { t } from '../../i18n.ts';
 export const linkKey = 'thingary.wish-link-pending.v1';
 export const verifyKey = 'thingary.wish-verify-pending.v1';
 export const assetDraftKey = 'thingary.asset-draft.v1';
@@ -56,7 +56,7 @@ export function opWish(op: Op): string | null {
 function stored(key: string): unknown { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } }
 function put(op: Op) {
   const value = op.kind === 'save' || op.kind === 'purchase' ? op.draft : op.input;
-  try { localStorage.setItem(opKey(op), JSON.stringify(value)); } catch { throw new Error('无法记录本次请求，尚未提交，请检查可用空间后重试。'); }
+  try { localStorage.setItem(opKey(op), JSON.stringify(value)); } catch { throw new Error(t('无法记录本次请求，尚未提交，请检查可用空间后重试。')); }
 }
 export function clearOp(op: Op) { try { localStorage.removeItem(opKey(op)); } catch { /* nothing to clear */ } }
 const isRequest = (value: unknown): value is { request_id: string; generation: string } => !!value && typeof value === 'object' && typeof (value as { request_id?: unknown }).request_id === 'string' && typeof (value as { generation?: unknown }).generation === 'string';
@@ -65,15 +65,15 @@ const isRequest = (value: unknown): value is { request_id: string; generation: s
 export function storedOps(): Op[] {
   const out: Op[] = [];
   const decision = stored(wishlistDecisionKey) as WishlistChange | null;
-  if (isRequest(decision) && decision.action && decision.action.type !== 'add' && typeof decision.action.wishlist_id === 'string') out.push({ kind: 'decision', input: decision, label: decision.action.type === 'drop' ? '不再考虑' : decision.action.type === 'reconsider' ? '重新考虑' : '放弃心愿' });
+  if (isRequest(decision) && decision.action && decision.action.type !== 'add' && typeof decision.action.wishlist_id === 'string') out.push({ kind: 'decision', input: decision, label: decision.action.type === 'drop' ? t('不再考虑') : decision.action.type === 'reconsider' ? t('重新考虑') : t('放弃心愿') });
   const link = stored(linkKey) as WishLink | null;
-  if (isRequest(link) && typeof (link as WishLink).wishlist_id === 'string') out.push({ kind: 'link', input: link as WishLink, label: '关联已有物品' });
+  if (isRequest(link) && typeof (link as WishLink).wishlist_id === 'string') out.push({ kind: 'link', input: link as WishLink, label: t('关联已有物品') });
   const verify = stored(verifyKey) as WishVerify | null;
-  if (isRequest(verify) && typeof (verify as WishVerify).wishlist_id === 'string') out.push({ kind: 'verify', input: verify as WishVerify, label: '核实旧记录' });
+  if (isRequest(verify) && typeof (verify as WishVerify).wishlist_id === 'string') out.push({ kind: 'verify', input: verify as WishVerify, label: t('核实旧记录') });
   const draft = stored(wishlistDraftKey) as { planPending?: WishPlanSave | null } | null;
-  if (draft && isRequest(draft.planPending)) out.push({ kind: 'save', input: draft.planPending as WishPlanSave, label: draft.planPending.id ? '保存心愿修改' : '新增心愿', draft });
+  if (draft && isRequest(draft.planPending)) out.push({ kind: 'save', input: draft.planPending as WishPlanSave, label: draft.planPending.id ? t('保存心愿修改') : t('新增心愿'), draft });
   const asset = stored(assetDraftKey) as { pending?: SaveAsset | null; conversion?: { wishlist_id: string; expected_revision: number } } | null;
-  if (asset?.conversion && asset.pending && isRequest(asset.pending.base)) out.push({ kind: 'purchase', input: asset.pending, label: '记录购入', wishlistId: asset.conversion.wishlist_id, expectedRevision: asset.conversion.expected_revision, draft: asset });
+  if (asset?.conversion && asset.pending && isRequest(asset.pending.base)) out.push({ kind: 'purchase', input: asset.pending, label: t('记录购入'), wishlistId: asset.conversion.wishlist_id, expectedRevision: asset.conversion.expected_revision, draft: asset });
   return out;
 }
 export function storedSavingReceipt(wishId: string, generation: string): { request_id: string } | null {
@@ -105,7 +105,7 @@ export type Outcome =
 /** 提交一笔写入：先存回执，再发命令，失败时按 request_id 核对。 */
 export async function submitOp(op: Op): Promise<Outcome> {
   const existing = storedOps().find(other => opKey(other) === opKey(op));
-  if (existing && opRequest(existing) !== opRequest(op)) return { status: 'failed', message: `还有一笔「${existing.label}」的结果待核对，请先核对后再保存。` };
+  if (existing && opRequest(existing) !== opRequest(op)) return { status: 'failed', message: t('还有一笔「{label}」的结果待核对，请先核对后再保存。', { label: existing.label }) };
   try { put(op); } catch (cause) { return { status: 'failed', message: errorMessage(cause) }; }
   try { const value = await send(op); clearOp(op); return { status: 'saved', value }; }
   catch (cause) {

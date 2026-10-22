@@ -3,7 +3,7 @@ import type { AssumptionReadV1, FollowupRead, PlanningFollowupPortV1 } from '../
 import { AssumptionsEditor } from './AssumptionsEditor';
 import { assumptionSummary, confirmationText } from './model';
 import './planning-followup-ui.css';
-
+import { t } from '../i18n.ts';
 export function AssumptionsSummary({ port, generation, writeVersion, blocked = false, reload, onPending, onEditingChange, open: controlledOpen, onOpenChange, onReadChange, embedded = false, readEpoch = 0 }: {
   port: PlanningFollowupPortV1; generation: string; writeVersion: number; blocked?: boolean;
   reload: () => void; onPending: () => void; onEditingChange?: (v: boolean) => void; open?: boolean; onOpenChange?: (v: boolean) => void;
@@ -18,16 +18,16 @@ export function AssumptionsSummary({ port, generation, writeVersion, blocked = f
   useEffect(() => { onReadChange?.(read); }, [read, onReadChange]);
   useEffect(() => {
     let live = true; setRead(null);
-    port.readAssumptions(generation).then(v => { if (live) setRead(v.status === 'ready' && v.value.generation !== generation ? { status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请重新读取。' } : v); }).catch(e => { if (live) setRead({ status: 'error', code: 'READ_ERROR', message: String(e) }); });
+    port.readAssumptions(generation).then(v => { if (live) setRead(v.status === 'ready' && v.value.generation !== generation ? { status: 'error', code: 'GENERATION_MISMATCH', message: t('资料库已变化，请重新读取。') } : v); }).catch(e => { if (live) setRead({ status: 'error', code: 'READ_ERROR', message: String(e) }); });
     return () => { live = false; };
   }, [port, generation, writeVersion, retry, readEpoch]);
   if (embedded) return open ? <AssumptionsEditor port={port} generation={generation} onPending={onPending} onClose={saved => { setOpen(false); if (saved) { setRetry(n => n + 1); reload(); } }}/> : null;
-  return <aside className="ui-card ui-content" aria-label="规划试算假设">
-    {!read ? <p role="status">正在读取试算假设…</p> : read.status !== 'ready' ? <p role="alert">{read.message}<button className="ui-btn" onClick={() => setRetry(n => n + 1)}>重新读取</button></p> : <>
+  return <aside className="ui-card ui-content" aria-label={t('规划试算假设')}>
+    {!read ? <p role="status">{t('正在读取试算假设…')}</p> : read.status !== 'ready' ? <p role="alert">{read.message}<button className="ui-btn" onClick={() => setRetry(n => n + 1)}>{t('重新读取')}</button></p> : <>
       <p className={`pfu-confirm ${read.value.confirmation}`}>{confirmationText[read.value.confirmation]}</p>
       <p>{assumptionSummary(read.value)}</p>
-      <p className="muted small">收益已扣通胀与费用；0% 表示只跑平通胀。波动率仅用于市场模拟，默认 5% 是程序试算值。</p>
-      <button ref={opener} className="ui-btn" disabled={blocked || open} onClick={() => setOpen(true)}>核对收益与波动假设</button>
+      <p className="muted small">{t('收益已扣通胀与费用；0% 表示只跑平通胀。波动率仅用于市场模拟，默认 5% 是程序试算值。')}</p>
+      <button ref={opener} className="ui-btn" disabled={blocked || open} onClick={() => setOpen(true)}>{t('核对收益与波动假设')}</button>
     </>}
     {open && <AssumptionsEditor port={port} generation={generation} onPending={onPending} onClose={saved => { setOpen(false); if (saved) { setRetry(n => n + 1); reload(); } requestAnimationFrame(() => opener.current?.focus()); }}/>}
   </aside>;

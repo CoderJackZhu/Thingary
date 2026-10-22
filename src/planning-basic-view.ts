@@ -3,7 +3,7 @@
 import { durationText } from './plan-view.ts';
 import type { RunwayResult } from './plan-runway.ts';
 import type { BasicCapabilities, BasicInputs, PlanningMissing, ProfileState, RequirementResult } from './plan.ts';
-
+import { t } from './i18n.ts';
 export type PlanMode = 'none' | 'basic';
 type Saved = ProfileState['saved'];
 
@@ -62,24 +62,24 @@ export type Tone = 'good' | 'warn' | 'plain';
 /** Wording for each real requirement status. Candidates are never contributions; `null` is never shown as 0. */
 export function requirementLine(r: RequirementResult, fmt: (cents: string) => string): { text: string; tone: Tone } {
   switch (r.status) {
-    case 'found': return { text: `每月约 ${fmt(r.monthly_cents)}`, tone: 'plain' };
-    case 'no_positive_contribution': return { text: '按这些条件，不用再额外存钱', tone: 'good' };
-    case 'search_not_found': return { text: `在每月 ${fmt(r.search_limit_cents)} 的搜索上限内没有找到可行金额`, tone: 'warn' };
-    case 'payment_constraint': return { text: `当前付款安排下无法满足：${r.message}`, tone: 'warn' };
-    case 'not_applicable': return { text: `不适用：${r.message}`, tone: 'plain' };
-    case 'out_of_bounds': return { text: `超出可计算范围：${r.message}`, tone: 'warn' };
+    case 'found': return { text: t('每月约 {v1}', { v1: fmt(r.monthly_cents) }), tone: 'plain' };
+    case 'no_positive_contribution': return { text: t('按这些条件，不用再额外存钱'), tone: 'good' };
+    case 'search_not_found': return { text: t('在每月 {v1} 的搜索上限内没有找到可行金额', { v1: fmt(r.search_limit_cents) }), tone: 'warn' };
+    case 'payment_constraint': return { text: t('当前付款安排下无法满足：{message}', { message: r.message }), tone: 'warn' };
+    case 'not_applicable': return { text: t('不适用：{message}', { message: r.message }), tone: 'plain' };
+    case 'out_of_bounds': return { text: t('超出可计算范围：{message}', { message: r.message }), tone: 'warn' };
   }
 }
 
 /** 目标页把「需要存」和「你估计能存」并排：所需额是最小恒定月投入，预计投入不少于它即够用。未知不当零，也不下结论。 */
 export function contributionVerdict(r: RequirementResult, contribution: string | null, fmt: (cents: string) => string, estimate: (cents: string) => string = fmt): { text: string; tone: Tone; unknown: boolean } {
-  if (contribution === null) return { text: '你估计每月能存多少：还没填', tone: 'plain', unknown: true };
+  if (contribution === null) return { text: t('你估计每月能存多少：还没填'), tone: 'plain', unknown: true };
   const c = BigInt(contribution), own = c < 0n ? `你估计每月要取用 ${fmt(String(-c))}` : `你估计每月能存 ${fmt(String(c))}`;
   if (r.status === 'found') {
     const diff = c - BigInt(r.monthly_cents);
-    return diff === 0n ? { text: `${own}，正好够`, tone: 'good', unknown: false } : diff > 0n ? { text: `${own}，比所需多 ${estimate(String(diff))}`, tone: 'good', unknown: false } : { text: `${own}，每月还差 ${estimate(String(-diff))}`, tone: 'warn', unknown: false };
+    return diff === 0n ? { text: t('{own}，正好够', { own }), tone: 'good', unknown: false } : diff > 0n ? { text: t('{own}，比所需多 {v2}', { own, v2: estimate(String(diff)) }), tone: 'good', unknown: false } : { text: t('{own}，每月还差 {v2}', { own, v2: estimate(String(-diff)) }), tone: 'warn', unknown: false };
   }
-  if (r.status === 'no_positive_contribution') return c >= 0n ? { text: `${own}，按这些条件已经够用`, tone: 'good', unknown: false } : { text: `${own}；是否够用见计算详情`, tone: 'plain', unknown: false };
+  if (r.status === 'no_positive_contribution') return c >= 0n ? { text: t('{own}，按这些条件已经够用', { own }), tone: 'good', unknown: false } : { text: t('{own}；是否够用见计算详情', { own }), tone: 'plain', unknown: false };
   return { text: own, tone: 'plain', unknown: false };
 }
 

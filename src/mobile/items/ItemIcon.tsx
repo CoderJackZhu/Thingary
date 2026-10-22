@@ -9,7 +9,7 @@ import type { PageProps } from '../routes';
 import { Button, ChipRow, EmptyState, ErrorState, Loading, Notice, SegmentedControl, TextField } from '../ui';
 import { getIconSession } from './edit-model';
 import './icon.css';
-
+import { t } from '../../i18n.ts';
 function MaterialImage({ entry, generation }: { entry: MaterialEntry; generation: string }) {
   const [src, setSrc] = useState('');
   useEffect(() => {
@@ -18,7 +18,7 @@ function MaterialImage({ entry, generation }: { entry: MaterialEntry; generation
     invoke<ArrayBuffer>('material_preview', { id: entry.id, generation }).then(bytes => { if (live) { url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' })); setSrc(url); } }).catch(() => {});
     return () => { live = false; if (url) URL.revokeObjectURL(url); };
   }, [entry.id, generation]);
-  return entry.builtin ? <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt(entry.id))} alt=""/> : src ? <img src={src} alt=""/> : <span>图片</span>;
+  return entry.builtin ? <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt(entry.id))} alt=""/> : src ? <img src={src} alt=""/> : <span>{t('图片')}</span>;
 }
 
 export default function ItemIcon({ params }: PageProps) {
@@ -49,19 +49,19 @@ export default function ItemIcon({ params }: PageProps) {
   }
   const visible = filterMaterials(entries, source, category, search, recent), own = source === 'custom' ? channel?.photos.filter(photo => photo.name.includes(search.trim())) ?? [] : [];
   return <div className="m-item-icon">
-    {!channel && <Notice>请从新增或编辑物品进入，所选图标随物品一起保存。</Notice>}
-    <SegmentedControl label="素材类型" items={[{ id: 'icon', label: '图标' }, { id: 'dimensional', label: '立体图标' }, { id: 'recent', label: '最近使用' }, { id: 'custom', label: '我的图片' }]} value={source} onChange={value => { setSource(value); setCategory('全部'); }}/>
-    <TextField label="搜索图标" value={search} onChange={setSearch} placeholder="例如相机、镜头"/>
-    {source !== 'custom' && <ChipRow label="图标分类" items={materialCategories.map(id => ({ id, label: id }))} value={category} onChange={setCategory}/>}
+    {!channel && <Notice>{t('请从新增或编辑物品进入，所选图标随物品一起保存。')}</Notice>}
+    <SegmentedControl label={t('素材类型')} items={[{ id: 'icon', label: t('图标') }, { id: 'dimensional', label: t('立体图标') }, { id: 'recent', label: t('最近使用') }, { id: 'custom', label: t('我的图片') }]} value={source} onChange={value => { setSource(value); setCategory('全部'); }}/>
+    <TextField label={t('搜索图标')} value={search} onChange={setSearch} placeholder={t('例如相机、镜头')}/>
+    {source !== 'custom' && <ChipRow label={t('图标分类')} items={materialCategories.map(id => ({ id, label: id }))} value={category} onChange={setCategory}/>}
     {error && <ErrorState message={error} onRetry={() => setRetry(value => value + 1)}/>}
     {loading ? <Loading/> : <div className="m-item-icon-grid">
-      {source === 'icon' && category === '全部' && !search && <button disabled={busy || !channel} onClick={() => void choose(null)} aria-label="选择默认图标"><img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt=""/><span>默认图标</span></button>}
+      {source === 'icon' && category === '全部' && !search && <button disabled={busy || !channel} onClick={() => void choose(null)} aria-label={t('选择默认图标')}><img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt=""/><span>{t('默认图标')}</span></button>}
       {visible.map(entry => <button key={entry.id} disabled={busy || !channel} onClick={() => void choose(entry)} aria-label={'选择图标：' + entry.name}><MaterialImage entry={entry} generation={generation}/><span>{entry.name}</span></button>)}
       {own.map(photo => <button key={photo.id} disabled={busy} aria-label={'选择档案图片：' + photo.name} onClick={() => void choose(null, photo)}><PhotoView photo={photo} generation={generation}/><span>{photo.name}</span></button>)}
     </div>}
-    {!loading && !visible.length && !own.length && source !== 'icon' && <EmptyState title="没有匹配的素材" message={source === 'recent' ? '使用过的素材会出现在这里。' : '换个关键词，或从相册添加图片。'}/>}
+    {!loading && !visible.length && !own.length && source !== 'icon' && <EmptyState title={t('没有匹配的素材')} message={source === 'recent' ? t('使用过的素材会出现在这里。') : t('换个关键词，或从相册添加图片。')}/>}
     <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={event => { void upload(event.target.files?.[0]); event.target.value = ''; }}/>
     <input ref={album} type="file" accept="image/*" hidden onChange={event => { void upload(event.target.files?.[0]); event.target.value = ''; }}/>
-    <div className="m-item-icon-actions"><Button disabled={busy || !channel} onClick={() => camera.current?.click()}>拍照</Button><Button disabled={busy || !channel} onClick={() => album.current?.click()}>从相册选</Button></div>
+    <div className="m-item-icon-actions"><Button disabled={busy || !channel} onClick={() => camera.current?.click()}>{t('拍照')}</Button><Button disabled={busy || !channel} onClick={() => album.current?.click()}>{t('从相册选')}</Button></div>
   </div>;
 }

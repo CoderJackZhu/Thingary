@@ -32,6 +32,7 @@ import type { ConfirmItem } from "./goal-model";
 import { fundsChart } from "./detail-model";
 import Report from "./Report";
 import "./plan.css";
+import { t } from '../../i18n.ts';
 export default function Goal() {
   const p = usePlan(),
     nav = useNav(),
@@ -110,32 +111,32 @@ export default function Goal() {
   if (p.loading)
     return (
       <div className="m-page mp-page">
-        <LargeTitle title="规划" />
+        <LargeTitle title={t('规划')} />
         <Loading />
       </div>
     );
   if (p.error || !p.sources)
     return (
       <div className="m-page mp-page">
-        <LargeTitle title="规划" />
+        <LargeTitle title={t('规划')} />
         <ErrorState message={p.error} onRetry={p.reload} />
       </div>
     );
   if (!p.saved?.profile.retire.basic || !p.capabilities)
     return (
       <div className="m-page mp-page">
-        <LargeTitle title="规划" />
+        <LargeTitle title={t('规划')} />
         <EmptyState
           icon="chart"
-          title="想知道：要攒多少钱才够？"
-          message="回答 5 个问题，估算从目标月份起使用资金，每月需要存多少钱。一个人、两个人都能算；没想好的可留空。"
+          title={t('想知道：要攒多少钱才够？')}
+          message={t('回答 5 个问题，估算从目标月份起使用资金，每月需要存多少钱。一个人、两个人都能算；没想好的可留空。')}
           action={
             <Button variant="primary" onClick={() => edit("setup")}>
-              设置条件
+              {t('设置条件')}
             </Button>
           }
         />
-        <Notice>随时可以退出，不保存未提交的填写。</Notice>
+        <Notice>{t('随时可以退出，不保存未提交的填写。')}</Notice>
       </div>
     );
   const { saved, capabilities: caps, sources, today, reload } = p,
@@ -157,10 +158,10 @@ export default function Goal() {
   };
   return (
     <div className="m-page mp-page">
-      <LargeTitle title="规划" />
+      <LargeTitle title={t('规划')} />
       <HeroCard
         eyebrow={`${v.kind}${v.uncertain ? " · 暂算结果" : ""}`}
-        action="测算详情"
+        action={t('测算详情')}
         onClick={() => nav.setSegment("plan.detail")}
         title={v.headline}
         subtitle={v.subtitle}
@@ -170,15 +171,15 @@ export default function Goal() {
             : [
                 {
                   text: pred?.outcome.success
-                    ? "所选期间可覆盖"
-                    : "按当前条件估算",
+                    ? t('所选期间可覆盖')
+                    : t('按当前条件估算'),
                 },
               ]
         }
         footnote={
           v.stop
-            ? `预计停工月份 ${v.stop}`
-            : "填好每月能存的钱后，可查看预计停工时间"
+            ? t('预计停工月份 {stop}', { stop: v.stop })
+            : t('填好每月能存的钱后，可查看预计停工时间')
         }
       >
         {pred && (
@@ -187,13 +188,13 @@ export default function Goal() {
             height={112}
             {...fundsChart(pred).chart}
             shade={undefined}
-            summary={`预计资金变化预览。${v.headline}${v.stop ? `，预计停工月份 ${v.stop}` : ""}。点按查看测算详情。`}
+            summary={t('预计资金变化预览。{headline}{v2}。点按查看测算详情。', { headline: v.headline, v2: v.stop ? `，预计停工月份 ${v.stop}` : "" })}
           />
         )}
         <span className="mp-result-verdict">{v.verdict}</span>
       </HeroCard>
       {v.household.length > 0 && (
-        <Card label="两人停工安排">
+        <Card label={t('两人停工安排')}>
           {v.household.map((line) => (
             <p key={line}>{line}</p>
           ))}
@@ -204,7 +205,7 @@ export default function Goal() {
           <ListRow
             icon="warning"
             tone="warn"
-            title={`待你确认 ${items.length} 项`}
+            title={t('待你确认 {length} 项', { length: items.length })}
             subtitle={items
               .slice(0, 2)
               .map((i) => i.title)
@@ -213,42 +214,42 @@ export default function Goal() {
           />
         </ListGroup>
       )}
-      <ListGroup title="改条件">
+      <ListGroup title={t('改条件')}>
         <ListRow
           icon="gear"
-          title="计算条件"
+          title={t('计算条件')}
           subtitle={
             <>
               {conditionSummary(saved, caps)}
               <br />
-              收益与通胀假设：{assumptionStatus}
+              {t('收益与通胀假设：{assumptionStatus}', { assumptionStatus })}
             </>
           }
           onClick={() => edit("setup")}
         />
         <ListRow
           icon="calendar"
-          title="大额支出"
+          title={t('大额支出')}
           value={planCountText(eventCount)}
           onClick={() => nav.push("plan.events")}
         />
       </ListGroup>
-      <ListGroup title="看结果">
+      <ListGroup title={t('看结果')}>
         <ListRow
           icon="chart"
           tone="positive"
-          title="假设分析"
-          subtitle="压力测试、市场路径与敏感性"
+          title={t('假设分析')}
+          subtitle={t('压力测试、市场路径与敏感性')}
           onClick={() => nav.push("plan.whatif")}
         />
         <ListRow
           icon="clock"
           tone="positive"
-          title="盘点以来的变化"
+          title={t('盘点以来的变化')}
           subtitle={
             progressError
-              ? "读取失败，点此重新读取"
-              : (change ?? "还没有可比较的规划记录")
+              ? t('读取失败，点此重新读取')
+              : (change ?? t('还没有可比较的规划记录'))
           }
           onClick={
             progressError
@@ -258,11 +259,11 @@ export default function Goal() {
                 : undefined
           }
         />
-        <ListRow icon="doc" tone="positive" title="查看当前报告" onClick={() => setReport(true)} />
+        <ListRow icon="doc" tone="positive" title={t('查看当前报告')} onClick={() => setReport(true)} />
       </ListGroup>
       {sheet === "confirm" && (
-        <Sheet title="待你确认" onClose={() => setSheet(null)}>
-          <ul className="mp-confirm" aria-label="待确认事项">
+        <Sheet title={t('待你确认')} onClose={() => setSheet(null)}>
+          <ul className="mp-confirm" aria-label={t('待确认事项')}>
             {items.map((item) => (
               <li key={item.id}>
                 <span className="mp-confirm-text">
@@ -273,10 +274,10 @@ export default function Goal() {
                   <button
                     type="button"
                     className="mp-coverage-go"
-                    aria-label={`去处理：${item.title}`}
+                    aria-label={t('去处理：{title}', { title: item.title })}
                     onClick={() => run(item)}
                   >
-                    去处理
+                    {t('去处理')}
                   </button>
                 )}
               </li>
@@ -285,9 +286,9 @@ export default function Goal() {
         </Sheet>
       )}
       {sheet === "history" && (
-        <Sheet title="盘点以来的变化" onClose={() => setSheet(null)}>
+        <Sheet title={t('盘点以来的变化')} onClose={() => setSheet(null)}>
           <p className="mp-muted">
-            变化不只来自资产涨跌，条件和待核对项也会影响结果。
+            {t('变化不只来自资产涨跌，条件和待核对项也会影响结果。')}
           </p>
           {[...progress]
             .reverse()
@@ -297,16 +298,16 @@ export default function Goal() {
                 <strong>{e.date}</strong>
                 <p>
                   {goalProgressVerdict(e.point, forecastMoneyText)}
-                  {e.point.has_open_items ? "（当时有待确认事项）" : ""}
+                  {e.point.has_open_items ? t('（当时有待确认事项）') : ""}
                 </p>
                 <p className="mp-muted">
-                  可用资金{" "}
+                  {t('可用资金')}{" "}
                   {e.point.available_cents === null
-                    ? "未知"
+                    ? t('未知')
                     : moneyText(e.point.available_cents)}{" "}
-                  · 每月需存{" "}
+                  {t('· 每月需存')}{" "}
                   {e.point.required_monthly_cents === null
-                    ? "未知"
+                    ? t('未知')
                     : forecastMoneyText(e.point.required_monthly_cents)}
                 </p>
               </div>
@@ -314,7 +315,7 @@ export default function Goal() {
         </Sheet>
       )}
       <p className="mp-muted">
-        按填写的条件估算，不保证未来一定够用。收入、支出和假设变化后需重新核算。
+        {t('按填写的条件估算，不保证未来一定够用。收入、支出和假设变化后需重新核算。')}
       </p>
     </div>
   );

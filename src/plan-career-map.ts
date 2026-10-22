@@ -6,7 +6,7 @@ import { monthIndex } from './plan-events.ts';
 import { evaluateCareerScenario } from './plan-career.ts';
 import { careerMonth, validCareerMonth, validCareerAmount } from './plan-career-contract.ts';
 import type { CareerDraft, CareerEvaluation } from './plan-career-contract.ts';
-
+import { t } from './i18n.ts';
 export type Verdict = 'meets' | 'short' | 'blocked';
 /** goal: ends below the required assets; cash: a known payment fails inside the gap; prefix: a failure no later income can fix. */
 export type Reason = 'goal' | 'cash' | 'prefix';
@@ -84,7 +84,7 @@ export function minWindow(sources: PlanningSources, draft: CareerDraft): MinWind
     if (j.verdict === 'blocked') return bad('blocked', j.issues.join(' ') || '部分候选条件不完整，不能确定最早月份。');
     if (j.verdict === 'meets') return m === span.now ? { status: 'already_met' } : { status: 'found', months: m - span.now, close_month: careerMonth(m) };
   }
-  return { status: 'not_reachable', message: `已检查 ${careerMonth(span.now)} 至 ${careerMonth(hi)}，没有满足的变化月；未据此判断维持当前工作到目标月的结果。` };
+  return { status: 'not_reachable', message: t('已检查 {v1} 至 {v2}，没有满足的变化月；未据此判断维持当前工作到目标月的结果。', { v1: careerMonth(span.now), v2: careerMonth(hi) }) };
 }
 
 export type MaxGap =
@@ -95,15 +95,15 @@ export type MaxGap =
 /** Scan every gap length, including discontinuous feasible ranges; blocked is not a failed candidate. */
 export function maxGap(sources: PlanningSources, draft: CareerDraft): MaxGap {
   const span = careerSpan(sources);
-  if (!span) return { status: 'blocked', message: '请先确认通用资料、目标月份和资金截至日。' };
-  if (!validCareerMonth(draft.transition_month) || !validCareerAmount(draft.recovery.monthly_cents, true)) return { status: 'blocked', message: '请先填合法的变化月份和恢复后每月能攒多少。' };
+  if (!span) return { status: 'blocked', message: t('请先确认通用资料、目标月份和资金截至日。') };
+  if (!validCareerMonth(draft.transition_month) || !validCareerAmount(draft.recovery.monthly_cents, true)) return { status: 'blocked', message: t('请先填合法的变化月份和恢复后每月能攒多少。') };
   const close = monthIndex(draft.transition_month), cap = span.target - close - 1;
-  if (close < span.now || cap < 0 || cap > 1200) return { status: 'blocked', message: '变化月须在起点至目标之前，搜索范围不超过 1200 个月。' };
+  if (close < span.now || cap < 0 || cap > 1200) return { status: 'blocked', message: t('变化月须在起点至目标之前，搜索范围不超过 1200 个月。') };
   const ranges: { from: number; to: number }[] = [];
   let following: Reason | null = null, firstReason: Reason | null = null;
   for (let g = 0; g <= cap; g++) {
     const j = judge(run(sources, draft, { gap: g }));
-    if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '部分候选条件不完整，不能确定最长空窗。' };
+    if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || t('部分候选条件不完整，不能确定最长空窗。') };
     if (g === 0) firstReason = j.reason;
     const last = ranges.at(-1);
     if (j.verdict === 'meets') {
@@ -124,7 +124,7 @@ export type DelayTarget =
 /** Explicit monthly target comparison. No stored age or policy inputs are reconstructed. */
 export function delayTarget(sources: PlanningSources, draft: CareerDraft, maxMonths = 1200): DelayTarget {
   const r = profileOf(sources)?.retire, time = r?.simplified.time;
-  if (!r?.basic || !time?.target_month || !time.horizon_month || !Number.isInteger(maxMonths) || maxMonths < 0 || maxMonths > 1200) return { status: 'blocked', message: '请确认通用资料、目标与终点月份。' };
+  if (!r?.basic || !time?.target_month || !time.horizon_month || !Number.isInteger(maxMonths) || maxMonths < 0 || maxMonths > 1200) return { status: 'blocked', message: t('请确认通用资料、目标与终点月份。') };
   const original = monthIndex(time.target_month), last = Math.min(monthIndex(time.horizon_month) - 1, original + maxMonths);
   const at = (m: number) => {
     const copy = structuredClone(sources);
@@ -133,7 +133,7 @@ export function delayTarget(sources: PlanningSources, draft: CareerDraft, maxMon
   };
   for (let m = original; m <= last; m++) {
     const j = at(m);
-    if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '条件未齐全。' };
+    if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || t('条件未齐全。') };
     if (j.verdict === 'meets') return m === original ? { status: 'already_met' } : { status: 'found', month: careerMonth(m), delay_months: m - original };
   }
   return { status: 'not_found', up_to_month: careerMonth(last) };
@@ -148,8 +148,8 @@ export type Missing = { label: string; assumable: false };
 /** Unknown cash expenses stay unknown. A missing answer never implies zero. */
 export function missingItems(draft: CareerDraft, needRecovery: boolean): Missing[] {
   const out: Missing[] = [];
-  if (needRecovery && !validCareerAmount(draft.recovery.monthly_cents, true)) out.push({ label: '找到新工作后每月能攒多少', assumable: false });
-  if (draft.gap_months !== 0 && draft.gap.insurance.monthly_cents === null) out.push({ label: '空窗期间的现金费用及包含范围', assumable: false });
-  if (needRecovery && draft.recovery.insurance.monthly_cents === null) out.push({ label: '恢复后的现金费用及包含范围', assumable: false });
+  if (needRecovery && !validCareerAmount(draft.recovery.monthly_cents, true)) out.push({ label: t('找到新工作后每月能攒多少'), assumable: false });
+  if (draft.gap_months !== 0 && draft.gap.insurance.monthly_cents === null) out.push({ label: t('空窗期间的现金费用及包含范围'), assumable: false });
+  if (needRecovery && draft.recovery.insurance.monthly_cents === null) out.push({ label: t('恢复后的现金费用及包含范围'), assumable: false });
   return out;
 }

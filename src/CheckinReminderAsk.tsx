@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import { choiceStorage } from './start-choice';
 import { applyCheckinReminderInterval, checkinIntervals, checkinReminderAsked, checkinReminderAskVisible, checkinReminderSummary, markCheckinReminderAsked, type CheckinReminderStatus } from './checkin-reminder';
-
+import { t } from './i18n.ts';
 const askIntervals = checkinIntervals.filter(i => i.value !== '0');
 
 /** One-time ask after this library's first complete check-in, only while the
@@ -51,11 +51,11 @@ export function CheckinReminderAsk({ savedComplete, completeCount, wealthOn, tod
     } finally { setBusy(false); }
   }
   return <section className="ui-card ui-content checkin-reminder-ask" aria-labelledby="checkin-reminder-ask-heading">
-    <div className="data-heading"><div><p className="eyebrow">提醒</p><h2 id="checkin-reminder-ask-heading">要不要每月提醒你盘一次？</h2></div></div>
-    <p className="data-intro">每月盘一次最容易忘。开启后用系统通知提醒，只保存在这台电脑，不进入资料与备份。</p>
+    <div className="data-heading"><div><p className="eyebrow">{t('提醒')}</p><h2 id="checkin-reminder-ask-heading">{t('要不要每月提醒你盘一次？')}</h2></div></div>
+    <p className="data-intro">{t('每月盘一次最容易忘。开启后用系统通知提醒，只保存在这台电脑，不进入资料与备份。')}</p>
     <div className="checkin-reminder-ask-actions">
       {askIntervals.map(o => <button key={o.value} type="button" disabled={busy} onClick={() => void choose(Number(o.value))}>{o.label}</button>)}
-      <button type="button" disabled={busy} onClick={() => { markCheckinReminderAsked(choiceStorage()); setAsked(true); setAnswer('skip'); }}>先不用</button>
+      <button type="button" disabled={busy} onClick={() => { markCheckinReminderAsked(choiceStorage()); setAsked(true); setAnswer('skip'); }}>{t('先不用')}</button>
     </div>
     {error && <p className="error" role="alert">{error}</p>}
   </section>;

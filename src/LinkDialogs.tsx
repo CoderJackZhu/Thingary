@@ -16,7 +16,7 @@ import type { LinkCreateInput, LinkRepairPreview, LinkPurgePreview, PurgeAllPrev
 import type { PlanFields } from './recurring';
 import type { VirtualFields } from './virtual';
 import { virtualKindText } from './virtual';
-
+import { t as tr } from './i18n.ts';
 type Close = (saved: boolean) => void;
 
 /** 删除预览文案（设计 §7.1）：同一组影响，从任一入口读数一致。 */
@@ -67,17 +67,17 @@ export function LinkDeleteDialog({ side, id, name, partnerId, generation, onClos
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="link-delete-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="link-delete-title">移入最近删除？</h2>
+    <h2 id="link-delete-title">{tr('移入最近删除？')}</h2>
     <p className="trash-name">{name}</p>
-    {stuck ? <p className="notice" role="status">删除结果未确认，请先核对上一次请求，避免重复操作。</p>
+    {stuck ? <p className="notice" role="status">{tr('删除结果未确认，请先核对上一次请求，避免重复操作。')}</p>
       : error ? <p className="notice" role="alert">{error}</p>
-      : !preview ? <p role="status" className="muted">正在读取整组影响…</p>
-      : <>{previewText(preview).map((t, i) => <p className="muted" key={i}>{t}</p>)}<p className="muted small"><Info text="预览后新增付款、修改资料或引用变化时，旧确认不能继续使用；提交会重新核对全部影响。"/></p></>}
+      : !preview ? <p role="status" className="muted">{tr('正在读取整组影响…')}</p>
+      : <>{previewText(preview).map((t, i) => <p className="muted" key={i}>{t}</p>)}<p className="muted small"><Info text={tr('预览后新增付款、修改资料或引用变化时，旧确认不能继续使用；提交会重新核对全部影响。')}/></p></>}
     <div className="actions">
-      <CloseButton type="button" aria-label="关闭删除确认" disabled={busy} onClick={() => onClose(false)} />
-      {stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button>
-        : <><button type="button" disabled={busy} onClick={() => void load()}>重新读取影响</button>
-          <button type="button" className="primary danger" disabled={busy || !preview || !!preview.blockers.find(b => b.includes('规划核对引用'))} onClick={() => void confirm()}>{busy ? '正在处理…' : '整组移入最近删除'}</button></>}
+      <CloseButton type="button" aria-label={tr('关闭删除确认')} disabled={busy} onClick={() => onClose(false)} />
+      {stuck ? <button type="button" onClick={() => onClose(false)}>{tr('关闭，稍后核对')}</button>
+        : <><button type="button" disabled={busy} onClick={() => void load()}>{tr('重新读取影响')}</button>
+          <button type="button" className="primary danger" disabled={busy || !preview || !!preview.blockers.find(b => b.includes('规划核对引用'))} onClick={() => void confirm()}>{busy ? tr('正在处理…') : tr('整组移入最近删除')}</button></>}
     </div>
   </dialog>;
 }
@@ -109,19 +109,19 @@ export function LinkRestoreDialog({ groupId, name, onClose, onDone }: { groupId:
     } finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="link-restore-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="link-restore-title">恢复这组关联订阅？</h2>
+    <h2 id="link-restore-title">{tr('恢复这组关联订阅？')}</h2>
     <p className="trash-name">{name}</p>
-    {stuck ? <p className="notice" role="status">恢复结果未确认，请先核对上一次请求。</p>
+    {stuck ? <p className="notice" role="status">{tr('恢复结果未确认，请先核对上一次请求。')}</p>
       : error ? <p className="notice" role="alert">{error}</p>
-      : !preview ? <p role="status" className="muted">正在读取恢复影响…</p>
-      : <><p className="muted">将一起恢复「{preview.asset_name}」服务档案与付款计划「{preview.plan_name}」，原 ID 与历史付款保持不变。</p>
-        {preview.payments_hidden > 0 && <p className="muted">{preview.payments_hidden} 笔此前有效的付款会重新参与汇总一次。</p>}
-        {preview.payments_stay_deleted > 0 && <p className="muted small">另有 {preview.payments_stay_deleted} 笔删除更早的付款保持删除，不会被这组恢复带回来。</p>}
-        {preview.blockers.map((b, i) => <p className="muted" key={i}>注意：{b}</p>)}</>}
+      : !preview ? <p role="status" className="muted">{tr('正在读取恢复影响…')}</p>
+      : <><p className="muted">{tr('将一起恢复「{asset_name}」服务档案与付款计划「{plan_name}」，原 ID 与历史付款保持不变。', { asset_name: preview.asset_name, plan_name: preview.plan_name })}</p>
+        {preview.payments_hidden > 0 && <p className="muted">{tr('{payments_hidden} 笔此前有效的付款会重新参与汇总一次。', { payments_hidden: preview.payments_hidden })}</p>}
+        {preview.payments_stay_deleted > 0 && <p className="muted small">{tr('另有 {payments_stay_deleted} 笔删除更早的付款保持删除，不会被这组恢复带回来。', { payments_stay_deleted: preview.payments_stay_deleted })}</p>}
+        {preview.blockers.map((b, i) => <p className="muted" key={i}>{tr('注意：{b}', { b })}</p>)}</>}
     <div className="actions">
-      <CloseButton type="button" aria-label="关闭恢复确认" disabled={busy} onClick={() => onClose(false)} />
-      {stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button>
-        : <button type="button" className="primary" disabled={busy || !preview || preview.blockers.length > 0} onClick={() => void confirm()}>{busy ? '正在处理…' : '整组恢复'}</button>}
+      <CloseButton type="button" aria-label={tr('关闭恢复确认')} disabled={busy} onClick={() => onClose(false)} />
+      {stuck ? <button type="button" onClick={() => onClose(false)}>{tr('关闭，稍后核对')}</button>
+        : <button type="button" className="primary" disabled={busy || !preview || preview.blockers.length > 0} onClick={() => void confirm()}>{busy ? tr('正在处理…') : tr('整组恢复')}</button>}
     </div>
   </dialog>;
 }
@@ -145,19 +145,19 @@ export function LinkReviewDialog({ assetId, planId, assetName, assetRevision, pl
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="link-review-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="link-review-title">核对这项订阅的停用记录</h2>
+    <h2 id="link-review-title">{tr('核对这项订阅的停用记录')}</h2>
     <p className="trash-name">{assetName}</p>
-    <p className="muted">档案停用{stoppedOn ? `于 ${stoppedOn}` : ''}，但关联的付款计划仍在进行。请明确处理：确认已结束会同时设置计划最后使用日并关闭续费；撤回误记停用则恢复按原排期继续。</p>
-    {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <>
-      <FormRow label="确认已结束" hint="同一事务设置计划最终结束日、关闭自动续费，并清除停用标记">
-        <div className="form-inline"><DateInput yearIntent="past" label="最后使用日" value={lastUsed} max={today} disabled={busy} onChange={v => v && setLastUsed(v)} /><button type="button" disabled={busy} onClick={() => void run('confirm_ended')}>确认已结束</button></div>
+    <p className="muted">{tr('档案停用')}{stoppedOn ? tr('于 {stoppedOn}', { stoppedOn }) : ''}{tr('，但关联的付款计划仍在进行。请明确处理：确认已结束会同时设置计划最后使用日并关闭续费；撤回误记停用则恢复按原排期继续。')}</p>
+    {stuck ? <p className="notice" role="status">{tr('保存结果未确认，请先核对上一次请求。')}</p> : <>
+      <FormRow label={tr('确认已结束')} hint={tr('同一事务设置计划最终结束日、关闭自动续费，并清除停用标记')}>
+        <div className="form-inline"><DateInput yearIntent="past" label={tr('最后使用日')} value={lastUsed} max={today} disabled={busy} onChange={v => v && setLastUsed(v)} /><button type="button" disabled={busy} onClick={() => void run('confirm_ended')}>{tr('确认已结束')}</button></div>
       </FormRow>
-      <FormRow label="撤回误记停用" hint="只清除停用标记；计划期限、暂停与自动续费值保持不变">
-        <button type="button" disabled={busy} onClick={() => void run('withdraw_stop')}>撤回误记停用</button>
+      <FormRow label={tr('撤回误记停用')} hint={tr('只清除停用标记；计划期限、暂停与自动续费值保持不变')}>
+        <button type="button" disabled={busy} onClick={() => void run('withdraw_stop')}>{tr('撤回误记停用')}</button>
       </FormRow>
     </>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>暂不处理</button></div>
+    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>{tr('暂不处理')}</button></div>
   </dialog>;
 }
 
@@ -181,13 +181,13 @@ export function EndSubscriptionDialog({ assetId, planId, assetName, assetRevisio
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="end-subscription-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="end-subscription-title">取消「{assetName}」的后续续费</h2>
-    <p className="muted">先在服务方取消自动扣费，再在这里确认最后使用日：到这一天为止仍在服务期，次日显示已结束。历史付款与估算依据保留，不再安排后续续费。这只维护记录，不代表已取消平台扣款。</p>
-    {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <FormRow label="最后使用日" hint={suggestion ? `建议为服务期末 ${suggestion}；可修改` : '不能早于服务开始'}>
-      <DateInput yearIntent="past" label="最后使用日" value={lastUsed} disabled={busy} onChange={v => v && setLastUsed(v)} />
+    <h2 id="end-subscription-title">{tr('取消「{assetName}」的后续续费', { assetName })}</h2>
+    <p className="muted">{tr('先在服务方取消自动扣费，再在这里确认最后使用日：到这一天为止仍在服务期，次日显示已结束。历史付款与估算依据保留，不再安排后续续费。这只维护记录，不代表已取消平台扣款。')}</p>
+    {stuck ? <p className="notice" role="status">{tr('保存结果未确认，请先核对上一次请求。')}</p> : <FormRow label={tr('最后使用日')} hint={suggestion ? tr('建议为服务期末 {suggestion}；可修改', { suggestion }) : tr('不能早于服务开始')}>
+      <DateInput yearIntent="past" label={tr('最后使用日')} value={lastUsed} disabled={busy} onChange={v => v && setLastUsed(v)} />
     </FormRow>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>取消</button><button type="button" className="primary danger" disabled={busy || stuck} onClick={() => void run()}>{busy ? '保存中…' : '保存取消续费'}</button></div>
+    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>{tr('取消')}</button><button type="button" className="primary danger" disabled={busy || stuck} onClick={() => void run()}>{busy ? tr('保存中…') : tr('保存取消续费')}</button></div>
   </dialog>;
 }
 
@@ -213,18 +213,18 @@ export function UnifyNameDialog({ assetId, planId, assetName, planName, assetRev
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="unify-name-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="unify-name-title">统一显示名称</h2>
-    <p className="muted">当前两页名称不同：服务名称「{assetName}」、付款计划名称「{planName}」。统一后同一次保存更新双方；不改价格等其他资料。</p>
-    {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <>
-      <FormRow label="采用哪个名称"><div className="form-inline">
-        <label><input type="radio" name="unify-name" checked={mode === 'asset'} onChange={() => setMode('asset')} disabled={busy} /> 服务名称「{assetName}」</label>
-        <label><input type="radio" name="unify-name" checked={mode === 'plan'} onChange={() => setMode('plan')} disabled={busy} /> 付款计划名称「{planName}」</label>
-        <label><input type="radio" name="unify-name" checked={mode === 'new'} onChange={() => setMode('new')} disabled={busy} /> 新名称</label>
+    <h2 id="unify-name-title">{tr('统一显示名称')}</h2>
+    <p className="muted">{tr('当前两页名称不同：服务名称「{assetName}」、付款计划名称「{planName}」。统一后同一次保存更新双方；不改价格等其他资料。', { assetName, planName })}</p>
+    {stuck ? <p className="notice" role="status">{tr('保存结果未确认，请先核对上一次请求。')}</p> : <>
+      <FormRow label={tr('采用哪个名称')}><div className="form-inline">
+        <label><input type="radio" name="unify-name" checked={mode === 'asset'} onChange={() => setMode('asset')} disabled={busy} /> {tr('服务名称「{assetName}」', { assetName })}</label>
+        <label><input type="radio" name="unify-name" checked={mode === 'plan'} onChange={() => setMode('plan')} disabled={busy} /> {tr('付款计划名称「{planName}」', { planName })}</label>
+        <label><input type="radio" name="unify-name" checked={mode === 'new'} onChange={() => setMode('new')} disabled={busy} /> {tr('新名称')}</label>
       </div></FormRow>
-      {mode === 'new' && <FormRow label="新名称"><input aria-label="统一后的名称" maxLength={80} value={custom} disabled={busy} onChange={e => setCustom(e.target.value)} /></FormRow>}
+      {mode === 'new' && <FormRow label={tr('新名称')}><input aria-label={tr('统一后的名称')} maxLength={80} value={custom} disabled={busy} onChange={e => setCustom(e.target.value)} /></FormRow>}
     </>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>取消</button><button type="button" className="primary" disabled={busy || stuck} onClick={() => void run()}>{busy ? '保存中…' : '统一名称'}</button></div>
+    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>{tr('取消')}</button><button type="button" className="primary" disabled={busy || stuck} onClick={() => void run()}>{busy ? tr('保存中…') : tr('统一名称')}</button></div>
   </dialog>;
 }
 
@@ -252,13 +252,13 @@ export function LinkCreateDialog({ planId, planName, planRevision, generation, o
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="link-create-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void run(); }}>
-    <header><div><p className="eyebrow">财富 · 周期费用</p><h2 id="link-create-title">建立关联服务档案</h2><p className="muted">把这项计划与虚拟资产里的服务档案关联：只新增档案，已有付款与排期保持原样。</p></div><CloseButton type="button" aria-label="关闭建立关联表单" disabled={busy} onClick={() => onClose(false)} /><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '建立档案并关联'}</button>}</div></header>
+    <header><div><p className="eyebrow">{tr('财富 · 周期费用')}</p><h2 id="link-create-title">{tr('建立关联服务档案')}</h2><p className="muted">{tr('把这项计划与虚拟资产里的服务档案关联：只新增档案，已有付款与排期保持原样。')}</p></div><CloseButton type="button" aria-label={tr('关闭建立关联表单')} disabled={busy} onClick={() => onClose(false)} /><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>{tr('关闭，稍后核对')}</button> : <button className="primary" disabled={busy}>{busy ? tr('保存中…') : tr('建立档案并关联')}</button>}</div></header>
     <section className="form-block">
-      <FormRow label="服务名称" hint="虚拟资产里显示的名称"><input aria-label="服务名称" maxLength={80} value={name} disabled={busy} onChange={e => setName(e.target.value)} /></FormRow>
-      <FormRow label="类型" hint="按服务性质选择；不影响计费方式"><select aria-label="类型" value={kind} disabled={busy} onChange={e => setKind(e.target.value as typeof kind)}>{(['subscription', 'domain', 'general'] as const).map(k => <option key={k} value={k}>{virtualKindText(k)}</option>)}</select></FormRow>
-      <FormRow label="提供方" hint="可留空"><input aria-label="提供方" maxLength={80} value={provider} disabled={busy} onChange={e => setProvider(e.target.value)} /></FormRow>
-      <FormRow label="链接" hint="购买或管理页面，可留空"><input aria-label="链接" maxLength={2000} value={url} disabled={busy} onChange={e => setUrl(e.target.value)} /></FormRow>
-      <p className="muted small">建立后两页共用计费信息、付款记录与整组删除／恢复；计划分类保持「订阅」，不再改为其他类别。</p>
+      <FormRow label={tr('服务名称')} hint={tr('虚拟资产里显示的名称')}><input aria-label={tr('服务名称')} maxLength={80} value={name} disabled={busy} onChange={e => setName(e.target.value)} /></FormRow>
+      <FormRow label={tr('类型')} hint={tr('按服务性质选择；不影响计费方式')}><select aria-label={tr('类型')} value={kind} disabled={busy} onChange={e => setKind(e.target.value as typeof kind)}>{(['subscription', 'domain', 'general'] as const).map(k => <option key={k} value={k}>{virtualKindText(k)}</option>)}</select></FormRow>
+      <FormRow label={tr('提供方')} hint={tr('可留空')}><input aria-label={tr('提供方')} maxLength={80} value={provider} disabled={busy} onChange={e => setProvider(e.target.value)} /></FormRow>
+      <FormRow label={tr('链接')} hint={tr('购买或管理页面，可留空')}><input aria-label={tr('链接')} maxLength={2000} value={url} disabled={busy} onChange={e => setUrl(e.target.value)} /></FormRow>
+      <p className="muted small">{tr('建立后两页共用计费信息、付款记录与整组删除／恢复；计划分类保持「订阅」，不再改为其他类别。')}</p>
     </section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;
@@ -294,14 +294,14 @@ export function LinkRepairDialog({ side, id, onClose, onDone }: { side: 'virtual
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="link-repair-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}>
-    <h2 id="link-repair-title">核对历史关联记录</h2>
-    <p className="muted">按原有 ID 处理服务档案与付款计划，不创建或复制付款。</p>
-    {candidates.length > 1 && <FormRow label="选择历史档案" hint="多个已删档案曾引用这项计划，请明确选择一个"><select aria-label="选择历史档案" value={partner ?? ''} disabled={busy || stuck} onChange={e => { const choice = e.target.value || null; setPartner(choice); void load(choice); }}><option value="">请选择…</option>{candidates.map(c => <option key={c.id} value={c.id}>{c.name} · {c.deleted_at.slice(0, 10)} · {c.id}</option>)}</select></FormRow>}
-    <Segments label="历史关联处理方式" value={action} disabled={busy || stuck} options={[{ value: 'restore_pair', label: '恢复关联双方' }, { value: 'register_group', label: '归为删除组' }]} onChange={v => { const mode = v as typeof action; setAction(mode); void load(partner, mode); }} />
-    {preview && <><p>服务档案「{preview.asset_name}」：{preview.asset_deleted ? '已删除' : '有效'}；付款计划「{preview.plan_name}」：{preview.plan_deleted ? '已删除' : '有效'}。</p><p className="muted small">档案 ID：{preview.asset_id}<br/>计划 ID：{preview.plan_id}</p><p className="muted">{action === 'restore_pair' ? '恢复后双方均有效，原有付款重新参与汇总一次。' : '将剩余有效对象一并移入最近删除，登记为可整组恢复的删除组。'}已记录付款 {preview.paid_count} 笔（{money(preview.paid_cents)}），本期不付 {preview.skipped_count} 笔；此前单独删除的 {preview.payments_stay_deleted} 笔付款保持删除。</p>{preview.blockers.map(b => <p className="notice" key={b}>{b}</p>)}</>}
+    <h2 id="link-repair-title">{tr('核对历史关联记录')}</h2>
+    <p className="muted">{tr('按原有 ID 处理服务档案与付款计划，不创建或复制付款。')}</p>
+    {candidates.length > 1 && <FormRow label={tr('选择历史档案')} hint={tr('多个已删档案曾引用这项计划，请明确选择一个')}><select aria-label={tr('选择历史档案')} value={partner ?? ''} disabled={busy || stuck} onChange={e => { const choice = e.target.value || null; setPartner(choice); void load(choice); }}><option value="">{tr('请选择…')}</option>{candidates.map(c => <option key={c.id} value={c.id}>{c.name} · {c.deleted_at.slice(0, 10)} · {c.id}</option>)}</select></FormRow>}
+    <Segments label={tr('历史关联处理方式')} value={action} disabled={busy || stuck} options={[{ value: 'restore_pair', label: tr('恢复关联双方') }, { value: 'register_group', label: tr('归为删除组') }]} onChange={v => { const mode = v as typeof action; setAction(mode); void load(partner, mode); }} />
+    {preview && <><p>{tr('服务档案「{asset_name}」：', { asset_name: preview.asset_name })}{preview.asset_deleted ? tr('已删除') : tr('有效')}{tr('；付款计划「{plan_name}」：', { plan_name: preview.plan_name })}{preview.plan_deleted ? tr('已删除') : tr('有效')}。</p><p className="muted small">{tr('档案 ID：{asset_id}', { asset_id: preview.asset_id })}<br/>{tr('计划 ID：{plan_id}', { plan_id: preview.plan_id })}</p><p className="muted">{action === 'restore_pair' ? tr('恢复后双方均有效，原有付款重新参与汇总一次。') : tr('将剩余有效对象一并移入最近删除，登记为可整组恢复的删除组。')}{tr('已记录付款 {paid_count} 笔（{v2}），本期不付 {skipped_count} 笔；此前单独删除的 {payments_stay_deleted} 笔付款保持删除。', { paid_count: preview.paid_count, v2: money(preview.paid_cents), skipped_count: preview.skipped_count, payments_stay_deleted: preview.payments_stay_deleted })}</p>{preview.blockers.map(b => <p className="notice" key={b}>{b}</p>)}</>}
     {notice && <p className="notice" role="alert">{notice}</p>}
-    {busy && <p className="muted" role="status">正在读取或处理…</p>}
-    <div className="actions"><button disabled={busy} onClick={() => onClose(false)}>关闭</button><button disabled={busy || stuck} onClick={() => void load()}>重新读取影响</button><button className="primary" disabled={busy || stuck || !preview || !!preview.blockers.length} onClick={() => void confirm()}>{action === 'restore_pair' ? '确认恢复关联双方' : '确认归为删除组'}</button></div>
+    {busy && <p className="muted" role="status">{tr('正在读取或处理…')}</p>}
+    <div className="actions"><button disabled={busy} onClick={() => onClose(false)}>{tr('关闭')}</button><button disabled={busy || stuck} onClick={() => void load()}>{tr('重新读取影响')}</button><button className="primary" disabled={busy || stuck || !preview || !!preview.blockers.length} onClick={() => void confirm()}>{action === 'restore_pair' ? tr('确认恢复关联双方') : tr('确认归为删除组')}</button></div>
   </dialog>;
 }
 
@@ -346,23 +346,23 @@ export function SharedReminderRow({ assetId, assetRevision, reminder, nextDue, p
   async function persist(nextOn: boolean, day: string, memo: string, repeating = repeat, advance = lead) {
     setBusy(true); onBusyChange?.(true);
     try {
-      const warning = await saveReminderWithPermission(nextOn && moduleEnabled, () => invoke('notification_permission'), () => submit({ command: 'virtual_reminder_save', input: { request_id: crypto.randomUUID(), generation, asset_id: assetId, expected_revision: assetRevision, repeat_every_period: repeating, lead_days: advance, reminder: nextOn ? { date: day, notes: memo } : null }, label: '备款提醒' }));
+      const warning = await saveReminderWithPermission(nextOn && moduleEnabled, () => invoke('notification_permission'), () => submit({ command: 'virtual_reminder_save', input: { request_id: crypto.randomUUID(), generation, asset_id: assetId, expected_revision: assetRevision, repeat_every_period: repeating, lead_days: advance, reminder: nextOn ? { date: day, notes: memo } : null }, label: tr('备款提醒') }));
       onSaved(warning);
     } catch (e) { if (e instanceof Unresolved) onStuck(); else { setOn(!!reminder); setRepeat(reminder ? !!reminder.repeat_every_period : hasServiceStart); setLead(reminder?.lead_days ?? 3); } onNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); onBusyChange?.(false); }
   }
   const frozen = disabled || busy;
-  return <div className="subscription-reminder"><FormRow label="备款提醒" hint={repeat ? '每期提前提醒；确认已付后撤销该期，继续提醒下一期' : '指定日期提醒，仅本次'}>
-    <div className="form-inline"><Switch label="备款提醒" value={on} disabled={frozen} onChange={v => { setOn(v); const day = date || singleSuggestion; setDate(day); void persist(v, day, notes); }} /></div>
-    {hasServiceStart && <Segments label="备款提醒方式" value={repeat ? 'period' : 'once'} disabled={frozen} options={[{ value: 'period', label: '每期提醒' }, { value: 'once', label: '仅本次' }]} onChange={v => { const r = v === 'period'; setRepeat(r); if (on) void persist(true, date || singleSuggestion, notes, r); }} />}
+  return <div className="subscription-reminder"><FormRow label={tr('备款提醒')} hint={repeat ? tr('每期提前提醒；确认已付后撤销该期，继续提醒下一期') : tr('指定日期提醒，仅本次')}>
+    <div className="form-inline"><Switch label={tr('备款提醒')} value={on} disabled={frozen} onChange={v => { setOn(v); const day = date || singleSuggestion; setDate(day); void persist(v, day, notes); }} /></div>
+    {hasServiceStart && <Segments label={tr('备款提醒方式')} value={repeat ? 'period' : 'once'} disabled={frozen} options={[{ value: 'period', label: tr('每期提醒') }, { value: 'once', label: tr('仅本次') }]} onChange={v => { const r = v === 'period'; setRepeat(r); if (on) void persist(true, date || singleSuggestion, notes, r); }} />}
     {on && <div className="form-inline">{repeat
-      ? <label>扣款前 <select aria-label="提前几天提醒" value={lead} disabled={frozen} onChange={e => { const n = Number(e.target.value); setLead(n); void persist(true, date || singleSuggestion, notes, true, n); }}>{Array.from({ length: 31 }, (_, n) => <option key={n} value={n}>{n} 天</option>)}</select>提醒</label>
-      : <DateInput label="提醒日期" value={date} disabled={frozen} onChange={setDate} />}
-      <input aria-label="提醒备注" placeholder="例如：充值付款账户" maxLength={1000} value={notes} disabled={frozen} onChange={e => setNotes(e.target.value)} /><button type="button" disabled={frozen || (!repeat && !date)} onClick={() => void persist(true, date || singleSuggestion, notes)}>更新提醒</button></div>}
-    {!moduleEnabled && <p className="muted small">虚拟资产模块已关闭，提醒暂停；可维护设置，重新开启模块后生效。</p>}<small className="muted">{reminder ? reminder.repeat_every_period
-      ? `每期扣款前 ${reminder.lead_days ?? 3} 天提醒；下次 ${reminder.date}。确认真实扣款后转到下一期。`
-      : `已安排 ${reminder.date}${reminder.notes ? ' · ' + reminder.notes : ''}（仅本次）`
-      : '默认关闭；开启后按系统通知权限执行，关闭、停用或结束会撤销待通知。'}</small>
+      ? <label>{tr('扣款前')} <select aria-label={tr('提前几天提醒')} value={lead} disabled={frozen} onChange={e => { const n = Number(e.target.value); setLead(n); void persist(true, date || singleSuggestion, notes, true, n); }}>{Array.from({ length: 31 }, (_, n) => <option key={n} value={n}>{tr('{n} 天', { n })}</option>)}</select>{tr('提醒')}</label>
+      : <DateInput label={tr('提醒日期')} value={date} disabled={frozen} onChange={setDate} />}
+      <input aria-label={tr('提醒备注')} placeholder={tr('例如：充值付款账户')} maxLength={1000} value={notes} disabled={frozen} onChange={e => setNotes(e.target.value)} /><button type="button" disabled={frozen || (!repeat && !date)} onClick={() => void persist(true, date || singleSuggestion, notes)}>{tr('更新提醒')}</button></div>}
+    {!moduleEnabled && <p className="muted small">{tr('虚拟资产模块已关闭，提醒暂停；可维护设置，重新开启模块后生效。')}</p>}<small className="muted">{reminder ? reminder.repeat_every_period
+      ? tr('每期扣款前 {v1} 天提醒；下次 {date}。确认真实扣款后转到下一期。', { v1: reminder.lead_days ?? 3, date: reminder.date })
+      : tr('已安排 {date}{v2}（仅本次）', { date: reminder.date, v2: reminder.notes ? ' · ' + reminder.notes : '' })
+      : tr('默认关闭；开启后按系统通知权限执行，关闭、停用或结束会撤销待通知。')}</small>
   </FormRow></div>;
 }
 
@@ -395,23 +395,23 @@ export function LinkPurgeDialog({ groupId, name, onClose, onDone }: { groupId: s
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="link-purge-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="link-purge-title">永久清除这组关联订阅？</h2>
+    <h2 id="link-purge-title">{tr('永久清除这组关联订阅？')}</h2>
     <p className="trash-name">{name}</p>
     {error ? <p className="notice" role="alert">{error}</p>
-      : !preview ? <p role="status" className="muted">正在读取完整清除影响…</p>
-      : <><p className="muted">将永久移除「{preview.asset_name}」服务档案、付款计划「{preview.plan_name}」及以下全部事实，删除后无法找回：</p>
+      : !preview ? <p role="status" className="muted">{tr('正在读取完整清除影响…')}</p>
+      : <><p className="muted">{tr('将永久移除「{asset_name}」服务档案、付款计划「{plan_name}」及以下全部事实，删除后无法找回：', { asset_name: preview.asset_name, plan_name: preview.plan_name })}</p>
         <ul className="link-purge-facts">
-          <li>付款记录 {preview.payments_total} 笔（含此前单独删除的 {preview.payments_deleted} 笔）</li>
-          <li>价格分段 {preview.rate_segments} 段、生效规则 {preview.rule_segments} 段、特殊到期 {preview.period_ends} 项</li>
-          <li>备款提醒 {preview.reminders} 条</li>
+          <li>{tr('付款记录 {payments_total} 笔（含此前单独删除的 {payments_deleted} 笔）', { payments_total: preview.payments_total, payments_deleted: preview.payments_deleted })}</li>
+          <li>{tr('价格分段 {rate_segments} 段、生效规则 {rule_segments} 段、特殊到期 {period_ends} 项', { rate_segments: preview.rate_segments, rule_segments: preview.rule_segments, period_ends: preview.period_ends })}</li>
+          <li>{tr('备款提醒 {reminders} 条', { reminders: preview.reminders })}</li>
         </ul>
-        {preview.external_refs.length > 0 && <p className="notice" role="note">还有 {preview.external_refs.length} 个组外档案按 ID 引用这项计划；请先处理那些旧档案，再永久清除这组。</p>}
-        {preview.blockers.filter(b => !b.includes('组外档案')).map((b, i) => <p className="notice" role="note" key={i}>注意：{b}</p>)}
-        <p className="muted small">确认后提交会重新核对全部影响；预览后有付款或引用变化时需要重新读取。</p></>}
+        {preview.external_refs.length > 0 && <p className="notice" role="note">{tr('还有 {length} 个组外档案按 ID 引用这项计划；请先处理那些旧档案，再永久清除这组。', { length: preview.external_refs.length })}</p>}
+        {preview.blockers.filter(b => !b.includes('组外档案')).map((b, i) => <p className="notice" role="note" key={i}>{tr('注意：{b}', { b })}</p>)}
+        <p className="muted small">{tr('确认后提交会重新核对全部影响；预览后有付款或引用变化时需要重新读取。')}</p></>}
     <div className="actions">
-      <CloseButton type="button" aria-label="关闭清除确认" disabled={busy} onClick={() => onClose(false)} />
-      <button type="button" disabled={busy || stuck} onClick={() => void load()}>重新读取影响</button>
-      <button type="button" className="primary danger" disabled={busy || stuck || !preview || preview.blockers.length > 0 || preview.external_refs.length > 0} onClick={() => void confirm()}>{busy ? '正在处理…' : '确认永久清除'}</button>
+      <CloseButton type="button" aria-label={tr('关闭清除确认')} disabled={busy} onClick={() => onClose(false)} />
+      <button type="button" disabled={busy || stuck} onClick={() => void load()}>{tr('重新读取影响')}</button>
+      <button type="button" className="primary danger" disabled={busy || stuck || !preview || preview.blockers.length > 0 || preview.external_refs.length > 0} onClick={() => void confirm()}>{busy ? tr('正在处理…') : tr('确认永久清除')}</button>
     </div>
   </dialog>;
 }
@@ -428,10 +428,10 @@ export function PurgeAllDialog({ onClose, onDone }: { onClose: Close; onDone: (m
     if (!preview || busy || stuck) return;
     setBusy(true);
     try {
-      const result = await submit<Purged>({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: preview.generation, kind: null, id: '', preview: preview.preview }, label: '清空最近删除' });
+      const result = await submit<Purged>({ command: 'purge_trash', input: { request_id: crypto.randomUUID(), generation: preview.generation, kind: null, id: '', preview: preview.preview }, label: tr('清空最近删除') });
       onDone(`已永久清除 ${result.removed} 项${result.kept ? `，保留 ${result.kept} 项。${result.kept_reasons.join('；')}` : '。'}`); onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
-  return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="purge-all-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><h2 id="purge-all-title">清空最近删除？</h2><p className="muted">永久清除后无法找回；受引用保护的关联组会完整保留。</p>{preview && <><p>关联订阅 {preview.groups.length} 组，其他记录 {preview.other_count} 项（组成员已去重）。</p>{preview.groups.map(g => <section className="form-block" key={g.group_id}><h3>{g.asset_name} · {g.plan_name}</h3><p className="muted">全部付款 {g.payments_total} 笔（含已删 {g.payments_deleted} 笔）；价格 {g.rate_segments} 段、规则 {g.rule_segments} 段、特殊到期 {g.period_ends} 项、提醒 {g.reminders} 条。</p>{g.blockers.length > 0 && <p className="notice">整组保留：{g.blockers.join('；')}</p>}</section>)}</>}{notice && <p className="notice" role="alert">{notice}</p>}{busy && <p role="status">正在读取或处理…</p>}<div className="actions"><button disabled={busy} onClick={() => onClose(false)}>关闭</button><button disabled={busy || stuck} onClick={() => void load()}>重新读取影响</button><button className="primary danger" disabled={busy || stuck || !preview} onClick={() => void confirm()}>确认永久清空</button></div></dialog>;
+  return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="purge-all-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><h2 id="purge-all-title">{tr('清空最近删除？')}</h2><p className="muted">{tr('永久清除后无法找回；受引用保护的关联组会完整保留。')}</p>{preview && <><p>{tr('关联订阅 {length} 组，其他记录 {other_count} 项（组成员已去重）。', { length: preview.groups.length, other_count: preview.other_count })}</p>{preview.groups.map(g => <section className="form-block" key={g.group_id}><h3>{g.asset_name} · {g.plan_name}</h3><p className="muted">{tr('全部付款 {payments_total} 笔（含已删 {payments_deleted} 笔）；价格 {rate_segments} 段、规则 {rule_segments} 段、特殊到期 {period_ends} 项、提醒 {reminders} 条。', { payments_total: g.payments_total, payments_deleted: g.payments_deleted, rate_segments: g.rate_segments, rule_segments: g.rule_segments, period_ends: g.period_ends, reminders: g.reminders })}</p>{g.blockers.length > 0 && <p className="notice">{tr('整组保留：{v1}', { v1: g.blockers.join('；') })}</p>}</section>)}</>}{notice && <p className="notice" role="alert">{notice}</p>}{busy && <p role="status">{tr('正在读取或处理…')}</p>}<div className="actions"><button disabled={busy} onClick={() => onClose(false)}>{tr('关闭')}</button><button disabled={busy || stuck} onClick={() => void load()}>{tr('重新读取影响')}</button><button className="primary danger" disabled={busy || stuck || !preview} onClick={() => void confirm()}>{tr('确认永久清空')}</button></div></dialog>;
 }

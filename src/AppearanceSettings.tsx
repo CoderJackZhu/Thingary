@@ -1,6 +1,7 @@
 import { shiftModKey } from './undo-shortcut';
 import type { CSSProperties } from 'react';
 import { styles, type Style } from './appearance';
+import { t } from './i18n.ts';
 // 主题卡片里的小示意：侧栏、标题条、一张卡片和一个强调色块，颜色取自该主题浅色版。
 const swatch: Record<Style, { bg: string; side: string; ink: string; accent: string; card: CSSProperties }> = {
   native: { bg: '#fff', side: '#f4f4f6', ink: '#1d1d1f', accent: '#0a6cff', card: { border: '1px solid #e3e3e8' } },
@@ -9,8 +10,8 @@ const swatch: Record<Style, { bg: string; side: string; ink: string; accent: str
 };
 export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: (s: Style) => void }) {
   return <section className="ui-card ui-content module-settings appearance-settings" aria-labelledby="appearance-heading">
-    <div className="data-heading"><div><p className="eyebrow">界面</p><h2 id="appearance-heading">外观</h2></div></div>
-    <div className="theme-cards" role="radiogroup" aria-label="主题">{styles.map((s, index) => { const c = swatch[s.value]; return <button key={s.value} type="button" role="radio" aria-checked={style === s.value} tabIndex={style === s.value ? 0 : -1} className="theme-card" onClick={() => onStyle(s.value)} onKeyDown={event => {
+    <div className="data-heading"><div><p className="eyebrow">{t('界面')}</p><h2 id="appearance-heading">{t('外观')}</h2></div></div>
+    <div className="theme-cards" role="radiogroup" aria-label={t('主题')}>{styles.map((s, index) => { const c = swatch[s.value]; return <button key={s.value} type="button" role="radio" aria-checked={style === s.value} tabIndex={style === s.value ? 0 : -1} className="theme-card" onClick={() => onStyle(s.value)} onKeyDown={event => {
       const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
       if (!direction && event.key !== 'Home' && event.key !== 'End') return;
       event.preventDefault();
@@ -24,6 +25,6 @@ export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: 
       </span>
       <span className="theme-name"><strong>{s.label}</strong><small>{s.note}</small></span>
     </button>; })}</div>
-    <p className="data-intro">浅色、深色或跟随系统请在侧栏底部切换，与上面的主题风格分开保存；{shiftModKey()}D 在浅色与深色间切换。</p>
+    <p className="data-intro">{t('浅色、深色或跟随系统请在侧栏底部切换，与上面的主题风格分开保存；{v1}D 在浅色与深色间切换。', { v1: shiftModKey() })}</p>
   </section>;
 }

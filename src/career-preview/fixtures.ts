@@ -4,7 +4,7 @@ import type { CareerDraft } from '../plan-career-contract.ts';
 import { defaultRetire } from '../plan.ts';
 import { emptyCore } from '../plan-core.ts';
 import { unknownBasicUpdate } from '../plan-basic-fixtures.ts';
-
+import { t } from '../i18n.ts';
 export function careerSources(): PlanningSources {
   const basic: BasicInputs = structuredClone(unknownBasicUpdate.fields.basic);
   basic.start = { kind: 'simulation', id: 'fictional-career', available_cents: '60000000', date: '2026-09-30', notes: '完全虚构的职业变化用例' };
@@ -18,7 +18,7 @@ export function careerSources(): PlanningSources {
   return { generation: 'fictional-career', write_version: 1, today: '2026-10-01', modules: { planning: true, wealth: false },
     profile: { status: 'ready', value: { generation: 'fictional-career', saved: { revision: 1, updated_at: '2026-10-01', profile } } },
     snapshot: { status: 'ready', value: null }, accounts: { status: 'ready', value: [] }, incomes: { status: 'ready', value: [] },
-    review: { status: 'error', value: { code: 'UNAVAILABLE', message: '虚构样例不读取历史资料' } } };
+    review: { status: 'error', value: { code: 'UNAVAILABLE', message: t('虚构样例不读取历史资料') } } };
 }
 export function careerDraft(): CareerDraft {
   return { transition_month: '2029-10', gap_months: 12, check_until_month: null,

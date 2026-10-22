@@ -3,7 +3,7 @@
 // 协议金额始终是十进制分字符串或 null，从不经过 Number 存回；显示格式化用 BigInt，Number 只用于绘图坐标。
 // 隐私报告先从同一快照生成脱敏载荷（redactReport），渲染/打印/复制/文件名只接触脱敏后的视图。
 import { planningModelVersion } from '../planning-engine.ts';
-
+import { t as tr } from '../i18n.ts';
 export const CONTRACT_VERSION = 1;
 
 export type Basis = 'known' | 'estimated' | 'unknown';
@@ -169,53 +169,53 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const oneOf = (v: unknown, set: readonly string[]) => typeof v === 'string' && (set as readonly string[]).includes(v);
 
 function checkMoney(v: unknown, path: string, issues: ReportIssue[]): void {
-  if (!isObj(v) || v.kind !== 'money') { issues.push({ path, code: 'invalid_money', message: '金额必须是 {kind:"money"} 结构' }); return; }
+  if (!isObj(v) || v.kind !== 'money') { issues.push({ path, code: 'invalid_money', message: tr('金额必须是 {kind:"money"} 结构') }); return; }
   if (v.cents !== null && !(typeof v.cents === 'string' && CENTS_RE.test(v.cents)))
-    issues.push({ path: path + '.cents', code: 'invalid_cents', message: '金额必须是十进制分字符串或 null' });
-  if (v.hidden !== undefined && typeof v.hidden !== 'boolean') issues.push({ path: path + '.hidden', code: 'invalid_hidden', message: 'hidden 必须是布尔值' });
+    issues.push({ path: path + '.cents', code: 'invalid_cents', message: tr('金额必须是十进制分字符串或 null') });
+  if (v.hidden !== undefined && typeof v.hidden !== 'boolean') issues.push({ path: path + '.hidden', code: 'invalid_hidden', message: tr('hidden 必须是布尔值') });
   if (!oneOf(v.basis, ['known', 'estimated', 'unknown']))
-    issues.push({ path: path + '.basis', code: 'invalid_basis', message: '依据状态必须是 known/estimated/unknown' });
+    issues.push({ path: path + '.basis', code: 'invalid_basis', message: tr('依据状态必须是 known/estimated/unknown') });
 }
 function checkRatio(v: unknown, path: string, issues: ReportIssue[]): void {
-  if (!isObj(v) || v.kind !== 'ratio') { issues.push({ path, code: 'invalid_ratio', message: '比例必须是 {kind:"ratio"} 结构' }); return; }
-  if (v.hidden !== undefined && typeof v.hidden !== 'boolean') issues.push({ path: path + '.hidden', code: 'invalid_hidden', message: 'hidden 必须是布尔值' });
+  if (!isObj(v) || v.kind !== 'ratio') { issues.push({ path, code: 'invalid_ratio', message: tr('比例必须是 {kind:"ratio"} 结构') }); return; }
+  if (v.hidden !== undefined && typeof v.hidden !== 'boolean') issues.push({ path: path + '.hidden', code: 'invalid_hidden', message: tr('hidden 必须是布尔值') });
   if (v.hundredths !== null && !(typeof v.hundredths === 'number' && Number.isSafeInteger(v.hundredths)))
-    issues.push({ path: path + '.hundredths', code: 'invalid_hundredths', message: '比例必须是整数（万分位）或 null' });
+    issues.push({ path: path + '.hundredths', code: 'invalid_hundredths', message: tr('比例必须是整数（万分位）或 null') });
 }
 function checkValue(v: unknown, path: string, issues: ReportIssue[]): void {
-  if (!isObj(v) || typeof v.kind !== 'string') { issues.push({ path, code: 'invalid_value', message: '值必须带 kind' }); return; }
+  if (!isObj(v) || typeof v.kind !== 'string') { issues.push({ path, code: 'invalid_value', message: tr('值必须带 kind') }); return; }
   if (v.kind === 'money') return checkMoney(v, path, issues);
   if (v.kind === 'ratio') return checkRatio(v, path, issues);
-  if (v.kind === 'text') { if (typeof v.text !== 'string') issues.push({ path: path + '.text', code: 'invalid_text', message: 'text 值必须是字符串' }); return; }
-  if (v.kind === 'date') { if (v.date !== null && !(typeof v.date === 'string' && validDate(v.date))) issues.push({ path: path + '.date', code: 'invalid_date', message: '日期必须是 YYYY-MM-DD 或 null' }); return; }
+  if (v.kind === 'text') { if (typeof v.text !== 'string') issues.push({ path: path + '.text', code: 'invalid_text', message: tr('text 值必须是字符串') }); return; }
+  if (v.kind === 'date') { if (v.date !== null && !(typeof v.date === 'string' && validDate(v.date))) issues.push({ path: path + '.date', code: 'invalid_date', message: tr('日期必须是 YYYY-MM-DD 或 null') }); return; }
   if (v.kind === 'unknown') return;
-  issues.push({ path, code: 'invalid_value_kind', message: `未知值类型 ${String(v.kind)}` });
+  issues.push({ path, code: 'invalid_value_kind', message: tr('未知值类型 {v1}', { v1: String(v.kind) }) });
 }
 const optDate = (v: unknown, path: string, issues: ReportIssue[]) => {
-  if (v !== null && !(typeof v === 'string' && validDate(v))) issues.push({ path, code: 'invalid_date', message: '日期必须是 YYYY-MM-DD 或 null' });
+  if (v !== null && !(typeof v === 'string' && validDate(v))) issues.push({ path, code: 'invalid_date', message: tr('日期必须是 YYYY-MM-DD 或 null') });
 };
 const reqString = (v: unknown, path: string, issues: ReportIssue[]) => {
-  if (typeof v !== 'string') issues.push({ path, code: 'invalid_string', message: '必须是字符串' });
+  if (typeof v !== 'string') issues.push({ path, code: 'invalid_string', message: tr('必须是字符串') });
 };
 const optString = (v: unknown, path: string, issues: ReportIssue[]) => {
-  if (v !== null && typeof v !== 'string') issues.push({ path, code: 'invalid_string', message: '必须是字符串或 null' });
+  if (v !== null && typeof v !== 'string') issues.push({ path, code: 'invalid_string', message: tr('必须是字符串或 null') });
 };
 const optMonth = (v: unknown, path: string, issues: ReportIssue[]) => {
-  if (v !== null && !(typeof v === 'string' && validMonth(v))) issues.push({ path, code: 'invalid_month', message: '月份必须是 YYYY-MM 或 null（不能是具体某日）' });
+  if (v !== null && !(typeof v === 'string' && validMonth(v))) issues.push({ path, code: 'invalid_month', message: tr('月份必须是 YYYY-MM 或 null（不能是具体某日）') });
 };
 
 /** 当前报告 summary 的严格校验；字段缺失与非法值都明确报错。 */
 function checkCurrentSummary(v: unknown, path: string, issues: ReportIssue[]): void {
-  if (!isObj(v)) { issues.push({ path, code: 'invalid_summary', message: 'current_summary 必须是对象' }); return; }
+  if (!isObj(v)) { issues.push({ path, code: 'invalid_summary', message: tr('current_summary 必须是对象') }); return; }
   if (!oneOf(v.outcome, ['covered', 'no_margin', 'not_covered', 'incomplete', 'provisional']))
-    issues.push({ path: path + '.outcome', code: 'invalid_summary_outcome', message: '结论状态必须是 covered/no_margin/not_covered/incomplete/provisional' });
+    issues.push({ path: path + '.outcome', code: 'invalid_summary_outcome', message: tr('结论状态必须是 covered/no_margin/not_covered/incomplete/provisional') });
   if (!oneOf(v.mode, ['fire', 'traditional']))
-    issues.push({ path: path + '.mode', code: 'invalid_summary_mode', message: '模式必须是 fire/traditional' });
+    issues.push({ path: path + '.mode', code: 'invalid_summary_mode', message: tr('模式必须是 fire/traditional') });
   optMonth(v.target_month, path + '.target_month', issues);
   optMonth(v.horizon_month, path + '.horizon_month', issues);
   optMonth(v.expected_retirement_month, path + '.expected_retirement_month', issues);
   if (!oneOf(v.contribution_direction, ['contribution', 'withdrawal', 'none', 'unknown']))
-    issues.push({ path: path + '.contribution_direction', code: 'invalid_contribution_direction', message: '投入方向必须是 contribution/withdrawal/none/unknown' });
+    issues.push({ path: path + '.contribution_direction', code: 'invalid_contribution_direction', message: tr('投入方向必须是 contribution/withdrawal/none/unknown') });
   for (const key of ['required_contribution', 'estimated_contribution', 'difference', 'terminal_available', 'available_funds', 'budget'] as const)
     checkMoney(v[key], `${path}.${key}`, issues);
   if (v.before_return !== null) checkRatio(v.before_return, path + '.before_return', issues);
@@ -224,62 +224,62 @@ function checkCurrentSummary(v: unknown, path: string, issues: ReportIssue[]): v
 
 /** 严格校验边界输入。未知 contract_version 明确报错，不默认按 v1 读取。 */
 export function parseReportInput(raw: unknown): ParseResult {
-  if (!isObj(raw)) return { ok: false, code: 'not_an_object', issues: [{ path: '', code: 'not_an_object', message: '输入必须是对象' }] };
+  if (!isObj(raw)) return { ok: false, code: 'not_an_object', issues: [{ path: '', code: 'not_an_object', message: tr('输入必须是对象') }] };
   if (raw.contract_version !== CONTRACT_VERSION)
-    return { ok: false, code: 'unsupported_contract_version', issues: [{ path: 'contract_version', code: 'unsupported_contract_version', message: `不支持的协议版本 ${String(raw.contract_version)}` }] };
+    return { ok: false, code: 'unsupported_contract_version', issues: [{ path: 'contract_version', code: 'unsupported_contract_version', message: tr('不支持的协议版本 {v1}', { v1: String(raw.contract_version) }) }] };
   const issues: ReportIssue[] = [];
-  if (!oneOf(raw.kind, ['current', 'baseline', 'comparison'])) issues.push({ path: 'kind', code: 'invalid_kind', message: 'kind 必须是 current/baseline/comparison' });
-  if (!oneOf(raw.status, ['complete', 'partial'])) issues.push({ path: 'status', code: 'invalid_status', message: 'status 必须是 complete/partial' });
+  if (!oneOf(raw.kind, ['current', 'baseline', 'comparison'])) issues.push({ path: 'kind', code: 'invalid_kind', message: tr('kind 必须是 current/baseline/comparison') });
+  if (!oneOf(raw.status, ['complete', 'partial'])) issues.push({ path: 'status', code: 'invalid_status', message: tr('status 必须是 complete/partial') });
   reqString(raw.subject_name, 'subject_name', issues);
   optString(raw.other_name, 'other_name', issues);
   optDate(raw.generated_on, 'generated_on', issues);
   optDate(raw.source_date, 'source_date', issues);
   optDate(raw.monetary_basis_date, 'monetary_basis_date', issues);
   if (raw.scenario_revision !== null && !(typeof raw.scenario_revision === 'number' && Number.isSafeInteger(raw.scenario_revision)))
-    issues.push({ path: 'scenario_revision', code: 'invalid_revision', message: '修订号必须是整数或 null' });
+    issues.push({ path: 'scenario_revision', code: 'invalid_revision', message: tr('修订号必须是整数或 null') });
   optString(raw.model_version, 'model_version', issues);
   if (raw.current_summary !== undefined && raw.current_summary !== null) {
-    if (raw.kind !== 'current') issues.push({ path: 'current_summary', code: 'invalid_summary_scope', message: 'current_summary 只用于 current 报告' });
+    if (raw.kind !== 'current') issues.push({ path: 'current_summary', code: 'invalid_summary_scope', message: tr('current_summary 只用于 current 报告') });
     else checkCurrentSummary(raw.current_summary, 'current_summary', issues);
   }
   if (!isObj(raw.headline) || !oneOf(raw.headline.status, ['ok', 'shortfall', 'incomplete']))
-    issues.push({ path: 'headline', code: 'invalid_headline', message: 'headline.status 必须是 ok/shortfall/incomplete' });
+    issues.push({ path: 'headline', code: 'invalid_headline', message: tr('headline.status 必须是 ok/shortfall/incomplete') });
   else { checkMoney(raw.headline.amount, 'headline.amount', issues); optDate(raw.headline.date, 'headline.date', issues); }
   if (!isObj(raw.next_step) || typeof raw.next_step.label !== 'string')
-    issues.push({ path: 'next_step', code: 'invalid_next_step', message: 'next_step.label 必须是字符串' });
+    issues.push({ path: 'next_step', code: 'invalid_next_step', message: tr('next_step.label 必须是字符串') });
   else optString(raw.next_step.detail, 'next_step.detail', issues);
   const arr = (v: unknown, path: string): Record<string, unknown>[] => {
-    if (!Array.isArray(v)) { issues.push({ path, code: 'invalid_array', message: '必须是数组' }); return []; }
-    return v.filter((x, i) => { if (!isObj(x)) { issues.push({ path: `${path}[${i}]`, code: 'not_an_object', message: '条目必须是对象' }); return false; } return true; });
+    if (!Array.isArray(v)) { issues.push({ path, code: 'invalid_array', message: tr('必须是数组') }); return []; }
+    return v.filter((x, i) => { if (!isObj(x)) { issues.push({ path: `${path}[${i}]`, code: 'not_an_object', message: tr('条目必须是对象') }); return false; } return true; });
   };
   arr(raw.funds, 'funds').forEach((f, i) => {
     const p = `funds[${i}]`;
     reqString(f.id, p + '.id', issues); reqString(f.name, p + '.name', issues);
-    if (!oneOf(f.availability, ['available', 'restricted', 'debt'])) issues.push({ path: p + '.availability', code: 'invalid_availability', message: '可用性必须是 available/restricted/debt' });
+    if (!oneOf(f.availability, ['available', 'restricted', 'debt'])) issues.push({ path: p + '.availability', code: 'invalid_availability', message: tr('可用性必须是 available/restricted/debt') });
     checkMoney(f.amount, p + '.amount', issues); optString(f.note, p + '.note', issues);
   });
   arr(raw.goals, 'goals').forEach((g, i) => {
     const p = `goals[${i}]`;
     reqString(g.id, p + '.id', issues); reqString(g.name, p + '.name', issues);
-    if (!oneOf(g.template, ['expense', 'milestone', 'income_break', 'retirement'])) issues.push({ path: p + '.template', code: 'invalid_template', message: '目标模板未知' });
+    if (!oneOf(g.template, ['expense', 'milestone', 'income_break', 'retirement'])) issues.push({ path: p + '.template', code: 'invalid_template', message: tr('目标模板未知') });
     optDate(g.date, p + '.date', issues);
-    if (!oneOf(g.result, ['ok', 'shortfall', 'incomplete'])) issues.push({ path: p + '.result', code: 'invalid_result', message: '结果状态必须是 ok/shortfall/incomplete' });
+    if (!oneOf(g.result, ['ok', 'shortfall', 'incomplete'])) issues.push({ path: p + '.result', code: 'invalid_result', message: tr('结果状态必须是 ok/shortfall/incomplete') });
     checkMoney(g.amount, p + '.amount', issues);
     if (g.ratio !== null) checkRatio(g.ratio, p + '.ratio', issues);
     optString(g.note, p + '.note', issues);
-    if (!Array.isArray(g.missing) || g.missing.some(m => typeof m !== 'string')) issues.push({ path: p + '.missing', code: 'invalid_missing', message: 'missing 必须是字符串数组' });
+    if (!Array.isArray(g.missing) || g.missing.some(m => typeof m !== 'string')) issues.push({ path: p + '.missing', code: 'invalid_missing', message: tr('missing 必须是字符串数组') });
   });
   arr(raw.assumptions, 'assumptions').forEach((a, i) => {
     const p = `assumptions[${i}]`;
     reqString(a.id, p + '.id', issues); reqString(a.label, p + '.label', issues);
     checkValue(a.value, p + '.value', issues);
-    if (!oneOf(a.source, ['confirmed', 'estimated', 'excluded', 'unknown'])) issues.push({ path: p + '.source', code: 'invalid_source', message: '来源状态未知' });
+    if (!oneOf(a.source, ['confirmed', 'estimated', 'excluded', 'unknown'])) issues.push({ path: p + '.source', code: 'invalid_source', message: tr('来源状态未知') });
     optDate(a.confirmed_on, p + '.confirmed_on', issues);
   });
   arr(raw.series, 'series').forEach((s, i) => {
     const p = `series[${i}]`;
-    if (typeof s.date !== 'string' || !validDate(s.date)) issues.push({ path: p + '.date', code: 'invalid_date', message: '日期必须是 YYYY-MM-DD' });
-    if (!oneOf(s.kind, ['projected', 'actual', 'reference'])) issues.push({ path: p + '.kind', code: 'invalid_series_kind', message: '序列种类必须是 projected/actual/reference' });
+    if (typeof s.date !== 'string' || !validDate(s.date)) issues.push({ path: p + '.date', code: 'invalid_date', message: tr('日期必须是 YYYY-MM-DD') });
+    if (!oneOf(s.kind, ['projected', 'actual', 'reference'])) issues.push({ path: p + '.kind', code: 'invalid_series_kind', message: tr('序列种类必须是 projected/actual/reference') });
     for (const key of ['available', 'restricted', 'debt'] as const) if (s[key] !== null) checkMoney(s[key], `${p}.${key}`, issues);
   });
   arr(raw.differences, 'differences').forEach((d, i) => {
@@ -292,7 +292,7 @@ export function parseReportInput(raw: unknown): ParseResult {
   arr(raw.missing, 'missing').forEach((m, i) => {
     const p = `missing[${i}]`;
     reqString(m.id, p + '.id', issues); reqString(m.label, p + '.label', issues);
-    if (!oneOf(m.impact, ['blocks_headline', 'degrades', 'info'])) issues.push({ path: p + '.impact', code: 'invalid_impact', message: '影响程度未知' });
+    if (!oneOf(m.impact, ['blocks_headline', 'degrades', 'info'])) issues.push({ path: p + '.impact', code: 'invalid_impact', message: tr('影响程度未知') });
     optString(m.hint, p + '.hint', issues);
   });
   if (issues.length) return { ok: false, code: 'invalid_report_input', issues };
@@ -312,7 +312,7 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
       case 'money': return money(v);
       case 'ratio': return ratio(v);
       case 'date': return { kind: 'date', date: v.date };
-      case 'text': return { kind: 'text', text: privacy ? '内容已隐藏' : v.text };
+      case 'text': return { kind: 'text', text: privacy ? tr('内容已隐藏') : v.text };
       case 'unknown': return { kind: 'unknown' };
     }
   };
@@ -335,20 +335,20 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
     // Arbitrary report version strings remain subject to redaction.
     model_version: !privacy || (r.kind === 'current' && r.model_version === planningModelVersion) ? r.model_version : null,
     headline: { status: r.headline.status, amount: money(r.headline.amount), date: r.headline.date },
-    next_step: { label: privacy ? '核对计算依据与缺项' : r.next_step.label, detail: privacy ? null : r.next_step.detail },
+    next_step: { label: privacy ? tr('核对计算依据与缺项') : r.next_step.label, detail: privacy ? null : r.next_step.detail },
     current_summary: r.current_summary ? summary(r.current_summary) : null,
     funds: r.funds.map((f, i) => ({ id: privacy ? `f${i + 1}` : f.id, name: privacy ? `账户 ${i + 1}` : f.name,
       availability: f.availability, amount: money(f.amount), note: privacy ? null : f.note })),
     goals: r.goals.map((g, i) => ({ id: privacy ? `g${i + 1}` : g.id, name: privacy ? `目标 ${i + 1}` : g.name,
       template: g.template, date: g.date, result: g.result, amount: money(g.amount), ratio: g.ratio === null ? null : ratio(g.ratio),
       note: privacy ? null : g.note, missing: privacy ? g.missing.map(() => '存在需确认资料') : [...g.missing] })),
-    assumptions: r.assumptions.map((a, i) => ({ id: privacy ? `a${i + 1}` : a.id, label: privacy ? `依据 ${i + 1}` : a.label,
+    assumptions: r.assumptions.map((a, i) => ({ id: privacy ? `a${i + 1}` : a.id, label: privacy ? tr('依据 {v1}', { v1: i + 1 }) : a.label,
       value: value(a.value), source: a.source, confirmed_on: a.confirmed_on })),
     series: r.series.map(s => ({ date: s.date, kind: s.kind, available: s.available === null ? null : money(s.available),
       restricted: s.restricted === null ? null : money(s.restricted), debt: s.debt === null ? null : money(s.debt) })),
-    differences: r.differences.map((d, i) => ({ id: privacy ? `d${i + 1}` : d.id, label: privacy ? `条件 ${i + 1}` : d.label,
+    differences: r.differences.map((d, i) => ({ id: privacy ? `d${i + 1}` : d.id, label: privacy ? tr('条件 {v1}', { v1: i + 1 }) : d.label,
       current: value(d.current), other: value(d.other), delta: d.delta === null ? null : money(d.delta), note: privacy ? null : d.note })),
-    missing: r.missing.map((m, i) => ({ id: privacy ? `m${i + 1}` : m.id, label: privacy ? `需确认事项 ${i + 1}` : m.label,
+    missing: r.missing.map((m, i) => ({ id: privacy ? `m${i + 1}` : m.id, label: privacy ? tr('需确认事项 {v1}', { v1: i + 1 }) : m.label,
       impact: m.impact, hint: privacy ? null : m.hint })),
   };
 }

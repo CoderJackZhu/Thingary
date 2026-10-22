@@ -1,5 +1,5 @@
 import { errorMessage, type AssetRecord, type Photo, type Selection } from "./asset.ts";
-
+import { t } from './i18n.ts';
 export const warrantyKinds = [
   ["manufacturer", "厂家保修"], ["extended", "延保"], ["applecare", "AppleCare"],
   ["store", "商店保修"], ["other", "其他保障"],
@@ -86,7 +86,7 @@ export async function recoverWarranty(
   const latest = await read(state.record.asset.id);
   if (!latest || latest.deleted || latest.asset.id !== state.record.asset.id) return blocked("原物品已删除或不可用。输入仍保留，请恢复原物品后重试；不会把草稿转存到其他物品。");
   if (state.warranty_id && !(latest.warranties ?? []).some(item => item.id === state.warranty_id)) return blocked("原保障记录已不可用。输入仍保留，请恢复原记录后重试；不会自动改成新增。");
-  if (latest.asset.revision !== state.record.asset.revision) return { kind: "edit", state, issue: { kind: "conflict", latest, message: "物品已更新。请核对当前记录，再明确确认是否保留你的输入；尚未替换草稿版本。" } };
+  if (latest.asset.revision !== state.record.asset.revision) return { kind: "edit", state, issue: { kind: "conflict", latest, message: t('物品已更新。请核对当前记录，再明确确认是否保留你的输入；尚未替换草稿版本。') } };
   return { kind: "edit", state: { ...state, record: latest }, issue: null };
 }
 

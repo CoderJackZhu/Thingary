@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 export type Asset = { id: string; name: string; price_cents: string | null; purchase_date: string | null; revision: number };
 export type Details = { brand: string; model: string; serial_number: string; notes: string };
 export type Photo = { id: string; name: string };
@@ -16,7 +17,7 @@ export function money(cents: string | null) { return cents === null ? '待补充
 export function unitMoney(cents: string | null) { return cents === null ? '待补充' : yuan(cents, true); }
 export function inputMoney(value: string): string | null {
   if (!value.trim()) return null;
-  if (!/^\d{1,9}(\.\d{1,2})?$/.test(value.trim())) throw new Error('请输入非负金额，最多两位小数，最高 999,999,999.99 元。');
+  if (!/^\d{1,9}(\.\d{1,2})?$/.test(value.trim())) throw new Error(t('请输入非负金额，最多两位小数，最高 999,999,999.99 元。'));
   const [whole, fraction = ''] = value.trim().split('.');
   return (BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'))).toString();
 }

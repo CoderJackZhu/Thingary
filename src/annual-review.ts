@@ -7,7 +7,7 @@ import { goalProgressVerdict, type GoalProgressEntry } from './goal-progress.ts'
 import { savingsProgress, type SavingsProgress } from './savings-goals.ts';
 import { normalizeFinancePeriod, financePeriodContains, type FinanceDateRange, type FinancePeriod } from './finance-contract.ts';
 import type { Point } from './wealth.ts';
-
+import { t } from './i18n.ts';
 /** All review facts come from one finance_sources read transaction. */
 export type AnnualSources = FinanceSources;
 type Block = { status: 'ready' | 'empty' | 'disabled' | 'error'; note: string };
@@ -31,7 +31,7 @@ export type AnnualReviewModel = {
   planning: Block & { count: number; first: GoalProgressEntry | null; last: GoalProgressEntry | null; conditionsChanged: boolean; laterRecorded: boolean; openItems: boolean };
 };
 function unavailable(source: FinanceRead<unknown>, label: string): Block {
-  return source.status === 'disabled' ? { status: 'disabled', note: `${label}来源已关闭` } : { status: 'error', note: `${label}读取失败，请重新读取` };
+  return source.status === 'disabled' ? { status: 'disabled', note: t('{label}来源已关闭', { label }) } : { status: 'error', note: t('{label}读取失败，请重新读取', { label }) };
 }
 /** Unknown points and changes in scope break the visual line instead of being interpolated. */
 export function annualTrendSegments(points: Point[]): Point[][] {
@@ -68,11 +68,11 @@ export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod,
     period, range, today, writeVersion: sources.write_version, preset: windowPreset, windowLabel,
     years: [...new Set([Number(today.slice(0, 4)), ...(period.kind === 'year' ? [period.year] : []), ...years])].sort((a, b) => b - a),
     yearsNote: annual.years.status === 'ready' ? null : '年份来源未完整读取；当前列表可能不全，可保留所选年份后重试。',
-    net: { status: 'empty', note: '该区间没有完整盘点', from: null, to: null, completeCount: 0, incompleteCount: 0, delta_cents: null, label: '记录间变化', points: [], segments: [], scopeChanged: annual.scope_changed, comparisonFailed: false },
-    income: { status: 'empty', note: '该区间没有收入记录，不代表没有收入', count: 0, cents: null, hpf_known_cents: null, hpf_unknown_count: 0 },
-    expenses: { status: 'empty', note: '该区间没有重要支出记录，不代表没有开销', count: 0, unknownCount: 0, cents: null, refund_cents: null, sale_cents: null, undatedCount: 0 },
-    savings: { status: 'empty', note: '尚未建立存钱目标', goals: [] },
-    planning: { status: 'empty', note: '该区间未记录可用的规划结论', count: 0, first: null, last: null, conditionsChanged: false, laterRecorded: false, openItems: false },
+    net: { status: 'empty', note: t('该区间没有完整盘点'), from: null, to: null, completeCount: 0, incompleteCount: 0, delta_cents: null, label: t('记录间变化'), points: [], segments: [], scopeChanged: annual.scope_changed, comparisonFailed: false },
+    income: { status: 'empty', note: t('该区间没有收入记录，不代表没有收入'), count: 0, cents: null, hpf_known_cents: null, hpf_unknown_count: 0 },
+    expenses: { status: 'empty', note: t('该区间没有重要支出记录，不代表没有开销'), count: 0, unknownCount: 0, cents: null, refund_cents: null, sale_cents: null, undatedCount: 0 },
+    savings: { status: 'empty', note: t('尚未建立存钱目标'), goals: [] },
+    planning: { status: 'empty', note: t('该区间未记录可用的规划结论'), count: 0, first: null, last: null, conditionsChanged: false, laterRecorded: false, openItems: false },
   };
   if (sources.wealth.status !== 'ready') Object.assign(model.net, unavailable(sources.wealth, '账户与盘点'));
   else {
@@ -106,7 +106,7 @@ export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod,
       const known = rows.filter(i => i.fields.hpf_cents !== null);
       Object.assign(model.income, { status: 'ready', count: rows.length, cents: incomeMetric({ status: 'ready', value: rows }).cents,
         hpf_known_cents: known.length ? known.reduce((n, i) => n + BigInt(i.fields.hpf_cents!), 0n).toString() : null,
-        hpf_unknown_count: rows.length - known.length, note: '仅已记录税后到账；记录数量不证明区间覆盖完整，公积金缴存单列' });
+        hpf_unknown_count: rows.length - known.length, note: t('仅已记录税后到账；记录数量不证明区间覆盖完整，公积金缴存单列') });
     }
   }
   if (sources.expenses.status !== 'ready') Object.assign(model.expenses, unavailable(sources.expenses, '重要支出'));
@@ -121,15 +121,15 @@ export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod,
   if (annual.savings.status !== 'ready') Object.assign(model.savings, unavailable(annual.savings, '存钱目标'));
   else {
     const data = annual.savings.value;
-    if (data.generation !== sources.generation || data.write_version !== sources.write_version || data.today !== today) Object.assign(model.savings, { status: 'error', note: '目标来源与区间事实不一致，请重新读取' });
+    if (data.generation !== sources.generation || data.write_version !== sources.write_version || data.today !== today) Object.assign(model.savings, { status: 'error', note: t('目标来源与区间事实不一致，请重新读取') });
     else {
       const goals = data.goals.filter(v => !v.goal.deleted_at && v.goal.created_on <= today).map((v, index): AnnualSavingsGoal => ({
         id: v.goal.id, name: v.goal.fields.name, alias: `存钱目标 ${index + 1}`, created_on: v.goal.created_on,
         basisDate: data.basis?.date ?? null, progress: savingsProgress(v.goal.fields, v.observations, data.basis, today),
-        note: data.newer_incomplete ? '较新盘点不完整，沿用最近完整盘点的当前进度' : data.basis ? '依据最近完整盘点的当前进度' : '尚无完整盘点，当前进度未知',
+        note: data.newer_incomplete ? t('较新盘点不完整，沿用最近完整盘点的当前进度') : data.basis ? t('依据最近完整盘点的当前进度') : t('尚无完整盘点，当前进度未知'),
         shared: v.shared_account_ids.length > 0, planningOverlap: v.planning_overlap,
       }));
-      Object.assign(model.savings, { goals, status: goals.length ? 'ready' : 'empty', note: '当前目标进度，不随回顾区间回溯重算。不预留、不扣减资金，多个目标余额不能相加。' });
+      Object.assign(model.savings, { goals, status: goals.length ? 'ready' : 'empty', note: t('当前目标进度，不随回顾区间回溯重算。不预留、不扣减资金，多个目标余额不能相加。') });
     }
   }
   if (annual.planning.status !== 'ready') Object.assign(model.planning, unavailable(annual.planning, '退休规划结论'));
@@ -139,7 +139,7 @@ export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod,
     const conditionsChanged = new Set(rows.map(r => JSON.stringify([r.point.mode, r.point.target_month]))).size > 1;
     Object.assign(model.planning, { status: rows.length ? 'ready' : 'empty', count: rows.length, first: rows[0] ?? null, last: rows.at(-1) ?? null,
       conditionsChanged, laterRecorded: rows.some(r => r.recorded_on > end), openItems: rows.some(r => r.point.has_open_items),
-      note: rows.length ? '某次盘点被目标页读取时留下的结论；并非每月自动留档。旧盘点更正后记录可能失效或替换，旧点未保存引擎版本。' : model.planning.note });
+      note: rows.length ? t('某次盘点被目标页读取时留下的结论；并非每月自动留档。旧盘点更正后记录可能失效或替换，旧点未保存引擎版本。') : model.planning.note });
   }
   return model;
 }

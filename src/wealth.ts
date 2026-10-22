@@ -6,7 +6,7 @@ import type { TopupSave, BalanceSave, ReminderSave } from './virtual';
 import type { LinkCreateInput, LinkRestoreInput, LinkSaveInput, LinkTrashInput, MergeInput, ReconcileInput } from './link';
 import type { IncomeSave, Mark, ProfileSave } from './plan';
 import { errorMessage, money } from './asset.ts';
-
+import { t } from './i18n.ts';
 export type Side = 'asset' | 'liability';
 export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string; purchase_cents?: string | null; purchased_on?: string | null; group_id?: string | null; currency?: string; holding_mode?: boolean; holding_unit?: string | null };
 export type Observation = CurrencyFact & { amount_cents: string; date: string };
@@ -54,7 +54,7 @@ export function previousCheckInRow(account: Pick<Account, 'fields'>, previous: C
 
 /** Loaded unchanged rows keep history; explicitly reconfirmed rows carry the displayed amount. */
 export function snapshotEntryInput(accountId: string, row: CheckInRow): SnapshotSave['entries'][number] {
-  if (!row.state) throw new Error('请先处理这个账户。');
+  if (!row.state) throw new Error(t('请先处理这个账户。'));
   return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null, ...(row.state !== 'missing' && row.quantity_e8 != null ? {quantity_e8:row.quantity_e8,unit_price_e6:row.unit_price_e6} : {}), ...(row.state !== 'missing' && row.original_minor != null ? { original_minor: row.original_minor, fx_rate_micro: row.fx_rate_micro } : {}) };
 }
 
@@ -99,16 +99,16 @@ export function checkInUnfilledLabels(fields: CheckInField[], rates: Record<stri
 export function checkInUnfilledTargets(fields: CheckInField[], rates: Record<string, string>, rows: Record<string, CheckInRowState | undefined>): { key: string; label: string }[] {
   const targets: { key: string; label: string }[] = [];
   const foreign = new Set(fields.map(f => f.currency).filter(c => c && c !== 'CNY'));
-  for (const code of foreign) if (!/^\d+$/.test(rates[code] ?? '') || BigInt(rates[code]) <= 0n) targets.push({ key: `rate:${code}`, label: `${code} 汇率` });
+  for (const code of foreign) if (!/^\d+$/.test(rates[code] ?? '') || BigInt(rates[code]) <= 0n) targets.push({ key: `rate:${code}`, label: t('{code} 汇率', { code }) });
   for (const field of fields) {
     const row = rows[field.id];
     if (field.holding_mode) {
-      if (!row?.quantity_e8) targets.push({ key: `quantity:${field.id}`, label: `${field.name} 份额` });
-      if (!row?.unit_price_e6) targets.push({ key: `price:${field.id}`, label: `${field.name} 单价` });
+      if (!row?.quantity_e8) targets.push({ key: `quantity:${field.id}`, label: t('{name} 份额', { name: field.name }) });
+      if (!row?.unit_price_e6) targets.push({ key: `price:${field.id}`, label: t('{name} 单价', { name: field.name }) });
     } else if (field.currency === 'CNY') {
-      if (!row?.state || row.state === 'missing' || row.cents === '') targets.push({ key: `amount:${field.id}`, label: `${field.name} 本次金额` });
+      if (!row?.state || row.state === 'missing' || row.cents === '') targets.push({ key: `amount:${field.id}`, label: t('{name} 本次金额', { name: field.name }) });
     } else if (!row?.state || row.state === 'missing' || !row.original_minor) {
-      targets.push({ key: `amount:${field.id}`, label: `${field.name} 原币金额` });
+      targets.push({ key: `amount:${field.id}`, label: t('{name} 原币金额', { name: field.name }) });
     }
   }
   return targets;
@@ -201,7 +201,7 @@ export async function submit<T>(request: Pending | AssetSavePending): Promise<T>
   if (request.command === 'save_asset' && 'base' in request.input) {
     pending = { ...request, input: { ...request.input, request_id: request.input.base.request_id, generation: request.input.base.generation } };
   } else {
-    if (!('request_id' in request.input)) throw new Error('请求身份无效，尚未提交。');
+    if (!('request_id' in request.input)) throw new Error(t('请求身份无效，尚未提交。'));
     pending = { ...request, input: request.input };
   }
   const existing = storedPending();
@@ -209,7 +209,7 @@ export async function submit<T>(request: Pending | AssetSavePending): Promise<T>
     throw new Unresolved('还有一个提交结果待核对，原请求已保留；请先核对后再保存。');
   }
   try { localStorage.setItem(pendingKey, JSON.stringify(pending)); }
-  catch { throw new Error('无法记录本次请求，尚未提交，请检查可用空间后重试。'); }
+  catch { throw new Error(t('无法记录本次请求，尚未提交，请检查可用空间后重试。')); }
   try { const result = await invoke<T>(pending.command, { input: submittedInput(pending) }); clearPending(); return result; }
   catch (e) {
     const outcome = await resolvePending(pending).catch(() => 'unknown' as const);
@@ -280,8 +280,8 @@ export type InvestmentReviewSave = {
 export type InvestmentReviewTrash = { request_id: string; generation: string; id: string; expected_revision: number; deleted: boolean };
 export const readInvestmentReview = (generation: string, fromSnapshotId: string, toSnapshotId: string) => invoke<InvestmentReviewRead>('investment_review_read', { generation, fromSnapshotId, toSnapshotId });
 export const listInvestmentReviews = (generation: string) => invoke<{ generation: string; records: InvestmentReviewRecord[] }>('investment_review_list', { generation });
-export const saveInvestmentReview = (input: InvestmentReviewSave) => submit<import('./investment-review/model.ts').InvestmentFlowV1>({ command: 'investment_review_save', input, label: '投资资金流动核对' });
-export const trashInvestmentReview = (input: InvestmentReviewTrash) => submit<void>({ command: 'investment_review_trash', input, label: input.deleted ? '删除投资核对' : '恢复投资核对' });
+export const saveInvestmentReview = (input: InvestmentReviewSave) => submit<import('./investment-review/model.ts').InvestmentFlowV1>({ command: 'investment_review_save', input, label: t('投资资金流动核对') });
+export const trashInvestmentReview = (input: InvestmentReviewTrash) => submit<void>({ command: 'investment_review_trash', input, label: input.deleted ? t('删除投资核对') : t('恢复投资核对') });
 
 
 /** Quick updates replace balances; all arithmetic stays in integer cents. */
@@ -305,15 +305,15 @@ export function quickCounted(draft: Draft, id: string): boolean {
   return recorded ? recorded.counted : draft.rows.find(r => r.account.id === id)?.account.fields.counted ?? false;
 }
 function quickAmount(value: string, signed = false): bigint {
-  if (!(signed ? /^-?\d+$/ : /^\d+$/).test(value)) throw new Error('请填写金额。');
+  if (!(signed ? /^-?\d+$/ : /^\d+$/).test(value)) throw new Error(t('请填写金额。'));
   const cents = BigInt(value);
-  if (cents < -99999999999n || cents > 99999999999n) throw new Error('金额超出可记录范围。');
+  if (cents < -99999999999n || cents > 99999999999n) throw new Error(t('金额超出可记录范围。'));
   return cents;
 }
 export function quickBalance(previous: string | null, delta: string): string {
-  if (previous === null) throw new Error('还没有这个账户的金额，请用修改余额。');
+  if (previous === null) throw new Error(t('还没有这个账户的金额，请用修改余额。'));
   const next = quickAmount(previous) + quickAmount(delta, true);
-  if (next < 0n) throw new Error('新的余额或欠款不能小于 0，请调整增减金额。');
+  if (next < 0n) throw new Error(t('新的余额或欠款不能小于 0，请调整增减金额。'));
   return quickAmount(next.toString()).toString();
 }
 export function quickDeltaLabel(side: Side): string {
@@ -326,9 +326,9 @@ export function quickTransferPairs(draft: Draft): { from: string; to: string }[]
     .map(target => ({ from: source.account.id, to: target.account.id })));
 }
 export function quickTransfer(draft: Draft, from: string, to: string, amount: string): QuickChange[] {
-  if (!quickTransferPairs(draft).some(pair => pair.from === from && pair.to === to)) throw new Error('请选择金额已知、计入范围相同的转出和转入账户。');
+  if (!quickTransferPairs(draft).some(pair => pair.from === from && pair.to === to)) throw new Error(t('请选择金额已知、计入范围相同的转出和转入账户。'));
   const cents = quickAmount(amount);
-  if (cents <= 0n) throw new Error('转账金额须大于 0。');
+  if (cents <= 0n) throw new Error(t('转账金额须大于 0。'));
   const beforeFrom = quickPrevious(draft, from)!, beforeTo = quickPrevious(draft, to)!;
   const target = draft.rows.find(r => r.account.id === to)!.account;
   return [{ account_id: from, expected_previous: beforeFrom, amount_cents: quickBalance(beforeFrom, (-cents).toString()) },
@@ -339,46 +339,46 @@ export function quickFact(draft: Draft, id: string): CurrencyFact | null {
 }
 function foreignChange(draft: Draft, id: string, minor: string, rate: string, expected: boolean): QuickChange {
   const account = draft.rows.find(r => r.account.id === id)!.account, code = currencyCode(account.fields.currency), fact = quickFact(draft, id);
-  if (!/^\d+$/.test(minor)) throw new Error('新的原币余额不能小于0。');
+  if (!/^\d+$/.test(minor)) throw new Error(t('新的原币余额不能小于0。'));
   return { account_id: id, amount_cents: convertCurrency(code, minor, rate), original_minor: minor, fx_rate_micro: rate, ...(expected ? { expected_previous: fact?.amount_cents, expected_original_minor: fact?.original_minor } : {}) };
 }
 export function quickChanges(draft: Draft, accountId: string, mode: QuickMode, value: string, from: string, to: string, rate = ''): QuickChange[] {
   const code = currencyCode(draft.rows.find(r => r.account.id === (mode === 'transfer' ? from : accountId))?.account.fields.currency);
   if (code !== 'CNY') {
-    if (!draft.rows.some(r => r.account.id === accountId)) throw new Error('账户不在所选日期范围内。');
+    if (!draft.rows.some(r => r.account.id === accountId)) throw new Error(t('账户不在所选日期范围内。'));
     if (mode === 'balance') return [foreignChange(draft, accountId, value, rate, false)];
     const previous = quickFact(draft, mode === 'transfer' ? from : accountId)?.original_minor;
-    if (previous == null) throw new Error('没有已知原币金额，请用修改余额。');
-    if (!/^-?\d+$/.test(value)) throw new Error('请填写原币金额。');
+    if (previous == null) throw new Error(t('没有已知原币金额，请用修改余额。'));
+    if (!/^-?\d+$/.test(value)) throw new Error(t('请填写原币金额。'));
     if (mode === 'delta') return [foreignChange(draft, accountId, (BigInt(previous) + BigInt(value)).toString(), rate, true)];
-    if (!quickTransferPairs(draft).some(p => p.from === from && p.to === to) || BigInt(value) <= 0n) throw new Error('请选择相同币种、计入范围的账户和正转账金额。');
+    if (!quickTransferPairs(draft).some(p => p.from === from && p.to === to) || BigInt(value) <= 0n) throw new Error(t('请选择相同币种、计入范围的账户和正转账金额。'));
     const target = draft.rows.find(r => r.account.id === to)!.account, before = quickFact(draft, to)?.original_minor;
-    if (before == null) throw new Error('转入账户没有已知原币金额。');
+    if (before == null) throw new Error(t('转入账户没有已知原币金额。'));
     const result = [foreignChange(draft, from, (BigInt(previous) - BigInt(value)).toString(), rate, true), foreignChange(draft, to, (BigInt(before) + (target.fields.side === 'liability' ? -1n : 1n) * BigInt(value)).toString(), rate, true)];
     const effect = result.reduce((sum, c) => sum + (BigInt(c.amount_cents) - BigInt(c.expected_previous!)) * (draft.rows.find(r => r.account.id === c.account_id)!.account.fields.side === 'asset' ? 1n : -1n), 0n);
-    if (effect !== 0n) throw new Error('折算或舍入使人民币变化无法抵消，请分别修改余额。');
+    if (effect !== 0n) throw new Error(t('折算或舍入使人民币变化无法抵消，请分别修改余额。'));
     return result;
   }
   if (mode === 'transfer') return quickTransfer(draft, from, to, value);
-  if (!draft.rows.some(row => row.account.id === accountId)) throw new Error('这个账户不在所选日期的盘点范围内。');
+  if (!draft.rows.some(row => row.account.id === accountId)) throw new Error(t('这个账户不在所选日期的盘点范围内。'));
   return mode === 'balance' ? [{ account_id: accountId, amount_cents: quickAmount(value).toString() }]
     : [{ account_id: accountId, amount_cents: quickBalance(quickPrevious(draft, accountId), value), expected_previous: quickPrevious(draft, accountId) }];
 }
 export function accountUpdateAge(day: string | null | undefined, today: string): { text: string; old: boolean } {
-  if (!day) return { text: '尚未填写金额', old: false };
+  if (!day) return { text: t('尚未填写金额'), old: false };
   const days = Math.max(0, Math.round((Date.parse(today) - Date.parse(day)) / 86400000));
-  return { text: `${days} 天前更新`, old: days > 90 };
+  return { text: t('{days} 天前更新', { days }), old: days > 90 };
 }
 
 export type HoldingQuickMode = 'replace' | 'quantity' | 'price';
 export function holdingQuickChange(draft: Draft, id: string, mode: HoldingQuickMode, quantity: string, price: string, rate: string): QuickChange {
   const account=draft.rows.find(r=>r.account.id===id)?.account;
-  if(!account?.fields.holding_mode)throw new Error('账户不在所选日期的持仓范围内。');
+  if(!account?.fields.holding_mode)throw new Error(t('账户不在所选日期的持仓范围内。'));
   const prior=quickFact(draft,id);let next=quantity;
   if(mode!=='replace'){
-    if(prior?.amount_cents==null||prior.quantity_e8==null)throw new Error('没有已知份额，请同时填写份额和单价。');
+    if(prior?.amount_cents==null||prior.quantity_e8==null)throw new Error(t('没有已知份额，请同时填写份额和单价。'));
     if(mode==='price')next=prior.quantity_e8;
-    else {if(!/^-?\d+$/.test(quantity))throw new Error('请填写份额变化。');next=(BigInt(prior.quantity_e8)+BigInt(quantity)).toString();}
+    else {if(!/^-?\d+$/.test(quantity))throw new Error(t('请填写份额变化。'));next=(BigInt(prior.quantity_e8)+BigInt(quantity)).toString();}
   }
   const fact=holdingFact(currencyCode(account.fields.currency),next,price,rate);
   return {account_id:id,...fact,amount_cents:fact.amount_cents!,...(mode==='replace'?{}:{expected_previous:prior!.amount_cents,expected_quantity_e8:prior!.quantity_e8,...(currencyCode(account.fields.currency)==='CNY'?{}:{expected_original_minor:prior!.original_minor})})};

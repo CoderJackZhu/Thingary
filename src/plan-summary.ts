@@ -10,7 +10,7 @@ import { required, timeLabel } from './plan-ledger.ts';
 import { buildRetireCalc } from './plan-retire-calc.ts';
 import type { BasicCapabilities, PlanningSources } from './plan-basic-contract.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
-
+import { t } from './i18n.ts';
 export type ReadyCalc = RetireCalc & { plan: NonNullable<RetireCalc['plan']>; proj: NonNullable<RetireCalc['proj']>; out: NonNullable<RetireCalc['out']>; assets: number };
 
 export const yuan = forecastMoney;
@@ -89,17 +89,17 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
     const saved = sources.profile.value.saved;
     const native: PlanningSources = { generation: sources.generation ?? sources.profile.value.generation, write_version: sources.writeVersion ?? saved.revision, today, modules: sources.modules ?? { planning: true, wealth: sources.snapshot.status === 'ready' && sources.snapshot.value !== null }, profile: sources.profile, snapshot: sources.snapshot, accounts: { status: 'ready', value: [] }, review: sources.review, incomes: sources.incomes };
     const calc = buildRetireCalc(saved, null, null, [], today, native), capabilities = calc.capabilities!;
-    if (capabilities.requirement.status === 'blocked') return { kind: 'blocked', step: 'other', main: '补充以下资料后可计算', note: capabilities.requirement.missing[0]?.message ?? '还需确认计算来源', capabilities };
+    if (capabilities.requirement.status === 'blocked') return { kind: 'blocked', step: 'other', main: '补充以下资料后可计算', note: capabilities.requirement.missing[0]?.message ?? t('还需确认计算来源'), capabilities };
     if (!calc.plan || !calc.proj || !calc.out || calc.assets === null) {
       const n = capabilities.requirement.value.set;
       const main = n.status === 'found' ? `目标所需月投入 ${yuan(Number(n.monthly_cents))}` : n.status === 'no_positive_contribution' ? '无需新增正投入' : '还需确认目标条件';
-      return { kind: 'blocked', step: 'saving', main, note: '需求按固定目标计算；保存明确预计投入后可查看预测。', capabilities };
+      return { kind: 'blocked', step: 'saving', main, note: t('需求按固定目标计算；保存明确预计投入后可查看预测。'), capabilities };
     }
     const ready = calc as ReadyCalc;
     return { kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready), snapshotDate: capabilities.context.start.date, hasEvents: ready.events.some(e => e.included), calc: ready };
   }
   if (sources.profile.status === 'error') return { kind: 'error', message: sources.profile.value.message };
-  return { kind: 'blocked', step: 'profile', main: sources.profile.value.saved ? '退休目标待重新设置' : '先设置退休目标', note: '请确认目标与完整预算；盘点、收入、实际缴存、付款与欠款资料都会保留。' };
+  return { kind: 'blocked', step: 'profile', main: sources.profile.value.saved ? '退休目标待重新设置' : '先设置退休目标', note: t('请确认目标与完整预算；盘点、收入、实际缴存、付款与欠款资料都会保留。') };
 }
 
 /** 依据说明：盘点日期、未来储蓄采用的口径、已计入的大额计划与「按当前假设估算」。 */

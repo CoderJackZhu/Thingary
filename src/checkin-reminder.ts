@@ -1,9 +1,9 @@
 import { saveReminderWithPermission } from './virtual.ts';
-
+import { t } from './i18n.ts';
 export type CheckinReminderStatus = { months: number; last_check_in: string | null; next_date: string | null };
 
 export const checkinIntervals = [
-  { value: '0', label: '关闭' }, { value: '1', label: '每月' }, { value: '2', label: '每 2 个月' }, { value: '3', label: '每 3 个月' },
+  { value: '0', label: t('关闭') }, { value: '1', label: t('每月') }, { value: '2', label: t('每 2 个月') }, { value: '3', label: t('每 3 个月') },
 ] as const;
 
 /** One sentence under the control; never claims a notification was delivered. */

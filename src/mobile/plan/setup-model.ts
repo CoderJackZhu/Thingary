@@ -11,18 +11,19 @@ import { defaultRetire } from "../../plan.ts";
 import type { ProfileState } from "../../plan.ts";
 import { validateSimplifiedPlanningV1 } from "../../plan-simplified.ts";
 import { householdIssues } from "../../planning-simplified-ui/household-view.ts";
+import { t } from '../../i18n.ts';
 /**
  * The setup flow in desktop order. `unit` is what one save writes: steps 1–5 share the setup draft,
  * 假设 and 费用包含关系 have their own transactions, so crossing between units saves first.
  */
 export const flowSteps = [
-  { id: "time", title: "目标与时间", unit: "setup" },
-  { id: "budget", title: "退休生活预算", unit: "setup" },
-  { id: "funds", title: "可用资金", unit: "setup" },
-  { id: "income", title: "未来收入", unit: "setup" },
-  { id: "contribution", title: "每月净投入", unit: "setup" },
-  { id: "assumptions", title: "收益、通胀与波动假设", unit: "assumptions" },
-  { id: "costs", title: "核对费用包含关系", unit: "costs" },
+  { id: "time", title: t('目标与时间'), unit: "setup" },
+  { id: "budget", title: t('退休生活预算'), unit: "setup" },
+  { id: "funds", title: t('可用资金'), unit: "setup" },
+  { id: "income", title: t('未来收入'), unit: "setup" },
+  { id: "contribution", title: t('每月净投入'), unit: "setup" },
+  { id: "assumptions", title: t('收益、通胀与波动假设'), unit: "assumptions" },
+  { id: "costs", title: t('核对费用包含关系'), unit: "costs" },
 ] as const;
 export type FlowStep = (typeof flowSteps)[number];
 export const steps = flowSteps.map((s) => s.title);
@@ -49,7 +50,7 @@ export function editorInput(
     )
   )
     throw new Error(
-      "账户计入比例请填写 0 到 100 的百分数；留空不会按 0 保存。",
+      t('账户计入比例请填写 0 到 100 的百分数；留空不会按 0 保存。'),
     );
   const problems = householdIssues(d.simplified, today);
   const issues = validateSimplifiedPlanningV1(d.simplified, today);
@@ -111,16 +112,16 @@ export function setupIssues(d: Draft, saved: ProfileState["saved"], today: strin
     out.push({ ...pathTarget(i.path), message: (household ?? i).message });
   }
   const months = d.emergency.trim();
-  if (months === "") out.push({ step: at("budget"), field: "emergency", message: "请填写应急金月数。" });
+  if (months === "") out.push({ step: at("budget"), field: "emergency", message: t('请填写应急金月数。') });
   else if (!Number.isInteger(Number(months)) || Number(months) < 0 || Number(months) > 36)
-    out.push({ step: at("budget"), field: "emergency", message: "应急金月数须是 0 到 36 的整数。" });
+    out.push({ step: at("budget"), field: "emergency", message: t('应急金月数须是 0 到 36 的整数。') });
   if (d.start === "live" && live)
     for (const f of d.funds)
       if (!Number.isInteger(f.share_hundredths) || f.share_hundredths < 0 || f.share_hundredths > 10000)
         out.push({ step: at("funds"), field: `share:${f.account_id}`, message: SHARE_MESSAGE });
   for (const [key, rows] of costRows(d, saved)) for (const row of rows)
     if (d[key][row.id]?.treatment === "included" && d[key][row.id].ref === "")
-      out.push({ step: at("costs"), field: `scope:${key}:${row.id}`, message: `「${row.label}」已含在预算里时，请填写含多少。` });
+      out.push({ step: at("costs"), field: `scope:${key}:${row.id}`, message: t('「{label}」已含在预算里时，请填写含多少。', { label: row.label }) });
   return out.sort((a, b) => a.step - b.step);
 }
 

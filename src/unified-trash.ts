@@ -4,7 +4,7 @@ import { expenseCategories } from './expenses.ts';
 import { maintenanceKinds } from './maintenance.ts';
 import { warrantyKinds } from './warranty.ts';
 import { virtualKindText } from './virtual.ts';
-
+import { t } from './i18n.ts';
 export type RecordKind = 'maintenance' | 'warranty';
 export type RecordTrashChange = { request_id: string; generation: string; asset_id: string; record_id: string; kind: RecordKind; expected_revision: number; deleted: boolean };
 export type RecordTrashAction = { input: RecordTrashChange; meta: { title: string; assetName: string }; pending: boolean };
@@ -39,11 +39,11 @@ export const restoresAsGroup = (kind: TrashEntry['kind']) => kind === 'link_grou
 export function entryDisplay(entry: TrashEntry): { typeLabel: string; title: string; facts: string[]; parentBlocked: boolean } {
   if (entry.kind === 'savings_goal') return { typeLabel: '存钱目标', title: entry.title, facts: ['恢复原目标和账户关联，余额从盘点重新读取'], parentBlocked: false };
   if (entry.kind === 'link_group') return { typeLabel: '关联订阅', title: entry.title, facts: ['包含 1 个服务档案、1 个付款计划，恢复时整组一起回来'], parentBlocked: false };
-  if (entry.kind === 'snapshot') return { typeLabel: '盘点', title: `${entry.date} 盘点`, facts: ['恢复后重新计入净资产曲线'], parentBlocked: false };
+  if (entry.kind === 'snapshot') return { typeLabel: '盘点', title: t('{date} 盘点', { date: entry.date }), facts: ['恢复后重新计入净资产曲线'], parentBlocked: false };
   if (entry.kind === 'expense') return { typeLabel: '支出', title: entry.title, facts: [`${entry.date ?? ''} · ${expenseCategories.find(([k]) => k === entry.subtype)?.[1] ?? '其他'}`], parentBlocked: false };
-  if (entry.kind === 'income') return { typeLabel: '收入记录', title: `${entry.date ?? entry.title} 收入`, facts: ['恢复后重新参与储蓄推算'], parentBlocked: false };
+  if (entry.kind === 'income') return { typeLabel: '收入记录', title: t('{v1} 收入', { v1: entry.date ?? entry.title }), facts: ['恢复后重新参与储蓄推算'], parentBlocked: false };
   if (entry.kind === 'plan') return { typeLabel: '周期计划', title: entry.title, facts: [`${recurringCategories.find(([k]) => k === entry.subtype)?.[1] ?? '其他'} · 恢复后付款记录一并显示`], parentBlocked: false };
-  if (entry.kind === 'payment') return { typeLabel: '周期付款', title: `${entry.title} · ${entry.date} 期`, facts: [entry.subtype === 'paid' ? `已付 ${costText(entry.cost_cents)}` : '本期不付', ...(entry.asset_deleted ? ['所属计划也在最近删除中，请先恢复计划'] : [])], parentBlocked: false };
+  if (entry.kind === 'payment') return { typeLabel: '周期付款', title: t('{title} · {date} 期', { title: entry.title, date: entry.date }), facts: [entry.subtype === 'paid' ? `已付 ${costText(entry.cost_cents)}` : '本期不付', ...(entry.asset_deleted ? ['所属计划也在最近删除中，请先恢复计划'] : [])], parentBlocked: false };
   if (entry.kind === 'virtual') return { typeLabel: '虚拟资产', title: entry.title, facts: [[virtualKindText(entry.subtype ?? ''), entry.date && `购于 ${entry.date}`].filter(Boolean).join(' · ')], parentBlocked: false };
   if (entry.kind === 'wish') return { typeLabel: '心愿', title: entry.title, facts: [entry.subtype === 'achieved' ? `已实现${entry.date ? ' · ' + entry.date : ''}` : '未实现', ...(entry.asset_name ? [`实现的物品「${entry.asset_name}」${entry.asset_deleted ? '也在最近删除中' : '仍在我的物品中'}`] : [])], parentBlocked: false };
   if (entry.kind === 'account') return { typeLabel: '账户', title: entry.title, facts: ['未出现在任何盘点中的账户'], parentBlocked: false };

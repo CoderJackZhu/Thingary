@@ -2,7 +2,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { planningEngineWasm, planningEngineSourceHash } from './planning-engine-wasm.ts';
 import type { Plan, Projection } from './plan-ledger.ts';
-
+import { t } from './i18n.ts';
 export const planningModelVersion = `rust-${planningEngineSourceHash.slice(0, 12)}`;
 type Exports = {
   memory: WebAssembly.Memory;
@@ -34,7 +34,7 @@ export function engineRequest<T>(request: Record<string, unknown>): T {
   if (bytes.length > 64 * 1024 * 1024) throw new RangeError('测算输入过大');
   const wasm = runtime();
   const pointer = wasm.alloc(bytes.length) >>> 0;
-  if (!pointer) throw new Error('计算引擎无法分配输入内存');
+  if (!pointer) throw new Error(t('计算引擎无法分配输入内存'));
   try {
     new Uint8Array(wasm.memory.buffer, pointer, bytes.length).set(bytes);
     const resultPointer = wasm.evaluate(pointer, bytes.length) >>> 0;

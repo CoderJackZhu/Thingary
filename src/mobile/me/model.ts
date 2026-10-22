@@ -8,7 +8,7 @@ import type { Mode, Style } from '../../appearance.ts';
 import { styles } from '../../appearance.ts';
 import type { AutoBackupStatus } from '../../auto-backup-format.ts';
 import type { TimelineEvent } from '../../Timeline.tsx';
-
+import { t } from '../../i18n.ts';
 /** Settings sub-pages open as `me.settings` with `{ page }`; the title is also the back label of the next page. */
 export type SettingsPage = 'modules' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license';
 export const settingsTitles: Record<SettingsPage, string> = {
@@ -33,13 +33,13 @@ export function writeLastBackup(storage: Store | null, at: Date): boolean {
 const dayMs = 86400000;
 export type BackupReminder = { tone: 'positive' | 'warn'; text: string; daysAgo: number | null };
 export function backupReminder(last: string | null, now: Date, hasRecords: boolean): BackupReminder {
-  if (!last) return { tone: hasRecords ? 'warn' : 'positive', text: hasRecords ? '还没有做过完整备份。手机丢失或损坏时，没有备份就找不回资料。' : '开始记录后，别忘了做一次完整备份。', daysAgo: null };
+  if (!last) return { tone: hasRecords ? 'warn' : 'positive', text: hasRecords ? t('还没有做过完整备份。手机丢失或损坏时，没有备份就找不回资料。') : t('开始记录后，别忘了做一次完整备份。'), daysAgo: null };
   const days = Math.max(0, Math.floor((now.getTime() - Date.parse(last)) / dayMs));
   const when = new Date(last);
   const date = dayLabel(localDay(when), localDay(now));
-  if (days >= backupReminderDays) return { tone: 'warn', text: `${date}做过完整备份，已过去 ${days} 天，建议再备份一次。`, daysAgo: days };
+  if (days >= backupReminderDays) return { tone: 'warn', text: t('{date}做过完整备份，已过去 {days} 天，建议再备份一次。', { date, days }), daysAgo: days };
   const next = new Date(when.getTime() + backupReminderDays * dayMs);
-  return { tone: 'positive', text: `${date}已完整备份。下次提醒 ${dayLabel(localDay(next), localDay(now))}。`, daysAgo: days };
+  return { tone: 'positive', text: t('{date}已完整备份。下次提醒 {v2}。', { date, v2: dayLabel(localDay(next), localDay(now)) }), daysAgo: days };
 }
 export const daysAgoText = (days: number | null): string => days === null ? '未备份' : days === 0 ? '今天' : `${days} 天前`;
 

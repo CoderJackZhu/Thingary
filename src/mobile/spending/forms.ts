@@ -11,7 +11,7 @@ import { classifyIncome, incomeClassificationIssue, isInvestmentIncome } from '.
 import type { BalanceSave, TopupFields, TopupSave, VirtualAsset, VirtualFields, VirtualSave } from '../../virtual.ts';
 import { billingOf } from '../../virtual.ts';
 import type { LinkView } from '../../link.ts';
-
+import { t } from '../../i18n.ts';
 export type Check = { ok: true } | { ok: false; message: string };
 const ok: Check = { ok: true };
 const fail = (message: string): Check => ({ ok: false, message });
@@ -21,9 +21,9 @@ const empty = (v: string | null | undefined) => !v || v === '0';
 
 export const blankExpense = (today: string): ExpenseFields => ({ title: '', date: today, amount_cents: '', category: 'travel', notes: '', refund_cents: null, refund_date: null, asset_id: null });
 export function validateExpense(f: ExpenseFields): Check {
-  if (!f.title.trim()) return fail('请填写名称。');
-  if (empty(f.amount_cents)) return fail('请填写金额。');
-  if (f.refund_date !== null && !f.refund_cents) return fail('请填写退款金额，或关闭退款。');
+  if (!f.title.trim()) return fail(t('请填写名称。'));
+  if (empty(f.amount_cents)) return fail(t('请填写金额。'));
+  if (f.refund_date !== null && !f.refund_cents) return fail(t('请填写退款金额，或关闭退款。'));
   return ok;
 }
 export function expenseSave(f: ExpenseFields, existing: Pick<Expense, 'id' | 'revision'> | null, generation: string, requestId: string): ExpenseSave {
@@ -47,9 +47,9 @@ export function planFieldsFromDraft(base: PlanFields | null, draft: PlanDraft, t
   return { ...(base ?? blankPlan(today)), name: draft.name.trim(), notes: draft.notes, ...rentToFields(draft.rent, draft.category) };
 }
 export function validatePlanDraft(draft: PlanDraft, today: string): Check {
-  if (!draft.name.trim()) return fail('请填写名称。');
-  if (empty(draft.rent.amount_cents)) return fail('请填写每期金额。');
-  if (!rentPreview(draft.rent, today)) return fail(draft.category === 'rent' ? '请检查开始日期和租期到期日：到期日须晚于开始日期。' : '请检查开始日期和结束日期：结束日期须晚于开始日期。');
+  if (!draft.name.trim()) return fail(t('请填写名称。'));
+  if (empty(draft.rent.amount_cents)) return fail(t('请填写每期金额。'));
+  if (!rentPreview(draft.rent, today)) return fail(draft.category === 'rent' ? t('请检查开始日期和租期到期日：到期日须晚于开始日期。') : t('请检查开始日期和结束日期：结束日期须晚于开始日期。'));
   return ok;
 }
 /** 新建且开始日期已过去时，已过去的期数；房租默认把这些期补记为已付，其他费用默认不补。 */
@@ -64,9 +64,9 @@ export function planSave(fields: PlanFields, existing: Pick<Plan, 'id' | 'revisi
 export const pausedFields = (f: PlanFields, paused: boolean): PlanFields => ({ ...f, paused });
 export function endFields(f: PlanFields, lastUsed: string): PlanFields { return { ...f, end_date: lastUsed, auto_renew: false }; }
 export function validateEnd(f: PlanFields, lastUsed: string): Check {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(lastUsed)) return fail('请填写最后使用日。');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(lastUsed)) return fail(t('请填写最后使用日。'));
   const start = f.service_start ?? f.first_due;
-  if (lastUsed < start) return fail('最后使用日不能早于服务开始日。');
+  if (lastUsed < start) return fail(t('最后使用日不能早于服务开始日。'));
   return ok;
 }
 /** 建议的最后使用日：已设结束日、当前服务期末、已付覆盖期末、下一期末，依次取第一个有的。 */
@@ -89,7 +89,7 @@ export function paymentDraft(record: Payment | null, due: string, planAmount: st
 }
 export function validatePayment(d: PaymentDraft): Check {
   if (d.state !== 'paid') return ok;
-  return !d.paid ? fail('请填写实付日期。') : empty(d.amount) ? fail('请填写实付金额。') : ok;
+  return !d.paid ? fail(t('请填写实付日期。')) : empty(d.amount) ? fail(t('请填写实付金额。')) : ok;
 }
 export function paymentSave(d: PaymentDraft, target: { plan_id: string; due_date: string }, record: Payment | null, generation: string, requestId: string): PaymentSave {
   return { request_id: requestId, generation, id: record?.id ?? null, expected_revision: record?.revision ?? null, plan_id: target.plan_id, due_date: target.due_date, state: d.state, paid_date: d.state === 'paid' ? d.paid : null, amount_cents: d.state === 'paid' ? d.amount : null, notes: d.notes };
@@ -104,7 +104,7 @@ export function rangeDates(plan: Plan, today: string): string[] {
 }
 export function rangeCount(dates: string[], d: RangeDraft): number { return dates.filter(x => x >= d.from && x <= d.to).length; }
 export function validateRange(dates: string[], d: RangeDraft): Check {
-  if (!d.confirmed || !rangeCount(dates, d) || empty(d.amount)) return fail('请选择有效范围、填写每期实付，并明确确认已付。');
+  if (!d.confirmed || !rangeCount(dates, d) || empty(d.amount)) return fail(t('请选择有效范围、填写每期实付，并明确确认已付。'));
   return ok;
 }
 export function rangeSave(plan: Plan, d: RangeDraft, generation: string, requestId: string): PaymentRangeSave {
@@ -123,7 +123,7 @@ export function resumeDraft(plan: Plan, pending: string | null, today: string): 
   const { replacing, minimum } = resumeContext(plan, pending);
   return { start: pending ?? (today > minimum ? today : minimum), cycle: plan.fields.interval_days ? 'days' : String(plan.fields.interval_months), amount: plan.fields.amount_cents, separateDue: replacing && plan.fields.first_due !== pending, due: replacing ? plan.fields.first_due : today };
 }
-export const resumeCycles = (plan: Plan): { id: string; label: string }[] => [...intervals.map(([v, l]) => ({ id: String(v), label: l })), ...(plan.fields.interval_days ? [{ id: 'days', label: `每 ${plan.fields.interval_days} 天` }] : [])];
+export const resumeCycles = (plan: Plan): { id: string; label: string }[] => [...intervals.map(([v, l]) => ({ id: String(v), label: l })), ...(plan.fields.interval_days ? [{ id: 'days', label: t('每 {interval_days} 天', { interval_days: plan.fields.interval_days }) }] : [])];
 /** 重新订阅后的计划字段（用来预览首期区间和校验）。 */
 export function resumedFields(plan: Plan, d: ResumeDraft): PlanFields {
   const firstDue = d.separateDue ? d.due : d.start;
@@ -131,9 +131,9 @@ export function resumedFields(plan: Plan, d: ResumeDraft): PlanFields {
 }
 export function validateResume(plan: Plan, pending: string | null, d: ResumeDraft): Check {
   const { minimum } = resumeContext(plan, pending), f = resumedFields(plan, d), period = firstSubscriptionPeriod(f), firstDue = f.first_due;
-  if (!period?.[1] || period[1] < d.start || d.start < minimum) return fail('请填写有效的服务生效日期，须晚于上段最后使用日。');
-  if (shiftDays(firstDue, 0) !== firstDue || firstDue < minimum) return fail('请填写有效的首期计划付款日，须晚于上段最后使用日。');
-  if (!d.amount || BigInt(d.amount) <= 0n) return fail('请填写本次每期价格。');
+  if (!period?.[1] || period[1] < d.start || d.start < minimum) return fail(t('请填写有效的服务生效日期，须晚于上段最后使用日。'));
+  if (shiftDays(firstDue, 0) !== firstDue || firstDue < minimum) return fail(t('请填写有效的首期计划付款日，须晚于上段最后使用日。'));
+  if (!d.amount || BigInt(d.amount) <= 0n) return fail(t('请填写本次每期价格。'));
   return ok;
 }
 export function resumeSave(plan: Plan, link: Pick<LinkView, 'generation' | 'asset'>, pending: string | null, d: ResumeDraft, requestId: string): ResumeSave {
@@ -147,11 +147,11 @@ export function resumeSave(plan: Plan, link: Pick<LinkView, 'generation' | 'asse
 export const blankIncome = (today: string, hpfDefault: string): IncomeFields => ({ date: today, net_cents: '', hpf_cents: hpfDefault || null, notes: '', category: 'unclassified', source_account_id: null, destination: null, receiving_account_id: null });
 export type IncomeCheckContext = { original: IncomeFields | null; depositConfirmed: boolean };
 export function validateIncome(f: IncomeFields, ctx: IncomeCheckContext): Check {
-  if (!f.date) return fail('请填写到账日期。');
+  if (!f.date) return fail(t('请填写到账日期。'));
   const issue = incomeClassificationIssue(f);
   if (issue) return fail(issue);
-  if (isInvestmentIncome(f) && !isInvestmentIncome(ctx.original ?? {}) && f.hpf_cents !== null && !ctx.depositConfirmed) return fail('请确认保留这笔收入已有的公积金缴存事实，或更正该金额。');
-  if (f.net_cents === '') return fail('请填写税后到账金额；没有到账就填 0。');
+  if (isInvestmentIncome(f) && !isInvestmentIncome(ctx.original ?? {}) && f.hpf_cents !== null && !ctx.depositConfirmed) return fail(t('请确认保留这笔收入已有的公积金缴存事实，或更正该金额。'));
+  if (f.net_cents === '') return fail(t('请填写税后到账金额；没有到账就填 0。'));
   return ok;
 }
 export const incomeSave = (f: IncomeFields, existing: Pick<Income, 'id' | 'revision'> | null, generation: string, requestId: string): IncomeSave =>
@@ -171,7 +171,7 @@ export function autoCredit(f: Pick<TopupFields, 'paid_cents' | 'gift_cents'>): s
   return !f.paid_cents && !f.gift_cents ? null : String(BigInt(f.paid_cents || '0') + BigInt(f.gift_cents || '0'));
 }
 export function validateTopup(f: TopupFields, credit: string | null): Check {
-  return !f.paid_cents && !f.gift_cents && !f.credit_cents && credit == null ? fail('请至少填写实付、赠送或到账额度中的一项。') : ok;
+  return !f.paid_cents && !f.gift_cents && !f.credit_cents && credit == null ? fail(t('请至少填写实付、赠送或到账额度中的一项。')) : ok;
 }
 /** 空串统一为 null：未知的实付不落成 0。 */
 export function cleanTopup(f: TopupFields, credit: string | null): TopupFields {
@@ -199,10 +199,10 @@ export const isLegacyLink = (item: VirtualAsset | null): boolean => !!item && !!
 export const isComplexPlan = (item: VirtualAsset | null): boolean => !!item?.plan && !isLegacyLink(item) && !planDraftFrom(item.plan);
 export function validateVirtual(item: VirtualAsset | null, d: VirtualDraft, today: string): Check {
   const mode = d.fields.billing, sub = mode === 'subscription', locked = isLegacyLink(item) || isComplexPlan(item);
-  if (!d.fields.name.trim()) return fail('请填写名称。');
+  if (!d.fields.name.trim()) return fail(t('请填写名称。'));
   if (sub && !locked) { const c = validatePlanDraft({ ...d.plan, name: d.fields.name }, today); if (!c.ok) return c; }
-  if (mode === 'single' && item?.fields.kind === 'license' && !d.fields.stopped_on && !d.perpetual && !d.fields.expires) return fail('旧买断软件未设期限时按永久有效解释；有限期授权请填有效至，不再使用请选已结束使用。');
-  if (mode === 'single' && d.perpetual && d.fields.expires) return fail('选择永久有效时不要填写有效至。');
+  if (mode === 'single' && item?.fields.kind === 'license' && !d.fields.stopped_on && !d.perpetual && !d.fields.expires) return fail(t('旧买断软件未设期限时按永久有效解释；有限期授权请填有效至，不再使用请选已结束使用。'));
+  if (mode === 'single' && d.perpetual && d.fields.expires) return fail(t('选择永久有效时不要填写有效至。'));
   return ok;
 }
 /** 虚拟资产保存载荷：订阅同时携带关联的周期计划；储值可带首次充值。续费价格分段、特殊到期不在手机版编辑，保持原样。 */
@@ -225,6 +225,6 @@ export function virtualSave(item: VirtualAsset | null, d: VirtualDraft, generati
 export function canSwitchBilling(item: VirtualAsset | null, next: string): Check {
   if (!item || billingOf(item) === next) return ok;
   const hadFacts = billingOf(item) === 'topup' ? (item.topup_count ?? 0) > 0 : billingOf(item) === 'subscription' ? !!item.fields.plan_id : !!item.fields.price_cents;
-  return hadFacts ? fail('已有付款或充值事实的档案不能更换计费方式；请保留原方式或新建档案。') : ok;
+  return hadFacts ? fail(t('已有付款或充值事实的档案不能更换计费方式；请保留原方式或新建档案。')) : ok;
 }
 export const stopFields = (f: VirtualFields, today: string): VirtualFields => ({ ...f, stopped_on: today });

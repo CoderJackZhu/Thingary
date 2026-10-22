@@ -9,7 +9,7 @@ import { dayLabel } from '../format';
 import { ConfirmSheet, DateField, DeleteSheet, ErrorState, Loading } from '../ui';
 import { endFields, endSuggestion, planSave, validateEnd } from './forms';
 import { useRead, useSaver } from './read';
-
+import { t } from '../../i18n.ts';
 /** 整组删除：先读预览，再用同一份预览确认（关联订阅的服务档案和计划一起进最近删除）。 */
 export function GroupDeleteSheet({ side, id, name, partnerId, generation, onClose }: { side: 'virtual' | 'plan'; id: string; name: string; partnerId?: string | null; generation: string; onClose: () => void }) {
   const saver = useSaver();
@@ -21,8 +21,8 @@ export function GroupDeleteSheet({ side, id, name, partnerId, generation, onClos
     void saver.run(requestId => submit<string>({ command: 'link_trash', input: { ...input, request_id: requestId }, label: '删除 ' + preview.asset_name }), { close: true });
   }
   return <DeleteSheet name={name} busy={saver.busy} error={saver.error || read.error} disabled={!preview} onClose={onClose} onConfirm={confirm}>
-    {read.loading && <Loading label="正在读取影响范围…"/>}
-    {read.error && <ErrorState title="读取失败" message={read.error} onRetry={read.reload}/>}
+    {read.loading && <Loading label={t('正在读取影响范围…')}/>}
+    {read.error && <ErrorState title={t('读取失败')} message={read.error} onRetry={read.reload}/>}
     {preview && <ul className="sp-rows sp-facts">{previewText(preview).map(text => <li key={text}>{text}</li>)}</ul>}
   </DeleteSheet>;
 }
@@ -41,9 +41,9 @@ export function EndPlanSheet({ plan, link, generation, today, onClose, onDone }:
       : submit({ command: 'recurring_plan_save', input: planSave(fields, plan, generation, requestId), label: '取消续费 ' + name }),
     { onDone: () => { onDone(`「${name}」将使用至 ${dayLabel(day, today)}，后续续费已关闭；历史付款与估算依据保留。`); onClose(); } });
   }
-  return <ConfirmSheet title="结束计划" confirm="确认结束" danger busy={saver.busy} error={problem || saver.error} onClose={onClose} onConfirm={confirm}
-    message={`「${name}」最后使用到哪一天？确认后不再生成新的付款期，已记录的付款保留。`}>
-    <div className="m-card m-form-card"><DateField label="最后使用日" value={day} onChange={v => { setProblem(''); setDay(v); }} disabled={saver.busy}/></div>
+  return <ConfirmSheet title={t('结束计划')} confirm={t('确认结束')} danger busy={saver.busy} error={problem || saver.error} onClose={onClose} onConfirm={confirm}
+    message={t('「{name}」最后使用到哪一天？确认后不再生成新的付款期，已记录的付款保留。', { name })}>
+    <div className="m-card m-form-card"><DateField label={t('最后使用日')} value={day} onChange={v => { setProblem(''); setDay(v); }} disabled={saver.busy}/></div>
   </ConfirmSheet>;
 }
 

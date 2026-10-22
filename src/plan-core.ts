@@ -2,6 +2,7 @@
 import type { Snapshot } from './wealth.ts';
 import type { StoredLifeEvent } from './plan.ts';
 import { debtReview } from './plan-debt.ts';
+import { t } from './i18n.ts';
 export type DebtTreatment = 'scheduled' | 'included' | 'excluded' | null;
 export type DebtRepayment = { account_id: string; recorded_on: string; as_of: string; balance_cents: string; start_month: string; last_month: string | null; monthly_cents: string | null; before: DebtTreatment; after: DebtTreatment };
 export type FundRule = { account_id: string; availability: 'available' | 'restricted' | 'excluded'; share_hundredths: number };
@@ -39,8 +40,8 @@ export const mustStayInLedger = (sourceId: string) => sourceId.endsWith(':loan')
 export function costSources(events: StoredLifeEvent[]) {
   const out: { id: string; label: string }[] = [];
   for (const e of events) {
-    if (Number(e.price_cents) > Number(e.down_cents)) out.push({ id: eventSource(e.id, 'loan'), label: `${e.label}月供` });
-    if (Number(e.holding_cents) > 0) out.push({ id: eventSource(e.id, 'holding'), label: `${e.label}持有费` });
+    if (Number(e.price_cents) > Number(e.down_cents)) out.push({ id: eventSource(e.id, 'loan'), label: t('{label}月供', { label: e.label }) });
+    if (Number(e.holding_cents) > 0) out.push({ id: eventSource(e.id, 'holding'), label: t('{label}持有费', { label: e.label }) });
   }
   return out;
 }
@@ -74,7 +75,7 @@ export function occurrenceIssues(snapshot: Snapshot, core: PlanningCore | null |
     }
   }
   const debts = debtReview(snapshot, core, events).rows.filter(r => r.pending.length).length;
-  if (debts) missing.push({ event_id: null, kind: 'unlinked_debt', message: `${debts} 个负债账户还款待填写，请打开贷款还款安排。` });
+  if (debts) missing.push({ event_id: null, kind: 'unlinked_debt', message: t('{debts} 个负债账户还款待填写，请打开贷款还款安排。', { debts }) });
   return missing;
 }
 

@@ -9,6 +9,7 @@ import { paymentReminders } from './recurring.ts';
 import type { VirtualOverview } from './virtual';
 import type { TimelineEvent } from './Timeline';
 import type { SourceTarget } from './source';
+import { t } from './i18n.ts';
 export type Read<T> = { status: 'ready'; value: T } | { status: 'error'; value: { code: string; message: string } };
 export type AccountAvailability = { total: number; due_today: number };
 export type Review = { generation: string; today: string; year: number | null; physical: Read<OverviewData>; wealth: Read<Summary>; account_availability?: Read<AccountAvailability>; expenses: Read<ExpenseView>; recurring: Read<Recurring>; virtual_assets: Read<VirtualOverview>; recent: Read<TimelineEvent[]>; planning?: PlanSources | null };
@@ -98,7 +99,7 @@ export type Attention = { id: string; priority: number; date: string; title: str
 export function attention(review: Review, m: Modules = allModules): Attention[] {
   const groups = new Map<string, Attention>();
   const latest = m.wealth ? ready(review.wealth)?.points.at(-1) : undefined;
-  if (latest && !latest.complete) groups.set('snapshot:' + latest.snapshot_id, { id: 'snapshot:' + latest.snapshot_id, priority: 0, date: latest.date, title: '最新盘点尚未完整', details: [`${latest.date} · 缺 ${latest.missing} 个账户`], entries: [{ action: '查看盘点', target: { kind: 'snapshot', id: latest.snapshot_id } }] });
+  if (latest && !latest.complete) groups.set('snapshot:' + latest.snapshot_id, { id: 'snapshot:' + latest.snapshot_id, priority: 0, date: latest.date, title: t('最新盘点尚未完整'), details: [`${latest.date} · 缺 ${latest.missing} 个账户`], entries: [{ action: '查看盘点', target: { kind: 'snapshot', id: latest.snapshot_id } }] });
   const recurring = m.recurring ? ready(review.recurring) : undefined;
   const reminders = recurring ? paymentReminders(recurring) : { due: [], upcoming: [] };
   for (const [rows, priority, label] of [[reminders.due, 1, '付款待确认'], [reminders.upcoming, 2, '即将到期付款']] as const) {

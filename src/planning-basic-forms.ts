@@ -7,7 +7,7 @@ import type { SimplifiedPlanningFieldsV1 } from './plan-simplified-contract.ts';
 import type { SectionInput } from './planning-basic-data.ts';
 import type { Snapshot } from './wealth.ts';
 import { suggestedFundAvailability } from './planning-fund-scope.ts';
-
+import { t as tr } from './i18n.ts';
 type Saved = ProfileState['saved'];
 export type Treatment = '' | 'included' | 'extra' | 'excluded';
 export type ScopeDraft = { treatment: Treatment; ref: string };
@@ -23,14 +23,14 @@ export type Draft = {
 
 const spendSources = (r: RetireInputs): CostSource[] => [
   ...r.spend_items.map(i => ({ id: `spend:${i.id}`, label: i.label, cents: i.monthly_cents })),
-  ...(Number(r.rent_cents) > 0 ? [{ id: 'rent', label: '房租', cents: r.rent_cents }] : []),
+  ...(Number(r.rent_cents) > 0 ? [{ id: 'rent', label: tr('房租'), cents: r.rent_cents }] : []),
 ];
 /** Retirement-side sources come from facts the person already has; there is nothing to ask when there are none. */
 export const retirementSources = (r: RetireInputs): CostSource[] => [
   ...contributionSources(r), ...spendSources(r),
 ];
 export const contributionSources = (r: RetireInputs): CostSource[] =>
-  [...new Map([...costSources(r.life_events).map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划的剩余欠款', cents: null }))].map(s => [s.id, s])).values()];
+  [...new Map([...costSources(r.life_events).map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: tr('已发生计划的剩余欠款'), cents: null }))].map(s => [s.id, s])).values()];
 
 const scopeDraft = (list: CostScope[] | undefined, sources: CostSource[]): Record<string, ScopeDraft> =>
   Object.fromEntries(sources.map(s => { const c = list?.find(x => x.source_id === s.id); return [s.id, { treatment: (c?.treatment ?? '') as Treatment, ref: c?.reference_cents ?? '' }]; }));
@@ -55,13 +55,13 @@ export function draftOf(saved: Saved, snapshot: Snapshot | null): Draft {
 }
 
 const fail = (m: string): never => { throw new Error(m); };
-const int = (t: string, label: string, min: number, max: number): number | null => { const s = t.trim(); if (s === '') return null; const n = Number(s); return Number.isInteger(n) && n >= min && n <= max ? n : fail(`${label}须是 ${min} 到 ${max} 的整数。`); };
-const rate = (t: string, label: string): number => pctToHundredths(t) ?? fail(`${label}请填百分数，例如 2 或 2.5。`);
+const int = (t: string, label: string, min: number, max: number): number | null => { const s = t.trim(); if (s === '') return null; const n = Number(s); return Number.isInteger(n) && n >= min && n <= max ? n : fail(tr('{label}须是 {min} 到 {max} 的整数。', { label, min, max })); };
+const rate = (t: string, label: string): number => pctToHundredths(t) ?? fail(tr('{label}请填百分数，例如 2 或 2.5。', { label }));
 export const monthOf = (d: string) => (d ? d.slice(0, 7) : null);
 
 const scopes = (sources: CostSource[], d: Record<string, ScopeDraft>): CostScope[] => sources.flatMap((s): CostScope[] => {
   const x = d[s.id]; if (!x || x.treatment === '' || (x.treatment === 'excluded' && mustStayInLedger(s.id))) return [];
-  if (x.treatment === 'included') return [{ source_id: s.id, treatment: 'included', reference_cents: x.ref === '' ? fail(`「${s.label}」已含在预算里时，请填写含多少。`) : x.ref }];
+  if (x.treatment === 'included') return [{ source_id: s.id, treatment: 'included', reference_cents: x.ref === '' ? fail(tr('「{label}」已含在预算里时，请填写含多少。', { label: s.label })) : x.ref }];
   return [{ source_id: s.id, treatment: x.treatment, reference_cents: null }];
 });
 export function basicInput(d: Draft, saved: Saved, today: string): SectionInput {
@@ -69,7 +69,7 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
   const fields: BasicFields = {
     spend_cents: d.budget === '' ? null : d.budget,
     mode: d.mode, real_return_before_hundredths: rate(d.before, '退休前实际收益'), real_return_after_hundredths: rate(d.after, '退休后实际收益'), volatility_hundredths: d.volatility === undefined ? r.volatility_hundredths : rate(d.volatility, '市场模拟年波动率'),
-    emergency_months: int(d.emergency, '应急金月数', 0, 36) ?? fail('请填写应急金月数。'), inflation_hundredths: rate(d.infl, '通胀'),
+    emergency_months: int(d.emergency, '应急金月数', 0, 36) ?? fail(tr('请填写应急金月数。')), inflation_hundredths: rate(d.infl, '通胀'),
     monetary_basis_date: r.core?.monetary_basis_date ?? today,
     basic: {
       contract_version: 1,
@@ -100,7 +100,7 @@ export function contributionSection(saved: NonNullable<Saved>, value: string | n
 /** Fee review changes only the two scopes; saved timing, income, goal and contribution remain exact. */
 export function costsInput(d: Draft, saved: NonNullable<Saved>): SectionInput {
   const p = saved.profile, r = p.retire;
-  if (!r.basic || !r.core) return fail('请先设置目标，并确认金额对应日期。');
+  if (!r.basic || !r.core) return fail(tr('请先设置目标，并确认金额对应日期。'));
   return { section: 'basic', fields: {
     spend_cents: r.spend_cents,
     mode: r.mode, real_return_before_hundredths: r.real_return_before_hundredths, real_return_after_hundredths: r.real_return_after_hundredths,

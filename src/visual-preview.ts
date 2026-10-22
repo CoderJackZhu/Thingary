@@ -4,6 +4,7 @@ import { desktopShortcutAction, isMac } from './undo-shortcut';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
 import { handle } from './preview-ipc';
+import { t } from './i18n.ts';
 const params = new URLSearchParams(location.search);
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
@@ -28,7 +29,7 @@ window.addEventListener('keydown',event=>{
   if (action) { event.preventDefault(); void emit('asset-action', action); }
 });
 // Explicit fictional receipts reproduce restart recovery, including disabled modules.
-if (params.get('receipt-recovery') === 'account') localStorage.setItem('thingary.wealth-pending.v1', JSON.stringify({ command: 'wealth_account_save', input: { request_id: 'fictional-recovery-request', generation: 'visual-fixture-only' }, label: '虚构账户保存' }));
+if (params.get('receipt-recovery') === 'account') localStorage.setItem('thingary.wealth-pending.v1', JSON.stringify({ command: 'wealth_account_save', input: { request_id: 'fictional-recovery-request', generation: 'visual-fixture-only' }, label: t('虚构账户保存') }));
 if (params.get('section')) sessionStorage.setItem('thingary.library-section.v1', params.get('section')!);
 // 截图入口：自动进入指定标签的分析子视图（仅浏览器预览；?enter-tag=<labelId>&analysis-search=<词>）。
 if (params.get('enter-tag')) {

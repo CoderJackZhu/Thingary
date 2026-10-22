@@ -8,7 +8,7 @@ import { project, outcome } from './plan-ledger.ts';
 import type { Plan, Flow, MonthAudit } from './plan-ledger.ts';
 import { careerBlocked as blocked, careerIssue as issue, validCareerAmount as amount, validCareerMonth as month, careerMonth as ym } from './plan-career-contract.ts';
 import type { CareerDraft, CareerStage, CareerIssue, CareerEvaluation, CareerCash } from './plan-career-contract.ts';
-
+import { t } from './i18n.ts';
 function stageIssues(stage: CareerStage, field: string): CareerIssue[] {
   const errors: CareerIssue[] = [];
   const label = field === 'gap' ? '空窗阶段' : '恢复阶段';
@@ -95,24 +95,24 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
       flow.push(...clipped(compiler.compile(0, rb, ra).saving_flows ?? [], from, to));
       if (stage) {
         const cost = Number(stage.insurance.monthly_cents);
-        flow.push({ label: '本次自缴现金费用', from_month: from, to_month: to, cents: -cost, nominal: false, essential: true, timing: 'start', prorate_first: true });
-        if (stage.insurance.included) flow.push({ label: '自缴已含金额还原', from_month: from, to_month: to, cents: cost, nominal: false, essential: false, prorate_first: true });
+        flow.push({ label: t('本次自缴现金费用'), from_month: from, to_month: to, cents: -cost, nominal: false, essential: true, timing: 'start', prorate_first: true });
+        if (stage.insurance.included) flow.push({ label: t('自缴已含金额还原'), from_month: from, to_month: to, cents: cost, nominal: false, essential: false, prorate_first: true });
       }
     };
     if (transition > now) append(initial, now, transition);
     if (hasGap && gapCompiler) {
       append(gapCompiler, transition, gapEnd, draft.gap);
       const benefitMonths = Math.min(extra?.benefit_months ?? 0, gapEnd - transition);
-      if (extra?.benefit_monthly_cents && Number(extra.benefit_monthly_cents) > 0 && benefitMonths > 0) flow.push({ label: '空窗期限期补助', from_month: transition, to_month: transition + benefitMonths, cents: Number(extra.benefit_monthly_cents), nominal: false, essential: false });
+      if (extra?.benefit_monthly_cents && Number(extra.benefit_monthly_cents) > 0 && benefitMonths > 0) flow.push({ label: t('空窗期限期补助'), from_month: transition, to_month: transition + benefitMonths, cents: Number(extra.benefit_monthly_cents), nominal: false, essential: false });
       const ordinary = Number(draft.gap.spend_cents) - gapCompiler.included_reference_cents - (draft.gap.insurance.included ? Number(draft.gap.insurance.monthly_cents) : 0);
       // The paired flows add timing, not another expense: net gap already contains it.
-      flow.push({ label: '空窗普通开销月初支付', from_month: transition, to_month: gapEnd, cents: -ordinary, nominal: false, essential: true, timing: 'start', prorate_first: true },
-        { label: '空窗时点还原', from_month: transition, to_month: gapEnd, cents: ordinary, nominal: false, essential: false, prorate_first: true });
+      flow.push({ label: t('空窗普通开销月初支付'), from_month: transition, to_month: gapEnd, cents: -ordinary, nominal: false, essential: true, timing: 'start', prorate_first: true },
+        { label: t('空窗时点还原'), from_month: transition, to_month: gapEnd, cents: ordinary, nominal: false, essential: false, prorate_first: true });
     }
     // One-off inflows the user entered (share vesting, bonuses): end of their month, independent of the candidate.
-    for (const l of lumps) if (Number(l.cents) > 0) { const at = monthIndex(l.month) - origin; flow.push({ label: '一次性到账', from_month: at, to_month: at + 1, cents: Number(l.cents), nominal: false, essential: false }); }
+    for (const l of lumps) if (Number(l.cents) > 0) { const at = monthIndex(l.month) - origin; flow.push({ label: t('一次性到账'), from_month: at, to_month: at + 1, cents: Number(l.cents), nominal: false, essential: false }); }
     // A lump sum (severance) arrives with the change itself, with or without a gap.
-    if (extra?.lump_cents && Number(extra.lump_cents) > 0) flow.push({ label: '变化时一次性到账', from_month: transition, to_month: transition + 1, cents: Number(extra.lump_cents), nominal: false, essential: false });
+    if (extra?.lump_cents && Number(extra.lump_cents) > 0) flow.push({ label: t('变化时一次性到账'), from_month: transition, to_month: transition + 1, cents: Number(extra.lump_cents), nominal: false, essential: false });
     if (postCompiler && recovery !== null && recovery < target) append(postCompiler, recovery, target, draft.recovery);
     const phases = [{ from_month: now, cents: Number(current ?? 0) }, { from_month: transition, cents: hasGap ? Number(draft.gap.income_cents) - Number(draft.gap.spend_cents) : candidate }, ...(hasGap ? [{ from_month: gapEnd, cents: candidate }] : [])];
     // A change at the origin replaces the prior stage at that same boundary.
@@ -156,12 +156,12 @@ function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, 
   if (gapEnd > transition && draft.gap.budget_scope !== 'complete') errors.push(issue('gap.budget_scope', '目前只确认必要开销；完整目标需求还需要空窗总开销。'));
   let requirement: CareerEvaluation['requirement'];
   if (errors.length) requirement = blocked(errors);
-  else if (recovery! >= target) requirement = { status: 'ready', value: { status: 'no_recovery_interval', message: '原目标前没有恢复后的积累区间，不能反求这段月投入。' } };
+  else if (recovery! >= target) requirement = { status: 'ready', value: { status: 'no_recovery_interval', message: t('原目标前没有恢复后的积累区间，不能反求这段月投入。') } };
   else {
     // At recovery, only payments BEFORE the first candidate deposit are immutable.
     const prefix = audit.find(p => p.month < recovery! ? negative(p) : p.month === recovery && Math.min(p.start_cents, p.after_payments_cents) < 0);
-    if (prefix) requirement = { status: 'ready', value: { status: 'prefix_payment_gap', message: `${ym(origin + prefix.month)}的已知付款不足不能用之后的月投入补救。` } };
-    else if (cashValue?.floor_month && Number(cashValue.minimum_cents) < Number(draft.floor_cents)) requirement = { status: 'ready', value: { status: 'prefix_floor_breach', message: '空窗资金已低于本次设定底线；后续投入不能改变这段条件。' } };
+    if (prefix) requirement = { status: 'ready', value: { status: 'prefix_payment_gap', message: t('{v1}的已知付款不足不能用之后的月投入补救。', { v1: ym(origin + prefix.month) }) } };
+    else if (cashValue?.floor_month && Number(cashValue.minimum_cents) < Number(draft.floor_cents)) requirement = { status: 'ready', value: { status: 'prefix_floor_breach', message: t('空窗资金已低于本次设定底线；后续投入不能改变这段条件。') } };
     else if (!calculateRequirement) requirement = blocked([issue('requirement', '本次候选只检查给定投入，不执行需求反求。')]);
     else requirement = { status: 'ready', value: solveBasicRequirement(compile, zero.r_before_hundredths, zero.r_after_hundredths, recovery!) };
   }

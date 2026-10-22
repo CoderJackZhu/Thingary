@@ -7,7 +7,7 @@ import type {
   MovementRecordV1, MovementSourceV1,
 } from '../planning-followup-contract.ts';
 import { MAX_FLOW_NOTE_CHARS, validCents, validDate } from '../investment-review/model.ts';
-
+import { t } from '../i18n.ts';
 // ---------------------------------------------------------------- 假设编辑
 
 /** 契约 §2：四个默认试算值（万分比整数）——0／0／2%／5%，非用户确认的配置。 */
@@ -18,10 +18,10 @@ export const ASSUMPTION_BOUNDS = {
 } as const;
 export type AssumptionKey = keyof AssumptionValuesV1;
 export const assumptionFields: { key: AssumptionKey; label: string; hint: string }[] = [
-  { key: 'real_return_before_hundredths', label: '退休前实际年收益（%）', hint: '扣除通胀与费用后的实际收益；默认 0 表示只跑平通胀。' },
-  { key: 'real_return_after_hundredths', label: '退休后实际年收益（%）', hint: '同样按扣除通胀与费用后的实际收益填写。' },
-  { key: 'inflation_hundredths', label: '通胀（%）', hint: '用于把未来金额换算回今天的购买力。' },
-  { key: 'volatility_hundredths', label: '市场模拟年波动率（%）', hint: '只作用于市场路径模拟，不改变确定性基准公式；默认 5% 是程序试算值，不是资产配置的风险估计，允许填 0。' },
+  { key: 'real_return_before_hundredths', label: t('退休前实际年收益（%）'), hint: t('扣除通胀与费用后的实际收益；默认 0 表示只跑平通胀。') },
+  { key: 'real_return_after_hundredths', label: t('退休后实际年收益（%）'), hint: t('同样按扣除通胀与费用后的实际收益填写。') },
+  { key: 'inflation_hundredths', label: t('通胀（%）'), hint: t('用于把未来金额换算回今天的购买力。') },
+  { key: 'volatility_hundredths', label: t('市场模拟年波动率（%）'), hint: t('只作用于市场路径模拟，不改变确定性基准公式；默认 5% 是程序试算值，不是资产配置的风险估计，允许填 0。') },
 ];
 
 /** 万分比整数 → 百分数文本（200 → '2'，250 → '2.5'，-100 → '-1'）。仅展示格式化。 */
@@ -125,16 +125,16 @@ export function draftToFields(d: MovementFormDraft): MovementFieldsV1 {
 /** 表单级语法检查（可少不可代）：真实日历日、非零正金额、两端结构。语义校验由领域负责。 */
 export function movementDraftIssues(d: MovementFormDraft): { path: string; code: string; message: string }[] {
   const issues: { path: string; code: string; message: string }[] = [];
-  if (!validDate(d.date.trim())) issues.push({ path: 'date', code: 'invalid_date', message: '日期必须是真实有效的 YYYY-MM-DD，按实际结算日填写。' });
-  if (d.amount === '') issues.push({ path: 'amount_cents', code: 'missing_amount', message: '金额无法确定时不能保存成虚构事实：请补齐金额，或取消后先记在区间备注里。' });
-  else if (!validCents(d.amount) || d.amount === '0') issues.push({ path: 'amount_cents', code: 'invalid_cents', message: '金额必须是非零的正金额。' });
+  if (!validDate(d.date.trim())) issues.push({ path: 'date', code: 'invalid_date', message: t('日期必须是真实有效的 YYYY-MM-DD，按实际结算日填写。') });
+  if (d.amount === '') issues.push({ path: 'amount_cents', code: 'missing_amount', message: t('金额无法确定时不能保存成虚构事实：请补齐金额，或取消后先记在区间备注里。') });
+  else if (!validCents(d.amount) || d.amount === '0') issues.push({ path: 'amount_cents', code: 'invalid_cents', message: t('金额必须是非零的正金额。') });
   for (const [side, kind, account, label] of [['from', d.fromKind, d.fromAccount, d.fromExternal], ['to', d.toKind, d.toAccount, d.toExternal]] as const) {
-    if (kind === 'external' && label.trim() === '') issues.push({ path: side, code: 'missing_external_label', message: side === 'from' ? '转出端为范围外对象时，请说明对象（例如“转入银行”）。' : '转入端为范围外对象时，请说明对象。' });
-    if (kind === 'account' && account === '') issues.push({ path: side, code: 'missing_account', message: side === 'from' ? '请选择转出端账户。' : '请选择转入端账户。' });
+    if (kind === 'external' && label.trim() === '') issues.push({ path: side, code: 'missing_external_label', message: side === 'from' ? t('转出端为范围外对象时，请说明对象（例如“转入银行”）。') : t('转入端为范围外对象时，请说明对象。') });
+    if (kind === 'account' && account === '') issues.push({ path: side, code: 'missing_account', message: side === 'from' ? t('请选择转出端账户。') : t('请选择转入端账户。') });
   }
-  if (d.fromKind === 'account' && d.toKind === 'account' && d.fromAccount !== '' && d.fromAccount === d.toAccount) issues.push({ path: 'to', code: 'same_account', message: '一笔流动的两端不能是同一个账户。' });
-  if (d.fromKind === 'external' && d.toKind === 'external') issues.push({ path: 'from', code: 'no_account_end', message: '至少一端必须是本应用的账户；没有账户请先创建账户。' });
-  if ([...d.notes].length > MAX_FLOW_NOTE_CHARS) issues.push({ path: 'notes', code: 'invalid_notes', message: `备注必须是不超过 ${MAX_FLOW_NOTE_CHARS} 字的字符串。` });
+  if (d.fromKind === 'account' && d.toKind === 'account' && d.fromAccount !== '' && d.fromAccount === d.toAccount) issues.push({ path: 'to', code: 'same_account', message: t('一笔流动的两端不能是同一个账户。') });
+  if (d.fromKind === 'external' && d.toKind === 'external') issues.push({ path: 'from', code: 'no_account_end', message: t('至少一端必须是本应用的账户；没有账户请先创建账户。') });
+  if ([...d.notes].length > MAX_FLOW_NOTE_CHARS) issues.push({ path: 'notes', code: 'invalid_notes', message: t('备注必须是不超过 {MAX_FLOW_NOTE_CHARS} 字的字符串。', { MAX_FLOW_NOTE_CHARS }) });
   return issues;
 }
 
