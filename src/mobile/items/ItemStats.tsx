@@ -52,7 +52,6 @@ export default function ItemStats(_props: PageProps) {
           {!categories.length ? <p className="mi-stats-note">暂无分类数据。</p> : <div className="mi-stats-category"><DonutChart size={124} slices={categories.map(row => ({ label: row.name, value: shareValue(row, metric) }))} summary={`分类分布，${metric === 'amount' ? '按已知购入金额' : '按件数'}：${categories.map(row => `${row.name} ${metric === 'amount' ? moneyText(row.known_cents) : `${row.count}件`}`).join('，')}`} center={{ top: String(snapshot.total), bottom: '件物品' }}/><ul className="mi-stats-legend">{categories.map((row, index) => <li key={row.id ?? 'none'}><span className="mi-stats-legend-name"><i className="mi-stats-swatch" style={{ background: `var(--series-${index % 7 + 1})` }}/>{row.name}</span><span className="mi-stats-legend-value">{metric === 'amount' ? moneyText(row.known_cents) : `${row.count} 件`}{row.unknown_price_count > 0 && <small><br/>{row.unknown_price_count} 件金额未知</small>}</span></li>)}</ul></div>}
         </Card>
       </Section>
-      <Button variant="plain" onClick={() => nav.setSegment('items.list')}>总价与日均成本见「物品」首页 ›</Button>
       <ListGroup title="当前时间段 · 回收分析" footer={`仅比较购入价与售出价，不含维护费。${snapshot.sold_unknown_price_count + snapshot.sold_zero_price_count} 件售出物品购入价未知或为零，未纳入。`}>
         <ListRow title="售出回收" value={moneyText(snapshot.sale_proceeds_cents)}/>
         <ListRow title="已知购入成本" value={moneyText(snapshot.sold_purchase_cents)}/>
