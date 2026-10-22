@@ -56,7 +56,6 @@ export function Editor({ account, groups, reloadGroups }: { account: Account | n
       <FormGroup><TextAreaField label="备注" value={fields.notes} onChange={v=>set('notes',v)}/></FormGroup>
     </fieldset>
     {newGroup && <FormGroup title="新建分组"><TextField label="分组名称" value={groupName} maxLength={40} onChange={setGroupName}/><Button disabled={frozen} onClick={()=>{const error=groupNameError(groupName); if(error){groupWriter.setError(error);return;} void groupWriter.write({command:'account_group_save',label:'新增账户分组',input:{request_id:crypto.randomUUID(),generation,id:null,expected_revision:null,name:groupName.trim()}});}}>创建分组</Button><Button disabled={frozen} onClick={()=>setNewGroup(false)}>取消</Button><p className="mw-muted">创建后重新打开分组选择即可使用。</p></FormGroup>}
-    <Button variant="primary" disabled={frozen} onClick={()=>void save()}>保存账户</Button>
   </div>;
 }
 export default function AccountEdit({params}:PageProps) {
