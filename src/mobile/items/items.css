@@ -23,3 +23,6 @@
 .mi-search{display:flex;align-items:center;gap:4px}.mi-search .m-search{flex:1;min-width:0}.mi-search-cancel{min-height:44px;min-width:44px;border:0;background:transparent;color:var(--accent);font-size:16px;padding:0 6px}
 .mi-page .mi-expiring .m-row{min-height:44px;padding:8px 14px;border-bottom:0}.mi-page .mi-expiring .m-row-title{font-size:13px}.mi-page .mi-expiring .m-row-icon{width:24px;height:24px;min-width:24px;border-radius:0;background:transparent}
 .mi-search .m-search input:focus,.mi-search .m-search input:focus-visible{outline:0;box-shadow:none}
+
+.mi-filter-foot{position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 -20px;padding:10px 20px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--bg);font-weight:600}
+:root[data-mode=dark] .mi-filter-foot{background:var(--card)}

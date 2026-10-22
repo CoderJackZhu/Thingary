@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from '../../asset';
-import { useNav } from '../nav-context';
+import type { Page } from '../../asset';
 import { Button, FormGroup, SelectField, Notice, ErrorState } from '../ui';
 import { labelFilterOptions } from '../../tag-investment';
 type Choice = { id:string; name:string; enabled:boolean };
@@ -9,11 +9,14 @@ import { chooseSort, sortOptions } from './list-model';
 import { resetItemQuery, setItemQuery, useItemQuery } from './list-store';
 import './items.css';
 export default function ItemFilter() {
-  const nav=useNav(), query=useItemQuery();
+  const query=useItemQuery();
   const draft=query, setDraft=setItemQuery;
   const [categories,setCategories]=useState<{id:string;name:string}[]>([]),[tags,setTags]=useState<Choice[]>([]),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{ let live=true; invoke<{items:Choice[]}>('choice_list',{kind:'label'}).then(r=>{if(live)setTags(r.items);}).catch(e=>{if(live)setError(errorMessage(e));});return()=>{live=false;};},[retry]);
   useEffect(()=>{ let live=true; invoke<{categories:{id:string;name:string}[]}>('taxonomy_snapshot').then(r=>{if(live)setCategories(r.categories);}).catch(()=>{}); return()=>{live=false;};},[retry]);
+  const [total,setTotal]=useState<number|null>(null);
+  // Changes apply live, so show how many items the current conditions match.
+  useEffect(()=>{ let live=true; invoke<Page>('list_assets',{query:{...query,offset:0}}).then(r=>{if(live)setTotal(r.total);}).catch(()=>{if(live)setTotal(null);}); return()=>{live=false;};},[JSON.stringify(query)]);
   const categoryId=draft.category?.mode==='category'?draft.category.id:draft.category?.mode==='uncategorized'?'none':'all';
   return <div className="mi-filter">
     <FormGroup title="筛选">
@@ -29,6 +32,6 @@ export default function ItemFilter() {
       <SelectField label="顺序" value={draft.descending?'desc':'asc'} onChange={v=>setDraft({...draft,descending:v==='desc'})} options={[{id:'asc',label:'升序 ↑'},{id:'desc',label:'降序 ↓'}]}/>
     </FormGroup>
     <p className="mi-caption">未知值在升序、降序下都放最后，置顶优先。按次或资料不全的物品不显示日均。持有时长截至今天，已售出截至售出日。</p>
-    <div className="mi-actions"><Button onClick={()=>{resetItemQuery();nav.pop();}}>清除条件</Button><Button variant="primary" onClick={()=>{setItemQuery(draft);nav.pop();}}>应用条件</Button></div>
+    <div className="mi-filter-foot"><span role="status" aria-live="polite">{total===null?'':`共 ${total} 件`}</span><Button onClick={resetItemQuery}>清除条件</Button></div>
   </div>;
 }
