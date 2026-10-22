@@ -35,6 +35,38 @@ Xcode 27 要求 UIScene；Info.ios.plist 使用 Tao 自带的 TaoSceneDelegate�
 
 iOS 入口为独立界面任务提供的 mobile.html。资料库使用 `app_local_data_dir()/library`，开发身份仍为 `local.thingary.preview`；绝不打开 `local.thingary.main`。桌面菜单、窗口尺寸和单实例插件仅在桌面启用。SQLite、规划核心、金额整数分、日期、request_id、generation 和回执机制均与桌面共用。
 
+### 真机自测（免费 Apple ID）
+
+用于维护者把开发预览版（`local.thingary.preview`，与正式版 `local.thingary.main` 是两个 App，资料互不影响）装到自己的 iPhone 上试用。Team ID、设备 ID 只放在本机环境变量或个人笔记里，不写进仓库。
+
+一次性准备：
+1. Xcode › Settings › Accounts 登录 Apple ID，得到 Personal Team。用 `defaults read com.apple.dt.Xcode IDEProvisioningTeamByIdentifier` 找 `isFreeProvisioningTeam = 1` 的那项，记下 `teamID`。
+2. iPhone 连 Mac 并信任；在 设置 › 隐私与安全性 › 开发者模式 打开并重启。
+3. `rustup target add aarch64-apple-ios`，`rustup component add llvm-tools`（swift-rs 需要 llvm-objcopy，缺了 Release 链接会报 Tauri 的 `@_cdecl` 符号找不到）。
+4. 第一次必须在 Xcode 里装一次，让免费账号登记这台设备：`npm run ios:tauri -- ios run --release --open`，在 thingary_iOS › Signing & Capabilities 选 Personal Team，有 Register Device 就点，选中 iPhone 后运行。完成后 `git checkout src-tauri/gen/apple` 撤销工程改动。
+5. 建议用单独的工作目录装手机版：`git worktree add ../Thingary-phone origin/main`，然后在其中运行 `npm ci`。
+
+每次更新（在 `Thingary-phone` 目录）：
+
+```sh
+git fetch origin && git checkout --detach origin/main && npm ci
+xcrun devicectl list devices                       # 查 iPhone 名称和设备 ID
+APPLE_DEVELOPMENT_TEAM=<teamID> npm run ios:tauri -- ios run --release "<iPhone 名称>"
+```
+
+Tauri CLI 2.12.3 最后的 Exporting app 一步会报 `Couldn't load -exportOptionsPlist`（EXPORT FAILED）。只要前面出现 `** BUILD SUCCEEDED **`，签好名的 App 已经生成，直接安装并启动：
+
+```sh
+APP=$(ls -d ~/Library/Developer/Xcode/DerivedData/thingary-*/Build/Products/release-iphoneos/"Thingary Preview.app" | head -1)
+xcrun devicectl device install app --device <设备 ID> "$APP"
+xcrun devicectl device process launch --device <设备 ID> local.thingary.preview
+```
+
+- 第一次打开若提示「不受信任的开发者」：设置 › 通用 › VPN与设备管理 › 信任。
+- 免费签名 7 天过期，过期后重新执行「每次更新」即可；覆盖安装保留资料，删除 App 会连资料一起删掉。
+- 免费账号最多同时装 3 个自签 App，7 天内最多注册 10 个应用标识。
+- 常见报错：`Your team has no devices` 或 `No profiles for 'local.thingary.preview'` 说明还没做第 4 步；真机一启动就闪退，先确认 Tauri 为 2.12 以上（见上文 UIScene 说明）。
+
 ### 前端调用约定
 
 | 能力 | 调用与返回 |
