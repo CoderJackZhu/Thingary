@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { DirtyRegistry, changedSince, snapshot, discardTitle } from '../src/mobile/dirty.ts';
 import { HistorySync } from '../src/mobile/history.ts';
 import { nextField } from '../src/mobile/ui/field-advance.ts';
@@ -105,7 +106,7 @@ test('sheet header: 取消 left, 完成/保存 right, read-only sheets 关闭 on
   assert.match(sheet, /\{cancelLabel && <button[^>]*onClick=\{onClose\}>\{cancelLabel\}/);
   assert.match(sheet, /\(onDone \|\| !cancelLabel\) &&[\s\S]*?onClick=\{onDone \?\? onClose\}/);
   assert.match(src('ui/ConfirmSheet.tsx'), /cancelLabel = '取消'/);
-  for (const file of walk(new URL('../src/mobile', import.meta.url).pathname))
+  for (const file of walk(fileURLToPath(new URL('../src/mobile', import.meta.url))))
     assert.doesNotMatch(readFileSync(file, 'utf8'), /doneLabel="(取消|继续编辑)"/, `${file} puts 取消 on the right`);
 });
 
