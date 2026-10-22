@@ -23,6 +23,7 @@ import { mustStayInLedger } from "../../plan-core";
 import { useNav } from "../nav-context";
 import { useSession } from "../session";
 import {
+  ActionBar,
   Button,
   DateField,
   ErrorState,
@@ -38,14 +39,18 @@ import {
   TextAreaField,
   TextField,
 } from "../ui";
-import { MonthField } from "./fields";
+import { FlowProgress, MonthField } from "./fields";
 import { usePlan, usePlanSaver } from "./data";
-import { editorInput, steps } from "./setup-model";
+import { editorInput, flowSteps, progressText, stepIndex } from "./setup-model";
 import { Assumptions } from "./assumptions";
 import "./plan.css";
 
 export default function Setup({ params }: PageProps) {
-  const p = usePlan();
+  const p = usePlan(),
+    section = String(params.section ?? "setup"),
+    flow = section === "setup",
+    // Lives here so an intermediate save (which re-reads the sources) keeps the place in the flow.
+    [flowStep, setFlowStep] = useState(0);
   if (p.loading)
     return (
       <div className="m-page mp-page">
@@ -60,8 +65,14 @@ export default function Setup({ params }: PageProps) {
         <ErrorState message={p.error} onRetry={p.reload} />
       </div>
     );
-  if (params.section === "assumptions")
-    return <Assumptions sources={p.sources} reload={p.reload} />;
+  if (flow ? flowSteps[flowStep].unit === "assumptions" : section === "assumptions")
+    return (
+      <Assumptions
+        sources={p.sources}
+        reload={p.reload}
+        flow={flow ? { index: flowStep, go: setFlowStep } : undefined}
+      />
+    );
   return (
     <Editor
       key={p.sources.generation}
@@ -69,7 +80,9 @@ export default function Setup({ params }: PageProps) {
       saved={p.saved}
       today={p.today}
       reload={p.reload}
-      section={String(params.section ?? "setup")}
+      section={section}
+      step={flowStep}
+      onStep={setFlowStep}
     />
   );
 }
@@ -79,12 +92,16 @@ export function Editor({
   today,
   reload,
   section,
+  step: stepProp,
+  onStep,
 }: {
   sources: PlanningSources;
   saved: ProfileState["saved"];
   today: string;
   reload: () => void;
   section: string;
+  step?: number;
+  onStep?: (step: number) => void;
 }) {
   const nav = useNav(),
     session = useSession();
@@ -94,14 +111,26 @@ export function Editor({
     setupDraft(saved, snapshot, sources.modules.wealth),
   );
   const [shareTexts, setShareTexts] = useState<Record<string, string>>({});
-  const [step, setStep] = useState(
-    Math.max(
-      0,
-      ["time", "budget", "funds", "income", "contribution"].indexOf(section),
-    ),
-  );
+  // "setup" walks all steps; any other section edits just that step.
+  const flow = section === "setup",
+    [ownStep, setOwnStep] = useState(0),
+    step = flow ? (stepProp ?? ownStep) : Math.max(0, stepIndex(section)),
+    setStep = onStep ?? setOwnStep,
+    unit = flowSteps[step].unit,
+    costs = flow ? unit === "costs" : section === "costs";
   const [notice, setNotice] = useState(""),
     [done, setDone] = useState(false);
+  // What each save unit looked like on open, to tell edited steps from untouched ones.
+  const snapshotOf = (x: Draft, u: string) =>
+    JSON.stringify(
+      u === "costs" ? [x.conScopes, x.retScopes] : { ...x, conScopes: 0, retScopes: 0 },
+    );
+  const [opened] = useState(() => ({
+    setup: snapshotOf(d, "setup"),
+    costs: snapshotOf(d, "costs"),
+  }));
+  const dirty = (u: string) =>
+    u === "assumptions" ? false : snapshotOf(d, u) !== opened[u as "setup" | "costs"];
   const [expectedRevision] = useState(saved?.revision ?? null),
     settledAtOpen = useRef(session.settled);
   const saver = usePlanSaver(sources, reload),
@@ -130,40 +159,44 @@ export function Editor({
   useEffect(() => {
     document.querySelector(".m-modal")?.scrollTo(0, 0);
   }, [step]);
-  async function save() {
+  /** Writes the current save unit. With `then` the page stays open and continues there instead of closing. */
+  async function save(then?: () => void) {
     if (frozen) return;
     try {
       setNotice("");
-      if (
-        await saver.save(
-          editorInput(d, saved, today, live, section),
-          expectedRevision,
-        )
-      )
-        setDone(true);
+      const input = editorInput(
+        d,
+        saved,
+        today,
+        live,
+        flow ? (costs ? "costs" : "setup") : section,
+      );
+      if (await saver.save(input, expectedRevision)) {
+        if (then) then();
+        else setDone(true);
+      }
     } catch (e) {
       setNotice(e instanceof Error ? e.message : String(e));
     }
   }
-  // Navigation never validates hidden later steps: incomplete drafts must remain reachable.
-  function next() {
-    if (frozen) return;
+  // Moving inside one unit never validates later steps: incomplete drafts must remain reachable.
+  // Leaving a unit with edits (or before anything is saved) saves it first, so no edit is lost.
+  function go(target: number) {
+    if (frozen || target < 0 || target >= flowSteps.length) return;
     setNotice("");
-    setStep((n) => n + 1);
+    const from = flowSteps[step].unit;
+    if (
+      from !== flowSteps[target].unit &&
+      (dirty(from) || (from === "setup" && !saved?.profile.retire.basic))
+    )
+      void save(() => setStep(target));
+    else setStep(target);
   }
-  const title =
-    section === "costs"
-      ? "核对费用包含关系"
-      : section === "setup"
-        ? steps[step]
-        : steps[
-            Math.max(
-              0,
-              ["time", "budget", "funds", "income", "contribution"].indexOf(
-                section,
-              ),
-            )
-          ];
+  function finish() {
+    if (flow && !dirty(unit) && saved?.profile.retire.basic) nav.pop();
+    else void save();
+  }
+  const title = flowSteps[step].title;
   const ageField = (label: string, field: "target_month" | "horizon_month") => (
     <TextField
       label={label}
@@ -192,30 +225,17 @@ export function Editor({
   return (
     <div className="m-page mp-page">
       <NavBar
-        title={title}
+        title={flow ? progressText(step) : title}
         primary={{
-          label: "保存",
+          label: flow ? "保存退出" : "保存",
           onClick: () => void save(),
           disabled: frozen,
         }}
       />
-      {section === "setup" && (
-        <ol
-          className="mp-step-progress"
-          aria-label={`设置进度，第 ${step + 1} 步，共 5 步`}
-        >
-          {steps.map((s, i) => (
-            <li key={s} aria-current={i === step ? "step" : undefined}>
-              {i + 1}
-              <br />
-              {s}
-            </li>
-          ))}
-        </ol>
-      )}
+      {flow && <FlowProgress index={step} />}
       <fieldset disabled={frozen} className="mp-stack">
         <h2>{title}</h2>
-        {section === "costs" ? (
+        {costs ? (
           <>
             <Notice>
               确认哪些费用已经含在每月净投入或退休生活费里，避免重复计入。没有填写的关系保持未知。
@@ -391,7 +411,7 @@ export function Editor({
             {step === 1 && (
               <FormGroup
                 title={couple ? "两人退休后的生活费" : "退休后的生活费"}
-                footer="按今天物价填写；阶段性支出可保存后在目标页添加，按额外支出计入。应急金是参考线，不另从退休资金扣除。"
+                footer="按今天物价填写；阶段性支出可保存后在「大额支出」页添加，按额外支出计入。应急金是参考线，不另从退休资金扣除。"
               >
                 <MoneyField
                   label="每月生活费总额"
@@ -838,18 +858,22 @@ export function Editor({
         <Notice tone="danger">{notice || saver.notice}</Notice>
       )}
       <p className="mp-muted">没想好的条件可以先留空。取消不会保存草稿。</p>
-      <div className="mp-actions">
-        {section === "setup" && step > 0 && (
-          <Button disabled={frozen} onClick={() => setStep((n) => n - 1)}>
+      <ActionBar>
+        {flow && step > 0 && (
+          <Button disabled={frozen} onClick={() => go(step - 1)}>
             上一步
           </Button>
         )}
-        {section === "setup" && step < 4 && (
-          <Button variant="primary" disabled={frozen} onClick={next}>
+        {flow && step < flowSteps.length - 1 ? (
+          <Button variant="primary" disabled={frozen} onClick={() => go(step + 1)}>
             下一步
           </Button>
+        ) : (
+          <Button variant="primary" disabled={frozen} onClick={finish}>
+            完成
+          </Button>
         )}
-      </div>
+      </ActionBar>
     </div>
   );
 }

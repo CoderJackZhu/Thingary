@@ -7,6 +7,7 @@ import {
   scaleSaving,
   timeLabel,
 } from "../../plan-ledger.ts";
+import { trajectory } from "../../plan-view.ts";
 /** Input variations only. Every trajectory, threshold and verdict comes from the shared engine. */
 export function budgetComparisons(pred: PredictionValue, year: number) {
   return [
@@ -25,4 +26,27 @@ export function budgetComparisons(pred: PredictionValue, year: number) {
       success: result.success,
     };
   });
+}
+
+/** Projected funds against the funds needed to stop now: the data behind both the goal preview and 测算详情. */
+export function fundsChart(pred: PredictionValue, mode: "today" | "nominal" = "today") {
+  const points = trajectory(pred.plan, pred.projection, mode),
+    retire = pred.projection.retire_month,
+    at = retire === null ? -1 : points.findIndex((p) => p.month >= retire);
+  return {
+    points,
+    chart: {
+      labels: points.map((p) => p.label),
+      xs: points.map((p) => p.month),
+      series: [
+        { name: "预计资金", values: points.map((p) => p.projected) },
+        { name: "所需资金", values: points.map((p) => p.required), color: "var(--muted)", dashed: true, area: false },
+      ],
+      marker: at < 0 ? undefined : { at, label: "预计停工" },
+      shade:
+        pred.projection.failure_month === null
+          ? undefined
+          : { from: pred.projection.failure_month, to: pred.plan.horizon_months, label: "资金耗尽" },
+    },
+  };
 }

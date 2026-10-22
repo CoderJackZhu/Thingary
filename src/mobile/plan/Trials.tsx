@@ -47,6 +47,7 @@ import {
   TextField,
   UnknownState,
 } from "../ui";
+import { CoverageSummary } from "./CoverageSummary";
 import "./trials.css";
 
 function MonthField({
@@ -881,11 +882,7 @@ export default function Trials() {
       ) : (
         <>
           {error && <ErrorState message={String(error)} onRetry={reload} />}
-          {!!capabilities?.annotations?.length && (
-            <Notice>
-              {capabilities.annotations.map((a) => a.message).join(" ")}
-            </Notice>
-          )}
+          <CoverageSummary annotations={capabilities?.annotations} />
           <MobileRunway
             key={`runway:${key}`}
             capabilities={capabilities ?? null}

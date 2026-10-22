@@ -5,13 +5,18 @@ import { nativePlanningFollowupPortV1 } from "../../planning-followup-port";
 import { pctToHundredths } from "../../plan";
 import { useSession } from "../session";
 import { useNav } from "../nav-context";
-import { Button, FormGroup, Loading, NavBar, Notice, TextField } from "../ui";
+import { ActionBar, Button, FormGroup, Loading, NavBar, Notice, TextField } from "../ui";
+import { FlowProgress } from "./fields";
+import { flowSteps, progressText } from "./setup-model";
 export function Assumptions({
   sources,
   reload,
+  flow,
 }: {
   sources: PlanningSources;
   reload: () => void;
+  /** Set when shown as a step of the setup flow: 上一步 / 下一步 replace the standalone save. */
+  flow?: { index: number; go: (step: number) => void };
 }) {
   const session = useSession(),
     nav = useNav(),
@@ -23,7 +28,9 @@ export function Assumptions({
     [busy, setBusy] = useState(false),
     [confirmed, setConfirmed] = useState(false),
     [done, setDone] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>({}),
+    [opened, setOpened] = useState("");
+  const edited = !!read && (JSON.stringify(values) !== opened || confirmed);
   useEffect(() => {
     let live = true;
     port.readAssumptions(sources.generation).then((r) => {
@@ -37,11 +44,11 @@ export function Assumptions({
         return;
       }
       setRead(r.value);
-      setValues(
-        Object.fromEntries(
-          Object.entries(r.value.values).map(([k, v]) => [k, String(v / 100)]),
-        ),
+      const initial = Object.fromEntries(
+        Object.entries(r.value.values).map(([k, v]) => [k, String(v / 100)]),
       );
+      setValues(initial);
+      setOpened(JSON.stringify(initial));
     });
     return () => {
       live = false;
@@ -59,7 +66,8 @@ export function Assumptions({
     )
       setDone(true);
   }, [session.settled, sources.generation]);
-  async function save() {
+  /** With `then` the page stays open and continues there instead of closing (setup flow). */
+  async function save(then?: () => void) {
     if (!read || lock.current || session.navBlocked) return;
     lock.current = true;
     setBusy(true);
@@ -83,7 +91,8 @@ export function Assumptions({
       if (result.status === "saved") {
         reload();
         session.reload();
-        setDone(true);
+        if (then) then();
+        else setDone(true);
       } else if (result.status === "rejected")
         setError(result.issues.map((i) => i.message).join("；"));
       else setError("保存结果未确定，请核对原请求。");
@@ -98,7 +107,20 @@ export function Assumptions({
   }
   return (
     <div className="m-page mp-page">
-      <NavBar title="收益与其他假设" />
+      <NavBar
+        title={flow ? progressText(flow.index) : "收益与其他假设"}
+        primary={
+          flow
+            ? {
+                label: "保存退出",
+                onClick: () => void save(),
+                disabled: !read || busy || !!session.pending,
+              }
+            : undefined
+        }
+      />
+      {flow && <FlowProgress index={flow.index} />}
+      {flow && <h2>{flowSteps[flow.index].title}</h2>}
       {!read && !error ? (
         <Loading />
       ) : (
@@ -137,16 +159,36 @@ export function Assumptions({
               ? "已选择：我核对了这些假设"
               : "我已核对这些假设（选填）"}
           </Button>
-          <Button
-            variant="primary"
-            disabled={!read || busy || !!session.pending}
-            onClick={() => void save()}
-          >
-            保存假设
-          </Button>
+          {!flow && (
+            <Button
+              variant="primary"
+              disabled={!read || busy || !!session.pending}
+              onClick={() => void save()}
+            >
+              保存假设
+            </Button>
+          )}
         </>
       )}
       {error && <Notice tone="danger">{error}</Notice>}
+      {flow && (
+        <ActionBar>
+          {[-1, 1].map((delta) => (
+            <Button
+              key={delta}
+              variant={delta > 0 ? "primary" : undefined}
+              disabled={busy || !!session.pending}
+              onClick={() => {
+                const go = () => flow.go(flow.index + delta);
+                if (edited) void save(go);
+                else go();
+              }}
+            >
+              {delta > 0 ? "下一步" : "上一步"}
+            </Button>
+          ))}
+        </ActionBar>
+      )}
     </div>
   );
 }

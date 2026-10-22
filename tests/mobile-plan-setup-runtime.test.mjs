@@ -139,3 +139,28 @@ test("switching partner to same stop date clears the now-hidden saving share", a
     null,
   );
 });
+
+test("flow: leaving the setup steps with edits saves them first; untouched, it just moves on", async () => {
+  const next = (h) => h.find("Button", (p) => p.children === "下一步").props.onClick();
+  const clean = mount("setup");
+  for (let i = 0; i < 4; i++) { next(clean.h); clean.h.render(); }
+  next(clean.h);
+  await clean.h.settle();
+  assert.equal(clean.calls.length, 0);
+  const edited = mount("setup");
+  for (let i = 0; i < 4; i++) { next(edited.h); edited.h.render(); }
+  edited.h.find("MoneyField", (p) => p.label === "你估计每月能存").props.onChange("123400");
+  edited.h.render();
+  next(edited.h);
+  await edited.h.settle();
+  assert.equal(edited.calls.length, 1);
+  assert.equal(edited.calls[0].section, "setup");
+  assert.equal(edited.calls[0].fields.basic.basic.contribution.monthly_cents, "123400");
+});
+
+test("opened for one step: shows that step with 完成 and no 上一步/下一步", () => {
+  const { h } = mount("budget");
+  assert.ok(h.find("MoneyField", (p) => p.label === "每月生活费总额"));
+  assert.ok(h.find("Button", (p) => p.children === "完成"));
+  assert.equal(h.find("Button", (p) => p.children === "下一步"), undefined);
+});

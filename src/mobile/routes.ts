@@ -67,6 +67,7 @@ export const routes = {
   'plan.detail': { tab: 'plan', title: '测算详情', design: '18', load: () => import('./plan/Detail') },
   'plan.whatif': { tab: 'plan', title: '假设分析', design: '19', load: () => import('./plan/WhatIf') },
   'plan.trials': { tab: 'plan', title: '试算', design: '20', load: () => import('./plan/Trials') },
+  'plan.events': { tab: 'plan', title: '大额支出', load: () => import('./plan/EventsPage') },
   'plan.setup': { tab: 'plan', kind: 'modal', title: '设置条件', design: '21', load: () => import('./plan/Setup') },
   // 我的
   'me.home': { tab: 'me', title: '我的', design: '22', load: () => import('./me/Me') },

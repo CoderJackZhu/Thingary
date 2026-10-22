@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { forecastMoneyText } from "../format";
-import { trajectory, snapshotRows, coverage } from "../../plan-view";
+import { snapshotRows, coverage } from "../../plan-view";
 import { timeLabel } from "../../plan-ledger";
 import { terminalText } from "../../planning-basic-view";
 import { useNav } from "../nav-context";
@@ -20,7 +20,7 @@ import {
   LineChart,
 } from "../ui";
 import { usePlan } from "./data";
-import { budgetComparisons } from "./detail-model";
+import { budgetComparisons, fundsChart } from "./detail-model";
 import "./plan.css";
 export default function Detail() {
   const p = usePlan(),
@@ -92,10 +92,7 @@ function Ready({
 }) {
   const nav = useNav(),
     [mode, setMode] = useState<"today" | "nominal">("today");
-  const points = useMemo(
-      () => trajectory(pred.plan, pred.projection, mode),
-      [pred, mode],
-    ),
+  const { points, chart } = useMemo(() => fundsChart(pred, mode), [pred, mode]),
     rows = useMemo(
       () => snapshotRows(pred.plan, pred.projection, mode),
       [pred, mode],
@@ -108,7 +105,6 @@ function Ready({
     pred.projection.retire_month ?? pred.plan.target_months,
   );
   const cover = coverage(pred.plan, pred.projection, selected, mode);
-  const retireMonth = pred.projection.retire_month, retireAt = retireMonth === null ? null : points.findIndex((p) => p.month >= retireMonth);
   const conclusion = `${terminalText[pred.terminal]}；${timeLabel(pred.plan, pred.plan.horizon_months - 1)} 时预计资金（按今天购买力）${forecastMoneyText(pred.outcome.at_horizon)}。`;
   return (
     <div className="m-page mp-page">
@@ -135,14 +131,7 @@ function Ready({
         <LineChart
           height={210}
           summary={`预计资金实线，所需资金虚线。${conclusion}`}
-          labels={points.map((p) => p.label)}
-          xs={points.map((p) => p.month)}
-          series={[
-            { name: "预计资金", values: points.map((p) => p.projected) },
-            { name: "所需资金", values: points.map((p) => p.required), color: "var(--muted)", dashed: true, area: false },
-          ]}
-          marker={retireAt === null ? undefined : { at: retireAt, label: "预计停工" }}
-          shade={pred.projection.failure_month === null ? undefined : { from: pred.projection.failure_month, to: pred.plan.horizon_months, label: "资金耗尽" }}
+          {...chart}
           tip={(i) => ({ title: points[i].label, rows: [{ name: "预计资金", value: forecastMoneyText(points[i].projected), color: "var(--accent)" }, { name: "所需资金", value: forecastMoneyText(points[i].required), color: "var(--muted)" }] })}
         />
         <p className="mp-muted">

@@ -8,13 +8,26 @@ import type { Draft } from "../../planning-basic-forms.ts";
 import type { ProfileState } from "../../plan.ts";
 import { validateSimplifiedPlanningV1 } from "../../plan-simplified.ts";
 import { householdIssues } from "../../planning-simplified-ui/household-view.ts";
-export const steps = [
-  "目标与时间",
-  "每月生活费",
-  "可用资金",
-  "未来收入",
-  "每月净投入",
+/**
+ * The setup flow in desktop order. `unit` is what one save writes: steps 1–5 share the setup draft,
+ * 假设 and 费用包含关系 have their own transactions, so crossing between units saves first.
+ */
+export const flowSteps = [
+  { id: "time", title: "目标与时间", unit: "setup" },
+  { id: "budget", title: "退休生活预算", unit: "setup" },
+  { id: "funds", title: "可用资金", unit: "setup" },
+  { id: "income", title: "未来收入", unit: "setup" },
+  { id: "contribution", title: "每月净投入", unit: "setup" },
+  { id: "assumptions", title: "收益、通胀与波动假设", unit: "assumptions" },
+  { id: "costs", title: "核对费用包含关系", unit: "costs" },
 ] as const;
+export type FlowStep = (typeof flowSteps)[number];
+export const steps = flowSteps.map((s) => s.title);
+/** Index of a step id; -1 for "setup" (the whole flow) and anything unknown. */
+export const stepIndex = (section: string) =>
+  flowSteps.findIndex((s) => s.id === section);
+export const progressText = (index: number) =>
+  `第 ${index + 1}/${flowSteps.length} 步`;
 export function editorInput(
   d: Draft,
   saved: ProfileState["saved"],

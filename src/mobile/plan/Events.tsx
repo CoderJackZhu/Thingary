@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   PlanningSources,
   ProfileState,
@@ -36,6 +36,7 @@ import {
   Notice,
   Section,
   SelectField,
+  Sheet,
   Switch,
   TextField,
 } from "../ui";
@@ -56,6 +57,9 @@ type Props = {
   saved: NonNullable<ProfileState["saved"]>;
   today: string;
   reload: () => void;
+  /** The 添加 sheet is owned by the page that shows the + button. */
+  picker?: boolean;
+  onPicker?: (open: boolean) => void;
 };
 function MonthField({
   label,
@@ -83,7 +87,7 @@ function MonthField({
     </FormRow>
   );
 }
-export default function Events({ sources, saved, today, reload }: Props) {
+export default function Events({ sources, saved, today, reload, picker, onPicker }: Props) {
   const saver = usePlanSaver(sources, reload),
     r = saved.profile.retire;
   const [editing, setEditing] = useState<StoredLifeEvent | null>(null),
@@ -141,6 +145,10 @@ export default function Events({ sources, saved, today, reload }: Props) {
       return null;
     }
   }, [prediction, r, today]);
+  useEffect(() => {
+    if (editing && typeof document !== "undefined")
+      document.getElementById("mp-event-editor")?.scrollIntoView?.({ block: "start" });
+  }, [editing?.id]);
   async function write(events: StoredLifeEvent[], expected = saved.revision) {
     return saver.save(
       {
@@ -159,32 +167,37 @@ export default function Events({ sources, saved, today, reload }: Props) {
     <div className="mp-events">
       <Section title="大额计划">
         <p className="mp-event-help">
-          这些是设想，计入后会重算，不会扣实际余额。模板金额仅作占位，请修改为自己的估计。
+          这些是设想，计入后会重算，不会扣实际余额。点右上角的＋从模板添加，金额仅作占位，请修改为自己的估计。
         </p>
-        <div className="mp-event-actions">
-          {eventTemplates.map((t) => (
-            <Button
-              key={t.id}
-              disabled={locked || r.life_events.length >= 20 || !!editing}
-              onClick={() => {
-                editRevision.current = saved.revision;
-                setEditing(
-                  eventTemplate(
-                    t.id,
-                    today,
-                    crypto.randomUUID(),
-                    r.life_events.some((e) => e.kind === "house" && e.included),
-                  ),
-                );
-              }}
-            >
-              ＋{t.label}
-            </Button>
-          ))}
-        </div>
+        {picker && onPicker && (
+          <Sheet title="添加大额支出" doneLabel="取消" onClose={() => onPicker(false)}>
+            <div className="mp-event-picker">
+              {eventTemplates.map((t) => (
+                <Button
+                  key={t.id}
+                  disabled={locked || r.life_events.length >= 20 || !!editing}
+                  onClick={() => {
+                    editRevision.current = saved.revision;
+                    setEditing(
+                      eventTemplate(
+                        t.id,
+                        today,
+                        crypto.randomUUID(),
+                        r.life_events.some((e) => e.kind === "house" && e.included),
+                      ),
+                    );
+                    onPicker(false);
+                  }}
+                >
+                  {t.label}
+                </Button>
+              ))}
+            </div>
+          </Sheet>
+        )}
         {!r.life_events.length && (
           <Card className="mp-event-card">
-            <p>还没有大额计划，可以从模板开始。</p>
+            <p>还没有大额计划，点右上角的＋从模板开始。</p>
           </Card>
         )}
         {r.life_events.map((e) => {
@@ -429,7 +442,7 @@ function EventEditor({
     if (end) patch({ until_month: end });
   };
   return (
-    <div className="mp-event-editor" role="group" aria-label="大额计划表单">
+    <div className="mp-event-editor" id="mp-event-editor" role="group" aria-label="大额计划表单">
       <h3>{value.label}</h3>
       <FormGroup footer="所有金额按今天的钱。首付、杂费只扣一次；每月成本要核对是否含在生活费里。">
         <SelectField
@@ -671,7 +684,7 @@ function OccurrenceEditor({
     );
   }
   return (
-    <div className="mp-event-editor" role="group" aria-label="实际发生核对">
+    <div className="mp-event-editor" id="mp-event-editor" role="group" aria-label="实际发生核对">
       <h3>核对 {event.label}</h3>
       <p className="mp-event-help">
         只维护实际发生与来源关系，不改变账户余额，不复制支出。未知资料可先留空，结果会提示未计入。

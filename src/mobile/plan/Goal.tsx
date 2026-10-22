@@ -3,9 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { moneyText } from "../format";
 import { forecastMoneyText } from "../format";
 import { nativePlanningFollowupPortV1 } from "../../planning-followup-port";
-import { refinementCards } from "../../planning-first-run";
 import {
-  goalProgressChange,
   goalProgressVerdict,
   goalProgressPoint,
 } from "../../goal-progress";
@@ -18,17 +16,17 @@ import {
   ErrorState,
   HeroCard,
   LargeTitle,
+  LineChart,
   ListGroup,
   ListRow,
   Loading,
-  Metric,
-  MetricGrid,
   Notice,
-  Section,
+  Sheet,
 } from "../ui";
 import { usePlan } from "./data";
-import { goalView } from "./goal-model";
-import Events from "./Events";
+import { conditionSummary, confirmItems, goalView, latestChange } from "./goal-model";
+import type { ConfirmItem } from "./goal-model";
+import { fundsChart } from "./detail-model";
 import Report from "./Report";
 import "./plan.css";
 export default function Goal() {
@@ -104,6 +102,7 @@ export default function Goal() {
       live = false;
     };
   }, [p.sources]);
+  const [sheet, setSheet] = useState<"confirm" | "history" | null>(null);
   const edit = (section: string) => nav.push("plan.setup", { section });
   if (p.loading)
     return (
@@ -139,62 +138,51 @@ export default function Goal() {
   const { saved, capabilities: caps, sources, today, reload } = p,
     r = saved.profile.retire,
     v = goalView(saved, caps),
-    cards = refinementCards(saved, caps, today);
+    items = confirmItems(saved, caps, today),
+    pred = caps.prediction.status === "ready" ? caps.prediction.value : null,
+    eventCount = r.life_events.length + r.spend_items.length,
+    change = latestChange(progress);
   if (report)
     return (
       <Report sources={sources} caps={caps} onClose={() => setReport(false)} />
     );
-  const go = (action: string, step?: number) =>
-    action === "reload"
-      ? reload()
-      : action === "costs"
-        ? edit("costs")
-        : action === "contribution"
-          ? edit("contribution")
-          : action === "events" || action === "event" || action === "debts"
-            ? document
-                .getElementById("mp-events")
-                ?.scrollIntoView({ behavior: "smooth" })
-            : edit(
-                [
-                  "time",
-                  "budget",
-                  "funds",
-                  "income",
-                  "contribution",
-                  "assumptions",
-                ][step ?? 0],
-              );
+  const run = (item: ConfirmItem) => {
+    setSheet(null);
+    if (item.action === "reload") reload();
+    else if (item.action?.route === "plan.events") nav.push("plan.events");
+    else if (item.action) edit(item.action.section);
+  };
   return (
     <div className="m-page mp-page">
-      <LargeTitle
-        title="规划"
-        actions={
-          <Button variant="primary" onClick={() => edit("setup")}>
-            调整条件
-          </Button>
-        }
-      />
+      <LargeTitle title="规划" />
       <HeroCard
         eyebrow={`${v.kind}${v.uncertain ? " · 暂算结果" : ""}`}
+        action="测算详情"
+        onClick={() => nav.setSegment("plan.detail")}
         title={v.headline}
         subtitle={v.subtitle}
-        tags={[
-          {
-            text: v.uncertain
-              ? "仍有核算事项"
-              : caps.prediction.status === "ready" &&
-                  caps.prediction.value.outcome.success
-                ? "所选期间可覆盖"
-                : "按当前条件估算",
-          },
-        ]}
+        tags={
+          items.length
+            ? undefined
+            : [{ text: pred?.outcome.success ? "所选期间可覆盖" : "按当前条件估算" }]
+        }
         footnote={
           v.stop
             ? `预计停工月份 ${v.stop}`
             : "填好每月能存的钱后，可查看预计停工时间"
         }
-      />
+      >
+        {pred && (
+          <LineChart
+            compact
+            height={112}
+            {...fundsChart(pred).chart}
+            shade={undefined}
+            summary={`预计资金变化预览。${v.headline}${v.stop ? `，预计停工月份 ${v.stop}` : ""}。点按查看测算详情。`}
+          />
+        )}
+        <span className="mp-result-verdict">{v.verdict}</span>
+      </HeroCard>
       {v.household.length > 0 && (
         <Card label="两人停工安排">
           {v.household.map((line) => (
@@ -202,163 +190,110 @@ export default function Goal() {
           ))}
         </Card>
       )}
-      <MetricGrid>
-        <Metric
-          label="为目标每月需存"
-          value={v.required === null ? "待计算" : forecastMoneyText(v.required)}
-          unknown={v.required === null}
-          sub="按固定目标月份反求"
-        />
-        <Metric
-          label="你估计每月能存"
-          value={
-            r.basic!.contribution.monthly_cents === null
-              ? "未设置"
-              : moneyText(r.basic!.contribution.monthly_cents)
+      {items.length > 0 && (
+        <ListGroup>
+          <ListRow
+            icon="warning"
+            tone="warn"
+            title={`待你确认 ${items.length} 项`}
+            subtitle={items
+              .slice(0, 2)
+              .map((i) => i.title)
+              .join("；")}
+            onClick={() => setSheet("confirm")}
+          />
+        </ListGroup>
+      )}
+      <ListGroup>
+        <ListRow
+          icon="gear"
+          title="计算条件"
+          subtitle={
+            <>
+              {conditionSummary(saved, caps)}
+              <br />
+              收益与通胀假设：{assumptionStatus}
+            </>
           }
-          unknown={r.basic!.contribution.monthly_cents === null}
-          onClick={() => edit("contribution")}
-          sub="点此修改；未知不当作零"
+          onClick={() => edit("setup")}
         />
-      </MetricGrid>
-      <Card label="投入对比">
-        <p>{v.verdict}</p>
-        {caps.requirement.status === "ready" &&
-          caps.requirement.value.set.status !== "found" && (
-            <p>{v.requirement}</p>
-          )}
-        <p className="mp-muted">
-          所需投入按固定目标反求，预测按你保存的投入推演，两者口径不同。
-          {r.simplified.household?.mode === "couple"
-            ? "两人金额是家庭合计，包含伴侣那一份。"
-            : ""}
-        </p>
-      </Card>
-      <Section title="核算注意事项">
-        {cards.filter((c) => c.required || c.impacts || c.condition).length ===
-        0 ? (
-          <Card>
-            <p>暂无待核对的核算事项。</p>
-          </Card>
-        ) : (
-          <ListGroup>
-            {cards
-              .filter((c) => c.required || c.impacts || c.condition)
-              .map((c) => (
-                <ListRow
-                  key={c.id}
-                  title={c.title}
-                  subtitle={c.benefit}
-                  onClick={() => go(c.action, c.step)}
-                />
-              ))}
-          </ListGroup>
-        )}
-        {(caps.annotations ?? [])
-          .filter((a) => a.effect !== "none")
-          .map((a) => (
-            <Notice key={a.id}>{a.message}</Notice>
-          ))}
-        {caps.requirement.status === "blocked" &&
-          caps.requirement.missing.map((m) => (
-            <Notice key={m.code + m.field}>{m.message}</Notice>
-          ))}
-      </Section>
-      <ListGroup title="计算条件">
-        <ListRow
-          title="目标与时间"
-          value={r.mode === "fire" ? "财务自由" : "按计划退休"}
-          subtitle={v.subtitle}
-          onClick={() => edit("time")}
-        />
-        <ListRow
-          title="退休生活预算"
-          value={r.spend_cents === null ? "未知" : `${moneyText(r.spend_cents)}/月`}
-          onClick={() => edit("budget")}
-        />
-        <ListRow
-          title="可用资金"
-          value={
-            caps.funds.status === "ready"
-              ? moneyText(caps.funds.value.available_cents)
-              : "待确认"
-          }
-          onClick={() => edit("funds")}
-        />
-        <ListRow
-          title="未来收入"
-          value={
-            r.simplified.income_mode === "excluded"
-              ? "本次不计"
-              : r.simplified.income_mode === "manual"
-                ? "计入手填收入"
-                : "待确认"
-          }
-          onClick={() => edit("income")}
-        />
-        <ListRow title="每月净投入" onClick={() => edit("contribution")} />
-        <ListRow
-          title="收益、通胀与波动假设"
-          subtitle={assumptionStatus}
-          onClick={() => edit("assumptions")}
-        />
-        <ListRow title="核对费用包含关系" onClick={() => edit("costs")} />
       </ListGroup>
-      <div id="mp-events">
-        <Events sources={sources} saved={saved} today={today} reload={reload} />
-      </div>
-      <Section title="盘点以来的变化">
-        {progressError ? (
-          <ErrorState message={progressError} onRetry={reload} />
-        ) : progress.length === 0 ? (
-          <Card>
-            <p>
-              还没有可比较的规划记录。使用真实盘点起点并保存规划后，后续盘点可记录变化。
-            </p>
-          </Card>
-        ) : (
-          <Card>
-            {progress.length > 1 && (
-              <p>
-                {goalProgressChange(
-                  progress.at(-2)!,
-                  progress.at(-1)!,
-                  forecastMoneyText,
+      <ListGroup>
+        <ListRow
+          title="大额支出"
+          value={`${eventCount} 项`}
+          onClick={() => nav.push("plan.events")}
+        />
+        <ListRow
+          title="盘点以来的变化"
+          subtitle={
+            progressError
+              ? "读取失败，点此重新读取"
+              : (change ?? "还没有可比较的规划记录")
+          }
+          onClick={
+            progressError
+              ? reload
+              : progress.length
+                ? () => setSheet("history")
+                : undefined
+          }
+        />
+        <ListRow title="查看当前报告" onClick={() => setReport(true)} />
+      </ListGroup>
+      {sheet === "confirm" && (
+        <Sheet title="待你确认" onClose={() => setSheet(null)}>
+          <ul className="mp-confirm" aria-label="待确认事项">
+            {items.map((item) => (
+              <li key={item.id}>
+                <span className="mp-confirm-text">
+                  <strong>{item.title}</strong>
+                  {item.detail && <small>{item.detail}</small>}
+                </span>
+                {item.action && (
+                  <button
+                    type="button"
+                    className="mp-coverage-go"
+                    aria-label={`去处理：${item.title}`}
+                    onClick={() => run(item)}
+                  >
+                    去处理
+                  </button>
                 )}
-              </p>
-            )}
-            <p className="mp-muted">
-              变化不只来自资产涨跌，条件和待核对项也会影响结果。
-            </p>
-            {[...progress]
-              .reverse()
-              .slice(0, 6)
-              .map((e) => (
-                <div className="mp-subcard" key={e.snapshot_id}>
-                  <strong>{e.date}</strong>
-                  <p>
-                    {goalProgressVerdict(e.point, forecastMoneyText)}
-                    {e.point.has_open_items ? "（当时有待确认事项）" : ""}
-                  </p>
-                  <p className="mp-muted">
-                    可用资金{" "}
-                    {e.point.available_cents === null
-                      ? "未知"
-                      : moneyText(e.point.available_cents)}{" "}
-                    · 每月需存{" "}
-                    {e.point.required_monthly_cents === null
-                      ? "未知"
-                      : forecastMoneyText(e.point.required_monthly_cents)}
-                  </p>
-                </div>
-              ))}
-          </Card>
-        )}
-      </Section>
-      <Button onClick={() => setReport(true)}>查看当前报告</Button>
-      <Button onClick={() => nav.setSegment("plan.detail")}>
-        查看测算详情与图表
-      </Button>
+              </li>
+            ))}
+          </ul>
+        </Sheet>
+      )}
+      {sheet === "history" && (
+        <Sheet title="盘点以来的变化" onClose={() => setSheet(null)}>
+          <p className="mp-muted">
+            变化不只来自资产涨跌，条件和待核对项也会影响结果。
+          </p>
+          {[...progress]
+            .reverse()
+            .slice(0, 6)
+            .map((e) => (
+              <div className="mp-subcard" key={e.snapshot_id}>
+                <strong>{e.date}</strong>
+                <p>
+                  {goalProgressVerdict(e.point, forecastMoneyText)}
+                  {e.point.has_open_items ? "（当时有待确认事项）" : ""}
+                </p>
+                <p className="mp-muted">
+                  可用资金{" "}
+                  {e.point.available_cents === null
+                    ? "未知"
+                    : moneyText(e.point.available_cents)}{" "}
+                  · 每月需存{" "}
+                  {e.point.required_monthly_cents === null
+                    ? "未知"
+                    : forecastMoneyText(e.point.required_monthly_cents)}
+                </p>
+              </div>
+            ))}
+        </Sheet>
+      )}
       <p className="mp-muted">
         按填写的条件估算，不保证未来一定够用。收入、支出和假设变化后需重新核算。
       </p>
