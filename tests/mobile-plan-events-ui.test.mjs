@@ -15,6 +15,7 @@ const UI = Object.fromEntries(
 UI.Button = ({ children, onClick, disabled }) =>
   element("button", { children, onClick, disabled });
 UI.Switch = (props) => element("Switch", props);
+UI.EmptyState = (props) => element("EmptyState", props);
 UI.TextField = (props) => element("TextField", props);
 UI.MoneyField = (props) => element("MoneyField", props);
 UI.SelectField = (props) => element("SelectField", props);
@@ -155,4 +156,26 @@ test("编辑期间来源刷新仍使用打开表单时的 revision，让后端�
   await page.settle();
   assert.equal(expected[0], initial);
   assert.ok(page.button("取消本次修改"));
+});
+
+test("大额支出页只有大额计划：没有阶段性支出和贷款区块，说明只作页脚", () => {
+  const { page } = harness();
+  const all = page.text(page.nodes()[0]);
+  assert.doesNotMatch(all, /阶段性支出|已有贷款|还款安排|核对贷款/);
+  assert.equal(page.find("section", (p) => p.title === "大额计划"), undefined);
+  const last = page.nodes().filter((n) => n.type === "p").at(-1);
+  assert.equal(page.text(last), "这些是设想，计入后会重算，不扣实际余额。");
+});
+
+test("没有大额计划时给一句友好说明和从模板添加的入口，不再显示说明页脚", () => {
+  const { page, saved } = harness();
+  saved.profile.retire.life_events = [];
+  let opened = false;
+  page.props.onPicker = (v) => (opened = v);
+  page.render();
+  const empty = page.find("EmptyState");
+  assert.equal(empty.props.title, "还没有大额计划");
+  empty.props.action.props.onClick();
+  assert.equal(opened, true);
+  assert.doesNotMatch(page.text(page.nodes()[0]), /这些是设想/);
 });

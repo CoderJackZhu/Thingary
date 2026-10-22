@@ -14,6 +14,13 @@ import {
   requirementLine,
 } from "../../planning-basic-view.ts";
 import { forecastMoneyText } from "../format.ts";
+import { refinementCards } from "../../planning-first-run.ts";
+import type { Refinement } from "../../planning-first-run.ts";
+import { goalProgressChange, goalProgressVerdict } from "../../goal-progress.ts";
+import type { GoalProgressEntry } from "../../goal-progress.ts";
+import { affectingAnnotations } from "../../plan-annotations.ts";
+import { coverageItems } from "./coverage-model.ts";
+import type { CoverageTarget } from "./coverage-model.ts";
 export function goalView(
   saved: NonNullable<ProfileState["saved"]>,
   caps: BasicCapabilities,
@@ -71,4 +78,112 @@ export function goalView(
     subtitle: `希望 ${t.target_month ?? "尚未确定"} 停工，规划到 ${t.horizon_month ?? "尚未确定"}`,
     uncertain: (caps.annotations ?? []).some((a) => a.effect !== "none"),
   };
+}
+
+/** Row value for 大额支出 on the goal page: big plans only (stage costs live in the budget step). */
+export const planCountText = (count: number) => (count ? `${count} 项` : "暂无");
+
+/** One line for 计算条件. Unknown figures read 未知 / 待确认, never 0. */
+export function conditionSummary(
+  saved: NonNullable<ProfileState["saved"]>,
+  caps: BasicCapabilities,
+): string {
+  const r = saved.profile.retire,
+    saving = r.basic?.contribution.monthly_cents ?? null;
+  return [
+    `退休预算 ${r.spend_cents === null ? "未知" : `${forecastMoneyText(r.spend_cents)}/月`}`,
+    `可用资金 ${caps.funds.status === "ready" ? forecastMoneyText(caps.funds.value.available_cents) : "待确认"}`,
+    `每月存 ${saving === null ? "待确认" : forecastMoneyText(saving)}`,
+  ].join(" · ");
+}
+
+/** 盘点以来的变化 folded to its latest line; null when there is nothing to compare yet. */
+export function latestChange(progress: readonly GoalProgressEntry[]): string | null {
+  const latest = progress.at(-1);
+  if (!latest) return null;
+  return progress.length > 1
+    ? goalProgressChange(progress.at(-2)!, latest, forecastMoneyText)
+    : `${latest.date}：${goalProgressVerdict(latest.point, forecastMoneyText)}`;
+}
+
+export type ConfirmItem = {
+  id: string;
+  title: string;
+  detail?: string;
+  /** Where 去处理 leads; "reload" re-reads the sources. Null: information only. */
+  action: CoverageTarget | "reload" | null;
+  required: boolean;
+};
+const SETUP_SECTIONS = ["time", "budget", "funds", "income", "contribution", "assumptions"];
+export function refinementAction(c: Pick<Refinement, "action" | "step">): ConfirmItem["action"] {
+  if (c.action === "reload") return "reload";
+  if (c.action === "events" || c.action === "event") return { route: "plan.events" };
+  if (c.action === "debts") return { route: "plan.debts" };
+  if (c.action === "costs" || c.action === "contribution") return { route: "plan.setup", section: c.action };
+  return { route: "plan.setup", section: SETUP_SECTIONS[c.step ?? 0] ?? "time" };
+}
+const BLOCKED_TARGET: Record<string, string> = {
+  PROFILE_UNKNOWN: "time",
+  BUDGET_UNKNOWN: "budget",
+  START_UNKNOWN: "funds",
+  CONTRIBUTION_UNKNOWN: "contribution",
+};
+/** Missing-input codes already explained by a refinement card. */
+const CARD_CODES = new Set([
+  "COST_SCOPE_UNKNOWN", "COST_SCOPE_INVALID", "OCCURRENCE_UNCONFIRMED", "HORIZON_INVALID", "TIME_UNCONFIRMED",
+  "INCOME_UNCONFIRMED", "FUNDS_UNCONFIRMED", "SOURCE_ERROR", "SOURCE_STALE",
+]);
+
+/**
+ * Everything the goal page still waits on, once each: the refinement cards, calculation notes no card
+ * covers, and blocked-requirement messages. Several annotations with the same message become one entry.
+ */
+export function confirmItems(
+  saved: NonNullable<ProfileState["saved"]>,
+  caps: BasicCapabilities,
+  today: string,
+): ConfirmItem[] {
+  const annotations = affectingAnnotations(caps.annotations ?? []),
+    cards = refinementCards(saved, caps, today).filter((c) => c.required || c.impacts || c.condition),
+    out: ConfirmItem[] = cards.map((c) => {
+      const extra = new Set(annotations.filter((a) => a.treatment === "assumed_extra").flatMap((a) => a.source_ids)).size;
+      return {
+        id: c.id,
+        title: c.title,
+        detail: c.id === "costs" && !c.required && extra ? `${extra} 项费用暂按额外费用计入，可能重复包含。` : c.benefit,
+        action: refinementAction(c),
+        required: c.required,
+      };
+    });
+  const covered = (a: (typeof annotations)[number]) =>
+    (a.reason_code.startsWith("COST_") && cards.some((c) => c.id === "costs")) ||
+    (!!a.refinement.event_id && cards.some((c) => c.event?.id === a.refinement.event_id)) ||
+    (a.reason_code === "REFERENCE_PENDING" && cards.some((c) => c.id === "references")) ||
+    (a.reason_code.startsWith("DEBT_") && cards.some((c) => c.action === "debts"));
+  for (const item of coverageItems(annotations.filter((a) => !covered(a))))
+    out.push({
+      id: `note:${item.key}`,
+      title: item.count > 1 ? `${item.message}（共 ${item.count} 项）` : item.message,
+      detail: item.direction,
+      action: item.target,
+      required: false,
+    });
+  if (caps.requirement.status === "blocked")
+    for (const m of caps.requirement.missing) {
+      if (CARD_CODES.has(m.code) || (m.code === "INPUT_INVALID" && out.some((i) => i.required))) continue;
+      const section = BLOCKED_TARGET[m.code];
+      out.push({
+        id: `missing:${m.code}:${m.field}`,
+        title: m.message,
+        action: section ? { route: "plan.setup", section } : null,
+        required: true,
+      });
+    }
+  const seen = new Set<string>();
+  return out.filter((i) => {
+    const text = i.title.replace(/（共 \d+ 项）$/, "");
+    if (seen.has(text)) return false;
+    seen.add(text);
+    return true;
+  });
 }

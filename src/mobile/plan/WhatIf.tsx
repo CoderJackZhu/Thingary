@@ -21,6 +21,7 @@ import {
   ErrorState,
   FormGroup,
   HBarChart,
+  LineChart,
   Loading,
   NavBar,
   Notice,
@@ -30,12 +31,13 @@ import {
 } from "../ui";
 import {
   compactMatrix,
-  fanPlot,
+  fanChart,
   riskMoney,
-  riskPlot,
+  sequenceChart,
   sequenceConclusion,
   stressConclusion,
 } from "./risk-view.ts";
+import { CoverageSummary } from "./CoverageSummary";
 import "./risk.css";
 
 export default function WhatIf() {
@@ -100,10 +102,7 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
     [plan, year, defaultShock, shock],
   );
   const sequenceText = sequenceConclusion(paths);
-  const linePaths = useMemo(
-    () => riskPlot(paths?.map((path) => path.path) ?? []),
-    [paths],
-  );
+  const sequence = useMemo(() => (paths ? sequenceChart(paths) : null), [paths]);
   const [count, setCount] = useState("1000"),
     [run, setRun] = useState(0);
   const [market, setMarket] = useState<{
@@ -147,7 +146,7 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
       controller.abort();
     };
   }, [plan, count, run]);
-  const fan = mc ? fanPlot(mc.bands) : null;
+  const fan = useMemo(() => (mc ? fanChart(mc) : null), [mc]);
   const marketText = mc
     ? `${mc.n.toLocaleString("zh-CN")} 条路径中，${Math.round(mc.success_rate * 100)}% 按完整预算覆盖到 ${timeLabel(plan, plan.horizon_months - 1)}${plan.mode === "fire" ? "并实现财务独立" : ""}。`
     : running
@@ -158,14 +157,7 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
       <p className="mp-risk-intro">
         用临时条件检查规划能否承受变化，所有金额均为今天的钱。
       </p>
-      {!!plan.annotations?.length && (
-        <details className="mp-risk-coverage">
-          <summary>核算注意事项（{plan.annotations.length}）</summary>
-          {plan.annotations.map((annotation) => (
-            <Notice key={annotation.id}>{annotation.message}</Notice>
-          ))}
-        </details>
-      )}
+      <CoverageSummary annotations={plan.annotations} />
       <Section title="压力测试">
         <Card label="压力测试" className="mp-risk-card">
           <Notice>{stressText}</Notice>
@@ -230,20 +222,11 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
           </p>
           {fan && (
             <>
-              <svg
-                className="mp-risk-plot"
-                viewBox="0 0 300 128"
-                role="img"
-                aria-label={`${marketText} 实线是中位数，阴影为各月份第 10 至 90 百分位区间。`}
-              >
-                <path d={fan.area} fill="var(--accent)" opacity=".15" />
-                <path
-                  d={fan.middle}
-                  fill="none"
-                  stroke="var(--accent)"
-                  strokeWidth="2"
-                />
-              </svg>
+              <LineChart
+                {...fan}
+                height={200}
+                summary={`${marketText} 实线是中位数，阴影为各月份第 10 至 90 百分位区间。`}
+              />
               <p className="mp-risk-note">
                 实线：中位数；阴影：10%–90% 区间。期末较低{" "}
                 {riskMoney(mc!.final.p10)}／中位 {riskMoney(mc!.final.p50)}
@@ -348,43 +331,22 @@ function RiskAnalysis({ plan, today }: { plan: Plan; today: string }) {
               ]}
             />
           </FormGroup>
-          {paths && (
+          {paths && sequence && (
             <>
-              <svg
-                className="mp-risk-plot"
-                viewBox="0 0 300 128"
-                role="img"
-                aria-label={sequenceText}
-              >
-                {linePaths.map((path, index) => (
-                  <path
-                    key={paths[index].id}
-                    d={path}
-                    fill="none"
-                    stroke={
-                      index === 1
-                        ? "var(--warn)"
-                        : index === 2
-                          ? "var(--accent)"
-                          : "var(--muted)"
-                    }
-                    strokeWidth="2"
-                    strokeDasharray={
-                      index === 0 ? "6 4" : index === 2 ? "2 3" : undefined
-                    }
-                  />
-                ))}
-              </svg>
+              <LineChart
+                {...sequence}
+                height={200}
+                summary={sequenceText}
+              />
               <div className="mp-risk-scenarios">
                 {paths.map((path) => (
                   <p key={path.id}>
-                    <strong>{path.label}</strong>（
-                    {path.id === "base"
-                      ? "长虚线"
-                      : path.id === "early"
-                        ? "实线"
-                        : "点线"}
-                    ）：
+                    <i
+                      className="mp-risk-key"
+                      style={{ background: sequence.series[paths.indexOf(path)].color }}
+                      aria-hidden="true"
+                    />
+                    <strong>{path.label}</strong>：
                     {path.survived
                       ? "全程够用"
                       : `资金不足于 ${timeLabel(plan, path.failure_month ?? path.shortfall_month!)}`}
