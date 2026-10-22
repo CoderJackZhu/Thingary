@@ -30,7 +30,7 @@ export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: 
       <span className="theme-name"><strong>{s.label}</strong><small>{s.note}</small></span>
     </button>; })}</div>
     <p className="data-intro">{t('浅色、深色或跟随系统请在侧栏底部切换，与上面的主题风格分开保存；{v1}D 在浅色与深色间切换。', { v1: shiftModKey() })}</p>
-    <label className="privacy-idle">{t('语言')} / Language<select defaultValue={readLangPreference()} onChange={event => setLangPreference(event.target.value as ReturnType<typeof readLangPreference>)}>{langPreferences.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select></label>
+    <label className="privacy-idle">语言 / Language<select defaultValue={readLangPreference()} onChange={event => setLangPreference(event.target.value as ReturnType<typeof readLangPreference>)}>{langPreferences.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select></label>
     <div className="privacy-idle">{t('默认币种')}<CurrencyPicker label={t('默认币种')} value={currency} onChange={code => { if (writeDefaultCurrency(code)) setCurrency(code); }}/><span className="muted small">{t('新增金额时默认使用；已有记录不变。')}</span></div>
   </section>;
 }

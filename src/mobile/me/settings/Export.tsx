@@ -18,7 +18,7 @@ export default function ExportPage() {
     try { const done = await shareWorkbook(); setState(done ? { kind: 'done', done } : { kind: 'idle' }); }
     catch (cause) { setState({ kind: 'error', text: t('导出未完成：') + errorMessage(cause) }); }
   }
-  return <SettingsShell title={t('导出表格')} lead={t('把物品、账户、盘点、支出和周期费用导出成一份 Excel 工作簿，用来在电脑上查看或自己分析。')}>
+  return <SettingsShell title={t('导出表格')} lead={t('把物品、账户、盘点、支出和周期费用导出成一份 Excel 工作簿，用来在电脑上查看或自己分析。表格导入和投资资金流动核对请在电脑版进行。')}>
     <FormGroup footer={t('导出的表格不是备份，不能用来恢复。要保护资料，请使用「数据管理」里的完整备份。')}><div className="me-pad"><Button variant="primary" block disabled={demo || state.kind === 'running'} onClick={() => void run()}>{state.kind === 'running' ? t('正在导出…') : t('导出并分享表格')}</Button></div></FormGroup>
     {demo && <Notice>{t('正在查看样例，不能导出。返回自己的资料后再导出。')}</Notice>}
     {state.kind === 'done' && <ListGroup title={t('已导出')} footer={state.done.path}>{state.done.files.map(file => <ListRow key={file.name} icon={<MeIcon name="table"/>} title={file.name} value={t('{rows} 行', { rows: file.rows })}/>)}</ListGroup>}
