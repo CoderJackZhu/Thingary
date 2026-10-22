@@ -6,8 +6,8 @@ dialog.privacy-screen::backdrop{background:var(--bg)}
 .privacy-screen-content{text-align:center;max-width:480px;overflow-wrap:anywhere}
 .privacy-screen-content h1{font-size:24px;margin:24px 0 12px}
 .privacy-screen-content [role=alert]{color:var(--error);margin-top:20px}
-.privacy-mark{display:inline-grid;place-items:center;width:88px;height:88px;border-radius:var(--ctl-radius);background:var(--soft);color:var(--accent)}
-.privacy-mark svg{width:64px;height:56px}
+.privacy-mark{display:inline-grid;width:88px;height:88px}
+.privacy-mark svg{width:100%;height:100%}
 .privacy-settings{padding:12px 0}
 .privacy-settings .privacy-toggle{display:flex;justify-content:flex-start;align-items:center;gap:10px;margin:18px 0;color:var(--text)}
 .privacy-toggle input{flex:none}
