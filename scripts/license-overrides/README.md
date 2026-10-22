@@ -6,6 +6,6 @@
 
 升级依赖时重新核对该版本归档，按确切上游提交更新缺失文本、来源和散列；不直接复用旧版本的许可判断。Rust 清单保守包含构建依赖，系统自带框架不在安装包中分发。许可证文本收集不替代对上游许可条件的核对。
 
-Windows 的 `webview2-com`、`webview2-com-macros` 与 `webview2-com-sys` 发布归档缺少 Rust 绑定的 MIT 全文，补充文件按各自 `.cargo_vcs_info.json` 的上游提交固定；锁定图中同时含 `0.38.2` 与 `0.39.1` 两个版本。`webview2-com-sys` 还包含微软 WebView2 SDK loader：`0.38.2` 已比对其 x64 文件与官方 `Microsoft.Web.WebView2 1.0.3650.58` NuGet 归档一致，`0.39.1` 已比对与 `1.0.3800.47` 归档一致，SDK 的 `LICENSE.txt` 与 `NOTICE.txt` 独立作为 SDK 条目分发，不使用 Rust 绑定的 MIT 代替。来源与核对边界见 [直接内置内容告知](../../SOURCE_NOTICES.md#windows-webview2-loader)。SDK 记录另存原始归档 SHA-256，打包只读已固定的文本，不下载归档。
+Windows 的 `webview2-com`、`webview2-com-macros` 与 `webview2-com-sys` 发布归档缺少 Rust 绑定的 MIT 全文，补充文件按各自 `.cargo_vcs_info.json` 的上游提交固定。`webview2-com-sys` 还包含微软 WebView2 SDK loader：当前锁定的 `0.39.1` 已比对其 x64 文件与官方 `Microsoft.Web.WebView2 1.0.3800.47` NuGet 归档一致（此前的 `0.38.2` 对应 `1.0.3650.58`，条目保留供核对），SDK 的 `LICENSE.txt` 与 `NOTICE.txt` 独立作为 SDK 条目分发，不使用 Rust 绑定的 MIT 代替。来源与核对边界见 [直接内置内容告知](../../SOURCE_NOTICES.md#windows-webview2-loader)。SDK 记录另存原始归档 SHA-256，打包只读已固定的文本，不下载归档。
 
 `node scripts/third-party-licenses.mjs` 生成 macOS Apple Silicon／Intel 与 Windows x64 MSVC 的可达依赖并集。`node scripts/distribution-notices.mjs <输出目录> --target x86_64-pc-windows-msvc` 收集 Windows 全文；省略目标时保留 `aarch64-apple-darwin` 默认值。Cargo 缓存和 npm 生产依赖需事先准备；运行收集器不会联网。

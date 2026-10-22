@@ -28,7 +28,7 @@
 
 ## Windows WebView2 loader
 
-Windows x64 MSVC 构建通过锁定的 `webview2-com-sys 0.38.2` 与 `0.39.1` 链接 `WebView2LoaderStatic.lib`。Rust 包的 MIT 声明只覆盖上游 Rust 绑定；微软 SDK loader 保留其独立许可与第三方告知，不由物谱的 AGPL 或 Rust 绑定的 MIT 改写。
+Windows x64 MSVC 构建通过锁定的 `webview2-com-sys 0.39.1` 链接 `WebView2LoaderStatic.lib`。Rust 包的 MIT 声明只覆盖上游 Rust 绑定；微软 SDK loader 保留其独立许可与第三方告知，不由物谱的 AGPL 或 Rust 绑定的 MIT 改写。
 
 来源：该 crate 发布归档的 `.cargo_vcs_info.json` 指向 [上游提交 b74dc5e](https://github.com/wravery/webview2-rs/tree/b74dc5e2b394044bea5191052868ce7a106c202c)，该提交的 [SDK 获取脚本](https://github.com/wravery/webview2-rs/blob/b74dc5e2b394044bea5191052868ce7a106c202c/crates/update-bindings/src/main.rs) 固定 `Microsoft.Web.WebView2 1.0.3650.58`。已比对官方 NuGet 归档与 crate 的 x64 loader 文件，三份文件逐字节相同；静态库 SHA-256 为 `0659b741bde6348d4c4a6ec4ceb9af50e3d0048ed9cd3c8659bccbb61fde55ee`。
 

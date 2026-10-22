@@ -4,9 +4,9 @@
 
 直接内置的外部内容不由包管理器发现，另见 [来源告知](SOURCE_NOTICES.md)；随包告知同时附上来源告知。
 
-## Rust（macOS 与 Windows 目标并集，424 个）
+## Rust（macOS 与 Windows 目标并集，422 个）
 
-许可证分布：MIT OR Apache-2.0（205）、MIT（68）、Apache-2.0 OR MIT（56）、MIT/Apache-2.0（22）、Unicode-3.0（18）、Zlib OR Apache-2.0 OR MIT（10）、Unlicense OR MIT（9）、BSD-3-Clause（5）、MPL-2.0（5）、MIT OR Apache-2.0 OR Zlib（4）、Zlib（2）、MIT OR Zlib OR Apache-2.0（2）、BSD-3-Clause OR Apache-2.0（2）、Unlicense/MIT（2）、Apache-2.0（2）、0BSD OR MIT OR Apache-2.0（1）、BSD-3-Clause AND MIT（1）、BSD-3-Clause/MIT（1）、Apache-2.0 AND MIT（1）、CC0-1.0 OR MIT-0 OR Apache-2.0（1）、(Apache-2.0 OR MIT) AND BSD-3-Clause（1）、Apache-2.0 / MIT（1）、Apache-2.0/MIT（1）、Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT（1）、Apache-2.0 OR GPL-2.0-only（1）、(MIT OR Apache-2.0) AND Unicode-3.0（1）、BSD-2-Clause OR Apache-2.0 OR MIT（1）
+许可证分布：MIT OR Apache-2.0（205）、MIT（66）、Apache-2.0 OR MIT（56）、MIT/Apache-2.0（22）、Unicode-3.0（18）、Zlib OR Apache-2.0 OR MIT（10）、Unlicense OR MIT（9）、BSD-3-Clause（5）、MPL-2.0（5）、MIT OR Apache-2.0 OR Zlib（4）、Zlib（2）、MIT OR Zlib OR Apache-2.0（2）、BSD-3-Clause OR Apache-2.0（2）、Unlicense/MIT（2）、Apache-2.0（2）、0BSD OR MIT OR Apache-2.0（1）、BSD-3-Clause AND MIT（1）、BSD-3-Clause/MIT（1）、Apache-2.0 AND MIT（1）、CC0-1.0 OR MIT-0 OR Apache-2.0（1）、(Apache-2.0 OR MIT) AND BSD-3-Clause（1）、Apache-2.0 / MIT（1）、Apache-2.0/MIT（1）、Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT（1）、Apache-2.0 OR GPL-2.0-only（1）、(MIT OR Apache-2.0) AND Unicode-3.0（1）、BSD-2-Clause OR Apache-2.0 OR MIT（1）
 
 | 名称 | 版本 | 许可证 | 来源 | 目标 |
 |---|---|---|---|---|
@@ -377,10 +377,8 @@
 | walkdir | 2.5.0 | Unlicense/MIT | https://github.com/BurntSushi/walkdir | aarch64-apple-darwin<br>x86_64-apple-darwin<br>x86_64-pc-windows-msvc |
 | web-time | 1.1.0 | MIT OR Apache-2.0 | https://github.com/daxpedda/web-time | aarch64-apple-darwin<br>x86_64-apple-darwin<br>x86_64-pc-windows-msvc |
 | web_atoms | 0.2.6 | MIT OR Apache-2.0 | https://github.com/servo/html5ever | aarch64-apple-darwin<br>x86_64-apple-darwin<br>x86_64-pc-windows-msvc |
-| webview2-com | 0.38.2 | MIT | https://github.com/wravery/webview2-rs | x86_64-pc-windows-msvc |
 | webview2-com | 0.39.1 | MIT | https://github.com/wravery/webview2-rs | x86_64-pc-windows-msvc |
 | webview2-com-macros | 0.8.1 | MIT | https://github.com/wravery/webview2-rs | x86_64-pc-windows-msvc |
-| webview2-com-sys | 0.38.2 | MIT | https://github.com/wravery/webview2-rs | x86_64-pc-windows-msvc |
 | webview2-com-sys | 0.39.1 | MIT | https://github.com/wravery/webview2-rs | x86_64-pc-windows-msvc |
 | winapi | 0.3.9 | MIT/Apache-2.0 | https://github.com/retep998/winapi-rs | x86_64-pc-windows-msvc |
 | winapi-util | 0.1.11 | Unlicense OR MIT | https://github.com/BurntSushi/winapi-util | x86_64-pc-windows-msvc |
