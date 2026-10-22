@@ -39,8 +39,8 @@ export function NavBar({ title, primary, back, cancelLabel = '取消', onCancel,
 }
 
 /** Top segmented control (物品 / 心愿 / 统计). Tab roots get it from the shell; use it directly for in-page switches. */
-export function SegmentedControl<T extends string>({ items, value, onChange, label }: { items: { id: T; label: string }[]; value: T; onChange: (id: T) => void; label: string }) {
-  return <div className="m-segmented" role="group" aria-label={label}>{items.map(item => <button key={item.id} type="button" aria-pressed={item.id === value} onClick={() => onChange(item.id)}>{item.label}</button>)}</div>;
+export function SegmentedControl<T extends string>({ items, value, onChange, label, variant }: { items: { id: T; label: string }[]; value: T; onChange: (id: T) => void; label: string; /** `chips`: borderless pills with a tinted selected state, for range pickers inside a card. */ variant?: 'chips' }) {
+  return <div className={`m-segmented${variant ? ` m-segmented-${variant}` : ''}`} role="group" aria-label={label}>{items.map(item => <button key={item.id} type="button" aria-pressed={item.id === value} onClick={() => onChange(item.id)}>{item.label}</button>)}</div>;
 }
 
 /** Bottom bar pinned above the tab bar (pages) or the screen edge (modals), for the main action and a short status line. */
