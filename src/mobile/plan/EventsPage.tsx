@@ -13,7 +13,7 @@ import { usePlan } from "./data";
 import Events from "./Events";
 import "./plan.css";
 
-/** 大额支出: planned big purchases, stage costs after retirement and loan repayments. Adding starts from the + button. */
+/** 大额支出: planned big purchases and plans only (as desktop 大额计划). Stage costs live in the budget step, loans in their own page. */
 export default function EventsPage() {
   const p = usePlan(),
     nav = useNav(),

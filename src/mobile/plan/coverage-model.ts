@@ -7,10 +7,11 @@ import {
   annotationSummary,
 } from "../../plan-annotations.ts";
 
-/** Where 去核对 / 去处理 leads: a step of the setup flow, or the 大额支出 page. */
+/** Where 去核对 / 去处理 leads: a step of the setup flow, the 大额支出 page (big plans) or the loan arrangement page. */
 export type CoverageTarget =
   | { route: "plan.setup"; section: string }
-  | { route: "plan.events" };
+  | { route: "plan.events" }
+  | { route: "plan.debts" };
 export type CoverageItem = {
   key: string;
   message: string;
@@ -38,14 +39,15 @@ export function annotationTarget(a: PlanningAnnotation): CoverageTarget | null {
   const setup = (section: string): CoverageTarget => ({ route: "plan.setup", section });
   if (event_id) return { route: "plan.events" };
   if (a.reason_code.startsWith("COST_")) return setup("costs");
-  if (a.reason_code.startsWith("DEBT_")) return { route: "plan.events" };
+  if (a.reason_code.startsWith("DEBT_")) return { route: "plan.debts" };
   if (field.startsWith("future_incomes.")) return setup("income");
   if (field.startsWith("household.partner.monthly_cents")) return setup("contribution");
   if (field.startsWith("household.")) return setup("time");
-  if (owner === "budget" && a.reason_code === "TIME_PENDING") return { route: "plan.events" };
+  // Stage costs live in the budget step, as on desktop.
+  if (owner === "budget" && (a.reason_code === "TIME_PENDING" || field.startsWith("spend_items"))) return setup("budget");
   if (owner === "budget") return setup("costs");
   if (owner === "events") return { route: "plan.events" };
-  if (owner === "funds") return field.startsWith("core.debt_repayments") ? { route: "plan.events" } : setup("funds");
+  if (owner === "funds") return field.startsWith("core.debt_repayments") ? { route: "plan.debts" } : setup("funds");
   return null;
 }
 

@@ -10,9 +10,9 @@ import "./plan.css";
 export function useOpenTarget() {
   const nav = useNav();
   return (t: CoverageTarget) =>
-    t.route === "plan.events"
-      ? nav.push("plan.events")
-      : nav.push("plan.setup", { section: t.section });
+    t.route === "plan.setup"
+      ? nav.push("plan.setup", { section: t.section })
+      : nav.push(t.route);
 }
 
 /**

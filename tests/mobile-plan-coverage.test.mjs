@@ -9,6 +9,8 @@ import {
   conditionSummary,
   confirmItems,
   latestChange,
+  planCountText,
+  refinementAction,
 } from "../src/mobile/plan/goal-model.ts";
 import {
   flowSteps,
@@ -16,6 +18,7 @@ import {
   stepIndex,
   steps,
 } from "../src/mobile/plan/setup-model.ts";
+import { debtSummary } from "../src/mobile/plan/debts-model.ts";
 import { fanChart } from "../src/mobile/plan/risk-view.ts";
 import { buildBasicCapabilities } from "../src/plan-basic.ts";
 import {
@@ -58,7 +61,7 @@ test("eight identical cost notes become one line and one detail entry with a cou
 test("groups follow effect direction; mixed targets leave the group action to each item", () => {
   const groups = coverageGroups([cost("a"), debt]);
   assert.deepEqual(groups.map((g) => g.effect), ["requirement_lower", "requirement_higher"]);
-  assert.deepEqual(groups[0].target, { route: "plan.events" });
+  assert.deepEqual(groups[0].target, { route: "plan.debts" });
   const mixed = coverageGroups([cost("a"), { ...debt, effect: "requirement_higher", id: "d2", message: "别的" }]);
   assert.equal(mixed.length, 1);
   assert.equal(mixed[0].target, null);
@@ -111,4 +114,41 @@ test("fan chart passes median and the 10%-90% band on the engine's own x positio
   assert.deepEqual(c.xs, [0, 12]);
   assert.deepEqual(c.band.upper, [3, 5]);
   assert.equal(c.series[0].values.length, 2);
+});
+
+test("annotation targets: loans go to the loan page, stage costs to the budget step, big plans to the events page", () => {
+  assert.deepEqual(annotationTarget(debt), { route: "plan.debts" });
+  assert.deepEqual(annotationTarget({ ...debt, reason_code: "DEBT_BALANCE_CHANGED" }), { route: "plan.debts" });
+  const stage = {
+    ...debt,
+    id: "spend:x:time",
+    reason_code: "TIME_PENDING",
+    refinement: { owner: "budget", field: "spend_items.x" },
+  };
+  assert.deepEqual(annotationTarget(stage), { route: "plan.setup", section: "budget" });
+  const plan = {
+    ...stage,
+    refinement: { owner: "events", field: "life_events.e", event_id: "e" },
+  };
+  assert.deepEqual(annotationTarget(plan), { route: "plan.events" });
+  assert.deepEqual(annotationTarget({ ...debt, reason_code: "OTHER", refinement: { owner: "events", field: "x" } }), { route: "plan.events" });
+});
+
+test("a refinement card for loans opens the loan page; plan cards still open 大额支出", () => {
+  assert.deepEqual(refinementAction({ action: "debts" }), { route: "plan.debts" });
+  assert.deepEqual(refinementAction({ action: "event" }), { route: "plan.events" });
+});
+
+test("goal-page count covers big plans only, and says 暂无 instead of 0", () => {
+  assert.equal(planCountText(0), "暂无");
+  assert.equal(planCountText(3), "3 项");
+});
+
+test("loan summary: absent without a complete snapshot or loans, never counts unknowns as settled", () => {
+  const s = basicFixtureSources(basicInputFixtures.prediction);
+  assert.equal(debtSummary(null, null, []), null);
+  assert.equal(debtSummary({ id: "s", date: "2026-09-30", notes: "", revision: 1, missing: [], entries: [] }, null, []), null);
+  const loan = { account_id: "l", state: "entered", amount_cents: null, side: "liability", kind: "loan", counted: true };
+  const snap = { id: "s", date: "2026-09-30", notes: "", revision: 1, missing: [], entries: [loan] };
+  assert.equal(debtSummary(snap, s.profile.value.saved.profile.retire.core, []).text, "已有贷款 1 笔 · 还款待确认");
 });

@@ -80,6 +80,9 @@ export function goalView(
   };
 }
 
+/** Row value for 大额支出 on the goal page: big plans only (stage costs live in the budget step). */
+export const planCountText = (count: number) => (count ? `${count} 项` : "暂无");
+
 /** One line for 计算条件. Unknown figures read 未知 / 待确认, never 0. */
 export function conditionSummary(
   saved: NonNullable<ProfileState["saved"]>,
@@ -114,7 +117,8 @@ export type ConfirmItem = {
 const SETUP_SECTIONS = ["time", "budget", "funds", "income", "contribution", "assumptions"];
 export function refinementAction(c: Pick<Refinement, "action" | "step">): ConfirmItem["action"] {
   if (c.action === "reload") return "reload";
-  if (c.action === "events" || c.action === "event" || c.action === "debts") return { route: "plan.events" };
+  if (c.action === "events" || c.action === "event") return { route: "plan.events" };
+  if (c.action === "debts") return { route: "plan.debts" };
   if (c.action === "costs" || c.action === "contribution") return { route: "plan.setup", section: c.action };
   return { route: "plan.setup", section: SETUP_SECTIONS[c.step ?? 0] ?? "time" };
 }

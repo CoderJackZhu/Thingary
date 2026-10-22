@@ -3,10 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { moneyText } from "../format";
 import { forecastMoneyText } from "../format";
 import { nativePlanningFollowupPortV1 } from "../../planning-followup-port";
-import {
-  goalProgressVerdict,
-  goalProgressPoint,
-} from "../../goal-progress";
+import { goalProgressVerdict, goalProgressPoint } from "../../goal-progress";
 import type { GoalProgressEntry } from "../../goal-progress";
 import { useNav } from "../nav-context";
 import {
@@ -24,7 +21,13 @@ import {
   Sheet,
 } from "../ui";
 import { usePlan } from "./data";
-import { conditionSummary, confirmItems, goalView, latestChange } from "./goal-model";
+import {
+  conditionSummary,
+  confirmItems,
+  goalView,
+  latestChange,
+  planCountText,
+} from "./goal-model";
 import type { ConfirmItem } from "./goal-model";
 import { fundsChart } from "./detail-model";
 import Report from "./Report";
@@ -140,7 +143,7 @@ export default function Goal() {
     v = goalView(saved, caps),
     items = confirmItems(saved, caps, today),
     pred = caps.prediction.status === "ready" ? caps.prediction.value : null,
-    eventCount = r.life_events.length + r.spend_items.length,
+    eventCount = r.life_events.length,
     change = latestChange(progress);
   if (report)
     return (
@@ -149,8 +152,8 @@ export default function Goal() {
   const run = (item: ConfirmItem) => {
     setSheet(null);
     if (item.action === "reload") reload();
-    else if (item.action?.route === "plan.events") nav.push("plan.events");
-    else if (item.action) edit(item.action.section);
+    else if (item.action?.route === "plan.setup") edit(item.action.section);
+    else if (item.action) nav.push(item.action.route);
   };
   return (
     <div className="m-page mp-page">
@@ -164,7 +167,13 @@ export default function Goal() {
         tags={
           items.length
             ? undefined
-            : [{ text: pred?.outcome.success ? "所选期间可覆盖" : "按当前条件估算" }]
+            : [
+                {
+                  text: pred?.outcome.success
+                    ? "所选期间可覆盖"
+                    : "按当前条件估算",
+                },
+              ]
         }
         footnote={
           v.stop
@@ -221,7 +230,7 @@ export default function Goal() {
       <ListGroup>
         <ListRow
           title="大额支出"
-          value={`${eventCount} 项`}
+          value={planCountText(eventCount)}
           onClick={() => nav.push("plan.events")}
         />
         <ListRow

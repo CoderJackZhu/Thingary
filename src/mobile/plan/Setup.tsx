@@ -28,6 +28,8 @@ import {
   DateField,
   ErrorState,
   FormGroup,
+  ListGroup,
+  ListRow,
   FormRow,
   Loading,
   MoneyField,
@@ -43,6 +45,8 @@ import { FlowProgress, MonthField } from "./fields";
 import { usePlan, usePlanSaver } from "./data";
 import { editorInput, flowSteps, progressText, stepIndex } from "./setup-model";
 import { Assumptions } from "./assumptions";
+import { StageCostGroup } from "./StageCostGroup";
+import { debtSummary } from "./debts-model";
 import "./plan.css";
 
 export default function Setup({ params }: PageProps) {
@@ -65,7 +69,11 @@ export default function Setup({ params }: PageProps) {
         <ErrorState message={p.error} onRetry={p.reload} />
       </div>
     );
-  if (flow ? flowSteps[flowStep].unit === "assumptions" : section === "assumptions")
+  if (
+    flow
+      ? flowSteps[flowStep].unit === "assumptions"
+      : section === "assumptions"
+  )
     return (
       <Assumptions
         sources={p.sources}
@@ -123,14 +131,18 @@ export function Editor({
   // What each save unit looked like on open, to tell edited steps from untouched ones.
   const snapshotOf = (x: Draft, u: string) =>
     JSON.stringify(
-      u === "costs" ? [x.conScopes, x.retScopes] : { ...x, conScopes: 0, retScopes: 0 },
+      u === "costs"
+        ? [x.conScopes, x.retScopes]
+        : { ...x, conScopes: 0, retScopes: 0 },
     );
   const [opened] = useState(() => ({
     setup: snapshotOf(d, "setup"),
     costs: snapshotOf(d, "costs"),
   }));
   const dirty = (u: string) =>
-    u === "assumptions" ? false : snapshotOf(d, u) !== opened[u as "setup" | "costs"];
+    u === "assumptions"
+      ? false
+      : snapshotOf(d, u) !== opened[u as "setup" | "costs"];
   const [expectedRevision] = useState(saved?.revision ?? null),
     settledAtOpen = useRef(session.settled);
   const saver = usePlanSaver(sources, reload),
@@ -191,6 +203,18 @@ export function Editor({
     )
       void save(() => setStep(target));
     else setStep(target);
+  }
+  // The loan page saves on its own, so edits made here are written first and none are lost on the way back.
+  const debts = debtSummary(
+    snapshot,
+    saved?.profile.retire.core,
+    saved?.profile.retire.life_events ?? [],
+    sources.accounts.status === "ready" ? sources.accounts.value : [],
+  );
+  function openDebts() {
+    if (frozen) return;
+    if (dirty("setup")) void save(() => nav.push("plan.debts"));
+    else nav.push("plan.debts");
   }
   function finish() {
     if (flow && !dirty(unit) && saved?.profile.retire.basic) nav.pop();
@@ -409,23 +433,31 @@ export function Editor({
               </>
             )}
             {step === 1 && (
-              <FormGroup
-                title={couple ? "两人退休后的生活费" : "退休后的生活费"}
-                footer="按今天物价填写；阶段性支出可保存后在「大额支出」页添加，按额外支出计入。应急金是参考线，不另从退休资金扣除。"
-              >
-                <MoneyField
-                  label="每月生活费总额"
-                  value={d.budget}
-                  onChange={(budget) => patch({ budget })}
-                  hint="未知可以留空，不会当作 0"
+              <>
+                <FormGroup
+                  title={couple ? "两人退休后的生活费" : "退休后的生活费"}
+                  footer="按今天物价填写。应急金是参考线，不另从退休资金扣除。"
+                >
+                  <MoneyField
+                    label="每月生活费总额"
+                    value={d.budget}
+                    onChange={(budget) => patch({ budget })}
+                    hint="未知可以留空，不会当作 0"
+                  />
+                  <TextField
+                    label="应急金月数"
+                    value={d.emergency}
+                    inputMode="numeric"
+                    onChange={(emergency) => patch({ emergency })}
+                  />
+                </FormGroup>
+                <StageCostGroup
+                  d={d}
+                  patch={patch}
+                  frozen={frozen}
+                  targetMonth={time.target_month}
                 />
-                <TextField
-                  label="应急金月数"
-                  value={d.emergency}
-                  inputMode="numeric"
-                  onChange={(emergency) => patch({ emergency })}
-                />
-              </FormGroup>
+              </>
             )}
             {step === 2 && (
               <>
@@ -661,6 +693,19 @@ export function Editor({
                     </Button>
                   </FormGroup>
                 )}
+                {debts && (
+                  <ListGroup footer="每笔贷款退休前后怎么还，可以随时回来修改。">
+                    <ListRow
+                      title={debts.text}
+                      icon={
+                        debts.pending || debts.changed ? "warning" : undefined
+                      }
+                      tone="warn"
+                      disabled={frozen}
+                      onClick={openDebts}
+                    />
+                  </ListGroup>
+                )}
               </>
             )}
             {step === 3 && (
@@ -865,7 +910,11 @@ export function Editor({
           </Button>
         )}
         {flow && step < flowSteps.length - 1 ? (
-          <Button variant="primary" disabled={frozen} onClick={() => go(step + 1)}>
+          <Button
+            variant="primary"
+            disabled={frozen}
+            onClick={() => go(step + 1)}
+          >
             下一步
           </Button>
         ) : (

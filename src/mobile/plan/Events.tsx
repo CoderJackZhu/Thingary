@@ -3,7 +3,6 @@ import type {
   PlanningSources,
   ProfileState,
   StoredLifeEvent,
-  StoredSpendItem,
 } from "../../plan";
 import { moneyText } from "../format";
 import { pctToHundredths, hundredthsToPct } from "../../plan";
@@ -15,17 +14,7 @@ import {
   retractOccurrence,
 } from "../../plan-occurrence-actions";
 import { occurrenceIssues } from "../../plan-core";
-import type {
-  DebtRepayment,
-  DebtTreatment,
-  Occurrence,
-  Payment,
-} from "../../plan-core";
-import {
-  debtFirstMonth,
-  debtReview,
-  validateDebtRepayment,
-} from "../../plan-debt";
+import type { Occurrence, Payment } from "../../plan-core";
 import {
   Button,
   Card,
@@ -33,8 +22,8 @@ import {
   FormGroup,
   FormRow,
   MoneyField,
+  EmptyState,
   Notice,
-  Section,
   SelectField,
   Sheet,
   Switch,
@@ -47,7 +36,6 @@ import {
   eventTemplate,
   eventTemplates,
   impactText,
-  stageCost,
   validateEvent,
 } from "./events-model";
 import "./events.css";
@@ -87,7 +75,14 @@ function MonthField({
     </FormRow>
   );
 }
-export default function Events({ sources, saved, today, reload, picker, onPicker }: Props) {
+export default function Events({
+  sources,
+  saved,
+  today,
+  reload,
+  picker,
+  onPicker,
+}: Props) {
   const saver = usePlanSaver(sources, reload),
     r = saved.profile.retire;
   const [editing, setEditing] = useState<StoredLifeEvent | null>(null),
@@ -147,7 +142,9 @@ export default function Events({ sources, saved, today, reload, picker, onPicker
   }, [prediction, r, today]);
   useEffect(() => {
     if (editing && typeof document !== "undefined")
-      document.getElementById("mp-event-editor")?.scrollIntoView?.({ block: "start" });
+      document
+        .getElementById("mp-event-editor")
+        ?.scrollIntoView?.({ block: "start" });
   }, [editing?.id]);
   async function write(events: StoredLifeEvent[], expected = saved.revision) {
     return saver.save(
@@ -165,254 +162,261 @@ export default function Events({ sources, saved, today, reload, picker, onPicker
   }
   return (
     <div className="mp-events">
-      <Section title="大额计划">
-        <p className="mp-event-help">
-          这些是设想，计入后会重算，不会扣实际余额。点右上角的＋从模板添加，金额仅作占位，请修改为自己的估计。
-        </p>
-        {picker && onPicker && (
-          <Sheet title="添加大额支出" doneLabel="取消" onClose={() => onPicker(false)}>
-            <div className="mp-event-picker">
-              {eventTemplates.map((t) => (
-                <Button
-                  key={t.id}
-                  disabled={locked || r.life_events.length >= 20 || !!editing}
-                  onClick={() => {
-                    editRevision.current = saved.revision;
-                    setEditing(
-                      eventTemplate(
-                        t.id,
-                        today,
-                        crypto.randomUUID(),
-                        r.life_events.some((e) => e.kind === "house" && e.included),
+      {picker && onPicker && (
+        <Sheet
+          title="添加大额支出"
+          doneLabel="取消"
+          onClose={() => onPicker(false)}
+        >
+          <div className="mp-event-picker">
+            {eventTemplates.map((t) => (
+              <Button
+                key={t.id}
+                disabled={locked || r.life_events.length >= 20 || !!editing}
+                onClick={() => {
+                  editRevision.current = saved.revision;
+                  setEditing(
+                    eventTemplate(
+                      t.id,
+                      today,
+                      crypto.randomUUID(),
+                      r.life_events.some(
+                        (e) => e.kind === "house" && e.included,
                       ),
-                    );
-                    onPicker(false);
-                  }}
-                >
-                  {t.label}
-                </Button>
-              ))}
-            </div>
-          </Sheet>
-        )}
-        {!r.life_events.length && (
-          <Card className="mp-event-card">
-            <p>还没有大额计划，点右上角的＋从模板开始。</p>
-          </Card>
-        )}
-        {r.life_events.map((e) => {
-          const occurrence = r.core?.occurrences.find(
-            (o) => o.event_id === e.id,
-          );
-          const impact = impacts?.items.find((i) => i.id === e.id)?.impact;
-          return (
-            <Card key={e.id} className="mp-event-card" label={e.label}>
-              <div className="mp-event-head">
-                <div>
-                  <h3>{e.label}</h3>
-                  <small>
-                    {e.date} · {moneyText(e.price_cents)}
-                  </small>
-                </div>
-                <Switch
-                  label={`计入${e.label}`}
-                  checked={e.included || occurrence?.status === "occurred"}
-                  disabled={locked || occurrence?.status === "occurred"}
-                  onChange={(included) =>
-                    void write(
-                      r.life_events.map((row) =>
-                        row.id === e.id ? { ...row, included } : row,
-                      ),
-                    )
-                  }
-                />
+                    ),
+                  );
+                  onPicker(false);
+                }}
+              >
+                {t.label}
+              </Button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {!r.life_events.length && !editing && (
+        <EmptyState
+          icon="chart"
+          title="还没有大额计划"
+          message="买房、买车、装修这类大额支出，可以先设想一笔，看看对停工时间的影响。模板里的金额只是占位，请改成自己的估计。"
+          action={
+            onPicker && (
+              <Button
+                variant="primary"
+                disabled={locked}
+                onClick={() => onPicker(true)}
+              >
+                从模板添加
+              </Button>
+            )
+          }
+        />
+      )}
+      {r.life_events.map((e) => {
+        const occurrence = r.core?.occurrences.find((o) => o.event_id === e.id);
+        const impact = impacts?.items.find((i) => i.id === e.id)?.impact;
+        return (
+          <Card key={e.id} className="mp-event-card" label={e.label}>
+            <div className="mp-event-head">
+              <div>
+                <h3>{e.label}</h3>
+                <small>
+                  {e.date} · {moneyText(e.price_cents)} ·{" "}
+                  {e.included || occurrence?.status === "occurred"
+                    ? "已计入"
+                    : "未计入"}
+                </small>
               </div>
-              <p>
-                {occurrence
-                  ? occurrence.status === "occurred"
-                    ? `已发生 · ${occurrence.actual_date}，按实际资料接续`
-                    : `已取消 · ${occurrence.actual_date}`
-                  : "尚未发生，按预计安排"}
+              <Switch
+                label={`计入${e.label}`}
+                checked={e.included || occurrence?.status === "occurred"}
+                disabled={locked || occurrence?.status === "occurred"}
+                onChange={(included) =>
+                  void write(
+                    r.life_events.map((row) =>
+                      row.id === e.id ? { ...row, included } : row,
+                    ),
+                  )
+                }
+              />
+            </div>
+            {occurrence && (
+              <p className="mp-event-note">
+                {occurrence.status === "occurred"
+                  ? `已发生 · ${occurrence.actual_date}，按实际资料接续`
+                  : `已取消 · ${occurrence.actual_date}`}
               </p>
-              {e.time_unconfirmed && (
-                <Notice>持有或循环终点待重设，这部分未计入。</Notice>
-              )}
-              {impact ? (
-                <>
-                  <p>
-                    {impactText(
-                      impact.delay_months,
-                      impact.base_fi,
-                      impact.with_fi,
-                    )}
-                    。
-                    {impact.short === 0
-                      ? "预计现金足够"
-                      : `预计现金还差 ${moneyText(String(Math.round(impact.short)))}`}
-                    （含应急金线）。
-                  </p>
-                  {impact.payment_nominal > 0 && (
-                    <p>
-                      固定名义月供{" "}
-                      {moneyText(String(Math.round(impact.payment_nominal)))}
-                      ；买后每月约能存{" "}
-                      {moneyText(String(Math.round(impact.saving_after)))}。
-                    </p>
+            )}
+            {e.time_unconfirmed && (
+              <Notice>持有或循环终点待重设，这部分未计入。</Notice>
+            )}
+            {impact ? (
+              <>
+                <p className="mp-event-note">
+                  {impactText(
+                    impact.delay_months,
+                    impact.base_fi,
+                    impact.with_fi,
                   )}
+                  。
+                  {impact.short === 0
+                    ? "预计现金足够"
+                    : `预计现金还差 ${moneyText(String(Math.round(impact.short)))}`}
+                  （含应急金线）。
+                </p>
+                {impact.payment_nominal > 0 && (
+                  <p className="mp-event-note">
+                    固定名义月供{" "}
+                    {moneyText(String(Math.round(impact.payment_nominal)))}
+                    ；买后每月约能存{" "}
+                    {moneyText(String(Math.round(impact.saving_after)))}。
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="mp-event-help">
+                {occurrence?.status === "occurred"
+                  ? "实际付款与剩余贷款继续计入。"
+                  : "补齐规划与每月能存的钱后，可比较影响。"}
+              </p>
+            )}
+            {issues
+              .filter((i) => i.event_id === e.id)
+              .map((i, n) => (
+                <Notice key={n}>{i.message}</Notice>
+              ))}
+            <div className="mp-event-actions">
+              <Button
+                disabled={locked}
+                onClick={() => {
+                  editRevision.current = saved.revision;
+                  setEditing(structuredClone(e));
+                }}
+              >
+                编辑
+              </Button>
+              <Button
+                disabled={locked}
+                onClick={() => {
+                  occurrenceRevision.current = saved.revision;
+                  setOccurring(e);
+                }}
+              >
+                发生核对
+              </Button>
+              {confirm === e.id ? (
+                <>
+                  <Button
+                    variant="danger"
+                    disabled={locked}
+                    onClick={async () => {
+                      if (
+                        await write(
+                          r.life_events.filter((row) => row.id !== e.id),
+                        )
+                      )
+                        setConfirm("");
+                    }}
+                  >
+                    确认删除
+                  </Button>
+                  <Button disabled={locked} onClick={() => setConfirm("")}>
+                    取消删除
+                  </Button>
                 </>
               ) : (
-                <p className="mp-event-help">
-                  {occurrence?.status === "occurred"
-                    ? "实际付款与剩余贷款继续计入。"
-                    : "补齐规划与每月能存的钱后，可比较影响。"}
-                </p>
-              )}
-              {issues
-                .filter((i) => i.event_id === e.id)
-                .map((i, n) => (
-                  <Notice key={n}>{i.message}</Notice>
-                ))}
-              <div className="mp-event-actions">
                 <Button
-                  disabled={locked}
-                  onClick={() => {
-                    editRevision.current = saved.revision;
-                    setEditing(structuredClone(e));
-                  }}
+                  variant="plain"
+                  disabled={locked || occurrence?.status === "occurred"}
+                  onClick={() => setConfirm(e.id)}
                 >
-                  编辑
+                  删除
                 </Button>
-                <Button
-                  disabled={locked}
-                  onClick={() => {
-                    occurrenceRevision.current = saved.revision;
-                    setOccurring(e);
-                  }}
-                >
-                  发生核对
-                </Button>
-                {confirm === e.id ? (
-                  <>
-                    <Button
-                      variant="danger"
-                      disabled={locked}
-                      onClick={async () => {
-                        if (
-                          await write(
-                            r.life_events.filter((row) => row.id !== e.id),
-                          )
-                        )
-                          setConfirm("");
-                      }}
-                    >
-                      确认删除
-                    </Button>
-                    <Button disabled={locked} onClick={() => setConfirm("")}>
-                      取消删除
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="plain"
-                    disabled={locked || occurrence?.status === "occurred"}
-                    onClick={() => setConfirm(e.id)}
-                  >
-                    删除
-                  </Button>
-                )}
-              </div>
-            </Card>
-          );
-        })}
-        {impacts &&
-          !r.core?.occurrences.some((o) => o.status === "occurred") &&
-          r.life_events.some((e) => e.included) && (
-            <p className="mp-event-help">
-              全部计入的计划合计：
-              {impactText(
-                impacts.total.delay_months,
-                impacts.total.base_fi,
-                impacts.total.with_fi,
               )}
-              。已经含在退休结论中。
-            </p>
-          )}
-        {editing && (
-          <EventEditor
-            key={editing.id}
-            value={editing}
-            busy={locked}
-            onCancel={() => setEditing(null)}
-            onSave={async (event) => {
-              const exists = r.life_events.some((e) => e.id === event.id);
-              if (
-                await write(
-                  exists
-                    ? r.life_events.map((e) => (e.id === event.id ? event : e))
-                    : [...r.life_events, event],
-                  editRevision.current,
-                )
-              )
-                setEditing(null);
-            }}
-          />
-        )}
-        {occurring && (
-          <OccurrenceEditor
-            key={occurring.id}
-            event={occurring}
-            existing={r.core?.occurrences.find(
-              (o) => o.event_id === occurring.id,
+            </div>
+          </Card>
+        );
+      })}
+      {impacts &&
+        !r.core?.occurrences.some((o) => o.status === "occurred") &&
+        r.life_events.some((e) => e.included) && (
+          <p className="mp-event-help">
+            全部计入的计划合计：
+            {impactText(
+              impacts.total.delay_months,
+              impacts.total.base_fi,
+              impacts.total.with_fi,
             )}
-            snapshot={snapshot}
-            accounts={accounts}
-            today={today}
-            busy={locked}
-            unavailable={
-              sources.snapshot.status !== "ready" ||
-              sources.accounts.status !== "ready" ||
-              !snapshot
-            }
-            onCancel={() => setOccurring(null)}
-            onSave={async (o) => {
-              const old = r.core?.occurrences ?? [];
-              const occurrences = o
-                ? [...old.filter((x) => x.event_id !== o.event_id), o]
-                : retractOccurrence(
-                    old,
-                    old.find((x) => x.event_id === occurring.id)?.id ?? "",
-                  );
-              if (
-                await saver.save(
-                  {
-                    section: "events",
-                    fields: { life_events: r.life_events, occurrences },
-                  },
-                  occurrenceRevision.current,
-                )
-              )
-                setOccurring(null);
-            }}
-          />
+            。已经含在退休结论中。
+          </p>
         )}
-        {saver.notice && <Notice tone="danger">{saver.notice}</Notice>}
-      </Section>
-      <StageCosts
-        sources={sources}
-        saved={saved}
-        today={today}
-        reload={reload}
-      />
-      <DebtEditor
-        sources={sources}
-        saved={saved}
-        today={today}
-        reload={reload}
-      />
+      {editing && (
+        <EventEditor
+          key={editing.id}
+          value={editing}
+          busy={locked}
+          onCancel={() => setEditing(null)}
+          onSave={async (event) => {
+            const exists = r.life_events.some((e) => e.id === event.id);
+            if (
+              await write(
+                exists
+                  ? r.life_events.map((e) => (e.id === event.id ? event : e))
+                  : [...r.life_events, event],
+                editRevision.current,
+              )
+            )
+              setEditing(null);
+          }}
+        />
+      )}
+      {occurring && (
+        <OccurrenceEditor
+          key={occurring.id}
+          event={occurring}
+          existing={r.core?.occurrences.find(
+            (o) => o.event_id === occurring.id,
+          )}
+          snapshot={snapshot}
+          accounts={accounts}
+          today={today}
+          busy={locked}
+          unavailable={
+            sources.snapshot.status !== "ready" ||
+            sources.accounts.status !== "ready" ||
+            !snapshot
+          }
+          onCancel={() => setOccurring(null)}
+          onSave={async (o) => {
+            const old = r.core?.occurrences ?? [];
+            const occurrences = o
+              ? [...old.filter((x) => x.event_id !== o.event_id), o]
+              : retractOccurrence(
+                  old,
+                  old.find((x) => x.event_id === occurring.id)?.id ?? "",
+                );
+            if (
+              await saver.save(
+                {
+                  section: "events",
+                  fields: { life_events: r.life_events, occurrences },
+                },
+                occurrenceRevision.current,
+              )
+            )
+              setOccurring(null);
+          }}
+        />
+      )}
+      {saver.notice && <Notice tone="danger">{saver.notice}</Notice>}
+      {r.life_events.length > 0 && (
+        <p className="mp-event-help">
+          这些是设想，计入后会重算，不扣实际余额。
+        </p>
+      )}
     </div>
   );
 }
-
 function EventEditor({
   value,
   busy,
@@ -442,7 +446,12 @@ function EventEditor({
     if (end) patch({ until_month: end });
   };
   return (
-    <div className="mp-event-editor" id="mp-event-editor" role="group" aria-label="大额计划表单">
+    <div
+      className="mp-event-editor"
+      id="mp-event-editor"
+      role="group"
+      aria-label="大额计划表单"
+    >
       <h3>{value.label}</h3>
       <FormGroup footer="所有金额按今天的钱。首付、杂费只扣一次；每月成本要核对是否含在生活费里。">
         <SelectField
@@ -684,7 +693,12 @@ function OccurrenceEditor({
     );
   }
   return (
-    <div className="mp-event-editor" id="mp-event-editor" role="group" aria-label="实际发生核对">
+    <div
+      className="mp-event-editor"
+      id="mp-event-editor"
+      role="group"
+      aria-label="实际发生核对"
+    >
       <h3>核对 {event.label}</h3>
       <p className="mp-event-help">
         只维护实际发生与来源关系，不改变账户余额，不复制支出。未知资料可先留空，结果会提示未计入。
@@ -950,435 +964,5 @@ function OccurrenceEditor({
         </Button>
       </div>
     </div>
-  );
-}
-
-/** Same budget partition and child-age helper as desktop; retirement-only expenses. */
-export function StageCosts({ sources, saved, reload }: Props) {
-  const saver = usePlanSaver(sources, reload),
-    r = saved.profile.retire;
-  const [adding, setAdding] = useState(false),
-    [item, setItem] = useState({
-      label: "子女教育",
-      monthly: "",
-      start: "",
-      end: "",
-      inflation: "",
-      essential: true,
-    }),
-    [birth, setBirth] = useState(""),
-    [age, setAge] = useState("22"),
-    [error, setError] = useState("");
-  const frozen = saver.busy || saver.stuck;
-  const addingRevision = useRef(saved.revision);
-  const changeChild = (b: string, a: string) => {
-    setBirth(b);
-    setAge(a);
-    const end = childEndMonth(b, a);
-    if (end) setItem((x) => ({ ...x, end }));
-  };
-  const write = (spend_items: StoredSpendItem[], expected = saved.revision) =>
-    saver.save(
-      { section: "budget", fields: { spend_items, rent_cents: r.rent_cents } },
-      expected,
-    );
-  return (
-    <Section title="退休后的阶段性支出">
-      <p className="mp-event-help">
-        只计退休后的月份，额外叠加在生活费上。退休前花费请放进每月能存的钱，避免重复。
-      </p>
-      {r.spend_items.map((row) => (
-        <Card key={row.id} className="mp-event-card">
-          <h3>{row.label}</h3>
-          <p>
-            {moneyText(row.monthly_cents)}/月 · {row.start_month ?? "目标月份"} →{" "}
-            {row.end_month ?? "规划终点"}
-          </p>
-          <p>
-            {row.essential ? "必需" : "灵活"} ·{" "}
-            {row.inflation_hundredths === null
-              ? "跟随通胀"
-              : `每年上涨 ${row.inflation_hundredths / 100}%`}
-          </p>
-          <Button
-            disabled={frozen}
-            onClick={() =>
-              void write(r.spend_items.filter((i) => i.id !== row.id))
-            }
-          >
-            移除此阶段性支出
-          </Button>
-        </Card>
-      ))}
-      {!adding ? (
-        <Button
-          disabled={frozen || r.spend_items.length >= 20}
-          onClick={() => {
-            addingRevision.current = saved.revision;
-            setAdding(true);
-          }}
-        >
-          添加阶段性支出
-        </Button>
-      ) : (
-        <div className="mp-event-editor">
-          <FormGroup title="新的阶段性支出">
-            <SelectField
-              label="支出模板"
-              value={
-                ["子女教育", "赡养父母", "医疗与护理"].includes(item.label)
-                  ? item.label
-                  : "其他"
-              }
-              disabled={frozen}
-              options={["子女教育", "赡养父母", "医疗与护理", "其他"].map(
-                (label) => ({ id: label, label }),
-              )}
-              onChange={(label) => setItem((x) => ({ ...x, label }))}
-            />
-            <TextField
-              label="阶段性支出名称"
-              value={item.label}
-              disabled={frozen}
-              onChange={(label) => setItem((x) => ({ ...x, label }))}
-            />
-            <MoneyField
-              label="阶段性支出每月金额"
-              value={item.monthly}
-              disabled={frozen}
-              onChange={(monthly) => setItem((x) => ({ ...x, monthly }))}
-            />
-            {item.label === "子女教育" && (
-              <>
-                <MonthField
-                  label="孩子出生年月"
-                  value={birth}
-                  disabled={frozen}
-                  onChange={(v) => changeChild(v, age)}
-                />
-                <TextField
-                  label="负担到孩子几岁"
-                  value={age}
-                  inputMode="numeric"
-                  disabled={frozen}
-                  onChange={(v) => changeChild(birth, v)}
-                  hint="仅用于换算结束月份，孩子资料不保存。"
-                />
-              </>
-            )}
-            <MonthField
-              label="支出开始月份"
-              value={item.start}
-              hint="留空从目标月份开始"
-              disabled={frozen}
-              onChange={(start) => setItem((x) => ({ ...x, start }))}
-            />
-            <MonthField
-              label="支出结束月份"
-              value={item.end}
-              hint="留空到规划终点；可覆盖孩子年龄的换算结果。"
-              disabled={frozen}
-              onChange={(end) => setItem((x) => ({ ...x, end }))}
-            />
-            <TextField
-              label="支出每年上涨（%）"
-              value={item.inflation}
-              inputMode="decimal"
-              hint="留空跟随通胀；这是假设。"
-              disabled={frozen}
-              onChange={(inflation) => setItem((x) => ({ ...x, inflation }))}
-            />
-            <FormRow label="必需支出">
-              <Switch
-                label="阶段性支出必需"
-                checked={item.essential}
-                disabled={frozen}
-                onChange={(essential) => setItem((x) => ({ ...x, essential }))}
-              />
-            </FormRow>
-          </FormGroup>
-          {item.end &&
-            r.simplified.time.target_month &&
-            item.end <= r.simplified.time.target_month && (
-              <Notice>在退休目标月份前结束，不影响退休后的计算。</Notice>
-            )}
-          {error && <Notice tone="danger">{error}</Notice>}
-          <div className="mp-event-actions">
-            <Button
-              disabled={frozen}
-              onClick={() => {
-                setAdding(false);
-                setError("");
-              }}
-            >
-              取消添加
-            </Button>
-            <Button
-              variant="primary"
-              disabled={frozen}
-              onClick={async () => {
-                try {
-                  const row = stageCost({ id: crypto.randomUUID(), ...item });
-                  if (
-                    await write([...r.spend_items, row], addingRevision.current)
-                  ) {
-                    setAdding(false);
-                    setError("");
-                  }
-                } catch (cause) {
-                  setError(
-                    cause instanceof Error ? cause.message : String(cause),
-                  );
-                }
-              }}
-            >
-              保存阶段性支出
-            </Button>
-          </div>
-        </div>
-      )}
-      {saver.notice && <Notice tone="danger">{saver.notice}</Notice>}
-    </Section>
-  );
-}
-
-function DebtEditor({ sources, saved, today, reload }: Props) {
-  const saver = usePlanSaver(sources, reload),
-    r = saved.profile.retire;
-  const snapshot =
-      sources.snapshot.status === "ready" ? sources.snapshot.value : null,
-    accounts =
-      sources.accounts.status === "ready" ? sources.accounts.value : [];
-  const review = debtReview(
-    snapshot,
-    r.core,
-    r.life_events,
-    undefined,
-    undefined,
-    accounts,
-  );
-  const [editing, setEditing] = useState(false),
-    [drafts, setDrafts] = useState<Record<string, DebtRepayment>>({}),
-    [remove, setRemove] = useState<string[]>([]),
-    [touched, setTouched] = useState<string[]>([]),
-    [error, setError] = useState("");
-  const frozen = saver.busy || saver.stuck;
-  const editRevision = useRef(saved.revision);
-  const inactive = (r.core?.debt_repayments ?? []).filter(
-    (d) => !review.rows.some((row) => row.entry.account_id === d.account_id),
-  );
-  function start() {
-    editRevision.current = saved.revision;
-    setDrafts(
-      Object.fromEntries(
-        review.rows.map((row) => [
-          row.entry.account_id,
-          {
-            account_id: row.entry.account_id,
-            recorded_on: today,
-            as_of: snapshot!.date,
-            balance_cents: row.entry.amount_cents ?? "",
-            start_month: debtFirstMonth(snapshot!.date),
-            last_month: null,
-            monthly_cents: null,
-            before: null,
-            after: null,
-            ...row.saved,
-          },
-        ]),
-      ),
-    );
-    setRemove([]);
-    setTouched([]);
-    setError("");
-    setEditing(true);
-  }
-  const patch = (id: string, fields: Partial<DebtRepayment>) => {
-    setTouched((ids) => (ids.includes(id) ? ids : [...ids, id]));
-    setDrafts((old) => ({
-      ...old,
-      [id]: {
-        ...old[id],
-        ...fields,
-        recorded_on: today,
-        as_of: snapshot!.date,
-        balance_cents:
-          review.rows.find((row) => row.entry.account_id === id)!.entry
-            .amount_cents ?? "",
-      },
-    }));
-  };
-  async function save() {
-    try {
-      const updates = Object.values(drafts).filter(
-        (d) =>
-          touched.includes(d.account_id) &&
-          !remove.includes(d.account_id) &&
-          !review.rows.find((row) => row.entry.account_id === d.account_id)
-            ?.linked,
-      );
-      for (const d of updates) validateDebtRepayment(d);
-      if (!updates.length && !remove.length)
-        throw new Error("请先修改或确认至少一份还款安排，或取消修改。");
-      if (
-        await saver.save(
-          { section: "debt_repayments", fields: { updates, remove } },
-          editRevision.current,
-        )
-      )
-        setEditing(false);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  }
-  return (
-    <Section title="已有贷款还款安排">
-      <p className="mp-event-help">
-        还款已经含在开销里、另外计算或暂不考虑，都由你明确选择。
-      </p>
-      {!snapshot && (
-        <Notice>需要完整盘点后才能安排贷款；未知余额不会当作零。</Notice>
-      )}
-      {!editing ? (
-        <Button
-          disabled={frozen || !snapshot || sources.accounts.status !== "ready"}
-          onClick={start}
-        >
-          核对贷款还款安排
-        </Button>
-      ) : (
-        <div className="mp-event-editor">
-          {!review.rows.length && <p>这次盘点没有需要安排的负债账户。</p>}
-          {inactive.map((d) => (
-            <FormRow
-              key={d.account_id}
-              label={`移除旧安排：${accounts.find((a) => a.id === d.account_id)?.fields.name ?? "负债账户"}`}
-              stacked
-            >
-              <Switch
-                label={`移除旧还款${d.account_id}`}
-                checked={remove.includes(d.account_id)}
-                disabled={frozen}
-                onChange={(checked) =>
-                  setRemove((ids) =>
-                    checked
-                      ? [...ids, d.account_id]
-                      : ids.filter((id) => id !== d.account_id),
-                  )
-                }
-              />
-            </FormRow>
-          ))}
-          {review.rows.map((row) => {
-            const d = drafts[row.entry.account_id];
-            if (!d) return null;
-            return (
-              <FormGroup key={row.entry.account_id} title={row.name}>
-                <p className="mp-event-help">
-                  截至 {snapshot!.date}，余额{" "}
-                  {row.entry.amount_cents === null
-                    ? "未知"
-                    : moneyText(row.entry.amount_cents)}
-                  。
-                </p>
-                {row.changed && (
-                  <Notice>
-                    余额明显变化，请复核原安排。
-                    {row.zero && "余额已归零，独立还款已停用。"}
-                  </Notice>
-                )}
-                {row.linked ? (
-                  <Notice>
-                    已在「{row.linked.label}
-                    」中安排，不重复计算，请核对该大额计划。
-                  </Notice>
-                ) : (
-                  <>
-                    {(["before", "after"] as const).map((phase) => (
-                      <SelectField
-                        key={phase}
-                        label={`${row.name}${phase === "before" ? "退休前" : "退休后"}还款方式`}
-                        value={d[phase] ?? ""}
-                        disabled={frozen || row.entry.amount_cents === null}
-                        options={[
-                          { id: "", label: "尚未处理" },
-                          { id: "scheduled", label: "每月还一笔，单独计算" },
-                          { id: "included", label: "已含在每月开销里" },
-                          { id: "excluded", label: "这次先不考虑" },
-                        ]}
-                        onChange={(value) =>
-                          patch(row.entry.account_id, {
-                            [phase]: (value || null) as DebtTreatment,
-                          })
-                        }
-                      />
-                    ))}
-                    {(d.before === "scheduled" || d.after === "scheduled") && (
-                      <>
-                        <MoneyField
-                          label={`${row.name}每月还款`}
-                          value={d.monthly_cents ?? ""}
-                          hint="本金和利息合计，每月实际付出；空表示未知。"
-                          disabled={frozen}
-                          onChange={(v) =>
-                            patch(row.entry.account_id, {
-                              monthly_cents: v || null,
-                            })
-                          }
-                        />
-                        <MonthField
-                          label={`${row.name}首期月份`}
-                          value={d.start_month}
-                          disabled={frozen}
-                          onChange={(start_month) =>
-                            patch(row.entry.account_id, { start_month })
-                          }
-                        />
-                        <MonthField
-                          label={`${row.name}最后一期`}
-                          value={d.last_month ?? ""}
-                          disabled={frozen}
-                          onChange={(v) =>
-                            patch(row.entry.account_id, {
-                              last_month: v || null,
-                            })
-                          }
-                        />
-                      </>
-                    )}
-                    {(d.before === "excluded" || d.after === "excluded") && (
-                      <Notice>这部分还款未计入，结果可能偏乐观。</Notice>
-                    )}
-                    <Button
-                      disabled={frozen || row.entry.amount_cents === null}
-                      onClick={() => patch(row.entry.account_id, {})}
-                    >
-                      确认这份安排仍适用
-                    </Button>
-                  </>
-                )}
-              </FormGroup>
-            );
-          })}
-          {error && <Notice tone="danger">{error}</Notice>}
-          <div className="mp-event-actions">
-            <Button disabled={frozen} onClick={() => setEditing(false)}>
-              取消修改
-            </Button>
-            <Button
-              variant="primary"
-              disabled={
-                frozen ||
-                (!review.rows.some((row) => !row.linked) && !inactive.length)
-              }
-              onClick={() => void save()}
-            >
-              保存还款安排
-            </Button>
-          </div>
-        </div>
-      )}
-      {saver.notice && <Notice tone="danger">{saver.notice}</Notice>}
-    </Section>
   );
 }
