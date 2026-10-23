@@ -2621,6 +2621,13 @@ pub async fn account_groups_reorder(
         .map_err(|_| Error::new("WORKER", "排序结果未返回，请核对本次请求"))?
 }
 
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub fn ios_privacy_cover_set(app: tauri::AppHandle, enabled: bool) -> Result<()> {
+    crate::android::set_privacy_cover(&app, enabled)
+}
+/// Desktop and iOS keep the fire-and-forget signature the page already uses.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn ios_privacy_cover_set(enabled: bool) {
     #[cfg(target_os = "ios")]
@@ -2630,11 +2637,11 @@ pub fn ios_privacy_cover_set(enabled: bool) {
 }
 #[tauri::command]
 pub fn platform_capabilities() -> serde_json::Value {
-    // Android currently ships the shared UI and library only; native sharing,
-    // the privacy cover and identity verification are not wired yet.
+    // Android cannot share files or verify identity natively yet; the privacy
+    // cover is wired through the `thingary` plugin (FLAG_SECURE).
     #[cfg(target_os = "android")]
     {
-        serde_json::json!({"platform":"android","updates_supported":false,"native_file_sharing":false,"background_privacy_cover":false,"auth_name":crate::privacy_lock::auth_name()})
+        serde_json::json!({"platform":"android","updates_supported":false,"native_file_sharing":false,"background_privacy_cover":true,"auth_name":crate::privacy_lock::auth_name()})
     }
     #[cfg(not(target_os = "android"))]
     {

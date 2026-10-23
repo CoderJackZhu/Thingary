@@ -1,4 +1,6 @@
 pub mod account_groups;
+#[cfg(target_os = "android")]
+mod android;
 pub mod auto_backup;
 pub mod backup;
 pub mod backup_crypto;
@@ -105,7 +107,11 @@ fn windows_close_event(editing: bool, close_blocked: bool) -> Option<&'static st
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default()
+    #[cfg(target_os = "android")]
+    let builder = tauri::Builder::default().plugin(android::plugin());
+    #[cfg(not(target_os = "android"))]
+    let builder = tauri::Builder::default();
+    let builder = builder
         .setup(|app| {
             #[cfg(desktop)]
             window_size::restore(app.handle());
