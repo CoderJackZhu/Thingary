@@ -21,52 +21,49 @@ const paidCents = (s: FaState): bigint | null => {
   if (!/^\d{1,9}(\.\d{1,2})?$/.test(text)) return null;
   return BigInt(parseDecimal(text, 2));
 };
-const cents = (n: bigint): string => decimalUnits(n.toString(), 2);
 const trimRate = (micro: bigint): string => decimalUnits(micro.toString(), 6).replace(/\.?0+$/, '');
 /** Rate that makes `original` come to `paid` cents (half up), as micro-units. */
 const deriveRate = (original: bigint, paid: bigint, code: string): bigint => {
   const scaled = original * 10n ** BigInt(2 - currencyDecimals(code));
   return (paid * 1_000_000n * 2n + scaled) / (scaled * 2n);
 };
-const fromRate = (s: FaState, original: bigint, rate: bigint): string => {
-  try { return cents(BigInt(convertCurrency(s.code, original.toString(), rate.toString()))); } catch { return ''; }
-};
 
 export type FaField = 'code' | 'text' | 'fx' | 'paid';
-/** One edit; the other two quantities follow. `remembered` is the rate last used for the new currency, if any. */
+/** The converted amount at the current rate, as cents; '' until both the original amount and a rate are usable. This is the grey default of the paid field. */
+export function faEstimate(s: FaState): string {
+  const original = originalMinor(s), rate = rateMicro(s);
+  if (!isForeign(s) || original === null || rate === null) return '';
+  try { return convertCurrency(s.code, original.toString(), rate.toString()); } catch { return ''; }
+}
+/** One edit. `paid` holds only what the user typed; the grey default comes from the rate. `remembered` is the rate last used for a newly chosen currency. */
 export function editFa(s: FaState, field: FaField, value: string, remembered = ''): FaState {
   if (field === 'code') {
     if (currencyCode(value) === 'CNY') return blankFa('CNY');
     return currencyCode(value) === currencyCode(s.code) ? s : { code: value, text: '', fx: remembered, paid: '' };
   }
   const next = { ...s, [field]: value } as FaState;
-  const original = originalMinor(next);
-  if (field === 'paid') {
-    const paid = paidCents(next);
-    if (original !== null && paid !== null && paid > 0n) next.fx = trimRate(deriveRate(original, paid, next.code));
-    return next;
-  }
-  const rate = rateMicro(next);
-  if (original !== null && rate !== null) next.paid = fromRate(next, original, rate);
-  else if (field === 'text' && original !== null) {
-    const paid = paidCents(next);
-    if (paid !== null && paid > 0n) next.fx = trimRate(deriveRate(original, paid, next.code));
-  }
-  if (field === 'fx' && rate === null) next.paid = '';
+  if (field === 'fx') { next.paid = ''; return next; }
+  const original = originalMinor(next), paid = paidCents(next);
+  if (original !== null && paid !== null && paid > 0n) next.fx = trimRate(deriveRate(original, paid, next.code));
   return next;
 }
 
-/** The CNY cents saved for a foreign amount, '' while it is incomplete, null for CNY (the form's own input rules). */
+/** The CNY cents saved for a foreign amount (what was paid, else the estimate), '' while incomplete, null for CNY (the form's own input rules). */
 export function faCents(s: FaState): string | null {
   if (!isForeign(s)) return null;
+  if (originalMinor(s) === null) return '';
   const paid = paidCents(s);
-  return originalMinor(s) !== null && paid !== null ? paid.toString() : '';
+  if (s.paid.trim() !== '') return paid === null ? '' : paid.toString();
+  return faEstimate(s);
 }
-/** The original-currency record kept beside the paid amount; null for CNY or while incomplete. */
+/** The original-currency record kept beside the saved amount; null for CNY or while incomplete. */
 export function faOrigin(s: FaState): FaOrigin | null {
-  const original = originalMinor(s), paid = paidCents(s);
-  if (!isForeign(s) || original === null || paid === null || paid === 0n) return null;
-  return { currency: s.code, original_minor: original.toString(), fx_rate_micro: deriveRate(original, paid, s.code).toString() };
+  const original = originalMinor(s), cents = faCents(s);
+  if (!isForeign(s) || original === null || !cents) return null;
+  const paid = paidCents(s);
+  if (s.paid.trim() !== '' && paid !== null && paid > 0n) return { currency: s.code, original_minor: original.toString(), fx_rate_micro: deriveRate(original, paid, s.code).toString() };
+  const rate = rateMicro(s);
+  return rate === null ? null : { currency: s.code, original_minor: original.toString(), fx_rate_micro: rate.toString() };
 }
 /** The editor state for a saved record. */
 export function faFrom(origin: FaOrigin | null, paidCentsText: string | null): FaState {

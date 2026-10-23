@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { CurrencyPicker } from './CurrencyPicker';
-import { currencyCode, currencyDecimals } from './currency';
+import { currencyCode, currencyDecimals, decimalUnits } from './currency';
+import { money } from './asset';
 import { currencySymbol, readDefaultCurrency, readRate, rememberCurrency, rememberRate } from './currency-picker.ts';
-import { blankFa, editFa, faCents, faFrom, faOrigin, isForeign, type FaField, type FaOrigin, type FaState } from './foreign-amount.ts';
+import { blankFa, editFa, faCents, faEstimate, faFrom, faOrigin, isForeign, type FaField, type FaOrigin, type FaState } from './foreign-amount.ts';
 import { t } from './i18n.ts';
 
 export type AmountKind = 'expense' | 'income' | 'wish';
@@ -56,11 +57,19 @@ export function CurrencyButton({ code, onChange, label, disabled }: { code: stri
 export function OriginalInput({ s, onText, label, disabled }: { s: Pick<FaState, 'code' | 'text'>; onText: (v: string) => void; label: string; disabled?: boolean }) {
   return <input className="amt-input" inputMode="decimal" aria-label={label} placeholder={currencyDecimals(s.code) ? '0.00' : '0'} value={s.text} onChange={e => onText(e.target.value)} disabled={disabled}/>;
 }
-/** "折合 1 USD = [rate] ¥" and "实际支付 ¥ [paid]": either one fills in the other. */
+/**
+ * Under a foreign amount: left the converted value ("≈ ¥13.82", from the remembered rate) with the rate as a small line that can be edited;
+ * right the actually paid CNY amount, whose grey default is that converted value. Leave it empty to keep the estimate.
+ */
 export function RateRow({ s, onFx, onPaid, disabled }: { s: FaState; onFx: (v: string) => void; onPaid: (v: string) => void; disabled?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const estimate = faEstimate(s), rate = s.fx.trim() || readRate(s.code);
   return <div className="rate-row">
-    <label><span>{t('折合 1 {code} =', { code: s.code })}</span><input inputMode="decimal" aria-label={t('汇率')} placeholder={readRate(s.code) || '7.12'} value={s.fx} onChange={e => onFx(e.target.value)} disabled={disabled}/><span>{currencySymbol('CNY')}</span></label>
-    <label><span>{t('实际支付')} {currencySymbol('CNY')}</span><input inputMode="decimal" aria-label={t('实际支付的人民币金额')} placeholder="0.00" value={s.paid} onChange={e => onPaid(e.target.value)} disabled={disabled}/></label>
+    <div className="rate-est"><span>{t('折合价')}</span><strong>{estimate ? t('≈ {v1}', { v1: money(estimate) }) : '—'}</strong>
+      {editing ? <label className="rate-edit"><span>1 {s.code} =</span><input inputMode="decimal" autoFocus aria-label={t('汇率')} placeholder={readRate(s.code) || '7.12'} value={s.fx} onChange={e => onFx(e.target.value)} disabled={disabled}/><span>{currencySymbol('CNY')}</span></label>
+        : <small>{rate ? t('1 {code} = {rate}', { code: s.code, rate }) : t('没有汇率，填实际支付即可')} <button type="button" className="link" onClick={() => setEditing(true)} disabled={disabled}>{t('改汇率')}</button></small>}
+    </div>
+    <label className="rate-paid"><span>{t('实际支付')} {currencySymbol('CNY')}</span><input inputMode="decimal" aria-label={t('实际支付的人民币金额')} placeholder={estimate ? decimalUnits(estimate, 2) : '0.00'} value={s.paid} onChange={e => onPaid(e.target.value)} disabled={disabled}/></label>
   </div>;
 }
 

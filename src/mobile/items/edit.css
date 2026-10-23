@@ -15,3 +15,9 @@
 .m-item-fold[open]>summary{border-bottom:1px solid var(--line-soft)}
 .m-item-add-sheet{display:flex;flex-direction:column;gap:10px}
 .m-item-add-sheet .m-button{width:100%}
+/* Photos sit inside the notes box (bottom left) instead of a separate row under it. */
+.m-item-notes{position:relative;gap:0}
+.m-item-notes .mi-thumbs{position:absolute;left:16px;right:16px;bottom:12px;padding:0;border-top:0;pointer-events:none}
+.m-item-notes .mi-thumbs>*{pointer-events:auto}
+.m-item-notes-text{min-height:132px;padding-bottom:64px}
+.m-item-notes:has(.mi-thumbs>*:nth-child(5)) .m-item-notes-text{padding-bottom:136px}

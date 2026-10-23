@@ -28,3 +28,11 @@
 .rate-row label{display:flex;gap:6px;align-items:center}
 .rate-row input{width:7em;min-height:32px}
 .fx-split{display:block}
+.rate-row{align-items:flex-start;justify-content:space-between}
+.rate-est{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rate-est strong{color:var(--ink,inherit);font-size:15px}
+.rate-est small{color:var(--muted)}
+.rate-edit{display:flex;gap:6px;align-items:center}
+.rate-paid{display:flex;flex-direction:column;gap:2px;text-align:right}
+.rate-paid input{text-align:right}
+.rate-row .link{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-decoration:underline}
