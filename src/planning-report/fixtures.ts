@@ -1,7 +1,7 @@
 // 虚构夹具：固定日期与金额，绝不来自真实资料库。隐私夹具故意包含可检索金额、
 // 带金额的标题、姓名/账号式字符串与派生比例，供脱敏断言与预览对照使用。
 import type { ReportInputV1, SeriesPoint } from './model.ts';
-
+import { t } from '../i18n.ts';
 /** 预览与夹具统一使用的虚构“今天”。 */
 export const FIXTURE_TODAY = '2026-10-07';
 
@@ -31,11 +31,11 @@ export const currentReport: ReportInputV1 = {
   scenario_revision: 3,
   model_version: 'planning/2026.09',
   headline: { status: 'ok', amount: { kind: 'money', cents: null, basis: 'unknown' }, date: '2056-09-30' },
-  next_step: { label: '确认未来每月净投入', detail: '张三工资到账后核对' },
+  next_step: { label: t('确认未来每月净投入'), detail: '张三工资到账后核对' },
   funds: [
-    { id: 'f1', name: '招商银行活期 8888', availability: 'available', amount: { kind: 'money', cents: '100000000', basis: 'known' }, note: '工资卡（张三）' },
+    { id: 'f1', name: '招商银行活期 8888', availability: 'available', amount: { kind: 'money', cents: '100000000', basis: 'known' }, note: t('工资卡（张三）') },
     { id: 'f2', name: '公积金账户', availability: 'restricted', amount: { kind: 'money', cents: '45000000', basis: 'estimated' }, note: null },
-    { id: 'f3', name: '中国银行房贷', availability: 'debt', amount: { kind: 'money', cents: '-23000000', basis: 'known' }, note: '剩余本金' },
+    { id: 'f3', name: '中国银行房贷', availability: 'debt', amount: { kind: 'money', cents: '-23000000', basis: 'known' }, note: t('剩余本金') },
   ],
   goals: [
     {
@@ -45,16 +45,16 @@ export const currentReport: ReportInputV1 = {
     {
       id: 'g2', name: '安全底线 ¥300,000', template: 'milestone', date: '2028-03-31', result: 'incomplete',
       amount: { kind: 'money', cents: '30000000', basis: 'known' },
-      ratio: { kind: 'ratio', hundredths: 4500 }, note: '包含装修预算 ¥150,000', missing: ['未来净投入未确认'],
+      ratio: { kind: 'ratio', hundredths: 4500 }, note: t('包含装修预算 ¥150,000'), missing: ['未来净投入未确认'],
     },
   ],
   assumptions: [
-    { id: 'a1', label: '起点可用资金', value: { kind: 'money', cents: '100000000', basis: 'known' }, source: 'confirmed', confirmed_on: '2026-09-30' },
-    { id: 'a2', label: '未来每月净投入', value: { kind: 'unknown' }, source: 'unknown', confirmed_on: null },
-    { id: 'a3', label: '通胀率', value: { kind: 'ratio', hundredths: 200 }, source: 'estimated', confirmed_on: '2026-09-01' },
-    { id: 'a4', label: '预测时段', value: { kind: 'text', text: '停止工作后 30 年' }, source: 'confirmed', confirmed_on: '2026-09-30' },
-    { id: 'a5', label: '金额基准', value: { kind: 'date', date: '2026-09-30' }, source: 'confirmed', confirmed_on: '2026-09-30' },
-    { id: 'a6', label: '投资估值波动', value: { kind: 'unknown' }, source: 'excluded', confirmed_on: null },
+    { id: 'a1', label: t('起点可用资金'), value: { kind: 'money', cents: '100000000', basis: 'known' }, source: 'confirmed', confirmed_on: '2026-09-30' },
+    { id: 'a2', label: t('未来每月净投入'), value: { kind: 'unknown' }, source: 'unknown', confirmed_on: null },
+    { id: 'a3', label: t('通胀率'), value: { kind: 'ratio', hundredths: 200 }, source: 'estimated', confirmed_on: '2026-09-01' },
+    { id: 'a4', label: t('预测时段'), value: { kind: 'text', text: t('停止工作后 30 年') }, source: 'confirmed', confirmed_on: '2026-09-30' },
+    { id: 'a5', label: t('金额基准'), value: { kind: 'date', date: '2026-09-30' }, source: 'confirmed', confirmed_on: '2026-09-30' },
+    { id: 'a6', label: t('投资估值波动'), value: { kind: 'unknown' }, source: 'excluded', confirmed_on: null },
   ],
   series: [
     actual('2026-06-30', '96000000', '44000000', '-23500000'),
@@ -68,7 +68,7 @@ export const currentReport: ReportInputV1 = {
   ],
   differences: [],
   missing: [
-    { id: 'm1', label: '未来每月净投入未确认', impact: 'degrades', hint: '在方案中确认后可得出底线达成结论' },
+    { id: 'm1', label: t('未来每月净投入未确认'), impact: 'degrades', hint: t('在方案中确认后可得出底线达成结论') },
   ],
 };
 
@@ -85,10 +85,10 @@ export const baselineReport: ReportInputV1 = {
   scenario_revision: 1,
   model_version: 'planning/2026.01',
   headline: { status: 'incomplete', amount: { kind: 'money', cents: null, basis: 'unknown' }, date: null },
-  next_step: { label: '先补齐冻结时的未知关键输入', detail: null },
+  next_step: { label: t('先补齐冻结时的未知关键输入'), detail: null },
   funds: [
     { id: 'f1', name: '招商银行活期 8888', availability: 'available', amount: { kind: 'money', cents: '88000000', basis: 'known' }, note: null },
-    { id: 'f2', name: '未知投资账户', availability: 'available', amount: { kind: 'money', cents: null, basis: 'unknown' }, note: '冻结时未盘点' },
+    { id: 'f2', name: '未知投资账户', availability: 'available', amount: { kind: 'money', cents: null, basis: 'unknown' }, note: t('冻结时未盘点') },
     { id: 'f3', name: '中国银行房贷', availability: 'debt', amount: { kind: 'money', cents: '-24000000', basis: 'known' }, note: null },
   ],
   goals: [
@@ -98,8 +98,8 @@ export const baselineReport: ReportInputV1 = {
     },
   ],
   assumptions: [
-    { id: 'a1', label: '起点可用资金', value: { kind: 'money', cents: null, basis: 'unknown' }, source: 'unknown', confirmed_on: null },
-    { id: 'a2', label: '通胀率', value: { kind: 'ratio', hundredths: 250 }, source: 'estimated', confirmed_on: '2026-01-31' },
+    { id: 'a1', label: t('起点可用资金'), value: { kind: 'money', cents: null, basis: 'unknown' }, source: 'unknown', confirmed_on: null },
+    { id: 'a2', label: t('通胀率'), value: { kind: 'ratio', hundredths: 250 }, source: 'estimated', confirmed_on: '2026-01-31' },
   ],
   series: [
     projected('2026-01-31', '88000000', null, '-24000000'),
@@ -110,8 +110,8 @@ export const baselineReport: ReportInputV1 = {
   ],
   differences: [],
   missing: [
-    { id: 'm1', label: '冻结时部分账户金额未知', impact: 'blocks_headline', hint: '基准只冻结当时可计算的指标，不能用 0 补齐' },
-    { id: 'm2', label: '2026-08-15 盘点在月中', impact: 'info', hint: '实际点与当月预计对照，非精确当天预测' },
+    { id: 'm1', label: t('冻结时部分账户金额未知'), impact: 'blocks_headline', hint: t('基准只冻结当时可计算的指标，不能用 0 补齐') },
+    { id: 'm2', label: t('2026-08-15 盘点在月中'), impact: 'info', hint: t('实际点与当月预计对照，非精确当天预测') },
   ],
 };
 
@@ -128,7 +128,7 @@ export const comparisonReport: ReportInputV1 = {
   scenario_revision: 3,
   model_version: 'planning/2026.09',
   headline: { status: 'shortfall', amount: { kind: 'money', cents: '12000000', basis: 'estimated' }, date: '2052-03-31' },
-  next_step: { label: '选择要采用的方案', detail: '与李四确认后再采用' },
+  next_step: { label: t('选择要采用的方案'), detail: '与李四确认后再采用' },
   funds: [
     { id: 'f1', name: '招商银行活期 8888', availability: 'available', amount: { kind: 'money', cents: '100000000', basis: 'known' }, note: null },
   ],
@@ -139,7 +139,7 @@ export const comparisonReport: ReportInputV1 = {
     },
   ],
   assumptions: [
-    { id: 'a1', label: '起点可用资金', value: { kind: 'money', cents: '100000000', basis: 'known' }, source: 'confirmed', confirmed_on: '2026-09-30' },
+    { id: 'a1', label: t('起点可用资金'), value: { kind: 'money', cents: '100000000', basis: 'known' }, source: 'confirmed', confirmed_on: '2026-09-30' },
   ],
   series: [
     actual('2026-09-30', '100000000', null, null),
@@ -150,20 +150,20 @@ export const comparisonReport: ReportInputV1 = {
   ],
   differences: [
     {
-      id: 'd1', label: '未来每月净投入',
+      id: 'd1', label: t('未来每月净投入'),
       current: { kind: 'money', cents: '800000', basis: 'estimated' },
       other: { kind: 'money', cents: '500000', basis: 'estimated' },
       delta: { kind: 'money', cents: '300000', basis: 'estimated' },
-      note: '李四希望降低月供压力',
+      note: t('李四希望降低月供压力'),
     },
     {
-      id: 'd2', label: '预测终点',
+      id: 'd2', label: t('预测终点'),
       current: { kind: 'date', date: '2056-09-30' },
       other: { kind: 'date', date: '2051-09-30' },
       delta: null, note: null,
     },
     {
-      id: 'd3', label: '通胀率',
+      id: 'd3', label: t('通胀率'),
       current: { kind: 'ratio', hundredths: 200 },
       other: { kind: 'ratio', hundredths: 250 },
       delta: null, note: null,

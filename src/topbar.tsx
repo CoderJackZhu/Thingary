@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { Section } from './library-mode';
 import type { BarMenu, BarSearch, PageBar } from './topbar-model';
-
+import { t } from './i18n.ts';
 export { buildNewMenu, emptySearches, searchSections } from './topbar-model';
 export type { BarAction, BarMenu, BarMenuItem, BarSearch, NewTarget, PageBar, SearchSection } from './topbar-model';
 
@@ -97,7 +97,7 @@ export function TopbarSearchBox({ search, value, inputRef, expanded, disabled = 
         // false) but still marks the key as IME-handled with keyCode 229.
         if (e.key === 'Escape' && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) { e.stopPropagation(); if (value) onChange(''); }
       }}/>
-    {value && <button type="button" className="search-clear" aria-label={`清除${search.placeholder}`} disabled={disabled} onClick={() => { onChange(''); inputRef.current?.focus(); }}>
+    {value && <button type="button" className="search-clear" aria-label={t('清除{placeholder}', { placeholder: search.placeholder })} disabled={disabled} onClick={() => { onChange(''); inputRef.current?.focus(); }}>
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5 5 15"/></svg>
     </button>}
   </label>;

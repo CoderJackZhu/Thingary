@@ -8,13 +8,14 @@ import {
   timeLabel,
 } from "../../plan-ledger.ts";
 import { trajectory } from "../../plan-view.ts";
+import { t } from '../../i18n.ts';
 /** Input variations only. Every trajectory, threshold and verdict comes from the shared engine. */
 export function budgetComparisons(pred: PredictionValue, year: number) {
   return [
-    { label: "停止追加存钱", plan: scaleSaving(pred.plan, 0) },
-    { label: "较少预算（−10%）", plan: scaleSpend(pred.plan, 0.9) },
-    { label: "完整预算（当前设置）", plan: pred.plan },
-    { label: "更宽裕预算（+10%）", plan: scaleSpend(pred.plan, 1.1) },
+    { label: t('停止追加存钱'), plan: scaleSaving(pred.plan, 0) },
+    { label: t('较少预算（−10%）'), plan: scaleSpend(pred.plan, 0.9) },
+    { label: t('完整预算（当前设置）'), plan: pred.plan },
+    { label: t('更宽裕预算（+10%）'), plan: scaleSpend(pred.plan, 1.1) },
   ].map(({ label, plan }) => {
     const projection = project(plan, year),
       result = outcome(plan, projection),
@@ -39,14 +40,14 @@ export function fundsChart(pred: PredictionValue, mode: "today" | "nominal" = "t
       labels: points.map((p) => p.label),
       xs: points.map((p) => p.month),
       series: [
-        { name: "预计资金", values: points.map((p) => p.projected) },
-        { name: "所需资金", values: points.map((p) => p.required), color: "var(--muted)", dashed: true, area: false },
+        { name: t('预计资金'), values: points.map((p) => p.projected) },
+        { name: t('所需资金'), values: points.map((p) => p.required), color: "var(--muted)", dashed: true, area: false },
       ],
-      marker: at < 0 ? undefined : { at, label: "预计停工" },
+      marker: at < 0 ? undefined : { at, label: t('预计停工') },
       shade:
         pred.projection.failure_month === null
           ? undefined
-          : { from: pred.projection.failure_month, to: pred.plan.horizon_months, label: "资金耗尽" },
+          : { from: pred.projection.failure_month, to: pred.plan.horizon_months, label: t('资金耗尽') },
     },
   };
 }
@@ -59,14 +60,14 @@ export function yearCard(row: { period: string | null; year: number; age: number
   const title = `${row.period ?? row.year}${row.marks.length ? ` · ${row.marks.join("/")}` : ""}`;
   return {
     title,
-    age: row.age === null ? "" : `${row.age}岁`,
+    age: row.age === null ? "" : t('{age}岁', { age: row.age }),
     end: row.end,
     unfunded: row.unfunded,
     hasGap: row.unfunded > 0,
     details: [
-      { label: "存入", value: row.contribution },
-      { label: "收入与解锁", value: row.income + row.unlock },
-      { label: "支出（含大额）", value: row.spend + row.oneoff },
+      { label: t('存入'), value: row.contribution },
+      { label: t('收入与解锁'), value: row.income + row.unlock },
+      { label: t('支出（含大额）'), value: row.spend + row.oneoff },
     ],
   };
 }

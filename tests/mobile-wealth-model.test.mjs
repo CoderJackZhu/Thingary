@@ -6,18 +6,25 @@ import { snapshotEntryInput, sortRows, canCloseInCheckIn } from '../src/wealth.t
 const account=(id,fields={})=>({id,revision:1,position:0,latest:null,fields:{name:`虚构${id}`,institution:'虚构银行',kind:'cash',side:'asset',counted:true,currency:'CNY',opened_on:'2026-01-01',closed_on:null,notes:'',...fields}});
 const a=account('cash'),b=account('debt',{side:'liability',kind:'loan'}),fx=account('usd',{currency:'USD'}),h=account('fund',{kind:'fund',holding_mode:true});
 const draft=(accounts=[a,b])=>({generation:'fictional',date:'2026-10-21',existing:null,rows:accounts.map(account=>({account,previous:{amount_cents:'10000',date:'2026-09-30'}}))});
-test('新盘点不预填上次余额，明确零可填，缺项不伪装成完整',()=>{
+test('新盘点把有上次金额的账户预填为沿用，明确零可填，没有上次金额的账户仍须自己填',()=>{
  const d=draft(),rows=inventoryRows(d);
- assert.equal(inventoryDelta(d,rows),null);
- assert.equal(rows.cash.cents,''); assert.equal(rows.cash.state,null);
- assert.equal(inventoryTotals(d,rows).missing,2);
- assert.throws(()=>inventoryInput(d,rows,'','r'),/填齐/);
+ assert.equal(rows.cash.state,'unchanged'); assert.equal(rows.cash.cents,'10000'); assert.equal(rows.cash.edited,false);
+ assert.equal(inventoryTotals(d,rows).missing,0);
+ const carried=inventoryInput(d,rows,'','r');
+ assert.deepEqual(carried.entries.map(e=>[e.state,e.amount_cents]),[['unchanged',null],['unchanged',null]]);
+ // an account with no earlier amount, or a holding, starts empty and blocks saving
+ const fresh={...draft([a,b]),rows:[{account:a,previous:null},{account:h,previous:{amount_cents:'10000',date:'2026-09-30',quantity_e8:'100000000',unit_price_e6:'10000000'}}]};
+ const empty=inventoryRows(fresh);
+ assert.equal(empty.cash.state,null); assert.equal(empty.fund.state,null);
+ assert.equal(inventoryTotals(fresh,empty).missing,2);
+ assert.throws(()=>inventoryInput(fresh,empty,'','r'),/填齐/);
  rows.cash=enteredRow(a,'0','','',''); rows.debt=enteredRow(b,'1000','','','');
  assert.deepEqual(inventoryTotals(d,rows),{assets:'0',liabilities:'1000',net:'-1000',missing:0});
  const input=inventoryInput(d,rows,'虚构盘点','one-request');
  assert.equal(input.entries.length,2); assert.equal(input.request_id,'one-request'); assert.equal(input.id,null);
  assert.equal(input.entries[0].amount_cents,'0');
 });
+
 test('外币与持仓复用整数换算，缺汇率、缺单价、超界全部阻断',()=>{
  assert.equal(enteredRow(fx,'10000','','','7120000').cents,'71200');
  assert.equal(enteredRow(fx,'10000','','','').cents,'');
@@ -68,7 +75,6 @@ test('盘点里标已注销：不填金额，保存时带上停用账户，且�
  const d=draft(),rows=inventoryRows(d),closing=new Set(['debt']);
  rows.cash=enteredRow(a,'500','','','');
  assert.equal(inventoryTotals(d,rows,closing).missing,0);
- assert.throws(()=>inventoryInput(d,rows,'','r'),/填齐/);
  const input=inventoryInput(d,rows,'','close-request',closing);
  assert.deepEqual(input.entries.map(e=>e.account_id),['cash']);
  assert.deepEqual(input.close_accounts,[{account_id:'debt',expected_revision:1}]);

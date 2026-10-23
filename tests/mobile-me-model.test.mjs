@@ -14,8 +14,8 @@ test('设置子页都在 me.settings 一个路由下，标题齐全', () => {
   assert.ok(routes['home.overview'].load && routes.welcome.load);
 });
 test('模块计数与外观摘要', () => {
-  assert.equal(enabledModuleCount(allModules), 8);
-  assert.equal(enabledModuleCount({ ...allModules, wealth: false, planning: false }), 6);
+  assert.equal(enabledModuleCount(allModules), 9);
+  assert.equal(enabledModuleCount({ ...allModules, wealth: false, planning: false }), 7);
   assert.equal(appearanceSummary('bento', 'system'), '柔和卡片 · 跟随系统');
   assert.equal(appearanceSummary('olive', 'dark'), '暖米橄榄 · 深色');
 });

@@ -5,7 +5,7 @@ import { CloseButton } from './CloseButton';
 import { searchDebounceMs, searchFilterList, searchKindLabel, searchKindOrder, searchPageSize, searchScopeText } from './search';
 import type { SearchItem, SearchResults, SearchSession } from './search';
 import type { SourceTarget } from './source';
-
+import { t } from './i18n.ts';
 /**
  * 居中的“搜索全部资料”面板（§6.1）。关键词停止约 200ms 或中文组合输入结束
  * 后查询；空关键词不查询；再次打开保留本轮关键词、类型、分页与滚动；
@@ -53,7 +53,7 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
     setResults(null); setError(''); setLoading(false); setActive(-1);
     if (!keyword || isComposing) return;
     if ([...keyword].length > 200 || keyword.includes('\0')) {
-      setError(keyword.includes('\0') ? '关键词不能包含空字符。' : '关键词最多 200 个字符，请缩短后重新搜索。');
+      setError(keyword.includes('\0') ? t('关键词不能包含空字符。') : t('关键词最多 200 个字符，请缩短后重新搜索。'));
       return;
     }
     const my = ++ticket.current;
@@ -133,13 +133,13 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
   return <div className="global-search-overlay" role="presentation" onKeyDown={e => {
     if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); close(); }
   }}>
-    <dialog open className="global-search" aria-label="搜索全部资料" onClick={e => { if (e.target === e.currentTarget) close(); }}>
+    <dialog open className="global-search" aria-label={t('搜索全部资料')} onClick={e => { if (e.target === e.currentTarget) close(); }}>
       <header>
-        <h2>搜索全部资料</h2>
-        <p className="muted">仅搜索当前资料库已开启模块</p>
-        <CloseButton type="button" className="icon-button" aria-label="关闭搜索" onClick={close}/>
+        <h2>{t('搜索全部资料')}</h2>
+        <p className="muted">{t('仅搜索当前资料库已开启模块')}</p>
+        <CloseButton type="button" className="icon-button" aria-label={t('关闭搜索')} onClick={close}/>
       </header>
-      <input ref={inputRef} className="global-search-input" aria-label="搜索全部资料" placeholder="输入关键词，查找任何模块里的记录" value={session.keyword}
+      <input ref={inputRef} className="global-search-input" aria-label={t('搜索全部资料')} placeholder={t('输入关键词，查找任何模块里的记录')} value={session.keyword}
         onChange={e => setKeyword(e.target.value)}
         onCompositionStart={() => { composing.current = true; invalidate(); setIsComposing(true); }}
         onCompositionEnd={e => { composing.current = false; setKeyword(e.currentTarget.value); setIsComposing(false); }}
@@ -150,20 +150,20 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
           else if (e.key === 'ArrowDown') { e.preventDefault(); move(1); listRef.current?.focus(); }
           else if (e.key === 'Enter' && active >= 0 && items[active]) { e.preventDefault(); void open(items[active]); }
         }}/>
-      {session.keyword.trim() && <div className="global-search-filters" role="group" aria-label="类型筛选">
+      {session.keyword.trim() && <div className="global-search-filters" role="group" aria-label={t('类型筛选')}>
         {filters.map(f => <button key={f.value} type="button" aria-pressed={session.typeFilter === f.value} onClick={() => setFilter(f.value)}>{f.label}{f.count !== null && ` ${f.count}`}</button>)}
       </div>}
       {sourceNotice && <p className="global-search-state" role="alert">{sourceNotice}</p>}
       {!session.keyword.trim() ? <div className="global-search-empty">
-        <p>输入关键词开始搜索；英文字母不区分大小写，按字面子串匹配。</p>
-        <details className="global-search-scope"><summary>查看搜索范围</summary><p>{searchScopeText}</p></details>
+        <p>{t('输入关键词开始搜索；英文字母不区分大小写，按字面子串匹配。')}</p>
+        <details className="global-search-scope"><summary>{t('查看搜索范围')}</summary><p>{searchScopeText}</p></details>
       </div>
-      : loading ? <p role="status" className="muted global-search-state">正在搜索…</p>
-      : error ? <div className="global-search-state" role="alert"><p>搜索失败，{error}</p><button type="button" onClick={retry}>重新搜索</button></div>
-      : !results || !results.total ? <p className="muted global-search-state">没有找到匹配的记录。</p>
+      : loading ? <p role="status" className="muted global-search-state">{t('正在搜索…')}</p>
+      : error ? <div className="global-search-state" role="alert"><p>{t('搜索失败，{error}', { error })}</p><button type="button" onClick={retry}>{t('重新搜索')}</button></div>
+      : !results || !results.total ? <p className="muted global-search-state">{t('没有找到匹配的记录。')}</p>
       : <>
-        <p className="muted global-search-count" role="status">找到 {results.total} 条</p>
-        <ul ref={listRef} className="global-search-results" tabIndex={-1} role="listbox" aria-label="搜索结果" onScroll={e => onSessionChange({ ...session, scrollTop: e.currentTarget.scrollTop })} onKeyDown={e => {
+        <p className="muted global-search-count" role="status">{t('找到 {total} 条', { total: results.total })}</p>
+        <ul ref={listRef} className="global-search-results" tabIndex={-1} role="listbox" aria-label={t('搜索结果')} onScroll={e => onSessionChange({ ...session, scrollTop: e.currentTarget.scrollTop })} onKeyDown={e => {
           if (composing.current || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229 || e.defaultPrevented) return;
           if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
@@ -179,10 +179,10 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
             </button>
           </li>)}
         </ul>
-        {results.total > searchPageSize && <nav className="global-search-pagination" aria-label="搜索结果分页">
-          <button type="button" disabled={session.offset === 0} onClick={() => page(-1)}>上一页</button>
-          <span>第 {currentPage} / {totalPages} 页</span>
-          <button type="button" disabled={session.offset + searchPageSize >= results.total} onClick={() => page(1)}>下一页</button>
+        {results.total > searchPageSize && <nav className="global-search-pagination" aria-label={t('搜索结果分页')}>
+          <button type="button" disabled={session.offset === 0} onClick={() => page(-1)}>{t('上一页')}</button>
+          <span>{t('第 {currentPage} / {totalPages} 页', { currentPage, totalPages })}</span>
+          <button type="button" disabled={session.offset + searchPageSize >= results.total} onClick={() => page(1)}>{t('下一页')}</button>
         </nav>}
       </>}
     </dialog>

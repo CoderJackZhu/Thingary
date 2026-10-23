@@ -7,11 +7,12 @@ import { table } from './plan-ledger.ts';
 import { buildBasicCapabilities } from './plan-basic.ts';
 import type { BasicCapabilities, PlanningSources } from './plan-basic-contract.ts';
 import type { LifeEvent } from './plan-events.ts';
+import { t } from './i18n.ts';
 export { buildBasicCapabilities };
 export const disposable = (snapshot: Snapshot | null): number | null => normalizeFunds(snapshot).available;
 
 export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview | null, incomes: Income[], today: string, nativeSources?: PlanningSources) {
-  const sources = nativeSources ?? { generation: 'adapter', write_version: saved.revision, today, modules: { planning: true, wealth: snapshot !== null }, profile: { status: 'ready', value: { generation: 'adapter', saved } }, snapshot: { status: 'ready', value: snapshot }, accounts: { status: 'ready', value: [] }, review: review ? { status: 'ready', value: review } : { status: 'error', value: { code: 'UNAVAILABLE', message: '历史统计未提供' } }, incomes: { status: 'ready', value: incomes } } satisfies PlanningSources;
+  const sources = nativeSources ?? { generation: 'adapter', write_version: saved.revision, today, modules: { planning: true, wealth: snapshot !== null }, profile: { status: 'ready', value: { generation: 'adapter', saved } }, snapshot: { status: 'ready', value: snapshot }, accounts: { status: 'ready', value: [] }, review: review ? { status: 'ready', value: review } : { status: 'error', value: { code: 'UNAVAILABLE', message: t('历史统计未提供') } }, incomes: { status: 'ready', value: incomes } } satisfies PlanningSources;
   return retireCalcFromCapabilities(saved, buildBasicCapabilities(sources), today);
 }
 

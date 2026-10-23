@@ -9,10 +9,10 @@ import type {
   ChannelSelectProps,
   TaxonomyEntry,
 } from "./taxonomy";
-
-const UNCATEGORIZED_LABEL = "未分类";
-const UNCHANNELED_LABEL = "未记录";
-const STALE_HINT = "选项已不可用，请重新选择";
+import { t } from './i18n.ts';
+const UNCATEGORIZED_LABEL = t('未分类');
+const UNCHANNELED_LABEL = t('未记录');
+const STALE_HINT = t('选项已不可用，请重新选择');
 
 function buildOptionList(
   entries: readonly TaxonomyEntry[],
@@ -47,7 +47,7 @@ export function CategorySelect({
   return (
     <div className="taxonomy-field" data-component="category-select">
       <label id={labelId} htmlFor={id}>
-        分类
+        {t('分类')}
       </label>
       <select
         id={id}
@@ -66,7 +66,7 @@ export function CategorySelect({
           }
         }}
       >
-        {stale && <option value={selectValue} disabled>选项已不可用</option>}
+        {stale && <option value={selectValue} disabled>{t('选项已不可用')}</option>}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -96,7 +96,7 @@ export function ChannelSelect({
   return (
     <div className="taxonomy-field" data-component="channel-select">
       <label id={labelId} htmlFor={id}>
-        购买渠道
+        {t('购买渠道')}
       </label>
       <select
         id={id}
@@ -115,7 +115,7 @@ export function ChannelSelect({
           }
         }}
       >
-        {stale && <option value={selectValue} disabled>选项已不可用</option>}
+        {stale && <option value={selectValue} disabled>{t('选项已不可用')}</option>}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -132,10 +132,10 @@ export function ChannelSelect({
 }
 
 function targetLabel(target: CategoryFilterValue, entries: readonly TaxonomyEntry[]): string {
-  if (target.mode === "all") return "全部分类";
+  if (target.mode === "all") return t('全部分类');
   if (target.mode === "uncategorized") return UNCATEGORIZED_LABEL;
   const found = entries.find((entry) => entry.id === target.id);
-  return found ? found.name : "已不可用的分类";
+  return found ? found.name : t('已不可用的分类');
 }
 
 function isSameTarget(a: CategoryFilterValue, b: CategoryFilterValue): boolean {
@@ -201,9 +201,9 @@ function CategoryMenuPortal({
   const keyword = search.trim().toLowerCase();
   const matched = entries.filter((entry) => !keyword || entry.name.toLowerCase().includes(keyword));
   const options: { key: string; label: string; target: CategoryFilterValue; selected: boolean; aria: string }[] = [
-    { key: "all", label: "全部分类", target: { mode: "all" }, selected: value.mode === "all", aria: "全部分类" },
+    { key: "all", label: t('全部分类'), target: { mode: "all" }, selected: value.mode === "all", aria: t('全部分类') },
     { key: "none", label: UNCATEGORIZED_LABEL, target: { mode: "uncategorized" }, selected: value.mode === "uncategorized", aria: UNCATEGORIZED_LABEL },
-    ...matched.map((entry) => ({ key: entry.id, label: entry.name, target: { mode: "category" as const, id: entry.id }, selected: value.mode === "category" && value.id === entry.id, aria: `仅看分类 ${entry.name}` })),
+    ...matched.map((entry) => ({ key: entry.id, label: entry.name, target: { mode: "category" as const, id: entry.id }, selected: value.mode === "category" && value.id === entry.id, aria: t('仅看分类 {name}', { name: entry.name }) })),
   ];
   // 键盘路径（第二轮复审 P2-1）：序列＝搜索框→各选项，↓/↑ 沿序列循环移动
   // （搜索框 ↓ 进第一个选项，第一个选项 ↑ 回搜索框）；搜索框内 Enter 选中
@@ -233,7 +233,7 @@ function CategoryMenuPortal({
       ref={panelRef}
       className="cat-menu-panel"
       role="listbox"
-      aria-label="分类菜单"
+      aria-label={t('分类菜单')}
       tabIndex={-1}
       style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
       onKeyDown={onKeyDown}
@@ -241,13 +241,13 @@ function CategoryMenuPortal({
       <input
         ref={searchRef}
         className="cat-menu-search"
-        aria-label="搜索分类"
-        placeholder="搜索分类"
+        aria-label={t('搜索分类')}
+        placeholder={t('搜索分类')}
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
       {error ? (
-        <div className="cat-menu-empty" role="alert">{error}<button type="button" data-cat-retry onClick={() => onRetry?.()}>重试</button></div>
+        <div className="cat-menu-empty" role="alert">{error}<button type="button" data-cat-retry onClick={() => onRetry?.()}>{t('重试')}</button></div>
       ) : (
         <>
           {options.map((option) => (
@@ -264,10 +264,10 @@ function CategoryMenuPortal({
               <span className="cat-menu-name">{option.label}</span>
             </button>
           ))}
-          {!matched.length && keyword && <p className="cat-menu-empty">没有匹配的分类</p>}
+          {!matched.length && keyword && <p className="cat-menu-empty">{t('没有匹配的分类')}</p>}
         </>
       )}
-      <span className="visually-hidden" aria-live="polite">{`分类菜单，当前${currentLabel}`}</span>
+      <span className="visually-hidden" aria-live="polite">{t('分类菜单，当前{currentLabel}', { currentLabel })}</span>
     </div>,
     document.body,
   );
@@ -287,7 +287,7 @@ export function CategoryFilter({
   onRetry,
 }: CategoryFilterProps) {
   const labelId = `${id}-label`;
-  const heading = "分类筛选";
+  const heading = t('分类筛选');
   const wrapRef = useRef<HTMLDivElement>(null);
   const measureLayerRef = useRef<HTMLDivElement>(null);
   // 触发按钮用回调 ref 存 state：portal 只在真实按钮挂载后渲染，
@@ -363,7 +363,7 @@ export function CategoryFilter({
     type: "button" as const,
     disabled,
     "aria-pressed": isSameTarget(value, target),
-    "aria-label": target.mode === "category" ? `仅看分类 ${label}` : targetLabel(target, entries),
+    "aria-label": target.mode === "category" ? t('仅看分类 {label}', { label }) : targetLabel(target, entries),
     onClick: () => { if (!isSameTarget(value, target)) onChange(target); },
   });
 
@@ -384,15 +384,15 @@ export function CategoryFilter({
             disabled={disabled}
             aria-haspopup="listbox"
             aria-expanded={menuOpen}
-            aria-label={`分类：${currentLabel}，打开分类菜单`}
+            aria-label={t('分类：{currentLabel}，打开分类菜单', { currentLabel })}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <span className="cat-compact-label">分类：{currentLabel}</span>
+            <span className="cat-compact-label">{t('分类：{currentLabel}', { currentLabel })}</span>
             <span className="cat-caret" aria-hidden="true">▾</span>
           </button>
         ) : (
           <>
-            <button {...chipProps({ mode: "all" }, "全部分类")} data-chip="__all__" className="cat-chip">全部分类</button>
+            <button {...chipProps({ mode: "all" }, t('全部分类'))} data-chip="__all__" className="cat-chip">{t('全部分类')}</button>
             <button {...chipProps({ mode: "uncategorized" }, UNCATEGORIZED_LABEL)} data-chip="__none__" className="cat-chip">{UNCATEGORIZED_LABEL}</button>
             {prefixEntries.map((entry) => (
               <button key={entry.id} {...chipProps({ mode: "category", id: entry.id }, entry.name)} data-chip={entry.id} className="cat-chip">{entry.name}</button>
@@ -409,10 +409,10 @@ export function CategoryFilter({
                 disabled={disabled}
                 aria-haspopup="listbox"
                 aria-expanded={menuOpen}
-                aria-label={`更多分类，当前${currentLabel}`}
+                aria-label={t('更多分类，当前{currentLabel}', { currentLabel })}
                 onClick={() => setMenuOpen((open) => !open)}
               >
-                更多分类 <span className="cat-caret" aria-hidden="true">▾</span>
+                {t('更多分类')} <span className="cat-caret" aria-hidden="true">▾</span>
               </button>
             )}
           </>
@@ -420,12 +420,12 @@ export function CategoryFilter({
       </div>
       {/* 隐藏测量层：渲染全部胶囊与按钮以获得真实字体宽度；不响应指针。 */}
       <div ref={measureLayerRef} className="cat-measure" aria-hidden="true">
-        <span data-chip="__all__" className="cat-chip">全部分类</span>
+        <span data-chip="__all__" className="cat-chip">{t('全部分类')}</span>
         <span data-chip="__none__" className="cat-chip">{UNCATEGORIZED_LABEL}</span>
-        <span data-chip="__more__" className="cat-chip cat-more">更多分类 <span className="cat-caret">▾</span></span>
+        <span data-chip="__more__" className="cat-chip cat-more">{t('更多分类')} <span className="cat-caret">▾</span></span>
         {entries.map((entry) => <span key={entry.id} data-chip={entry.id} className="cat-chip">{entry.name}</span>)}
       </div>
-      <span className="taxonomy-help">当前：{currentLabel}</span>
+      <span className="taxonomy-help">{t('当前：{currentLabel}', { currentLabel })}</span>
       {menuOpen && triggerEl && (
         <CategoryMenuPortal
           anchor={triggerEl}

@@ -7,8 +7,8 @@ import { errorMessage } from '../../asset';
 import { coverKey, initialPrivacyState, lockKey, privacyTransition, readCoverPreference, readLockPreference, setPrivacyScreenBlocked, shouldCover, writePrivacyPreference } from '../../privacy-lock';
 import type { LockPreference, PrivacyEvent, PrivacyState } from '../../privacy-lock';
 import { storedPending } from '../../wealth';
-
-export type PrivacySnapshot = { cover: boolean; lock: LockPreference; available: boolean | null; checking: boolean; locked: boolean; error: string };
+import { t } from '../../i18n.ts';
+export type PrivacySnapshot = { cover: boolean; lock: LockPreference; available: boolean | null; checking: boolean; locked: boolean; mounted: boolean; error: string };
 
 const storage = (): Storage | null => { try { return window.localStorage; } catch { return null; } };
 let started = false;
@@ -17,9 +17,9 @@ let state: PrivacyState = initialPrivacyState(lock, 0);
 let available: boolean | null = null, checking = false, error = '';
 let overlay: HTMLElement | null = null;
 const listeners = new Set<() => void>();
-let snapshot: PrivacySnapshot = { cover, lock, available, checking, locked: false, error };
+let snapshot: PrivacySnapshot = { cover, lock, available, checking, locked: false, mounted: true, error };
 let nativeCover: boolean | undefined;
-let nativeAuthName = '身份验证';
+let nativeAuthName = t('身份验证');
 
 function publish() {
   const protect = cover || lock.enabled;
@@ -27,7 +27,7 @@ function publish() {
     nativeCover = protect;
     void invoke('ios_privacy_cover_set', { enabled: protect }).catch(() => { nativeCover = undefined; });
   }
-  snapshot = { cover, lock, available, checking, locked: state.locked, error };
+  snapshot = { cover, lock, available, checking, locked: state.locked, mounted: state.mounted, error };
   render();
   listeners.forEach(listener => listener());
 }
@@ -49,8 +49,8 @@ async function probe(): Promise<boolean> {
   try {
     const value = await invoke<boolean>('privacy_auth_available');
     if (isTauri()) {
-      try { nativeAuthName = (await invoke<{ auth_name?: string }>('platform_capabilities')).auth_name ?? '身份验证'; }
-      catch { nativeAuthName = '身份验证'; }
+      try { nativeAuthName = (await invoke<{ auth_name?: string }>('platform_capabilities')).auth_name ?? t('身份验证'); }
+      catch { nativeAuthName = t('身份验证'); }
     }
     available = value; error = '';
     if (!value) send({ type: 'disable', now: Date.now() });
@@ -95,11 +95,11 @@ function render() {
   document.documentElement.toggleAttribute('data-privacy-screen', blocked);
   overlay.hidden = !blocked;
   if (!blocked) return;
-  overlay.querySelector('h1')!.textContent = state.locked ? '物谱已锁定' : '物谱内容已遮住';
+  overlay.querySelector('h1')!.textContent = state.locked ? t('物谱已锁定') : t('物谱内容已遮住');
   const sub = overlay.querySelector<HTMLElement>('.me-lock-sub')!, button = overlay.querySelector<HTMLButtonElement>('button')!, alert = overlay.querySelector<HTMLElement>('[role=alert]')!;
   sub.hidden = button.hidden = !state.locked;
   button.disabled = checking || (available === null && !error);
-  button.textContent = checking ? '正在验证…' : available === null && !error ? '正在检查…' : '解锁';
+  button.textContent = checking ? t('正在验证…') : available === null && !error ? t('正在检查…') : t('解锁');
   alert.textContent = state.locked ? error : '';
   if (state.locked && !button.disabled) button.focus({ preventScroll: true });
 }
@@ -108,7 +108,7 @@ function build(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'me-lock'; el.hidden = true;
   el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'me-lock-title');
-  el.innerHTML = '<div class="me-lock-box"><span class="me-lock-mark" aria-hidden="true"></span><h1 id="me-lock-title"></h1><p class="me-lock-sub">验证身份后查看本机资料</p><button type="button" class="m-button m-button-primary"></button><p role="alert" class="me-lock-error"></p></div>';
+  el.innerHTML = t('<div class="me-lock-box"><span class="me-lock-mark" aria-hidden="true"></span><h1 id="me-lock-title"></h1><p class="me-lock-sub">验证身份后查看本机资料</p><button type="button" class="m-button m-button-primary"></button><p role="alert" class="me-lock-error"></p></div>');
   el.querySelector('button')!.addEventListener('click', () => void unlock());
   return el;
 }
@@ -137,4 +137,4 @@ export function installPrivacy(): void {
 }
 
 /** LocalAuthentication supplies the native name; UA fallback is only for browser previews. */
-export const authName = (userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent): string => isTauri() ? nativeAuthName : /iPhone|iPad|iPod/i.test(userAgent) ? '面容 ID' : '身份验证';
+export const authName = (userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent): string => isTauri() ? nativeAuthName : /iPhone|iPad|iPod/i.test(userAgent) ? t('面容 ID') : t('身份验证');

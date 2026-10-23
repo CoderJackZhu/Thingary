@@ -2,7 +2,7 @@ import type { Account, Snapshot } from "../../wealth.ts";
 import type { PlanningCore } from "../../plan-core.ts";
 import type { StoredLifeEvent } from "../../plan.ts";
 import { debtReview } from "../../plan-debt.ts";
-
+import { t } from '../../i18n.ts';
 export type DebtSummary = {
   /** Loan accounts in the latest complete snapshot that the plan has to deal with. */
   count: number;
@@ -36,12 +36,10 @@ export function debtSummary(
     count: rows.length,
     pending,
     changed,
-    text: `已有贷款 ${rows.length} 笔 · ${
-      pending
-        ? "还款待确认"
+    text: t('已有贷款 {length} 笔 · {v2}', { length: rows.length, v2: pending
+        ? t('还款待确认')
         : changed
-          ? `${changed} 笔余额变了，请复核`
-          : "还款已确认"
-    }`,
+          ? t('{changed} 笔余额变了，请复核', { changed })
+          : t('还款已确认') }),
   };
 }

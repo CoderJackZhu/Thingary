@@ -2,12 +2,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { submit, resolvePending } from './wealth.ts';
 import type { ProfileState, ProfileUpdate, PlanningSources } from './plan.ts';
 import { requestGate } from './review.ts';
-
+import { t } from './i18n.ts';
 export type PlanningModules = { planning: boolean; wealth: boolean };
 export const readPlanningSources = (modules: PlanningModules): Promise<PlanningSources> => invoke('planning_sources', { planningEnabled: modules.planning, wealthEnabled: modules.wealth });
 /** Reuse the persisted pending receipt: an unknown commit never becomes a new request. */
-export const savePlanningSection = (input: ProfileUpdate): Promise<NonNullable<ProfileState['saved']>> => submit({ command: 'plan_profile_update', input, label: '规划分区' });
-export const resolvePlanningSection = (input: ProfileUpdate) => resolvePending({ command: 'plan_profile_update', input, label: '规划分区' });
+export const savePlanningSection = (input: ProfileUpdate): Promise<NonNullable<ProfileState['saved']>> => submit({ command: 'plan_profile_update', input, label: t('规划分区') });
+export const resolvePlanningSection = (input: ProfileUpdate) => resolvePending({ command: 'plan_profile_update', input, label: t('规划分区') });
 /** Every refresh/module/library change drops all old sources, including hidden wealth. No cross-call cache. */
 export function planningReadSession(read: (modules: PlanningModules) => Promise<PlanningSources> = readPlanningSources) {
   const gate = requestGate();

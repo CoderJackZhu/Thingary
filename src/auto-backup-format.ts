@@ -1,4 +1,6 @@
 // Pure text helpers for the automatic backup section; the browser preview
+import { numberLocale } from './i18n.ts';
+import { t } from './i18n.ts';
 // and `npm run test:ui` exercise them without a native library.
 export type AutoBackupItem = { name: string; date: string; size: number };
 export type AutoBackupFailure = { at: string; message: string };
@@ -30,17 +32,17 @@ export function formatBytes(bytes: number): string {
 export function formatWhen(at: string | null): string {
   if (!at) return '';
   const time = new Date(at);
-  return Number.isNaN(time.getTime()) ? '' : time.toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' });
+  return Number.isNaN(time.getTime()) ? '' : time.toLocaleString(numberLocale(), { dateStyle: 'short', timeStyle: 'short' });
 }
 /** The one-line status under the switch: when, how many, how much. */
 export function autoBackupSummary(status: AutoBackupStatus): string {
-  if (!status.items.length) return '尚未自动备份';
-  const when = status.last_success_at ? `上次自动备份：${formatWhen(status.last_success_at)}` : '上次自动备份时间未知';
-  return `${when} · ${status.items.length} 份 · 共 ${formatBytes(status.total_size)}`;
+  if (!status.items.length) return t('尚未自动备份');
+  const when = status.last_success_at ? t('上次自动备份：{v1}', { v1: formatWhen(status.last_success_at) }) : t('上次自动备份时间未知');
+  return t('{when} · {length} 份 · 共 {v3}', { when, length: status.items.length, v3: formatBytes(status.total_size) });
 }
 /** The extra-location line: last copy outcome, or what is still missing. */
 export function extraSummary(status: AutoBackupStatus): string {
-  if (status.extra_last_error) return `上次复制失败（${formatWhen(status.extra_last_error.at)}）：${status.extra_last_error.message}`;
-  if (status.extra_last_at) return `上次复制：${formatWhen(status.extra_last_at)}`;
-  return '尚未复制';
+  if (status.extra_last_error) return t('上次复制失败（{v1}）：{message}', { v1: formatWhen(status.extra_last_error.at), message: status.extra_last_error.message });
+  if (status.extra_last_at) return t('上次复制：{v1}', { v1: formatWhen(status.extra_last_at) });
+  return t('尚未复制');
 }

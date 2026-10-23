@@ -12,6 +12,7 @@ import { errorMessage, money } from './asset';
 import type { Page } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Switch } from './FormControls';
+import { AmountEntry, useForeignAmount } from './ForeignAmount';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { categoryText, countsAsSpending, expenseCategories, expenseSourceTarget, sourceLabel, spendDisplay } from './expenses';
@@ -21,7 +22,7 @@ import type { BarAction } from './topbar';
 import type { AnnualTotal, Expense, ExpenseFields, ExpenseSave, ExpenseView, Line, Month } from './expenses';
 import './wealth.css';
 import { useRestored } from './undo';
-
+import { t as tt, numberLocale } from './i18n.ts';
 export type ScrollRestore = { top: number; done: () => void } | null;
 
 export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange, source, onSourceDone, initialYear, search, onSearch, autoNew, onAutoNewDone, restoreScroll, generation, onYearRemember, embedded = false, period: controlledPeriod, onPeriodChange, controlledView, controlledError, onRefresh, blocked = false }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void; onOpenSource: (target: SourceTarget) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void; restoreScroll?: ScrollRestore; generation?: string | null; onYearRemember?: (year: number | null) => void; embedded?: boolean; period?: FinancePeriod; onPeriodChange?: (period: FinancePeriod) => void; controlledView?: ExpenseView | null; controlledError?: string; onRefresh?: () => void; blocked?: boolean }) {
@@ -95,7 +96,7 @@ export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange
   }
   const sourceError = useSource({source,onSourceDone}, visibleView?.generation, async (target, alive) => {
     if (target.kind !== 'expense') return false;
-    if (blocked || pending || busy || editing || openingRef.current) throw new Error('请先核对上次保存结果，再打开来源支出。');
+    if (blocked || pending || busy || editing || openingRef.current) throw new Error(tt('请先核对上次保存结果，再打开来源支出。'));
     const t = ++openTicket.current;
     openingRef.current = true; setOpening(true);
     try {
@@ -124,7 +125,7 @@ export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange
   const spentDisplay = spendDisplay({ count: periodCount, known_count: periodKnown, unknown_count: periodCount - periodKnown, spent_cents: visibleView?.spent_cents });
   const netUnknown = periodCount > periodKnown;
   const newBlocked = blocked || !!editing || opening || !!pending || busy || !visibleView || !!readError;
-  const openNew = { label: '记一笔支出', plus: true, disabled: newBlocked, run: () => { if (!newBlocked && !openingRef.current) { ++openTicket.current; setEditing('new'); } } };
+  const openNew = { label: tt('记一笔支出'), plus: true, disabled: newBlocked, run: () => { if (!newBlocked && !openingRef.current) { ++openTicket.current; setEditing('new'); } } };
   // The menu hand-off opens the same editor as this page's own buttons.
   const consumedAutoNew = useRef(false);
   useEffect(() => {
@@ -135,30 +136,30 @@ export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange
     onAutoNewDone?.();
     if (!newBlocked && !openingRef.current) { ++openTicket.current; setEditing('new'); }
   }, [autoNew, newBlocked, onAutoNewDone, visibleView, blocked, pending, busy, readError]);
-  return <section className="stats-section wealth-section" aria-label="重要支出">
+  return <section className="stats-section wealth-section" aria-label={tt('重要支出')}>
     {!embedded && <LegacyExpenseBar action={openNew}/>}
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
-    {!embedded && pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
+    {!embedded && pending && <div className="notice" role="status">{tt('上次「{label}」的保存结果未确认。', { label: pending.label })}<button disabled={busy} onClick={() => void verify()}>{tt('核对结果')}</button></div>}
     {!embedded && notice && <p className="notice" role="status">{notice}</p>}
     {!embedded && <HeaderSlot><div className="wealth-toolbar">
-      <div className="segmented" role="group" aria-label="支出期间"><button aria-pressed={year === null} onClick={() => { if (year !== null) setDrilledFrom(year); setYear(null); }}>全部</button>{years.map(y => <button key={y} aria-pressed={year === y} onClick={() => { if (year === null) setDrilledFrom(null); setYear(y); }}>{y}</button>)}</div>
-      <Info text="仅已记录支出；退款按发生日期；售出回收单列；搜索只筛选明细。"/>
+      <div className="segmented" role="group" aria-label={tt('支出期间')}><button aria-pressed={year === null} onClick={() => { if (year !== null) setDrilledFrom(year); setYear(null); }}>{tt('全部')}</button>{years.map(y => <button key={y} aria-pressed={year === y} onClick={() => { if (year === null) setDrilledFrom(null); setYear(y); }}>{y}</button>)}</div>
+      <Info text={tt('仅已记录支出；退款按发生日期；售出回收单列；搜索只筛选明细。')}/>
     </div></HeaderSlot>}
-    <p className="muted small">{periodLabel} · 期间合计；搜索只筛选明细。仅包含已启用来源。</p>
-    {readError ? <article className="ui-card ui-content" role="alert"><p>重要支出读取失败：{readError}</p><button onClick={reload}>重新读取</button></article>
-      : (!embedded && !loaded) || !visibleView ? <p role="status" className="muted">正在读取重要支出…</p>
+    <p className="muted small">{tt('{periodLabel} · 期间合计；搜索只筛选明细。仅包含已启用来源。', { periodLabel })}</p>
+    {readError ? <article className="ui-card ui-content" role="alert"><p>{tt('重要支出读取失败：{readError}', { readError })}</p><button onClick={reload}>{tt('重新读取')}</button></article>
+      : (!embedded && !loaded) || !visibleView ? <p role="status" className="muted">{tt('正在读取重要支出…')}</p>
       : <>
         <div className="ui-metrics ui-card">
-          <article><span>{periodLabel}期间合计 · 已记录支出</span><strong>{spentDisplay.value != null ? money(visibleView.spent_cents) : <span className="muted">{spentDisplay.note}</span>}</strong>{spentDisplay.note && spentDisplay.value != null && <em>{spentDisplay.note}</em>}{selectedPeriod.kind === 'year' && selectedPeriod.year === thisYear && <em>截至今天已记录</em>}</article>
-          <article><span>退款</span><strong>{money(visibleView.refund_cents)}</strong></article>
-          <article><span>净支出</span><strong>{netUnknown ? <><span className="muted">仅已知部分</span> {money(visibleView.net_cents)}</> : money(visibleView.net_cents)}</strong><em>支出 − 退款；可为负</em></article>
-          <article><span>售出回收</span><strong>{money(visibleView.sale_cents)}</strong></article>
+          <article><span>{tt('{periodLabel}期间合计 · 已记录支出', { periodLabel })}</span><strong>{spentDisplay.value != null ? money(visibleView.spent_cents) : <span className="muted">{spentDisplay.note}</span>}</strong>{spentDisplay.note && spentDisplay.value != null && <em>{spentDisplay.note}</em>}{selectedPeriod.kind === 'year' && selectedPeriod.year === thisYear && <em>{tt('截至今天已记录')}</em>}</article>
+          <article><span>{tt('退款')}</span><strong>{money(visibleView.refund_cents)}</strong></article>
+          <article><span>{tt('净支出')}</span><strong>{netUnknown ? <><span className="muted">{tt('仅已知部分')}</span> {money(visibleView.net_cents)}</> : money(visibleView.net_cents)}</strong><em>{tt('支出 − 退款；可为负')}</em></article>
+          <article><span>{tt('售出回收')}</span><strong>{money(visibleView.sale_cents)}</strong></article>
         </div>
-        {(visibleView.undated.length > 0 || visibleView.unknown_amount_count > 0) && <p className="muted small">{visibleView.undated.length > 0 && `日期待补 ${visibleView.undated.length} 条（所有可见但无法归期的记录）（已知 ${money(visibleView.undated_cents)}），不归入任何期间。`}{visibleView.unknown_amount_count > 0 && `${visibleView.unknown_amount_count} 条购入或维护金额未知，未计入。`}</p>}
-        {selectedPeriod.kind === 'all' && visibleView.annual_totals.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>各年支出</h3><span>仅列有记录的年份 · 柱高为已知支出<Info text="点击年度柱或按 Enter 进入该年；悬浮或聚焦查看精确支出、退款、净支出、售出回收与金额待补笔数。所有年份都不保证记录完整。"/></span></div><YearBars totals={visibleView.annual_totals} thisYear={thisYear} focusYear={drilledFrom} onOpen={selectYear}/></article>}
-        {selectedPeriod.kind === 'year' && visibleView.months.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>各月支出</h3><span>{selectedPeriod.kind === 'year' ? selectedPeriod.year : ''} 年 · 不含日期待补{periodCount > periodKnown ? ` · 仅已知部分 · ${periodCount - periodKnown} 笔金额待补` : ''}</span></div><MonthBars months={visibleView.months}/></article>}
-        {!visibleView.lines.length && !visibleView.undated.length ? <div className="empty"><span className="empty-mark">¥</span><h2>{selectedPeriod.kind === 'all' ? '还没有重要支出' : `${periodLabel}没有记录`}</h2><p>物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。</p><button className="primary" disabled={newBlocked} onClick={openNew.run}>记一笔支出</button></div>
-          : keyword && !foundCount ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
+        {(visibleView.undated.length > 0 || visibleView.unknown_amount_count > 0) && <p className="muted small">{visibleView.undated.length > 0 && tt('日期待补 {length} 条（所有可见但无法归期的记录）（已知 {v2}），不归入任何期间。', { length: visibleView.undated.length, v2: money(visibleView.undated_cents) })}{visibleView.unknown_amount_count > 0 && tt('{unknown_amount_count} 条购入或维护金额未知，未计入。', { unknown_amount_count: visibleView.unknown_amount_count })}</p>}
+        {selectedPeriod.kind === 'all' && visibleView.annual_totals.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>{tt('各年支出')}</h3><span>{tt('仅列有记录的年份 · 柱高为已知支出')}<Info text={tt('点击年度柱或按 Enter 进入该年；悬浮或聚焦查看精确支出、退款、净支出、售出回收与金额待补笔数。所有年份都不保证记录完整。')}/></span></div><YearBars totals={visibleView.annual_totals} thisYear={thisYear} focusYear={drilledFrom} onOpen={selectYear}/></article>}
+        {selectedPeriod.kind === 'year' && visibleView.months.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>{tt('各月支出')}</h3><span>{selectedPeriod.kind === 'year' ? selectedPeriod.year : ''} {tt('年 · 不含日期待补')}{periodCount > periodKnown ? tt(' · 仅已知部分 · {v1} 笔金额待补', { v1: periodCount - periodKnown }) : ''}</span></div><MonthBars months={visibleView.months}/></article>}
+        {!visibleView.lines.length && !visibleView.undated.length ? <div className="empty"><span className="empty-mark">¥</span><h2>{selectedPeriod.kind === 'all' ? tt('还没有重要支出') : tt('{periodLabel}没有记录', { periodLabel })}</h2><p>{tt('物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。')}</p><button className="primary" disabled={newBlocked} onClick={openNew.run}>{tt('记一笔支出')}</button></div>
+          : keyword && !foundCount ? <div className="empty"><span className="empty-mark">¥</span><h2>{tt('当前条件下没有找到记录')}</h2><p>{tt('试试其他关键词。')}</p><button onClick={() => onSearch('')}>{tt('清除搜索')}</button></div>
           : <LineTable lines={shownLines} undated={shownUndated} found={keyword ? foundCount : null} disabled={blocked || !!editing || opening || !!pending || busy} onOpen={line => void open(line)}/>}
       </>}
     {editing && visibleView && <ExpenseDialog expense={editing === 'new' ? null : editing} generation={visibleView.generation} today={today} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
@@ -166,7 +167,7 @@ export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange
 }
 
 function LegacyExpenseBar({ action }: { action: BarAction }) {
-  usePageBar('expenses', { primary: action, newRecord: action, search: { key: 'expenses', placeholder: '搜索支出' } });
+  usePageBar('expenses', { primary: action, newRecord: action, search: { key: 'expenses', placeholder: tt('搜索支出') } });
   return null;
 }
 
@@ -174,13 +175,13 @@ function LineTable({ lines, undated, found, onOpen, disabled }: { lines: Line[];
   const [sort, setSort] = useState<ListSort>({ key: 'date', descending: true });
   const sorted = sortRecords([...lines, ...undated], sort, (l, key) => key === 'date' ? l.date : key === 'name' ? l.title : key === 'source' ? sourceLabel[l.source] : key === 'category' ? categoryText(l) : l.amount_cents === null ? null : moneySortValue(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents), l => l.source + l.id);
   const row = (l: Line) => <tr key={l.source + l.id} className={countsAsSpending(l) ? undefined : 'closed'}>
-    <td>{l.date ?? <span className="muted">日期待补</span>}</td>
-    <td>{expenseSourceTarget(l) ? <button className="link-cell" aria-label={`查看 ${l.title} 来源`} disabled={disabled} onClick={() => onOpen(l)}>{l.title}</button> : l.title}</td>
+    <td>{l.date ?? <span className="muted">{tt('日期待补')}</span>}</td>
+    <td>{expenseSourceTarget(l) ? <button className="link-cell" aria-label={tt('查看 {title} 来源', { title: l.title })} disabled={disabled} onClick={() => onOpen(l)}>{l.title}</button> : l.title}</td>
     <td><span className="ui-tag">{sourceLabel[l.source]}</span></td><td>{categoryText(l)}</td>
-    <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : money(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents)}</td>
+    <td className="amount">{l.amount_cents === null ? <span className="muted">{tt('金额未知')}</span> : money(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents)}</td>
   </tr>;
-  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table expense-lines"><thead><tr><SortHeader field="date" label="日期" sort={sort} onSort={setSort}/><SortHeader field="name" label="名称" sort={sort} onSort={setSort}/><SortHeader field="source" label="来源" sort={sort} onSort={setSort}/><SortHeader field="category" label="分类" sort={sort} onSort={setSort}/><SortHeader field="amount" label="金额" sort={sort} onSort={setSort}/></tr></thead>
-    <tbody>{sorted.filter(l => l.date !== null).map(row)}</tbody>{undated.length > 0 && <tbody aria-label="日期待补"><tr><th colSpan={5}>日期待补 · 所有可见但无法归期的记录，不计期间合计</th></tr>{sorted.filter(l => l.date === null).map(row)}</tbody>}</table></>;
+  return <>{found !== null && <p className="muted small" role="status">{tt('找到 {found} 条', { found })}</p>}<table className="ui-table expense-lines"><thead><tr><SortHeader field="date" label={tt('日期')} sort={sort} onSort={setSort}/><SortHeader field="name" label={tt('名称')} sort={sort} onSort={setSort}/><SortHeader field="source" label={tt('来源')} sort={sort} onSort={setSort}/><SortHeader field="category" label={tt('分类')} sort={sort} onSort={setSort}/><SortHeader field="amount" label={tt('金额')} sort={sort} onSort={setSort}/></tr></thead>
+    <tbody>{sorted.filter(l => l.date !== null).map(row)}</tbody>{undated.length > 0 && <tbody aria-label={tt('日期待补')}><tr><th colSpan={5}>{tt('日期待补 · 所有可见但无法归期的记录，不计期间合计')}</th></tr>{sorted.filter(l => l.date === null).map(row)}</tbody>}</table></>;
 }
 
 /** 柱状图共用的纵轴刻度与金额标签。 */
@@ -236,7 +237,7 @@ function YearBars({ totals, thisYear, focusYear, onOpen }: { totals: AnnualTotal
                 else if (e.key === 'End') { e.preventDefault(); refs.current.get(totals[totals.length - 1].year)?.focus(); }
                 else if (e.key === 'Escape') { e.preventDefault(); setHover(null); setFocused(null); }
               }}/>
-            {v > 0 && <text x={x + barW / 2} y={y(v) - 4} textAnchor="middle" pointerEvents="none">{Math.round(v / 100).toLocaleString('zh-CN')}</text>}
+            {v > 0 && <text x={x + barW / 2} y={y(v) - 4} textAnchor="middle" pointerEvents="none">{Math.round(v / 100).toLocaleString(numberLocale())}</text>}
             {v === 0 && spend.note && <text x={x + barW / 2} y={H - B - 8} textAnchor="middle" className="muted" pointerEvents="none">{spend.note}</text>}
             <text x={x + barW / 2} y={H - 6} textAnchor="middle">{t.year}</text>
           </g>;
@@ -245,13 +246,13 @@ function YearBars({ totals, thisYear, focusYear, onOpen }: { totals: AnnualTotal
       </svg>
     </div>
     {tip && <div className="ui-tip expense-tip" role="status" style={{ left: tipLeft }}>
-      <strong>{tip.year} 年{tip.year === thisYear ? ' · 截至今天已记录' : ''}</strong>
-      <span>支出 {tip.known_count ? money(tip.spent_cents) : spendDisplay(tip).note}</span>
-      {tip.unknown_count > 0 && tip.known_count > 0 && <span className="muted">仅已知部分 · {tip.unknown_count} 笔金额待补</span>}
-      <span>退款 {money(tip.refund_cents)}</span>
-      <span>净支出 {money(tip.net_cents)}</span>
-      <span>售出回收 {money(tip.sale_cents)}</span>
-      <span className="muted">不保证记录完整；按 Enter 进入该年</span>
+      <strong>{tt('{year} 年', { year: tip.year })}{tip.year === thisYear ? tt(' · 截至今天已记录') : ''}</strong>
+      <span>{tt('支出')} {tip.known_count ? money(tip.spent_cents) : spendDisplay(tip).note}</span>
+      {tip.unknown_count > 0 && tip.known_count > 0 && <span className="muted">{tt('仅已知部分 · {unknown_count} 笔金额待补', { unknown_count: tip.unknown_count })}</span>}
+      <span>{tt('退款 {v1}', { v1: money(tip.refund_cents) })}</span>
+      <span>{tt('净支出 {v1}', { v1: money(tip.net_cents) })}</span>
+      <span>{tt('售出回收 {v1}', { v1: money(tip.sale_cents) })}</span>
+      <span className="muted">{tt('不保证记录完整；按 Enter 进入该年')}</span>
     </div>}
   </div>;
 }
@@ -268,19 +269,19 @@ function MonthBars({ months }: { months: Month[] }) {
       {months.map((m, i) => { const v = Number(m.spent_cents), x = L + w * i;
         return <g key={m.month} className="trend-hit"><rect x={x} y={T} width={w} height={H - T - B} className="hit" onMouseEnter={() => setHover(m.month)} onMouseLeave={() => setHover(h => h === m.month ? null : h)}/>
         <rect x={x + w * 0.2} y={v?y(v):H-B-3} width={w * 0.6} height={v?Math.max(H - B - y(v), 1):3} rx={3} className={v?"trend-bar":m.count ? "empty-bar" : "empty-bar faint"}/>
-        {v>0&&<text x={x+w/2} y={y(v)-4} textAnchor="middle">{Math.round(v/100).toLocaleString("zh-CN")}</text>}
-        {v===0&&m.count>0&&<text x={x+w/2} y={H-B-8} textAnchor="middle" className="muted" pointerEvents="none">{m.known_count ? '' : '金额待补'}</text>}
-        {m.count===0&&<text x={x+w/2} y={H-B-8} textAnchor="middle" className="muted" pointerEvents="none">无记录</text>}
-        <text x={x + w / 2} y={H - 6} textAnchor="middle">{Number(m.month.slice(5))}月</text>
+        {v>0&&<text x={x+w/2} y={y(v)-4} textAnchor="middle">{Math.round(v/100).toLocaleString(numberLocale())}</text>}
+        {v===0&&m.count>0&&<text x={x+w/2} y={H-B-8} textAnchor="middle" className="muted" pointerEvents="none">{m.known_count ? '' : tt('金额待补')}</text>}
+        {m.count===0&&<text x={x+w/2} y={H-B-8} textAnchor="middle" className="muted" pointerEvents="none">{tt('无记录')}</text>}
+        <text x={x + w / 2} y={H - 6} textAnchor="middle">{tt('{v1}月', { v1: Number(m.month.slice(5)) })}</text>
         </g>; })}
       <line x1={L} x2={W} y1={H - B} y2={H - B} className="axis"/>
     </svg>
     {hover && (() => { const m = months.find(x => x.month === hover); if (!m) return null; const i = months.indexOf(m); const spend = spendDisplay(m);
       return <div className="ui-tip expense-tip" role="status" style={{ left: L + i * w + w / 2 }}>
         <strong>{m.month}</strong>
-        <span>支出 {spend.value != null ? money(m.spent_cents) : spend.note}</span>
-        {m.unknown_count > 0 && m.known_count > 0 && <span className="muted">仅已知部分 · {m.unknown_count} 笔金额待补</span>}
-        {m.refund_cents !== '0' && <span>退款 {money(m.refund_cents)}</span>}
+        <span>{tt('支出')} {spend.value != null ? money(m.spent_cents) : spend.note}</span>
+        {m.unknown_count > 0 && m.known_count > 0 && <span className="muted">{tt('仅已知部分 · {unknown_count} 笔金额待补', { unknown_count: m.unknown_count })}</span>}
+        {m.refund_cents !== '0' && <span>{tt('退款 {v1}', { v1: money(m.refund_cents) })}</span>}
       </div>; })()}
   </div>;
 }
@@ -303,6 +304,7 @@ function ExpenseDialog({ expense, generation, today, onClose }: { expense: Expen
   }, [search]);
   const set = <K extends keyof ExpenseFields>(k: K, v: ExpenseFields[K]) => setF(x => ({ ...x, [k]: v }));
   const frozen = busy || stuck;
+  const fa = useForeignAmount('expense', expense?.id ?? null, v => set('amount_cents', v));
   async function save() {
     // Point at the field itself: the message sits below a long form.
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
@@ -311,26 +313,26 @@ function ExpenseDialog({ expense, generation, today, onClose }: { expense: Expen
     if (f.refund_date !== null && !f.refund_cents) return stop('退款金额', '请填写退款金额，或关闭退款。');
     const input: ExpenseSave = { request_id: crypto.randomUUID(), generation, id: expense?.id ?? null, expected_revision: expense?.revision ?? null, fields: { ...f, title: f.title.trim() } };
     setBusy(true); setNotice('');
-    try { await submit({ command: 'expense_save', input, label: `支出 ${input.fields.title}` }); onClose(true); }
+    try { const saved = await submit<{ id: string }>({ command: 'expense_save', input, label: tt('支出 {title}', { title: input.fields.title }) }); if (saved?.id) await fa.persist(generation, saved.id); onClose(true); }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="expense-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 重要支出</p><h2 id="expense-heading">{expense ? '编辑支出' : '记一笔支出'}</h2><p className="muted">记录没有对应物品的大额花费。买了物品请直接新增物品，购入会自动计入。</p></div><CloseButton type="button" aria-label="关闭支出表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{expense && !stuck && <DeleteButton label="删除" disabled={busy} kind="expense" id={expense.id} revision={expense.revision} generation={generation} name={`支出 ${expense.fields.title}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存支出'}</button>}</div></header>
+    <header><div><p className="eyebrow">{tt('财富 · 重要支出')}</p><h2 id="expense-heading">{expense ? tt('编辑支出') : tt('记一笔支出')}</h2><p className="muted">{tt('记录没有对应物品的大额花费。买了物品请直接新增物品，购入会自动计入。')}</p></div><CloseButton type="button" aria-label={tt('关闭支出表单')} disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{expense && !stuck && <DeleteButton label={tt('删除')} disabled={busy} kind="expense" id={expense.id} revision={expense.revision} generation={generation} name={tt('支出 {title}', { title: expense.fields.title })} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>{tt('关闭，稍后核对')}</button> : <button className="primary" disabled={busy}>{busy ? tt('保存中…') : tt('保存支出')}</button>}</div></header>
     <section className="form-block">
-      <FormRow label="名称"><input id="expense-title" aria-label="支出名称" maxLength={80} value={f.title} disabled={frozen} onChange={e => set('title', e.target.value)} placeholder="例如 日本旅行"/></FormRow>
-      <FormRow label="日期"><DateInput yearIntent="past" id="expense-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>
-      <FormRow label="金额"><CentInput label="支出金额" value={f.amount_cents} disabled={frozen} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>
-      <FormRow label="分类"><select aria-label="分类" value={f.category} disabled={frozen} onChange={e => set('category', e.target.value)}>{expenseCategories.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
-      <FormRow label="记录退款" hint="原期仍计全额，退款计入退款日期"><Switch label="记录退款" value={f.refund_date !== null} disabled={frozen} onChange={v => setF(x => ({ ...x, refund_cents: v ? x.refund_cents : null, refund_date: v ? today : null }))}/></FormRow>
-      {f.refund_date !== null && <><FormRow label="退款金额"><CentInput label="退款金额" value={f.refund_cents ?? ''} disabled={frozen} placeholder="0.00" onChange={v => set('refund_cents', v || null)}/></FormRow>
-        <FormRow label="退款日期"><DateInput yearIntent="past" id="expense-refund-date" value={f.refund_date} min={f.date} max={today} disabled={frozen} onChange={v => set('refund_date', v)}/></FormRow></>}
-      <FormRow label="关联到物品" hint="关联后不再单独计入，避免与物品购入重复">
-        {f.asset_id ? <span className="expense-link">{assetName ?? '已关联物品'}{expense?.asset_deleted && f.asset_id === expense.fields.asset_id ? '（已删除）' : ''}<button type="button" disabled={frozen} onClick={() => { set('asset_id', null); setAssetName(null); }}>解除关联</button></span>
-          : <span className="expense-link-search"><input aria-label="搜索要关联的物品" value={search} disabled={frozen} onChange={e => setSearch(e.target.value)} placeholder="搜索物品名称"/>{found.length > 0 && <span className="expense-link-results">{found.map(a => <button type="button" key={a.id} disabled={frozen} onClick={() => { set('asset_id', a.id); setAssetName(a.name); setSearch(''); }}>{a.name}</button>)}</span>}</span>}
+      <FormRow label={tt('名称')}><input id="expense-title" aria-label={tt('支出名称')} maxLength={80} value={f.title} disabled={frozen} onChange={e => set('title', e.target.value)} placeholder={tt('例如 日本旅行')}/></FormRow>
+      <FormRow label={tt('日期')}><DateInput yearIntent="past" id="expense-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>
+      <FormRow label={tt('金额')}><AmountEntry fa={fa} label={tt('支出金额')} disabled={frozen}><CentInput label={tt('支出金额')} value={f.amount_cents} disabled={frozen} placeholder="0.00" onChange={v => set('amount_cents', v)}/></AmountEntry></FormRow>
+      <FormRow label={tt('分类')}><select aria-label={tt('分类')} value={f.category} disabled={frozen} onChange={e => set('category', e.target.value)}>{expenseCategories.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
+      <FormRow label={tt('记录退款')} hint={tt('原期仍计全额，退款计入退款日期')}><Switch label={tt('记录退款')} value={f.refund_date !== null} disabled={frozen} onChange={v => setF(x => ({ ...x, refund_cents: v ? x.refund_cents : null, refund_date: v ? today : null }))}/></FormRow>
+      {f.refund_date !== null && <><FormRow label={tt('退款金额')}><CentInput label={tt('退款金额')} value={f.refund_cents ?? ''} disabled={frozen} placeholder="0.00" onChange={v => set('refund_cents', v || null)}/></FormRow>
+        <FormRow label={tt('退款日期')}><DateInput yearIntent="past" id="expense-refund-date" value={f.refund_date} min={f.date} max={today} disabled={frozen} onChange={v => set('refund_date', v)}/></FormRow></>}
+      <FormRow label={tt('关联到物品')} hint={tt('关联后不再单独计入，避免与物品购入重复')}>
+        {f.asset_id ? <span className="expense-link">{assetName ?? tt('已关联物品')}{expense?.asset_deleted && f.asset_id === expense.fields.asset_id ? tt('（已删除）') : ''}<button type="button" disabled={frozen} onClick={() => { set('asset_id', null); setAssetName(null); }}>{tt('解除关联')}</button></span>
+          : <span className="expense-link-search"><input aria-label={tt('搜索要关联的物品')} value={search} disabled={frozen} onChange={e => setSearch(e.target.value)} placeholder={tt('搜索物品名称')}/>{found.length > 0 && <span className="expense-link-results">{found.map(a => <button type="button" key={a.id} disabled={frozen} onClick={() => { set('asset_id', a.id); setAssetName(a.name); setSearch(''); }}>{a.name}</button>)}</span>}</span>}
       </FormRow>
     </section>
-    <section className="form-block form-notes"><label htmlFor="expense-notes">备注</label><textarea id="expense-notes" maxLength={10000} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
+    <section className="form-block form-notes"><label htmlFor="expense-notes">{tt('备注')}</label><textarea id="expense-notes" maxLength={10000} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;
 }

@@ -12,7 +12,7 @@ import {
 import { usePlan } from "./data";
 import Events from "./Events";
 import "./plan.css";
-
+import { t } from '../../i18n.ts';
 /** 大额支出: planned big purchases and plans only (as desktop 大额计划). Stage costs live in the budget step, loans in their own page. */
 export default function EventsPage() {
   const p = usePlan(),
@@ -22,10 +22,10 @@ export default function EventsPage() {
   return (
     <div className="m-page mp-page">
       <NavBar
-        title="大额支出"
+        title={t('大额支出')}
         right={
           ready ? (
-            <IconButton label="添加大额支出" onClick={() => setPicker(true)}>
+            <IconButton label={t('添加大额支出')} onClick={() => setPicker(true)}>
               <Icon name="plus" size={22} />
             </IconButton>
           ) : undefined
@@ -38,11 +38,11 @@ export default function EventsPage() {
       ) : !p.saved?.profile.retire.basic ? (
         <EmptyState
           icon="chart"
-          title="先设置一个目标"
-          message="设置目标与时间后，才能添加大额支出。"
+          title={t('先设置一个目标')}
+          message={t('设置目标与时间后，才能添加大额支出。')}
           action={
             <Button variant="primary" onClick={() => nav.push("plan.setup")}>
-              设置条件
+              {t('设置条件')}
             </Button>
           }
         />

@@ -3,7 +3,7 @@ import { inputMoney, localDay } from './asset.ts';
 import { defaultWishPreferences } from './preferences.ts';
 import { validateWishlist } from './wishlist.ts';
 import type { WishPlanSave, WishlistDraft, WishlistFields } from './wishlist.ts';
-
+import { t } from './i18n.ts';
 export type WishSaveErrors = Partial<Record<keyof WishlistFields, string>>;
 
 /** 编辑中使用的偏好；新心愿的加入日期取今天。 */
@@ -16,7 +16,7 @@ export const draftReplacementId = (draft: WishlistDraft): string | null => draft
 export function wishPlanSave(draft: WishlistDraft, requestId: string): { errors: WishSaveErrors; input: null } | { errors: WishSaveErrors; input: WishPlanSave } {
   const p = draftPreferences(draft);
   const errors = validateWishlist(draft.fields);
-  if (p.reminder && !draft.fields.target_date) errors.target_date = '开启提醒需要先选择计划日期。';
+  if (p.reminder && !draft.fields.target_date) errors.target_date = t('开启提醒需要先选择计划日期。');
   if (Object.keys(errors).length) return { errors, input: null };
   if (draft.planPending) return { errors, input: draft.planPending };
   const { estimated_price: price, ...fields } = draft.fields;

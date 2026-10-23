@@ -4,8 +4,8 @@ import { Info } from './FormControls';
 import type { BasicCapabilities, PlanningMissing } from './plan';
 import type { CapabilityResult } from './planning-basic-port';
 import { missingOwners, missingAction, missingText, requirementLine, returnDropText, returnRiseText, returnBasisText } from './planning-basic-view';
-
-const monthText = (m: string) => `${m.slice(0, 4)} 年 ${Number(m.slice(5, 7))} 月`;
+import { t } from './i18n.ts';
+const monthText = (m: string) => t('{v1} 年 {v2} 月', { v1: m.slice(0, 4), v2: Number(m.slice(5, 7)) });
 const yuanOf = forecastMoney;
 
 /** Each missing item says what is unknown and which owner fixes it; one action per owner, never a UUID list. */
@@ -18,16 +18,16 @@ export function MissingList({ missing, onOwner, disabled }: { missing: PlanningM
 
 /** The capability service itself is unavailable or failed: distinct from an unknown fact. */
 export function CapabilityNotice({ result }: { result: Exclude<CapabilityResult, { status: 'ready' }> }) {
-  return <article className="ui-card ui-content" role="alert"><p>{result.status === 'unbound' ? '规划结果服务尚未接入，暂时无法显示需求。已保存的目标与资料不受影响。' : `规划结果计算失败：${result.message}`}</p></article>;
+  return <article className="ui-card ui-content" role="alert"><p>{result.status === 'unbound' ? t('规划结果服务尚未接入，暂时无法显示需求。已保存的目标与资料不受影响。') : t('规划结果计算失败：{message}', { message: result.message })}</p></article>;
 }
 
 /** The primary result. Shows the real DTO status for both return conditions; a candidate is never a saved contribution. */
 export function RequirementCard({ caps, onOwner, busy, note }: { caps: BasicCapabilities; onOwner: (owner: PlanningMissing['owner'], field?: string) => void; busy?: boolean; note?: string | null }) {
   const req = caps.requirement;
-  return <article className="ui-card ui-content plan-req" aria-label="每月需要存多少钱">
-    <div className="ui-section-head"><div><p className="eyebrow">软件帮你算</p><h3>为这个目标，每月大约要存多少钱？<Info text="这是软件算出的参考金额，不用你填写，也不会自动保存成你每月能存的钱。这里的存钱是收入减去开销后留下的钱，买基金等投入也算，投资涨跌另算。"/></h3></div></div>
+  return <article className="ui-card ui-content plan-req" aria-label={t('每月需要存多少钱')}>
+    <div className="ui-section-head"><div><p className="eyebrow">{t('软件帮你算')}</p><h3>{t('为这个目标，每月大约要存多少钱？')}<Info text={t('这是软件算出的参考金额，不用你填写，也不会自动保存成你每月能存的钱。这里的存钱是收入减去开销后留下的钱，买基金等投入也算，投资涨跌另算。')}/></h3></div></div>
     {req.status === 'blocked' ? <>
-      <p className="plan-req-main muted">再补几项，就能算了</p>
+      <p className="plan-req-main muted">{t('再补几项，就能算了')}</p>
       <MissingList missing={req.missing} onOwner={onOwner} disabled={busy}/>
     </> : <RequirementBody value={req.value} annotations={caps.annotations} note={note}/>}
   </article>;
@@ -36,19 +36,19 @@ export function RequirementCard({ caps, onOwner, busy, note }: { caps: BasicCapa
 function RequirementBody({ value, annotations, note }: { note?: string | null; annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
   const set = requirementLine(value.set, yuanOf), lower = requirementLine(value.lower, yuanOf), upper = requirementLine(value.upper, yuanOf);
   return <>
-    <p className={`plan-req-main ${set.tone}`}><span>如果想在 {monthText(value.target_month)} 退休：</span><strong>{set.text}</strong></p><CoverageNote annotations={annotations}/>
+    <p className={`plan-req-main ${set.tone}`}><span>{t('如果想在 {v1} 退休：', { v1: monthText(value.target_month) })}</span><strong>{set.text}</strong></p><CoverageNote annotations={annotations}/>
     {note && 'monthly_cents' in value.set && <p className="muted small">{note}</p>}
-    <p className="muted small">准备支付生活费到 {monthText(value.horizon_month)}。金额按今天的物价计算。</p>
-    <details className="plan-req-lower"><summary>查看计算假设，以及收益变化的影响</summary>
-      <p className="muted small">当前假设：{returnBasisText(value.set.before_hundredths, value.set.after_hundredths)}，已扣除通胀，可随时修改。</p>
+    <p className="muted small">{t('准备支付生活费到 {v1}。金额按今天的物价计算。', { v1: monthText(value.horizon_month) })}</p>
+    <details className="plan-req-lower"><summary>{t('查看计算假设，以及收益变化的影响')}</summary>
+      <p className="muted small">{t('当前假设：{v1}，已扣除通胀，可随时修改。', { v1: returnBasisText(value.set.before_hundredths, value.set.after_hundredths) })}</p>
       <p><span className="muted">{returnDropText(value.lower.before_hundredths, value.lower.after_hundredths)}：</span><strong className={lower.tone}>{lower.text}</strong></p>
       <p><span className="muted">{returnRiseText(value.upper.before_hundredths, value.upper.after_hundredths)}：</span><strong className={upper.tone}>{upper.text}</strong></p>
-      <p className="muted small">这是把两段实际收益各调低或调高 2 个百分点后重新计算的对照，不代表发生的概率。</p></details>
+      <p className="muted small">{t('这是把两段实际收益各调低或调高 2 个百分点后重新计算的对照，不代表发生的概率。')}</p></details>
   </>;
 }
 
 /** One line for compact places (home): the same wording as the card, without the comparison row. */
 export function RequirementLine({ value, annotations, showCoverage = true }: { showCoverage?: boolean; annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
   const set = requirementLine(value.set, yuanOf);
-  return <><p className={`review-plan-sub plan-req-line ${set.tone}`}>按这些条件，想在 {monthText(value.target_month)} 退休，每月需要存：<strong>{set.text}</strong></p>{showCoverage && <CoverageNote annotations={annotations} compact/>}</>;
+  return <><p className={`review-plan-sub plan-req-line ${set.tone}`}>{t('按这些条件，想在 {v1} 退休，每月需要存：', { v1: monthText(value.target_month) })}<strong>{set.text}</strong></p>{showCoverage && <CoverageNote annotations={annotations} compact/>}</>;
 }

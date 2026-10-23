@@ -21,6 +21,7 @@ import type { GoalProgressEntry } from "../../goal-progress.ts";
 import { affectingAnnotations } from "../../plan-annotations.ts";
 import { coverageItems } from "./coverage-model.ts";
 import type { CoverageTarget } from "./coverage-model.ts";
+import { t as tr } from '../../i18n.ts';
 export function goalView(
   saved: NonNullable<ProfileState["saved"]>,
   caps: BasicCapabilities,
@@ -42,46 +43,46 @@ export function goalView(
   const headline = pred
     ? r.mode === "fire"
       ? stop
-        ? `预计 ${age === null ? stop : ageText(age)}可停工`
-        : "规划终点前尚未达成"
+        ? tr('预计 {v1}可停工', { v1: age === null ? stop : ageText(age) })
+        : tr('规划终点前尚未达成')
       : pred.outcome.success
-        ? "按当前投入，目标期间可覆盖"
-        : "按当前投入，尚未满足完整目标"
-    : "先看目标需求";
+        ? tr('按当前投入，目标期间可覆盖')
+        : tr('按当前投入，尚未满足完整目标')
+    : tr('先看目标需求');
   const household = householdLines(h, pred?.household, stop);
   if (isCouple(h) && pred?.household && household.length < 2) {
     household.push(
       h.partner.stop_age_months === null
-        ? "伴侣与你同时停工。"
+        ? tr('伴侣与你同时停工。')
         : pred.household.same_time_stop_month &&
             pred.household.same_time_stop_month === stop
-          ? "与两人同时停工相比，你的停工月份相同。"
-          : "当前条件下，暂时无法比较两人同时停工的时间。",
+          ? tr('与两人同时停工相比，你的停工月份相同。')
+          : tr('当前条件下，暂时无法比较两人同时停工的时间。'),
     );
   }
   return {
     headline,
-    kind: `${isCouple(h) ? "两个人" : "一个人"} · ${r.mode === "fire" ? "财务自由" : "按计划退休"}`,
+    kind: `${isCouple(h) ? tr('两个人') : tr('一个人')} · ${r.mode === "fire" ? tr('财务自由') : tr('按计划退休')}`,
     stop,
     household,
     required: req && "monthly_cents" in req ? req.monthly_cents : null,
     requirement: req
       ? requirementLine(req, forecastMoneyText).text
-      : "条件还需补充",
+      : tr('条件还需补充'),
     verdict: req
       ? contributionVerdict(
           req,
           r.basic?.contribution.monthly_cents ?? null,
           forecastMoneyText,
         ).text
-      : "请核对下方注意事项",
-    subtitle: `希望 ${t.target_month ?? "尚未确定"} 停工，规划到 ${t.horizon_month ?? "尚未确定"}`,
+      : tr('请核对下方注意事项'),
+    subtitle: tr('希望 {v1} 停工，规划到 {v2}', { v1: t.target_month ?? tr('尚未确定'), v2: t.horizon_month ?? tr('尚未确定') }),
     uncertain: (caps.annotations ?? []).some((a) => a.effect !== "none"),
   };
 }
 
 /** Row value for 大额支出 on the goal page: big plans only (stage costs live in the budget step). */
-export const planCountText = (count: number) => (count ? `${count} 项` : "暂无");
+export const planCountText = (count: number) => (count ? tr('{count} 项', { count }) : tr('暂无'));
 
 /** One line for 计算条件. Unknown figures read 未知 / 待确认, never 0. */
 export function conditionSummary(
@@ -91,9 +92,9 @@ export function conditionSummary(
   const r = saved.profile.retire,
     saving = r.basic?.contribution.monthly_cents ?? null;
   return [
-    `退休预算 ${r.spend_cents === null ? "未知" : `${forecastMoneyText(r.spend_cents)}/月`}`,
-    `可用资金 ${caps.funds.status === "ready" ? forecastMoneyText(caps.funds.value.available_cents) : "待确认"}`,
-    `每月存 ${saving === null ? "待确认" : forecastMoneyText(saving)}`,
+    tr('退休预算 {v1}', { v1: r.spend_cents === null ? "未知" : `${forecastMoneyText(r.spend_cents)}/月` }),
+    tr('可用资金 {v1}', { v1: caps.funds.status === "ready" ? forecastMoneyText(caps.funds.value.available_cents) : "待确认" }),
+    tr('每月存 {v1}', { v1: saving === null ? "待确认" : forecastMoneyText(saving) }),
   ].join(" · ");
 }
 
@@ -150,7 +151,7 @@ export function confirmItems(
       return {
         id: c.id,
         title: c.title,
-        detail: c.id === "costs" && !c.required && extra ? `${extra} 项费用暂按额外费用计入，可能重复包含。` : c.benefit,
+        detail: c.id === "costs" && !c.required && extra ? tr('{extra} 项费用暂按额外费用计入，可能重复包含。', { extra }) : c.benefit,
         action: refinementAction(c),
         required: c.required,
       };
@@ -163,7 +164,7 @@ export function confirmItems(
   for (const item of coverageItems(annotations.filter((a) => !covered(a))))
     out.push({
       id: `note:${item.key}`,
-      title: item.count > 1 ? `${item.message}（共 ${item.count} 项）` : item.message,
+      title: item.count > 1 ? tr('{message}（共 {count} 项）', { message: item.message, count: item.count }) : item.message,
       detail: item.direction,
       action: item.target,
       required: false,

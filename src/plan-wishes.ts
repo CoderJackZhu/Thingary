@@ -5,7 +5,7 @@ import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Plan } from './plan-ledger.ts';
 import type { Spend } from './plan-fire.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
-
+import { t } from './i18n.ts';
 /** 心愿里规划用到的字段（来自 WishlistItem）。 */
 export type WishLike = { id: string; name: string; price_cents: string | null; target_date: string | null; decision_state: string };
 
@@ -52,7 +52,7 @@ export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && cal
 
 /** 一组一次性支出（带月份的，含「按今天」的假设）对 FIRE 日期的影响：与「没有这些支出」的基线比较。合计请传 counted(...)。 */
 export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
-  if (!isReady(calc)) throw new Error('心愿影响需要已保存的明确预计投入。');
+  if (!isReady(calc)) throw new Error(t('心愿影响需要已保存的明确预计投入。'));
   const P = calc.plan, now = P.now_months;
   const events = spends.filter(s => s.offset_months !== null).map(s => ({ ...toSpend(s), offset_months: P.anchor_date ? monthIndex(s.date ?? P.calculation_date ?? P.anchor_date) - monthIndex(P.anchor_date) : s.offset_months! }));
   // 基线是「已计入的大额计划都发生、这些心愿不发生」；心愿叠加在其上。
@@ -73,13 +73,13 @@ export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
 /** 心愿详情里的一句话；没有预计价格时没有句子。money 把分格式化成文字（由调用方传入以保持纯函数）。 */
 export function impactSentence(s: WishSpend, i: Impact, emergencyMonths: number, money: (cents: number) => string): string {
   if (s.status === 'no_price') return '';
-  if (s.status === 'expired') return '计划日期已过，规划没有计入这笔支出；更新计划日期后会重新估算。';
-  const when = s.status === 'today' ? '未设计划日期，只作假设：如果今天买下，可支配资产约' : `如果按计划在 ${s.date} 买下，按当前储蓄那时可支配资产约`;
+  if (s.status === 'expired') return t('计划日期已过，规划没有计入这笔支出；更新计划日期后会重新估算。');
+  const when = s.status === 'today' ? t('未设计划日期，只作假设：如果今天买下，可支配资产约') : t('如果按计划在 {date} 买下，按当前储蓄那时可支配资产约', { date: s.date });
   let tail: string;
-  if (i.base_offset === null) tail = '按现在的储蓄，规划终点前本来就达不到 FIRE，买下后同样达不到';
-  else if (i.with_offset === null) tail = '买下后 FIRE 在 规划终点前达不到（原本可以）';
-  else if (i.delay_months === 0) tail = '买下后对 FIRE 日期几乎没有影响';
-  else tail = `买下后 FIRE 推迟约 ${i.delay_months} 个月`;
-  const line = i.breaches_emergency ? `；买下后可支配资产会低于 ${emergencyMonths} 个月支出的应急金线` : '';
+  if (i.base_offset === null) tail = t('按现在的储蓄，规划终点前本来就达不到 FIRE，买下后同样达不到');
+  else if (i.with_offset === null) tail = t('买下后 FIRE 在 规划终点前达不到（原本可以）');
+  else if (i.delay_months === 0) tail = t('买下后对 FIRE 日期几乎没有影响');
+  else tail = t('买下后 FIRE 推迟约 {delay_months} 个月', { delay_months: i.delay_months });
+  const line = i.breaches_emergency ? t('；买下后可支配资产会低于 {emergencyMonths} 个月支出的应急金线', { emergencyMonths }) : '';
   return `${when} ${money(i.assets_before_cents)}；${tail}${line}。`;
 }

@@ -45,7 +45,11 @@ fn shared_vectors_and_decimal_precision() {
     assert_eq!(currency::parse_decimal("1234.56", 2).unwrap(), 123456);
     assert_eq!(
         currency::CURRENCIES.iter().map(|c| c.0).collect::<Vec<_>>(),
-        vec!["CNY", "HKD", "USD", "EUR", "JPY", "GBP", "SGD", "AUD", "CAD", "CHF", "TWD", "MOP"]
+        vec![
+            "CNY", "USD", "JPY", "EUR", "GBP", "KRW", "HKD", "TWD", "MOP", "SGD", "AUD", "CAD",
+            "CHF", "NZD", "THB", "MYR", "IDR", "PHP", "VND", "INR", "AED", "SAR", "TRY", "RUB",
+            "BRL", "MXN", "ZAR", "SEK", "NOK", "DKK", "PLN", "CZK", "HUF", "ILS"
+        ]
     );
 }
 #[test]

@@ -16,6 +16,8 @@
 
 设置分类「屏幕隐私」直接提供开关与闲置验证说明，不再放在帮助折叠中。两个本机偏好键为 `thingary.privacy-cover.v1`（布尔值）和 `thingary.privacy-lock.v1`（JSON：`enabled`、`idleMinutes`，仅 0／5／15／60），读写失败不抛出到应用，损坏偏好按关闭处理。`wealth-preview.ts` 只模拟虚构认证能力和取消／成功，不调用设备身份验证。
 
+恢复完成时，`DataManagement.localWorkKeys` 只清理资料库相关工作状态；屏幕隐私、金额隐藏和显示偏好等本机设置保留。恢复密钥输入复用 `BackupSecurity.KeyInput`，文件只在前端读取（最多 64 KiB）并填入当前输入，不传任意路径、不写本机存储；手动输入、取消、新选择、提交或卸载使旧文件读取失效。
+
 `src-tauri/native/auth.m` 链接系统 `LocalAuthentication`，采用 `LAPolicyDeviceOwnerAuthentication` 支持系统密码兜底；信号量最多等待 120 秒，超时使认证上下文失效。返回字符串由 `thingary_free` 释放。Rust `privacy_lock.rs` 的两个异步命令通过 `spawn_blocking` 调用原生同步函数，不借用 Store；iOS 在 native/ios.m 以相同策略实现设备机主验证，支持 Face ID、Touch ID 及设备密码；Windows 能力返回 false，认证返回 `UNSUPPORTED`。锁屏只防旁观，不加密或阻止文件访问，原生 Worker 的既有启动初始化、提醒及备份生命周期保持不变。自动测试不触发生物识别，真实认证与窗口焦点行为需要隔离身份实机验收。
 
 ## 分层与入口
@@ -135,12 +137,22 @@ RuntimeModules 增加独立 `incomes` 和 `movements`，前者不依赖目标，
 
 ### 模块偏好
 
-八项原模块开关保存在 `modules.json`；独立的收入与资金流动开关保存在同一应用身份下的版本化 `finance-modules.json`，不改旧文件结构（旧 `Modules` 使用 `deny_unknown_fields`，加字段会让旧版回退为全开）。`modules_get/modules_set` 返回合并后的运行时能力。
+八项原模块开关保存在 `modules.json`；独立的收入与资金流动开关保存在同一应用身份下的版本化 `finance-modules.json`，不改旧文件结构（旧 `Modules` 使用 `deny_unknown_fields`，加字段会让旧版回退为全开）。新增物品显示偏好单独保存在版本化 `interface-modules.json`，缺失默认开启，避免向旧八字段文件新增字段。`modules_get/modules_set` 返回合并后的运行时能力。
 
 - 新文件缺失时由旧值一次性派生：`incomes = 原 planning`、`movements = 原 planning`，原子写入后不再跟随目标开关。初始化必须先于第一次修改旧偏好；失败则保留原设置并报错。
 - 旧 `modules.json` 不存在按新安装处理（全部开启）；存在但损坏时不从“回退全开”结果继承，新能力明确关闭并带错误状态。新文件损坏或版本不支持同样返回关闭与错误状态，不覆盖有效旧偏好。
 - 修复由用户在设置中明确选择两项后重建，重建前保留损坏文件的诊断副本，副本失败则不覆盖；较新的未知版本不自动降级。
-- 新偏好带单调修订，导入预览绑定有效能力与两份偏好的变化。旧应用忽略新文件；偏好属于本机身份，不进入资料库备份，样例与个人资料共用。
+- 新偏好带单调修订，导入预览绑定有效能力与偏好变化。旧应用忽略新文件；偏好属于本机身份，不进入资料库备份，样例与个人资料共用。
+
+首次启动不经过独立引导页：Bootstrap 读取演示状态后直接挂载完整 App，首次进入虚构样例。`Welcome`、`thingary.welcome.v1` 已移除；用途选择只在设置 › 功能模块提供。待核对请求与恢复流程优先。
+
+侧栏沿用运行时模块能力直接显示已开启入口，不增加独立的导航偏好。所有功能默认全开，用途选择只在设置里；重新选择保留仍选中用途内的细项开关；取消的用途关闭其全部细项，再次选中时全部开启，不在本机另存关闭前的细项记忆，原生开关是实际显示能力的依据。未提交的用途选择不保存草稿。设置用途对话框关闭后等待保存锁释放，再将焦点返回入口按钮；底部操作固定在可见区域。
+
+`review_overview` 在同一只读事务与代际中提供独立 `account_availability`（未删除账户总数、当天有效账户数），不从盘点数量推断。账户模块关闭不读账户表；此来源失败不抹掉其他来源。综合总览分别提供新增、盘点或管理入口；缺失、非法计数与错误仅可重读，刷新禁用旧入口，日期不一致不开放操作。打开当天盘点时再校验本机日期；即使账户在此后改变，空盘点也有说明和安全返回。综合视图只保留这一份账户起步动作，物品起步入口位于物品空状态。ReviewPlanSummary 将 MODULE_DISABLED 与真正读取错误分开，前者不显示历史参考区域，后者保留重读。
+
+存钱目标新增入口复用 `savingsAccountEligible` 判断是否有可关联账户。缺少时通过 WealthPage 打开已有 AccountDialog，不先创建不可保存的目标草稿；账户表单关闭后返回该区域，保存时等新资料读取完成再恢复焦点。原有目标编辑与未知余额语义不变。
+
+账户行金额通过 `accountBalanceView` 绑定 Summary 的最近盘点和 `latest_entries`，与分组小计一致；当期未知不回退 `account.latest` 的旧值，沿用状态使用 `last_entered_on` 说明最近实际填写日期。完整保存后的 `balanceComparison` 按保存记录 ID 及其 `compared_to` 选取稳定端点，端点缺失或不完整就不给出比较入口。
 
 ### 盘点提醒
 
@@ -312,6 +324,10 @@ schema 40 新增 `goal_progress`（主键 `snapshot_id` 引用 `fin_snapshots`�
 
 schema 41 重建 `fin_accounts` 和 `fin_snapshot_entries` 的 CHECK，新增 property、pension、insurance、precious_metal，房产强制 counted=false。迁移先核对旧表结构、索引及引用，拒绝未知扩展；外键关闭发生在事务外，事务内双向核对复制行、重建索引并检查引用，失败回滚后恢复外键。schema 1 引导与历史迁移保持原样，旧事实不改口径。
 
+schema 45（`asset_price_origin.sql`）新增 `asset_price_origin`（主键 `asset_id` 引用 `assets`，`currency` 不为 CNY，`original_minor`、`fx_rate_micro` 为整数）。`set_price_origin` 在物品保存之后单独写入，并要求原币金额按汇率折算后恰等于 `assets.price_cents`；读取时折算不符的记录视为过期而不返回。清除物品（`purge`）一并删除该行。
+
+schema 46（`amount_origin.sql`）新增 `amount_origin`（主键 `kind`+`record_id`，kind 为 expense、income、wish），保存支出金额、收入税后到账或心愿预计价格的原币记录；`set_amount_origin` 与 `get_amount_origin` 按 kind 对应的人民币列校验，折算不符即视为过期。界面目前接入支出和收入，心愿预计价格只有后端。
+
 schema 43（`schema43.sql` 与 `storage::migrate_schema43`）再次重建两表：新增 receivable、vehicle 类型（车辆不强制 counted=false）；`fin_accounts` 增加 `currency`（三位大写，默认 CNY）、`purchase_cents`／`purchased_on`（仅房产与车辆）、`group_id`（引用新表 `fin_account_groups`，名称唯一，硬删除）、`holding_mode`／`holding_unit`（仅投资类）；`fin_snapshot_entries` 增加 `original_minor`／`fx_rate_micro`（外币原币金额与汇率 ×1e6，成对出现）和 `quantity_e8`／`unit_price_e6`（份额 ×1e8、单价 ×1e6，成对出现），`missing` 条目不得携带。`amount_cents` 始终是人民币整数分，所有汇总与规划只读它；新增列是录入层，旧资料迁移后取默认值，行为不变。旧表定义由空库重放迁移链到 42 得到后逐字核对，不手抄；其余步骤与 schema 41 相同，注入点为 `migration.schema43.after_copy`、`migration.schema43.after_swap` 与 `migration.before_commit`。
 
 `wealth_quick_update` 把单账户更新或转账翻译成一次盘点，再交给 `write_snapshot_tx` 写入，所以与完整盘点共用全部校验。日期不得早于最近一次未删除盘点；当天已有盘点时作为更正，只改目标账户，其他条目按原状态重新提交（`unchanged` 不带金额，沿用原记录金额）；当天没有盘点时，其他应盘账户有更早金额的记 `unchanged`，没有的记 `missing`。`expected_previous` 与当天显示的金额不符时报 `QUICK_STALE`；两条变化必须都带原金额，且按资产加、负债减计算的净资产影响为零，否则报 `QUICK_TRANSFER`。备注以“账户名：备注”追加。命令有独立请求指纹、回执和 `wealth_quick_update.before_commit` 注入点。
@@ -358,3 +374,5 @@ schema 44 的 `plan_resumptions(plan_id,resumed_on,previous_end)` 保存上段�
 重订请求的可选 `first_due` 与生效日分离，缺省沿用本次生效日；`replace_pending` 缺省false。两字段缺省时不序列化，保持旧请求指纹。未来生效沿用schema44的期间和规则表，不新增迁移；`active_from` 同时涵盖提前的计划付款。最后一段未生效且无任何本段付款事实时，可通过同命令原子替换，或 `recurring_cancel_resumption` 原子撤回至前段已结束状态；两者沿用双方修订、generation和幂等回执。已付、跳过、软删除的本段付款均阻止直接替换或撤回。普通编辑不能提前改写未来规则，但允许仅关闭后续续费、保留已付服务期。当前服务状态和年化负担按今天所处实际服务段判定；未来付款候选与服务覆盖共用分段排期，一次提前实付不改规则。前端预览与原生付款表单分别显示计划付款、实付日期与服务区间。
 
 `recurring_detail` 在一次只读事务返回单项计划与付款记录，详情单独显示读取失败并禁止依赖未就绪资料的写操作。周期费用、虚拟资产与支出来源共用 `SubscriptionDetail`，直接提供付款更正、取消后续续费、重新订阅与每页50条的付款列表；估算排期默认折叠。新 API 不修改账户盘点，不调用服务方开通或取消接口。
+
+完整盘点的 `previousCheckInRow` 仅在上次事实已知、币种事实完整且与当前录入方式一致时返回 entered 输入；这是用户逐行主动确认，保留整数金额、外币及持仓完整事实，区别于自动 unchanged 沿用。没有隐式批量填写或保存。

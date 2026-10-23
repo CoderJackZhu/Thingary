@@ -1,8 +1,22 @@
-.start-choice{margin:16px 24px}
-.start-choice h2{font-size:16px;color:var(--text)}
-.start-choice>p{line-height:1.6}
-.start-choice-extras{display:flex;align-items:center;gap:8px;margin:14px 0;line-height:1.6}
-.start-choice-extras input{flex:0 0 16px;width:16px;height:16px;padding:0;accent-color:var(--accent)}
-/* The start choice already asks where to begin; hide the older empty-overview card meanwhile. */
-main:has(.start-choice) .review-start{display:none}
-.ui-btn.start-choice-primary{background:var(--button-bg);color:var(--button-text);border-color:transparent}
+.usage-choice{width:min(940px,100%);color:var(--text)}
+.usage-choice header{margin-bottom:28px}.usage-kicker{font-size:13px;color:var(--muted);margin:0 0 8px}.usage-choice h1{font-size:28px;line-height:1.4;margin:0 0 12px}.usage-choice header>p:last-child{color:var(--muted);line-height:1.7;margin:0}
+.usage-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;border:0;margin:0;padding:0;min-width:0}
+.usage-options>legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.usage-option{position:relative;display:flex;flex-direction:column;gap:24px;padding:24px;border:1px solid var(--line);border-radius:var(--radius,12px);background:var(--surface,var(--card));cursor:pointer;min-width:0;transition:border-color .15s,background .15s}
+.usage-option:hover{border-color:var(--accent)}.usage-option.selected{border-color:var(--accent);background:var(--soft)}
+.usage-option:focus-within{outline:2px solid var(--accent);outline-offset:4px}
+.usage-option>input{position:absolute;right:20px;top:24px;width:20px;height:20px;margin:0;accent-color:var(--accent);cursor:pointer}
+.usage-option-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:10px;background:var(--soft);color:var(--accent)}.usage-option-icon>svg{width:24px;height:24px}
+.usage-option-body{display:grid;gap:12px}.usage-option-body strong{font-size:18px;line-height:1.5}.usage-option-body>span{font-size:14px;line-height:1.8}.usage-option-body small{font-size:12px;color:var(--muted);line-height:1.6}
+.usage-choice-note{color:var(--muted);font-size:13px;line-height:1.8;margin:20px 0 28px}
+.usage-choice-actions{display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1px solid var(--line-soft);padding-top:24px}.usage-screen .usage-choice-actions{position:sticky;bottom:0;z-index:1;background:var(--bg);padding-bottom:8px}
+.usage-choice-actions>div{display:flex;align-items:center;gap:16px}.usage-choice-actions button{min-height:44px;padding:10px 24px}.usage-choice-actions .usage-skip{font-size:14px;color:var(--text);background:transparent;border:1px solid var(--line)}
+.usage-choice-settings{width:100%}.usage-choice-settings h1{font-size:22px}.usage-choice-settings .usage-options{grid-template-columns:1fr}.usage-choice-settings .usage-option{flex-direction:row;gap:16px;padding:20px 56px 20px 20px}.usage-choice-settings .usage-option>input{top:24px}.usage-choice-settings .usage-option-body{gap:6px}.usage-choice-settings .usage-option-body small{display:none}
+.usage-settings-dialog{width:min(760px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:28px;border:1px solid var(--line);border-radius:var(--dialog-radius);background:var(--card);color:var(--text);box-shadow:var(--dialog-shadow)}
+.usage-choice-settings .usage-choice-actions{position:sticky;bottom:-28px;z-index:1;background:var(--card);padding:16px 0 20px;margin-bottom:-28px}
+.usage-settings-dialog::backdrop{background:var(--backdrop)}
+.usage-settings-entry{padding:16px 0 24px;border-bottom:1px solid var(--line-soft);margin-bottom:12px}.usage-settings-entry>p{color:var(--muted);font-size:13px;line-height:1.7}
+@media(max-width:760px){.usage-choice h1{font-size:24px}.usage-options{grid-template-columns:1fr;gap:12px}.usage-option{flex-direction:row;gap:16px;padding:18px 54px 18px 18px}.usage-option>input{top:22px;right:18px}.usage-option-body{gap:6px}.usage-option-body small{display:none}.usage-choice-note{margin:16px 0}.usage-choice-actions{padding-top:16px}.usage-choice-actions>div{gap:8px}.usage-choice-actions button{padding-inline:16px}.usage-choice-actions>div>span{display:none}}
+@media(prefers-reduced-motion:reduce){.usage-option{transition:none}}
+
+.overview-empty{display:flex;align-items:center;gap:12px;margin:24px}

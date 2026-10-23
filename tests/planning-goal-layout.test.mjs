@@ -31,9 +31,9 @@ test('the conclusion and its single trajectory sit in the right column before th
   const side = r.nodes().find(n => n.props?.className === 'goal-side');
   assert.ok(side, '右侧结论栏是一个容器');
   const inside = r.text(side);
-  assert.match(inside, /固定目标需要每月存/);
+  assert.match(inside, /为目标每月需存/);
   assert.match(r.text(r.nodes().find(n => n.props?.['aria-label'] === '资产轨迹')), /资产轨迹/);
-  assert.doesNotMatch(inside, /这次计算用了什么/, '计算条件不在右栏内');
+  assert.doesNotMatch(inside, /你的计划/, '计算条件不在右栏内');
   const order = r.nodes().map(n => n.props?.['aria-label']).filter(Boolean);
   const at = label => order.indexOf(label);
   assert.ok(at('退休目标') >= 0 && at('退休目标') < at('资产轨迹') && at('资产轨迹') < at('依据与提醒') && at('依据与提醒') < at('计算条件'), '结论 → 轨迹 → 依据 → 条件，宽屏靠网格分列而不是重排 DOM');
@@ -50,7 +50,7 @@ test('wide layout keeps the right column sticky while the narrow layout stacks w
   assert.match(goalCss, /\.goal-layout\{[^}]*grid-template-areas:"conditions side"/, '宽屏左条件右结论');
   assert.match(goalCss, /\.goal-side\{[^}]*position:sticky/, '右栏随页面滚动保持可见');
   const narrow = goalCss.slice(goalCss.indexOf('@media (max-width: 1050px)'));
-  assert.match(narrow, /grid-template-areas:"summary" "conditions" "chart" "evidence" "next"/, '窄窗上下排列，结论栏在最前');
+  assert.match(narrow, /grid-template-areas:"summary" "next" "conditions" "chart" "evidence"/, '窄窗上下排列，结论栏在最前');
   assert.doesNotMatch(goalCss, /grid-template-areas:[^;]*plans/, '大额计划在吸附网格之外，右栏不会盖住它');
   assert.match(narrow, /\.goal-side\{display:contents\}/);
   assert.match(narrow, /\.goal-answer\{grid-area:summary/, '窄窗保留精简结果栏');

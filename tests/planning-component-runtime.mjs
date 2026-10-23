@@ -70,6 +70,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     './planning-basic-view': { ...view, needsContribution: () => true, contributionVerdict: view.contributionVerdict, amountState: view.amountState, requirementLine: props.realSummary ? view.requirementLine : () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
     './plan-retire-calc': { retireCalcFromCapabilities: () => null, buildRetireCalc: () => null, toEvent: e => e },
   };
+  modules['./ForeignAmount'] = { useForeignAmount: () => ({ foreign: false, code: 'CNY', persist: async () => {} }), CurrencyUnit: () => null };
   Object.assign(modules, options.modules);
   function load(file) {
     const m = { exports: {} };
@@ -82,7 +83,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[(id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id).replace(/\.ts$/, '')] ?? leaf, crypto: globalThis.crypto, structuredClone, Error, console, document: { activeElement: null, getElementById: id => ({ isConnected: true, focus: () => focuses.push(id), scrollIntoView() {} }), ...options.document }, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn(), ...options.globals });
+  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[(id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id).replace(/\.ts$/, '')] ?? leaf, crypto: globalThis.crypto, structuredClone, Error, console, document: { activeElement: null, getElementById: id => ({ isConnected: true, focus: () => focuses.push(id), scrollIntoView() {}, closest() { return null; } }), ...options.document }, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn(), ...options.globals });
   const component = module.exports[options.exportName ?? (file === 'planning-goal/Editor' ? 'GoalEditor' : file === 'planning-goal/Overview' ? 'GoalOverview' : file === 'planning-goal/MoneyInput' ? 'GoalMoneyInput' : file === 'PlanningPensionRefinement' ? 'PlanningPensionRefinementDialog' : file === 'PlanningFunds' ? 'FundsDialog' : file === 'PlanningCosts' ? 'CostsDialog' : file === 'CoverageNote' ? 'CoverageNote' : file === 'PlanningDebtDialog' ? 'PlanningDebtDialog' : file === 'PlanningSetup' ? 'PlanningSetupDialog' : file === 'PlanningOccurrenceDialog' ? 'PlanningOccurrenceDialog' : file)];
   const finalProps = { today: props.today ?? props.sources?.today, snapshot: null, accounts: [], reload() {}, onPending() {}, onPension() {}, onEditingChange() {}, onFocusDone() {}, onClose: v => closes.push(v), ...props };
   let tree;

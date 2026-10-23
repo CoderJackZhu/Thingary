@@ -21,7 +21,9 @@ import type { Read, Review, ReviewPage } from './review';
 import { Info } from './FormControls';
 import { DailyCostMetric } from './DailyCostMetric';
 import './review.css';
-const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴', wishlist: '心愿清单' };
+import { t, numberLocale } from './i18n.ts';
+import { t as tt } from './i18n.ts';
+const labels: Record<ReviewPage, string> = { wealth: tt('账户与盘点'), assets: tt('全部物品'), expenses: tt('重要支出'), recurring: tt('周期费用'), virtual: tt('虚拟资产'), timeline: tt('时间轴'), wishlist: tt('心愿清单') };
 
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 const tone = (cents: string | null) => cents?.startsWith('-') ? ' neg' : cents && cents !== '0' ? ' pos' : '';
@@ -44,30 +46,30 @@ function StructureCard({ summary, onBrowse }: { summary: Summary; onBrowse: () =
   }, [key, retry]);
   const settled = span && pairs?.key === key ? pairs : null;
   const rows = structureRows(summary.structure, settled?.value ?? null);
-  const note = !latest?.compared_to ? '第一份完整盘点，暂无可比变化。'
-    : latest.scope_changed ? `较 ${latest.compared_to}：参与比较的账户有变化，暂不能逐类比较。`
-    : !settled ? '正在读取变化…'
-    : settled.value === null ? '变化暂时无法读取。'
-    : `变化为较 ${latest.compared_to} 完整盘点；含存取与估值，不等于投资收益。`;
+  const note = !latest?.compared_to ? tt('第一份完整盘点，暂无可比变化。')
+    : latest.scope_changed ? tt('较 {compared_to}：参与比较的账户有变化，暂不能逐类比较。', { compared_to: latest.compared_to })
+    : !settled ? tt('正在读取变化…')
+    : settled.value === null ? tt('变化暂时无法读取。')
+    : tt('变化为较 {compared_to} 完整盘点；含存取与估值，不等于投资收益。', { compared_to: latest.compared_to });
   const known = rows.reduce((sum, r) => sum + Math.max(0, Number(r.amount_cents)), 0);
   return <article className="ui-card review-structure">
-    <div className="ui-section-head"><h3>资产结构</h3><span className="ui-aside">{summary.structure_date} 完整盘点 · 计入净资产的账户</span></div>
-    {!rows.length ? <p className="ui-empty">没有计入的资产。</p> : <>
-      <div className="ui-share-bar" role="img" aria-label="计入资产按类型的金额占比">{known > 0 && rows.map((r, i) => Number(r.amount_cents) > 0 && <span key={r.kind} style={{ width: `${Number(r.amount_cents) / known * 100}%`, background: series(i) }}/>)}</div>
-      <table className="ui-table review-structure-table"><thead><tr><th>类别</th><th>占比</th><th>金额</th><th>较上次</th></tr></thead>
+    <div className="ui-section-head"><h3>{t('资产结构')}</h3><span className="ui-aside">{t('{structure_date} 完整盘点 · 计入净资产的账户', { structure_date: summary.structure_date })}</span></div>
+    {!rows.length ? <p className="ui-empty">{t('没有计入的资产。')}</p> : <>
+      <div className="ui-share-bar" role="img" aria-label={t('计入资产按类型的金额占比')}>{known > 0 && rows.map((r, i) => Number(r.amount_cents) > 0 && <span key={r.kind} style={{ width: `${Number(r.amount_cents) / known * 100}%`, background: series(i) }}/>)}</div>
+      <table className="ui-table review-structure-table"><thead><tr><th>{t('类别')}</th><th>{t('占比')}</th><th>{t('金额')}</th><th>{t('较上次')}</th></tr></thead>
         <tbody>{rows.map((r, i) => <tr key={r.kind}>
           <td><i className="swatch" style={{ background: series(i) }}/>{kindLabel(r.kind)}</td>
           <td>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</td>
           <td>{signedMoney(r.amount_cents)}</td>
-          <td className={'review-delta' + tone(r.change_cents)}>{r.change_cents === null ? <span className="muted">—</span> : <>{changeText(r.change_cents)}{r.added && <small> 新增</small>}</>}</td>
+          <td className={'review-delta' + tone(r.change_cents)}>{r.change_cents === null ? <span className="muted">—</span> : <>{changeText(r.change_cents)}{r.added && <small> {t('新增')}</small>}</>}</td>
         </tr>)}</tbody></table>
     </>}
-    <div className="ui-card-foot"><button type="button" className="ui-link" onClick={onBrowse}>查看账户与盘点 →</button></div>
-    <p className="review-structure-note muted">{note}{settled?.value === null && <button className="ui-link" onClick={() => { setPairs(null); setRetry(n => n + 1); }}>重新读取</button>}</p>
+    <div className="ui-card-foot"><button type="button" className="ui-link" onClick={onBrowse}>{t('查看账户与盘点 →')}</button></div>
+    <p className="review-structure-note muted">{note}{settled?.value === null && <button className="ui-link" onClick={() => { setPairs(null); setRetry(n => n + 1); }}>{t('重新读取')}</button>}</p>
   </article>;
 }
 
-export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage, focus?: 'savings-goals') => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
+export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onUpdateBalances, onNewAccount, onManageAccounts, onFinance, restoreScroll, modules = allModules }: { onNewAccount?: () => void; onManageAccounts?: () => void; onUpdateBalances?: (date: string) => void; modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage, focus?: 'savings-goals') => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
   const [amountsHidden, setAmountsHidden] = useState(() => { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem('thingary.hide-financial-amounts.v1', amountsHidden ? '1' : '0'); } catch { /* Session state still works when preferences cannot be stored. */ } }, [amountsHidden]);
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -90,109 +92,119 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     setUpdating(true); setError('');
     invoke<Review>('review_overview', { year, planning: modules.planning && modules.wealth }).then(result => {
       if (gate.current.accepts(ticket, generation, result.generation)) { setData(result); setUpdating(false); }
-      else if (gate.current.accepts(ticket, generation, generation)) { setError('资料库已变化，请重新读取。'); setUpdating(false); }
+      else if (gate.current.accepts(ticket, generation, generation)) { setError(tt('资料库已变化，请重新读取。')); setUpdating(false); }
     }).catch(e => { if (gate.current.accepts(ticket, generation, generation)) { setError(errorMessage(e)); setUpdating(false); } });
     return () => gate.current.invalidate();
   }, [generation, today, version, year, retry, moduleKey]);
   // Restore only once the whole review has rendered, never against the loading stub.
   useEffect(() => { if (data) restoreScroll?.done(); }, [data, restoreScroll]);
   const reload = () => setRetry(n => n + 1);
-  if (error && !data) return <div className="empty error" role="alert"><h2>综合回顾读取失败</h2><p>{error}</p><button onClick={reload}>重新读取</button></div>;
-  if (!data || data.year !== year || data.generation !== generation) return <p className="loading" role="status">正在读取综合回顾…</p>;
-  const w = ready(data.wealth), p = ready(data.physical), e = ready(data.expenses), r = ready(data.recurring);
+  if (error && !data) return <div className="empty error" role="alert"><h2>{t('综合回顾读取失败')}</h2><p>{error}</p><button onClick={reload}>{t('重新读取')}</button></div>;
+  if (!data || data.year !== year || data.generation !== generation) return <p className="loading" role="status">{t('正在读取综合回顾…')}</p>;
+  if (data.today !== today) return <div className="empty error" role="alert"><p>{t('日期已变化，请重新读取账户情况。')}</p><button onClick={reload}>{t('重新读取')}</button></div>;
+  const w = ready(data.wealth), p = modules.physical === false ? null : ready(data.physical), e = ready(data.expenses), r = ready(data.recurring);
   const latest = w && latestComplete(w.points), lastPoint = w?.points.at(-1);
+  const availability = ready(data.account_availability);
+  const availabilityKnown = availability && Number.isSafeInteger(availability.total) && Number.isSafeInteger(availability.due_today) && availability.total >= 0 && availability.due_today >= 0 && availability.due_today <= availability.total;
+  const balanceAction = updating ? 'waiting' : error || !availabilityKnown ? 'retry' : availability.total === 0 ? 'new' : availability.due_today > 0 ? 'update' : 'accounts';
+  const balanceLabel = { waiting: tt('正在确认账户…'), retry: tt('重新读取账户'), new: tt('添加第一个账户'), update: tt('更新今天的余额'), accounts: tt('查看已有账户') }[balanceAction];
+  const balanceHint = { waiting: tt('读取完成后再继续。'), retry: tt('暂时无法确认账户情况，请重新读取；已有资料未修改。'), new: tt('先记下一个账户，再填写今天的余额。'), update: tt('更新后看账户变化，需要时再调整计划。'), accounts: tt('今天没有需要填写余额的账户，可查看停用状态或启用日期。') }[balanceAction];
+  const startBalanceAction = () => {
+    if (updating) return;
+    if (balanceAction === 'retry') reload();
+    else if (balanceAction === 'new') (onNewAccount ?? (() => onNavigate('wealth')))();
+    else if (balanceAction === 'accounts') (onManageAccounts ?? (() => onNavigate('wealth')))();
+    else if (balanceAction === 'update') onUpdateBalances?.(data.today);
+  };
   const groups = attention(data, modules), currentYear = Number(data.today.slice(0, 4));
   const years = [...new Set([currentYear, ...(year === null ? [] : [year]), ...(e?.years ?? []), ...(w?.points.map(p => Number(p.date.slice(0, 4))) ?? [])])].sort((a, b) => b - a);
-  const link = (page: ReviewPage) => <button className="review-action" onClick={() => onNavigate(page)}>查看{labels[page]} →</button>;
-  const failure = (source: Read<unknown>) => source.status === 'error' && <div className="review-error" role="alert"><p>{source.value.message}</p><button onClick={reload}>重新读取</button></div>;
+  const link = (page: ReviewPage) => <button className="review-action" onClick={() => onNavigate(page)}>{t('查看{v1} →', { v1: labels[page] })}</button>;
+  const failure = (source: Read<unknown>) => source.status === 'error' && <div className="review-error" role="alert"><p>{source.value.message}</p><button onClick={reload}>{t('重新读取')}</button></div>;
   // One backend projection already blends snapshot facts with every other
   // event; merging wealth points here again would duplicate 盘点 rows.
   const hidden = hiddenKinds(modules);
-  const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, icon: eventIcon(ev.kind), date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: amountsHidden && ev.kind === 'snapshot' ? '金融金额已隐藏' : eventDetail(ev), target: ev.target ?? null }));
+  const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, icon: eventIcon(ev.kind), date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: amountsHidden && ev.kind === 'snapshot' ? tt('金融金额已隐藏') : eventDetail(ev), target: ev.target ?? null }));
   const daysSince = latest ? Math.max(0, Math.round((Date.parse(data.today) - Date.parse(latest.date)) / 86400000)) : 0;
   // 分类色条：金额未知的类别不占宽度；图例最多 4 行，其余合并（规范 4.6）。
   const cats = (p?.categories ?? []).filter(c => c.count > 0);
   const known = cats.reduce((sum, c) => sum + Number(c.known_cents), 0);
   const color = (slot: number | null) => slot === null ? 'var(--series-rest)' : `var(--series-${slot + 1})`;
-  const legend = cats.length > 4 ? [...cats.slice(0, 3), { id: 'rest', name: `其他 ${cats.length - 3} 类`, slot: null, count: 0, known_cents: String(cats.slice(3).reduce((s, c) => s + Number(c.known_cents), 0)), unknown_price_count: cats.slice(3).reduce((s, c) => s + c.unknown_price_count, 0) }] : cats;
+  const legend = cats.length > 4 ? [...cats.slice(0, 3), { id: 'rest', name: tt('其他 {v1} 类', { v1: cats.length - 3 }), slot: null, count: 0, known_cents: String(cats.slice(3).reduce((s, c) => s + Number(c.known_cents), 0)), unknown_price_count: cats.slice(3).reduce((s, c) => s + c.unknown_price_count, 0) }] : cats;
   const metrics = [
-    modules.expenses && e && { label: `${year ?? '全部期间'}${year === null ? '' : ' 年'}重要支出`, value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? `${e.unknown_amount_count} 笔金额未知` : '', page: 'expenses' as ReviewPage, big: true },
-    modules.recurring && r && { label: '固定负担', value: <>{money(r.monthly_cents)}<small>/月</small></>, note: '当前计划', page: 'recurring' as ReviewPage, big: true },
-    p && { label: '平均持有', value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>, note: '', page: 'assets' as ReviewPage },
-    modules.wishlist && p && { label: '考虑中心愿', value: <>{p.considering_wishes}<small>条</small></>, note: p.legacy_wishes > 0 ? `另有 ${p.legacy_wishes} 条历史待核实` : '', page: 'wishlist' as ReviewPage },
+    modules.expenses && e && { label: t('{v1}{v2}重要支出', { v1: year ?? tt('全部期间'), v2: year === null ? '' : tt(' 年') }), value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? t('{unknown_amount_count} 笔金额未知', { unknown_amount_count: e.unknown_amount_count }) : '', page: 'expenses' as ReviewPage, big: true },
+    modules.recurring && r && { label: t('固定负担'), value: <>{money(r.monthly_cents)}<small>{t('/月')}</small></>, note: t('当前计划'), page: 'recurring' as ReviewPage, big: true },
+    p && { label: t('平均持有'), value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString(numberLocale())}<small>{t('天')}</small></>, note: '', page: 'assets' as ReviewPage },
+    modules.wishlist && p && { label: t('考虑中心愿'), value: <>{p.considering_wishes}<small>{t('条')}</small></>, note: p.legacy_wishes > 0 ? t('另有 {legacy_wishes} 条历史待核实', { legacy_wishes: p.legacy_wishes }) : '', page: 'wishlist' as ReviewPage },
   ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null; big?: boolean }[];
-  return <section className="review-section u16" aria-label="综合回顾" aria-busy={updating}>
-    {error && <div className="review-error" role="alert"><p>更新失败，当前显示上次读取的结果：{error}</p><button onClick={reload}>重新读取</button></div>}
-    {updating && <p className="review-sub" role="status">正在更新，暂时显示上次读取的结果…</p>}
-    {modules.wealth && lastPoint && !lastPoint.complete && <div className="review-notice">{lastPoint.date} 盘点尚缺 {lastPoint.missing} 个账户 · {latest ? `当前显示 ${latest.date} 的完整盘点` : '尚无完整盘点'} {link('wealth')}</div>}
-    {p && p.held_count === 0 && (!w || w.points.length === 0) && <article className="ui-card ui-content review-start">
-      <div><h3>从这里开始</h3><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p></div>
-      <div className="review-start-actions"><button className="primary" onClick={() => onNavigate('assets')}>记录第一件物品</button>{modules.wealth && <button onClick={() => onNavigate('wealth')}>建立账户并盘点</button>}</div>
-    </article>}
-    {onFinance && (modules.wealth || modules.incomes || modules.expenses) && <div className="review-plan-actions" aria-label="财务工作区">{modules.incomes && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'income', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>收入记录 →</button>}{modules.expenses && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'expenses', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>重要支出 →</button>}{modules.wealth && <button className="review-action" onClick={() => onFinance({ page: 'review', view: 'period' })}>财务复盘 →</button>}</div>}
+  return <section className="review-section u16" aria-label={t('综合回顾')} aria-busy={updating}>
+    {error && <div className="review-error" role="alert"><p>{t('更新失败，当前显示上次读取的结果：{error}', { error })}</p><button onClick={reload}>{t('重新读取')}</button></div>}
+    {updating && <p className="review-sub" role="status">{t('正在更新，暂时显示上次读取的结果…')}</p>}
+    {modules.wealth && lastPoint && !lastPoint.complete && <div className="review-notice">{t('{date} 盘点尚缺 {missing} 个账户 ·', { date: lastPoint.date, missing: lastPoint.missing })} {latest ? t('当前显示 {date} 的完整盘点', { date: latest.date }) : t('尚无完整盘点')} {link('wealth')}</div>}
+    {modules.wealth && onUpdateBalances && (balanceAction === 'new' || balanceAction === 'retry') && <div className="wealth-return-action"><button type="button" className="primary" disabled={updating} onClick={startBalanceAction}>{balanceLabel}</button><span className="muted small" role={balanceAction === 'retry' ? 'alert' : undefined}>{balanceHint}</span></div>}
+    {onFinance && (modules.wealth || modules.incomes || modules.expenses) && <div className="review-plan-actions" aria-label={t('财务工作区')}>{modules.incomes && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'income', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>{t('收入记录 →')}</button>}{modules.expenses && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'expenses', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>{t('重要支出 →')}</button>}{modules.wealth && <button className="review-action" onClick={() => onFinance({ page: 'review', view: 'period' })}>{t('财务复盘 →')}</button>}</div>}
     {(modules.wealth || modules.planning) && <div className={'review-top' + (modules.wealth && modules.planning ? ' duo' : '')}>
-      {modules.wealth && <section className="review-nw" aria-label="金融净资产">
-        <div className="ui-label">金融净资产<button type="button" className="icon-button privacy-toggle" aria-label={amountsHidden ? '显示金融金额' : '隐藏金融金额'} title={amountsHidden ? '显示金融金额' : '隐藏金融金额'} aria-pressed={amountsHidden} onClick={() => setAmountsHidden(v => !v)}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{amountsHidden && <path d="m3 3 18 18"/>}</svg></button>{latest && <Info text={`只统计参与比较的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
+      {modules.wealth && <section className="review-nw" aria-label={t('金融净资产')}>
+        <div className="ui-label">{t('金融净资产')}<button type="button" className="icon-button privacy-toggle" aria-label={amountsHidden ? t('显示金融金额') : t('隐藏金融金额')} title={amountsHidden ? t('显示金融金额') : t('隐藏金融金额')} aria-pressed={amountsHidden} onClick={() => setAmountsHidden(v => !v)}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{amountsHidden && <path d="m3 3 18 18"/>}</svg></button>{latest && <Info text={t('只统计参与比较的账户，不含实物。最近一次完整盘点 {date}，距今 {daysSince} 天。', { date: latest.date, daysSince })}/>}</div>
         {failure(data.wealth)}
         {w && <>
           <div className="review-nw-big">{amountsHidden ? '******' : latest ? signedMoney(latest.net_cents) : '—'}</div>
           {latest ? <>
-            <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天{latest.has_unchanged ? " · 含沿用金额，并非全部当日核对" : ""}</p>
-            <p className={'ui-sub' + (amountsHidden ? '' : tone(latest.change_cents))}>{amountsHidden ? '变化金额已隐藏' : latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
-            <p className="ui-sub">资产 {amountsHidden ? '******' : money(latest.assets_cents)} · 负债 {amountsHidden ? '******' : money(latest.liabilities_cents)}</p>
+            <p className="ui-sub">{t('截至 {date} 完整盘点 · 距今 {daysSince} 天', { date: latest.date, daysSince })}{latest.has_unchanged ? t(' · 含沿用金额，并非全部当日核对') : ""}</p>
+            <p className={'ui-sub' + (amountsHidden ? '' : tone(latest.change_cents))}>{amountsHidden ? t('变化金额已隐藏') : latest.compared_to ? latest.change_cents !== null ? t('较 {compared_to} {v2}{v3}', { compared_to: latest.compared_to, v2: changeText(latest.change_cents), v3: latest.change_rate_hundredths === null ? tt(' · 基期非正，不显示变化率') : `（${rateText(latest.change_rate_hundredths)}）` }) : t('较 {compared_to}：账户范围变化，暂不可比', { compared_to: latest.compared_to }) : t('第一份完整盘点，暂无可比变化')}</p>
+            <p className="ui-sub">{t('资产')} {amountsHidden ? '******' : money(latest.assets_cents)} {t('· 负债')} {amountsHidden ? '******' : money(latest.liabilities_cents)}</p>
             <Sparkline hero points={trend.points} generation={generation} hideAmounts={amountsHidden}/>
             <div className="review-nw-bar">
               <TrendRangeControl selection={trend} points={w.points} today={data.today} hidden={amountsHidden}/>
               {link('wealth')}
             </div>
-          </> : <p className="ui-sub">{w.points.length ? '—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
+          </> : <p className="ui-sub">{w.points.length ? t('—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。') : t('添加账户并完成盘点后，这里会显示金融净资产。')}</p>}
         </>}
       </section>}
       {modules.planning && (modules.wealth
-        ? amountsHidden ? <article className="ui-card ui-content"><h3>目标摘要</h3><p className="muted">金融金额已隐藏</p><button type="button" className="ui-link" onClick={() => onGotoPlanning('goals')}>查看目标 →</button></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
-        : <article className="ui-card ui-content review-plan-dep" aria-label="目标">
-          <div className="ui-section-head"><h3>目标</h3></div>
-          <p className="review-plan-goal">退休与财务自由</p>
-          <p className="review-plan-main">开启「账户与盘点」后显示目标摘要</p>
-          <p className="review-plan-sub">目标摘要结合完整盘点与已设置的未来条件进行估算；不会自动开启模块，历史规划资料保持不变。</p>
-          <div className="review-plan-actions"><button className="review-action" onClick={onOpenSettings}>前往设置 →</button></div>
+        ? amountsHidden ? <article className="ui-card ui-content"><h3>{t('目标摘要')}</h3><p className="muted">{t('金融金额已隐藏')}</p><button type="button" className="ui-link" onClick={() => onGotoPlanning('goals')}>{t('查看目标 →')}</button></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
+        : <article className="ui-card ui-content review-plan-dep" aria-label={t('目标')}>
+          <div className="ui-section-head"><h3>{t('目标')}</h3></div>
+          <p className="review-plan-goal">{t('从你的想法开始')}</p>
+          <p className="review-plan-main">{t('先设置一个计划')}</p>
+          <p className="review-plan-sub">{t('可以先手动填写资金和收支，账户资料以后再补。')}</p>
+          <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>{t('设置计划 →')}</button></div>
         </article>)}
     </div>}
-    <div className={'review-heroes' + (modules.wealth && w?.structure_date ? '' : ' single')}>
-      {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>资产结构</h3><p className="muted">金融金额已隐藏</p>{link('wealth')}</article> : <StructureCard summary={w} onBrowse={() => onNavigate('wealth')}/>)}
-      <article className="ui-card ui-hero tint-2">
-        <div className="ui-label">持有物品<Info text={`截至 ${data.today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。`}/></div>
+    <div className={'review-heroes' + (modules.physical !== false && modules.wealth && w?.structure_date ? '' : ' single')}>
+      {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>{t('资产结构')}</h3><p className="muted">{t('金融金额已隐藏')}</p>{link('wealth')}</article> : <StructureCard summary={w} onBrowse={() => onNavigate('wealth')}/>)}
+      {modules.physical !== false && <article className="ui-card ui-hero tint-2">
+        <div className="ui-label">{t('持有物品')}<Info text={t('截至 {today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。', { today: data.today })}/></div>
         {failure(data.physical)}
         {p && <>
           <div className="ui-split">
-            <div><div className="ui-big">{money(p.held_known_cents)}</div><p className="ui-sub">{p.held_unknown_price_count ? `购入金额 · ${p.held_unknown_price_count} 件未知` : p.held_count ? '购入金额' : '还没有记录物品'}</p></div>
-            <div><div className="ui-big">{p.held_count}<small>件</small></div><p className="ui-sub">使用中 {p.active_count} · 已退役 {p.retired_count}</p></div>
+            <div><div className="ui-big">{money(p.held_known_cents)}</div><p className="ui-sub">{p.held_unknown_price_count ? t('购入金额 · {held_unknown_price_count} 件未知', { held_unknown_price_count: p.held_unknown_price_count }) : p.held_count ? t('购入金额') : t('还没有记录物品')}</p></div>
+            <div><div className="ui-big">{p.held_count}<small>{t('件')}</small></div><p className="ui-sub">{t('使用中 {active_count} · 已退役 {retired_count}', { active_count: p.active_count, retired_count: p.retired_count })}</p></div>
           </div>
           <DailyCostMetric summary={p.held_daily}/>
           {cats.length > 0 && <>
-            <div className="ui-share-bar" role="img" aria-label="持有物按分类的购入金额占比">{known > 0 && cats.filter(c => Number(c.known_cents) > 0).map(c => <span key={c.id ?? 'none'} style={{ width: `${Number(c.known_cents) / known * 100}%`, background: color(c.slot) }}/>)}</div>
-            <div className="ui-legend">{legend.map(c => <div key={c.id ?? 'none'}><i style={{ background: Number(c.known_cents) > 0 ? color(c.slot) : 'var(--soft-strong, var(--line))' }}/><span>{c.name}</span>{Number(c.known_cents) > 0 ? <b>{money(c.known_cents)}</b> : <b className="muted">金额未知</b>}</div>)}</div>
+            <div className="ui-share-bar" role="img" aria-label={t('持有物按分类的购入金额占比')}>{known > 0 && cats.filter(c => Number(c.known_cents) > 0).map(c => <span key={c.id ?? 'none'} style={{ width: `${Number(c.known_cents) / known * 100}%`, background: color(c.slot) }}/>)}</div>
+            <div className="ui-legend">{legend.map(c => <div key={c.id ?? 'none'}><i style={{ background: Number(c.known_cents) > 0 ? color(c.slot) : 'var(--soft-strong, var(--line))' }}/><span>{c.name}</span>{Number(c.known_cents) > 0 ? <b>{money(c.known_cents)}</b> : <b className="muted">{t('金额未知')}</b>}</div>)}</div>
           </>}
         </>}
-        <div className="ui-hero-foot">{link('assets')}</div>
-      </article>
+        <div className="ui-hero-foot">{p?.held_count === 0 ? <button className="review-action" onClick={() => onNavigate('assets')}>{t('去记录物品 →')}</button> : link('assets')}</div>
+      </article>}
     </div>
-    {metrics.length > 0 && <div className="ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label="辅助指标">
+    {metrics.length > 0 && <div className="ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label={t('辅助指标')}>
       {metrics.map(m => <div key={m.label} className={m.big ? 'big' : undefined}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}{m.page && link(m.page)}</div>)}
     </div>}
-    <div className="review-lists">
+    <div className={'review-lists' + (!modules.timeline ? ' single' : '')}>
       <article className="ui-card">
-        <div className="ui-section-head"><h3>待关注</h3><span className="ui-aside">{groups.length ? `${groups.length} 项` : ''}<Info text="只列出需要你确认或即将到期的事项；不会自动付款。"/></span></div>
-        {!attentionSourcesReady(data, modules) && <div className="ui-error" role="alert">部分来源读取失败，当前事项只显示已读取部分。请重试。<button onClick={reload}>重试</button></div>}
-        {!groups.length ? <p className="ui-empty">{attentionSourcesReady(data, modules) ? '暂时没有需要关注的事项。' : '可用来源中暂无事项。'}</p> : <ul className="ui-rows">{groups.slice(0, 5).map(g => <li key={g.id} className="ui-row"><span className={'ui-dot' + (g.priority <= 1 ? ' warn' : '')}/><div className="ui-main"><div>{g.title}</div>{g.details.map(d => <small key={d}>{d}</small>)}</div><span className="review-links">{g.entries.map((entry, i) => <button key={i} className="ui-link" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button>)}</span></li>)}</ul>}
-        {groups.length > 5 && <p className="ui-card-foot">还有 {groups.length - 5} 项，请在对应模块查看。</p>}
+        <div className="ui-section-head"><h3>{t('待关注')}</h3><span className="ui-aside">{groups.length ? t('{length} 项', { length: groups.length }) : ''}<Info text={t('只列出需要你确认或即将到期的事项；不会自动付款。')}/></span></div>
+        {!attentionSourcesReady(data, modules) && <div className="ui-error" role="alert">{t('部分来源读取失败，当前事项只显示已读取部分。请重试。')}<button onClick={reload}>{t('重试')}</button></div>}
+        {!groups.length ? <p className="ui-empty">{attentionSourcesReady(data, modules) ? t('暂时没有需要关注的事项。') : t('可用来源中暂无事项。')}</p> : <ul className="ui-rows">{groups.slice(0, 5).map(g => <li key={g.id} className="ui-row"><span className={'ui-dot' + (g.priority <= 1 ? ' warn' : '')}/><div className="ui-main"><div>{g.title}</div>{g.details.map(d => <small key={d}>{d}</small>)}</div><span className="review-links">{g.entries.map((entry, i) => <button key={i} className="ui-link" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button>)}</span></li>)}</ul>}
+        {groups.length > 5 && <p className="ui-card-foot">{t('还有')} {groups.length - 5} {t('项，请在对应模块查看。')}</p>}
       </article>
-      <article className="ui-card">
-        <div className="ui-section-head"><h3>近期记录</h3><span className="ui-aside"><select aria-label="期间" value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">全部期间</option>{years.map(y => <option key={y} value={y}>{y} 年</option>)}</select><button className="ui-link" onClick={() => onNavigate('timeline')}>时间轴 →</button></span></div>
-        <p className="review-period-note muted">所选期间用于重要支出与近期记录；持有物品与固定负担为当前资料，净资产取最近完整盘点。</p>
+      {modules.timeline && <article className="ui-card">
+        <div className="ui-section-head"><h3>{t('近期记录')}</h3><span className="ui-aside"><select aria-label={t('期间')} value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">{t('全部期间')}</option>{years.map(y => <option key={y} value={y}>{t('{y} 年', { y })}</option>)}</select>{modules.timeline && <button className="ui-link" onClick={() => onNavigate('timeline')}>{t('时间轴 →')}</button>}</span></div>
+        <p className="review-period-note muted">{t('所选期间用于重要支出与近期记录；持有物品与固定负担为当前资料，净资产取最近完整盘点。')}</p>
         {failure(data.recent)}
-        {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? '所选期间暂无记录。' : '可用来源中暂无记录。'}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><span className="review-ev"><Icon name={ev.icon}/></span><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={`查看来源：${ev.title}`} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
-      </article>
+        {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? t('所选期间暂无记录。') : t('可用来源中暂无记录。')}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><span className="review-ev"><Icon name={ev.icon}/></span><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={t('查看来源：{title}', { title: ev.title })} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
+      </article>}
     </div>
     {modules.wealth && <SavingsGoals key={generation} generation={generation} today={today} version={version} compact hideAmounts={amountsHidden} onManage={() => onNavigate('wealth', 'savings-goals')}/>}
   </section>;

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-
+import { t } from '../../i18n.ts';
 /**
  * Bottom sheet over the current page: dimmed backdrop, grab handle, centred title and header buttons that follow
  * one rule everywhere: a sheet that can be abandoned has `cancelLabel` (取消) on the left and, when it submits from the
@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
  * Escape and a backdrop tap close it. Routed sheets (kind 'sheet') get this frame from the shell;
  * use it directly for small in-page choices. `onClose` is required, content scrolls inside.
  */
-export function Sheet({ title, onClose, doneLabel = '关闭', cancelLabel, onDone, doneDisabled, children }: { title: string; onClose: () => void; /** Right-hand button text. Without `onDone` it closes the sheet (read-only sheet). */ doneLabel?: string; /** Left-hand button that closes the sheet, for sheets that can be abandoned. */ cancelLabel?: string; /** Submits from the header; shown as the right-hand button. */ onDone?: () => void; doneDisabled?: boolean; children: ReactNode }) {
+export function Sheet({ title, onClose, doneLabel = t('关闭'), cancelLabel, onDone, doneDisabled, children }: { title: string; onClose: () => void; /** Right-hand button text. Without `onDone` it closes the sheet (read-only sheet). */ doneLabel?: string; /** Left-hand button that closes the sheet, for sheets that can be abandoned. */ cancelLabel?: string; /** Submits from the header; shown as the right-hand button. */ onDone?: () => void; doneDisabled?: boolean; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;

@@ -2,14 +2,14 @@ import type { ReactNode } from 'react';
 import { Button } from './Forms';
 import { Sheet } from './Sheet';
 import { Notice } from './States';
-
+import { t } from '../../i18n.ts';
 /**
  * Bottom sheet that asks before something is saved or changed; shows the error of a failed attempt.
  * `busy` disables the button and swaps its text for `busyLabel`; the sheet cannot be dismissed while busy.
  * The 取消 button sits top left (`cancelLabel` renames it, e.g. 继续编辑); the full-width button below is the only submit.
  * For deletions use {@link DeleteSheet}, which fixes the wording.
  */
-export function ConfirmSheet({ title, message, confirm, danger, busy, busyLabel = '正在保存…', error, onConfirm, onClose, children, disabled, cancelLabel = '取消' }: {
+export function ConfirmSheet({ title, message, confirm, danger, busy, busyLabel = t('正在保存…'), error, onConfirm, onClose, children, disabled, cancelLabel = t('取消') }: {
   title: string; cancelLabel?: string; message?: ReactNode; confirm: string; danger?: boolean; busy: boolean; busyLabel?: string; error?: string;
   onConfirm: () => void; onClose: () => void; children?: ReactNode; disabled?: boolean;
 }) {
@@ -23,7 +23,7 @@ export function ConfirmSheet({ title, message, confirm, danger, busy, busyLabel 
   </Sheet>;
 }
 
-export const recoverableLine = '可在「我的 › 最近删除」恢复';
+export const recoverableLine = t('可在「我的 › 最近删除」恢复');
 
 /**
  * The one delete confirmation: title 「删除「X」？」, red 「删除」 button, 「正在删除…」 while busy.
@@ -33,7 +33,7 @@ export const recoverableLine = '可在「我的 › 最近删除」恢复';
 export function DeleteSheet({ name, recoverable = true, busy, error, onConfirm, onClose, children, disabled }: {
   name: string; recoverable?: boolean; busy: boolean; error?: string; onConfirm: () => void; onClose: () => void; children?: ReactNode; disabled?: boolean;
 }) {
-  return <ConfirmSheet title={`删除「${name}」？`} confirm="删除" danger busy={busy} busyLabel="正在删除…" error={error} disabled={disabled} onConfirm={onConfirm} onClose={onClose}>
+  return <ConfirmSheet title={t('删除「{name}」？', { name })} confirm={t('删除')} danger busy={busy} busyLabel={t('正在删除…')} error={error} disabled={disabled} onConfirm={onConfirm} onClose={onClose}>
     {children}
     {recoverable && <p className="m-confirm-text m-confirm-recover">{recoverableLine}</p>}
   </ConfirmSheet>;

@@ -8,8 +8,8 @@ import type { IncomeDraft } from './income-scope.ts';
 import { ageMonthsAt, maxGap } from '../plan-career-map.ts';
 import { careerMonth } from '../plan-career-contract.ts';
 import type { MaxGap, MinWindow, Reason } from '../plan-career-map.ts';
-
-export const yuan = (cents: string | number) => `¥${(Number(cents) / 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
+import { t, numberLocale } from '../i18n.ts';
+export const yuan = (cents: string | number) => `¥${(Number(cents) / 100).toLocaleString(numberLocale(), { maximumFractionDigits: 2 })}`;
 export type Tone = 'good' | 'warn' | 'bad' | 'wait';
 export type Say = { tone: Tone; headline: string; sub: string };
 
@@ -74,7 +74,7 @@ export function restLevers(sources: PlanningSources, draft: CareerDraft): Lever[
   const base = maxGap(sources, draft), b = months(base);
   if (b === null) return [];
   const out: Lever[] = [];
-  const row = (label: string, x: MaxGap) => { const m = months(x); out.push({ label, text: m === null ? '算不出' : m === 0 ? '仍然保不住' : b === 0 ? `能撑 ${m} 个月` : m > b ? `多撑约 ${m - b} 个月（共 ${m} 个月）` : m === b ? '没有变化' : `少 ${b - m} 个月` }); };
+  const row = (label: string, x: MaxGap) => { const m = months(x); out.push({ label, text: m === null ? t('算不出') : m === 0 ? t('仍然保不住') : b === 0 ? t('能撑 {m} 个月', { m }) : m > b ? t('多撑约 {v1} 个月（共 {m} 个月）', { v1: m - b, m }) : m === b ? t('没有变化') : t('少 {v1} 个月', { v1: b - m }) }); };
   const up = structuredClone(draft); if (up.recovery.monthly_cents !== null) { up.recovery.monthly_cents = String(Number(up.recovery.monthly_cents) + 100_000); row('找到新工作后，每月多攒 ¥1,000', maxGap(sources, up)); }
   const less = structuredClone(draft); if (less.gap.spend_cents !== null && Number(less.gap.spend_cents) >= 100_000) { less.gap.spend_cents = String(Number(less.gap.spend_cents) - 100_000); row('不工作期间，每月少花 ¥1,000', maxGap(sources, less)); }
   const later = structuredClone(sources);

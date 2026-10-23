@@ -6,12 +6,12 @@ import { pctToHundredths } from "../../plan";
 import { useSession } from "../session";
 import { useNav } from "../nav-context";
 import { Button, FormGroup, Loading, NavBar, Notice, TextField } from "../ui";
-
+import { t } from '../../i18n.ts';
 export const assumptionFields = [
-  ["real_return_before_hundredths", "停工前实际年收益（%）"],
-  ["real_return_after_hundredths", "停工后实际年收益（%）"],
-  ["inflation_hundredths", "通胀（%）"],
-  ["volatility_hundredths", "市场模拟年波动率（%）"],
+  ["real_return_before_hundredths", t('停工前实际年收益（%）')],
+  ["real_return_after_hundredths", t('停工后实际年收益（%）')],
+  ["inflation_hundredths", t('通胀（%）')],
+  ["volatility_hundredths", t('市场模拟年波动率（%）')],
 ] as const;
 
 /**
@@ -36,7 +36,7 @@ export function useAssumptionDraft(sources: PlanningSources, enabled = true) {
         return;
       }
       if (r.value.generation !== sources.generation) {
-        setError("资料库已变化，请返回后重新读取。");
+        setError(t('资料库已变化，请返回后重新读取。'));
         return;
       }
       setRead(r.value);
@@ -59,8 +59,8 @@ export function useAssumptionDraft(sources: PlanningSources, enabled = true) {
    * Resolves to an error message, or null when saved.
    */
   async function commit(fresh = false): Promise<string | null> {
-    if (!read) return "假设还没读取完成。";
-    if (invalidKey() !== null) return "请填写有效百分数，例如 2 或 2.5。";
+    if (!read) return t('假设还没读取完成。');
+    if (invalidKey() !== null) return t('请填写有效百分数，例如 2 或 2.5。');
     const parsed = Object.fromEntries(
       Object.entries(values).map(([k, v]) => [k, pctToHundredths(v)]),
     );
@@ -86,7 +86,7 @@ export function useAssumptionDraft(sources: PlanningSources, enabled = true) {
     }
     if (result.status === "rejected")
       return result.issues.map((i) => i.message).join("；");
-    return "保存结果未确定，请核对原请求。";
+    return t('保存结果未确定，请核对原请求。');
   }
   return { read, error, setError, values, setValues, confirmed, setConfirmed, edited, invalidKey, commit };
 }
@@ -100,10 +100,10 @@ export function AssumptionForm({ draft, disabled, fieldError }: { draft: Assumpt
       <FormGroup
         title={
           read?.confirmation === "confirmed"
-            ? "已核对的假设"
-            : "试算假设，尚需核对"
+            ? t('已核对的假设')
+            : t('试算假设，尚需核对')
         }
-        footer="实际收益已扣除通胀。默认收益 0% 只代表跑平通胀；默认波动率是程序试算值。"
+        footer={t('实际收益已扣除通胀。默认收益 0% 只代表跑平通胀；默认波动率是程序试算值。')}
       >
         {assumptionFields.map(([k, label]) => (
           <TextField
@@ -118,7 +118,7 @@ export function AssumptionForm({ draft, disabled, fieldError }: { draft: Assumpt
       </FormGroup>
       {fieldError && <p className="m-form-hint mp-field-error" role="alert">{fieldError}</p>}
       <Button disabled={disabled} onClick={() => setConfirmed((v) => !v)}>
-        {confirmed ? "已选择：我核对了这些假设" : "我已核对这些假设（选填）"}
+        {confirmed ? t('已选择：我核对了这些假设') : t('我已核对这些假设（选填）')}
       </Button>
     </>
   );
@@ -176,7 +176,7 @@ export function Assumptions({
   }
   return (
     <div className="m-page mp-page">
-      <NavBar title="收益与其他假设" />
+      <NavBar title={t('收益与其他假设')} />
       {!read && !error ? (
         <Loading />
       ) : (
@@ -187,7 +187,7 @@ export function Assumptions({
             disabled={!read || busy || !!session.pending}
             onClick={() => void save()}
           >
-            保存假设
+            {t('保存假设')}
           </Button>
         </>
       )}

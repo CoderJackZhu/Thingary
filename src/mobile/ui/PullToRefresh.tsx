@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useCovered } from '../nav-context';
 import { Icon } from './Icon';
 import { isPull, pullDistance, pullTrigger, shouldRefresh } from './pull-refresh';
-
+import { t } from '../../i18n.ts';
 /**
  * Pull down from the top of a tab page to run `onRefresh` (the page's own reload). Adds no wrapper element:
  * it listens on the document and draws a small spinner at the top while pulling. Skipped while a sheet or
@@ -44,7 +44,7 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => void |
   }, [covered]);
   const shown = busy || pull > 0;
   return <>
-    {shown && <div className={`m-ptr${busy ? ' m-ptr-busy' : ''}`} role="status" aria-label={busy ? '正在刷新' : '下拉刷新'} style={{ transform: `translate(-50%, ${pull - 44}px)`, opacity: Math.min(1, pull / 40) }}>
+    {shown && <div className={`m-ptr${busy ? ' m-ptr-busy' : ''}`} role="status" aria-label={busy ? t('正在刷新') : t('下拉刷新')} style={{ transform: `translate(-50%, ${pull - 44}px)`, opacity: Math.min(1, pull / 40) }}>
       <span style={busy ? undefined : { transform: `rotate(${Math.min(pull / pullTrigger, 1) * 270}deg)` }}><Icon name="refresh" size={20} strokeWidth={2.2}/></span>
     </div>}
     {children}

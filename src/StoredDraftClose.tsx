@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import type { CloseIntent } from './AssetEditor';
-
+import { t } from './i18n.ts';
 // No editor is mounted for a retained draft. Handle native close intents here
 // without clearing the durable draft or treating a pending request as saved.
 export function StoredDraftClose({ intent, onKeep, pendingOnly = false }: { intent: CloseIntent; onKeep: () => void; pendingOnly?: boolean }) {
@@ -22,9 +22,9 @@ export function StoredDraftClose({ intent, onKeep, pendingOnly = false }: { inte
     finally { lock.current = false; setBusy(false); }
   }
   return <dialog ref={dialog} className="editor" aria-labelledby="stored-draft-close-heading" onCancel={event => { event.preventDefault(); if (!lock.current) onKeep(); }}>
-    <h2 id="stored-draft-close-heading">保留{pendingOnly ? '待核对操作' : '草稿'}后{intent === 'quit' ? '退出' : '关闭窗口'}？</h2>
-    <p>{pendingOnly ? '操作请求已保存在本机，下次打开仍可核对原请求。当前结果尚未确认，不代表操作已经成功。' : '草稿已保存在本机，下次打开仍可恢复。待确认的保存请求也会保留，恢复时会核对原请求，不代表已经保存成功。'}</p>
+    <h2 id="stored-draft-close-heading">{t('保留')}{pendingOnly ? t('待核对操作') : t('草稿')}{t('后')}{intent === 'quit' ? t('退出') : t('关闭窗口')}？</h2>
+    <p>{pendingOnly ? t('操作请求已保存在本机，下次打开仍可核对原请求。当前结果尚未确认，不代表操作已经成功。') : t('草稿已保存在本机，下次打开仍可恢复。待确认的保存请求也会保留，恢复时会核对原请求，不代表已经保存成功。')}</p>
     {notice && <p role="status">{notice}</p>}
-    <div className="actions"><button autoFocus disabled={busy} onClick={onKeep}>继续使用</button><button disabled={busy} onClick={() => void finish()}>保留{pendingOnly ? '待核对操作' : '草稿'}并{intent === 'quit' ? '退出' : '关闭窗口'}</button></div>
+    <div className="actions"><button autoFocus disabled={busy} onClick={onKeep}>{t('继续使用')}</button><button disabled={busy} onClick={() => void finish()}>{t('保留')}{pendingOnly ? t('待核对操作') : t('草稿')}{t('并')}{intent === 'quit' ? t('退出') : t('关闭窗口')}</button></div>
   </dialog>;
 }

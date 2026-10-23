@@ -77,10 +77,10 @@ test('equal coast and FI amounts drop the Coast card and note the merge under FI
   assert.equal(Math.round(ms.find(m => m.id === 'coast').amount / 100), Math.round(ms.find(m => m.id === 'fi').amount / 100), '夹具应在 0% 收益下相等');
   const r = overview(calc);
   assert.equal(r.find('div', p => String(p.className).startsWith('rd-milestones'))?.props.className, 'rd-milestones merged', '合并态三列网格');
-  assert.ok(!r.nodes().some(n => n.type === 'span' && r.text(n) === 'Coast FIRE'), '不应再渲染 Coast 卡');
-  assert.ok(r.nodes().some(n => n.type === 'span' && r.text(n) === 'FI'), 'FI 卡仍在');
-  assert.ok(r.nodes().some(n => n.type === 'span' && r.text(n) === 'Lean FIRE') && r.nodes().some(n => n.type === 'span' && r.text(n) === 'Fat FIRE'));
-  assert.ok(r.nodes().some(n => n.type === 'small' && r.text(n) === '收益假设为 0% 时，Coast FIRE 与 FI 相同'), 'FI 卡下的小字说明');
+  assert.ok(!r.nodes().some(n => n.type === 'span' && r.text(n) === '现在停止追加存钱'), '不应再渲染 Coast 卡');
+  assert.ok(r.nodes().some(n => n.type === 'span' && r.text(n) === '按完整预算生活'), 'FI 卡仍在');
+  assert.ok(r.nodes().some(n => n.type === 'span' && r.text(n) === '生活预算少一些') && r.nodes().some(n => n.type === 'span' && r.text(n) === '生活预算更宽裕'));
+  assert.ok(r.nodes().some(n => n.type === 'small' && r.text(n) === '按当前显示精度，停止追加存钱与完整生活预算所需的资金相同，已合并展示。'), 'FI 卡下的小字说明');
 });
 
 test('different coast and FI amounts keep all four milestone cards without the merge note', () => {
@@ -89,8 +89,8 @@ test('different coast and FI amounts keep all four milestone cards without the m
   assert.notEqual(Math.round(ms.find(m => m.id === 'coast').amount / 100), Math.round(ms.find(m => m.id === 'fi').amount / 100), '夹具应不相等');
   const r = overview(calc);
   assert.equal(r.find('div', p => String(p.className).startsWith('rd-milestones'))?.props.className, 'rd-milestones', '不合并时保持四列网格');
-  for (const label of ['Coast FIRE', 'Lean FIRE', 'FI', 'Fat FIRE']) assert.ok(r.nodes().some(n => n.type === 'span' && r.text(n) === label), label);
-  assert.ok(!r.nodes().some(n => n.type === 'small' && /Coast FIRE 与 FI 相同/.test(r.text(n))));
+  for (const label of ['现在停止追加存钱', '生活预算少一些', '按完整预算生活', '生活预算更宽裕']) assert.ok(r.nodes().some(n => n.type === 'span' && r.text(n) === label), label);
+  assert.ok(!r.nodes().some(n => n.type === 'small' && /已合并展示/.test(r.text(n))));
 });
 
 test('yearly snapshot expands by default with a row count in its summary', () => {
@@ -107,12 +107,22 @@ test('yearly snapshot expands by default with a row count in its summary', () =>
 
 test('milestones are optional while the conclusion and trajectory remain available', () => {
   const calc = calcOf({}), r = overview(calc);
-  const details = r.find('details', p => p['aria-label'] === '财务独立里程碑');
+  const details = r.find('details', p => p['aria-label'] === '不同生活预算需要多少钱');
   assert.ok(details); assert.equal(details.props.open, undefined);
   assert.ok(r.find('article', p => p['aria-label'] === '退休结论'));
   assert.ok(r.find('TrajectoryChart'));
   const toggle = r.find('Segments', p => p.label === '金额显示方式');
   assert.deepEqual(Array.from(toggle.props.options, o => [o.value, o.label]), [['today','按今天物价'],['nominal','未来账面金额']]);
+});
+
+test('cash-only zero-return retirement describes withdrawals from available funds', () => {
+  const calc = calcOf({ real_return_before_hundredths: 0, real_return_after_hundredths: 0 });
+  const month = calc.proj.retire_month ?? calc.plan.target_months;
+  const c = view.coverage(calc.plan, calc.proj, month, 'today');
+  assert.equal(c.pct.portfolio, 100);
+  const r = overview(calc), shown = r.text(r.nodes());
+  assert.match(shown, /从已有资金中取用 100%/);
+  assert.doesNotMatch(shown, /从投资中取用/);
 });
 
 test('overview with no age reference uses calendar months and a month-based coverage slider', () => {
@@ -153,4 +163,12 @@ test('trajectory geometry uses months even when every optional age is unknown', 
   assert.doesNotMatch(path, /NaN|Infinity/);
   assert.ok(new Set([...path.matchAll(/[ML]([\d.]+)/g)].map(m => m[1])).size > 2, 'unknown ages must not collapse the month axis');
   assert.ok(nodes.some(n => n.type === 'text' && typeof n.props.children === 'string' && /^20\d{2}-\d{2}$/.test(n.props.children)));
+});
+
+test('annual stage markers name the projected month without exposing FI shorthand',()=>{
+ const calc=calcOf({});assert.notEqual(calc.proj.fi_month,null);
+ const rows=view.snapshotRows(calc.plan,calc.proj,'today');
+ assert.equal(rows.filter(r=>r.marks.includes('预计不靠工资')).length,1);
+ assert.ok(rows.every(r=>!r.marks.includes('FI')));
+ const r=overview(calc);assert.doesNotMatch(r.nodes().map(n=>r.text(n)).join(' '),/\bFI\b/);
 });

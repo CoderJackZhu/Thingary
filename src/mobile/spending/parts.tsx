@@ -7,7 +7,7 @@ import type { PeriodKey, Tone } from './model';
 import type { FinancePeriod } from '../../finance-contract';
 import type { Read } from './read';
 import './spending.css';
-
+import { t } from '../../i18n.ts';
 /** Title block of a spending page: back bar plus large title, or just the large title on a tab root. The 新增 action is the floating button at the bottom right. */
 export function Head({ title, subtitle, add }: { title: string; subtitle?: string; add?: { label: string; onClick: () => void; disabled?: boolean } }) {
   const { isRoot } = useEntry();
@@ -26,8 +26,8 @@ export function Tag({ tone = 'neutral', children }: { tone?: Tone | 'accent'; ch
 /** Loading, error (with retry) or the content. `empty` shows when the read succeeded with nothing to show. */
 /** `nav` gives a modal editor its 取消 button while it has no form yet, so a failed read never traps the user. */
 export function Loaded<T>({ read, what, nav, children }: { read: Read<T>; what: string; nav?: boolean; children: (data: T) => ReactNode }) {
-  const state = read.error ? <ErrorState title={`${what}读取失败`} message={read.error} onRetry={read.reload}/>
-    : read.loading || read.data === null ? <Loading label={`正在读取${what}…`}/> : null;
+  const state = read.error ? <ErrorState title={t('{what}读取失败', { what })} message={read.error} onRetry={read.reload}/>
+    : read.loading || read.data === null ? <Loading label={t('正在读取{what}…', { what })}/> : null;
   if (state) return nav ? <div className="m-page"><NavBar/>{state}</div> : state;
   return <>{children(read.data as T)}</>;
 }
@@ -43,17 +43,17 @@ export function PeriodBar({ today, value, custom, onChange }: { today: string; v
     setError(''); setEditing(false); onChange('custom', { from, to });
   };
   return <>
-    <div className="sp-period"><span>期间</span>
-      <SegmentedControl label="期间" items={periodChoices} value={value} onChange={key => { if (key === 'custom') { setError(''); setEditing(true); } else onChange(key, custom); }}/></div>
-    {value === 'custom' && custom && <p className="sp-period-custom">{custom.from} 至 {custom.to}（含两端）<button type="button" className="sp-link" onClick={() => { setFrom(custom.from); setTo(custom.to); setError(''); setEditing(true); }}>修改</button></p>}
-    {editing && <Sheet title="自选日期" onClose={() => setEditing(false)} cancelLabel="取消">
+    <div className="sp-period"><span>{t('期间')}</span>
+      <SegmentedControl label={t('期间')} items={periodChoices} value={value} onChange={key => { if (key === 'custom') { setError(''); setEditing(true); } else onChange(key, custom); }}/></div>
+    {value === 'custom' && custom && <p className="sp-period-custom">{t('{from} 至 {to}（含两端）', { from: custom.from, to: custom.to })}<button type="button" className="sp-link" onClick={() => { setFrom(custom.from); setTo(custom.to); setError(''); setEditing(true); }}>{t('修改')}</button></p>}
+    {editing && <Sheet title={t('自选日期')} onClose={() => setEditing(false)} cancelLabel={t('取消')}>
       <div className="sp-sheet-body">
-        <FormGroup footer="开始和结束日期都包含在内；结束日期不能早于开始日期。">
-          <DateField label="开始日期" value={from} onChange={setFrom} max={to || undefined}/>
-          <DateField label="结束日期" value={to} onChange={setTo} min={from || undefined}/>
+        <FormGroup footer={t('开始和结束日期都包含在内；结束日期不能早于开始日期。')}>
+          <DateField label={t('开始日期')} value={from} onChange={setFrom} max={to || undefined}/>
+          <DateField label={t('结束日期')} value={to} onChange={setTo} min={from || undefined}/>
         </FormGroup>
         {error && <Notice tone="danger">{error}</Notice>}
-        <Button variant="primary" block onClick={apply}>应用</Button>
+        <Button variant="primary" block onClick={apply}>{t('应用')}</Button>
       </div>
     </Sheet>}
   </>;
@@ -66,7 +66,7 @@ export function periodOf(key: PeriodKey, today: string, custom: { from: string; 
 /** Modal editor frame: 取消 / title / 保存, error strip and the form below. */
 export function EditorFrame({ title, onSave, busy, canSave = true, error, children }: { title: string; onSave: () => void; busy: boolean; canSave?: boolean; error?: string; children: ReactNode }) {
   return <div className="m-page">
-    <NavBar title={title} primary={{ label: '保存', onClick: onSave, disabled: !canSave, busy }}/>
+    <NavBar title={title} primary={{ label: t('保存'), onClick: onSave, disabled: !canSave, busy }}/>
     {error && <Notice tone="danger">{error}</Notice>}
     {children}
   </div>;

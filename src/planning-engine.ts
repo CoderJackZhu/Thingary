@@ -2,7 +2,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { planningEngineWasm, planningEngineSourceHash } from './planning-engine-wasm.ts';
 import type { Plan, Projection } from './plan-ledger.ts';
-
+import { t } from './i18n.ts';
 export const planningModelVersion = `rust-${planningEngineSourceHash.slice(0, 12)}`;
 type Exports = {
   memory: WebAssembly.Memory;
@@ -23,7 +23,7 @@ function runtime(): Exports {
 /** Preserve unknowns and reject non-finite numbers before JSON could turn them into null. */
 function jsonInput(value: unknown): string {
   return JSON.stringify(value, (_key, item) => {
-    if (typeof item === 'number' && !Number.isFinite(item)) throw new RangeError('测算输入包含非有限数值');
+    if (typeof item === 'number' && !Number.isFinite(item)) throw new RangeError(t('测算输入包含非有限数值'));
     if (item instanceof Float64Array) return Array.from(item);
     return item;
   });
@@ -31,10 +31,10 @@ function jsonInput(value: unknown): string {
 
 export function engineRequest<T>(request: Record<string, unknown>): T {
   const bytes = new TextEncoder().encode(jsonInput(request));
-  if (bytes.length > 64 * 1024 * 1024) throw new RangeError('测算输入过大');
+  if (bytes.length > 64 * 1024 * 1024) throw new RangeError(t('测算输入过大'));
   const wasm = runtime();
   const pointer = wasm.alloc(bytes.length) >>> 0;
-  if (!pointer) throw new Error('计算引擎无法分配输入内存');
+  if (!pointer) throw new Error(t('计算引擎无法分配输入内存'));
   try {
     new Uint8Array(wasm.memory.buffer, pointer, bytes.length).set(bytes);
     const resultPointer = wasm.evaluate(pointer, bytes.length) >>> 0;
@@ -68,7 +68,7 @@ export async function engineRequestAsync<T>(request: Record<string, unknown>, si
 /** Whitelist computational inputs. UI records and provenance metadata stay outside the kernel. */
 export function enginePlan(plan: Plan): Record<string, unknown> {
   const n = plan.horizon_months - plan.now_months;
-  if (!Number.isInteger(n) || n < 0 || n > 1440) throw new RangeError('测算期限超出范围');
+  if (!Number.isInteger(n) || n < 0 || n > 1440) throw new RangeError(t('测算期限超出范围'));
   const pensions = plan.input_mode === 'basic'
     ? [plan.pension_at(plan.target_months)]
     : Array.from({ length: n + 1 }, (_, i) => plan.pension_at(plan.now_months + i));

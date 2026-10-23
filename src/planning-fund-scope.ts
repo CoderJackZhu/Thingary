@@ -1,6 +1,6 @@
 import type { FundRule } from './plan-core.ts';
 import type { Account, Snapshot } from './wealth.ts';
-
+import { t } from './i18n.ts';
 const investmentKinds = new Set(['investment', 'mixed', 'fund', 'bond']);
 
 /** Draft suggestion only. Saved choices and the calculation's confirmation gate take precedence. */
@@ -13,9 +13,9 @@ export function fundScopeSummary(snapshot: Snapshot | null, rules: FundRule[], a
   for (const entry of snapshot?.entries ?? []) {
     if (!entry.counted || entry.side !== 'asset') continue;
     const rule = rules.find(r => r.account_id === entry.account_id);
-    const name = accounts.find(a => a.id === entry.account_id)?.fields.name ?? '历史账户';
+    const name = accounts.find(a => a.id === entry.account_id)?.fields.name ?? t('历史账户');
     if (!rule || rule.availability !== 'available' || rule.share_hundredths === 0) {
-      unavailable.push(`${name}（${!rule ? '用途待确认' : rule.availability === 'restricted' ? '暂不能动用' : '不参与'}）`);
+      unavailable.push(`${name}（${!rule ? t('用途待确认') : rule.availability === 'restricted' ? t('暂不能动用') : t('不参与')}）`);
       continue;
     }
     const group = entry.kind === 'cash' ? 'cash' : investmentKinds.has(entry.kind) ? 'investment' : 'other';

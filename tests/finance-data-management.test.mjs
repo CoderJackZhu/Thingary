@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import * as imports from '../src/financial-import.ts';
+import { readLockPreference, readCoverPreference } from '../src/privacy-lock.ts';
 const ts = createRequire(import.meta.url)('typescript');
 const pendingKey = 'thingary.wealth.request';
 const jsx = (type, props) => ({ type, props });
 const FinancialImportDialog = () => null;
+const KeyInput = () => null;
 function runtime(file, props, initialPending = null, invoke = async () => null) {
   const slots = [], effects = [], calls = [], events = new Map(), storage = new Map();
   if (initialPending) storage.set(pendingKey, JSON.stringify(initialPending));
@@ -32,7 +34,7 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
     if (name === './income-classification') return { incomeCategories: {} };
     if (name === './AssetViews') return { Icon: () => null };
     if (name === './AutoBackup') return { AutoBackup: () => null };
-    if (name === './BackupSecurity') return { BackupSecurity: () => null };
+    if (name === './BackupSecurity') return { BackupSecurity: () => null, KeyInput };
     if (name === './backup-security-format') return { looksLikeRecoveryKey: v => ({ ok: !!v }), RESTORE_DISCLOSURE: 'disclosure', securitySummary: () => 'summary', STATE_LABELS: { disabled: '未加密', unconfigured: '待设置', enabled: '已加密' } };
     if (name === './SupportLink') return { SupportLink: 'a' };
     if (name === './CloseButton') return { CloseButton: 'button' };
@@ -57,9 +59,9 @@ const settings = extra => ({ generation: 'current-library', blocked: false, demo
 test('blocked/demo settings reopen original financial receipt using its generation and lock new operations', () => {
   const busy = [];
   const ui = runtime('DataManagement', settings({ blocked: true, demo: true, onBusyChange: b => busy.push(b) }), pending);
-  assert.equal(ui.button('核对金融导入回执').props.disabled, false);
+  assert.equal(ui.button('核对金融导入结果').props.disabled, false);
   assert.equal(ui.button('选择表格…').props.disabled, true);
-  ui.click('核对金融导入回执');
+  ui.click('核对金融导入结果');
   const host = ui.find(n => n.type === FinancialImportDialog);
   assert.equal(host.props.generation, 'old-library');
   assert.equal(host.props.currentGeneration, 'current-library');
@@ -68,7 +70,7 @@ test('blocked/demo settings reopen original financial receipt using its generati
   host.props.onClose(false); ui.render();
   assert.equal(busy.at(-1), false);
   assert.equal(ui.storedPending().input.request_id, 'original-request');
-  assert.equal(ui.button('核对金融导入回执').props.disabled, false);
+  assert.equal(ui.button('核对金融导入结果').props.disabled, false);
 });
 
 test('new financial import cannot open when blocked/demo or any other pending request exists', () => {
@@ -109,7 +111,7 @@ test('recovery only queries original request, stays at receipt and navigates onl
   const navigation = [], closed = [];
   const ui = runtime('FinancialImportDialog', { generation: 'old-library', currentGeneration: 'current-library', recoveryOnly: true, onClose: saved => closed.push(saved), onViewFinance: target => navigation.push(target) }, pending, async () => receipt);
   assert.equal(ui.button('选择工作簿…'), undefined);
-  ui.click('按原请求核对回执'); await settle(); ui.render();
+  ui.click('核对上次导入结果'); await settle(); ui.render();
   assert.equal(ui.calls[0].name, 'financial_import_receipt');
   assert.equal(ui.calls[0].args.generation, 'old-library');
   assert.equal(ui.calls[0].args.request, 'original-request');
@@ -120,7 +122,7 @@ test('recovery only queries original request, stays at receipt and navigates onl
 
 test('current-library receipt absence cannot clear unknown original request and recovery never offers a new import', async () => {
   const ui = runtime('FinancialImportDialog', { generation: 'old-library', currentGeneration: 'current-library', recoveryOnly: true, onClose() {} }, pending);
-  ui.click('在当前资料库只读核对同一回执'); await settle(); ui.render();
+  ui.click('在当前资料中检查同一次导入（不写入）'); await settle(); ui.render();
   assert.equal(ui.calls[0].args.generation, 'current-library');
   assert.equal(ui.calls[0].args.request, 'original-request');
   assert.equal(ui.storedPending().input.generation, 'old-library');
@@ -131,7 +133,7 @@ test('current-library receipt absence cannot clear unknown original request and 
 test('receipt lookup failure retains request; confirmed no receipt clears it without enabling file selection in recovery', async () => {
   for (const fail of [true, false]) {
     const ui = runtime('FinancialImportDialog', { generation: 'old-library', recoveryOnly: true, onClose() {} }, pending, async () => { if (fail) throw { code: 'STALE_DATASET', message: '切库' }; return null; });
-    ui.click('按原请求核对回执'); await settle(); ui.render();
+    ui.click('核对上次导入结果'); await settle(); ui.render();
     assert.equal(!!ui.storedPending(), fail);
     assert.equal(ui.button('选择工作簿…'), undefined);
     assert.equal(ui.button('确认导入整批'), undefined);
@@ -140,7 +142,7 @@ test('receipt lookup failure retains request; confirmed no receipt clears it wit
 
 test('result choices reflect actual created/corrected tables rather than skipped objects', async () => {
   const ui = runtime('FinancialImportDialog', { generation: 'old-library', recoveryOnly: true, onClose() {}, onViewFinance() {} }, pending, async () => ({ ...receipt, objects: [{ kind: 'income', action: 'keep' }, { kind: 'account', action: 'create' }] }));
-  ui.click('按原请求核对回执'); await settle(); ui.render();
+  ui.click('核对上次导入结果'); await settle(); ui.render();
   assert.ok(ui.button('查看账户'));
   assert.equal(ui.button('查看收入'), undefined); assert.equal(ui.button('查看盘点'), undefined);
 });
@@ -183,13 +185,69 @@ test('unknown commit preserves original request and reopening recovery never res
   assert.equal(ui.button('确认导入整批'), undefined);
   ui.click('关闭');
   const recovery = runtime('FinancialImportDialog', { generation: 'current-library', recoveryOnly: true, onClose() {} }, ui.storedPending(), async () => receipt);
-  recovery.click('按原请求核对回执'); await settle();
+  recovery.click('核对上次导入结果'); await settle();
   assert.deepEqual(recovery.calls.map(c => c.name), ['financial_import_receipt']);
   assert.equal(recovery.calls[0].args.request, 'new-request');
 });
 
 
 const checkedBackup = { path: '/tmp/fictional.thingary', name: '虚构备份', encrypted: false, token: 'frozen-token', summary: { created_at: '2026-10-15', schema: 42 } };
+test('successful and reconciled restores retain device privacy and appearance while clearing dataset work', async () => {
+  for (const lostReply of [false, true]) {
+    let finish;
+    const ui = runtime('DataManagement', settings(), null, async name => {
+      if (name === 'inspect_backup') return checkedBackup;
+      if (name === 'restore_backup_session') {
+        if (lostReply) throw new Error('reply lost');
+        return new Promise(resolve => { finish = resolve; });
+      }
+      if (name === 'backup_session_result') return 'restored-generation';
+    });
+    const preferences = {
+      'thingary.theme': 'dark', 'thingary.style': 'olive',
+      'thingary.privacy-lock.v1': JSON.stringify({ enabled: true, idleMinutes: 5 }),
+      'thingary.privacy-cover.v1': 'true', 'thingary.hide-financial-amounts.v1': '1',
+      'thingary.overview-view.v1': 'combined', 'thingary.retire.valueMode': 'real',
+      'thingary.checkin-reminder-asked.v1': '1', 'unrelated-setting': 'keep',
+    };
+    for (const [key, value] of Object.entries(preferences)) ui.storage.set(key, value);
+    for (const key of ['thingary.asset-draft.v1', 'thingary.material-upload.v1', 'thingary.wishlist-decision.v1', 'thingary.recent-materials.old', 'thingary.saving-hint.v1', 'thingary.merge-dismissed.v1', 'thingary.start-choice.v1']) ui.storage.set(key, 'old-data');
+    ui.click('选择…'); await settle(); ui.click('确认替换当前资料'); await settle();
+    // Unknown receipts arriving before completion still belong to their original
+    // generation and must survive the restore for read-only reconciliation.
+    ui.storage.set(pendingKey, JSON.stringify(pending));
+    const itemPending = JSON.stringify({ request_id: 'item-original', generation: 'old-library', hash: 'hash', include_duplicates: false });
+    ui.storage.set('thingary.item-import-pending.v1', itemPending);
+    if (lostReply) ui.click('核对恢复结果'); else finish('restored-generation');
+    await settle();
+    assert.equal(ui.reloads, 1);
+    for (const [key, value] of Object.entries(preferences)) assert.equal(ui.storage.get(key), value, key);
+    assert.equal(ui.storage.get(pendingKey), JSON.stringify(pending));
+    assert.equal(ui.storage.get('thingary.item-import-pending.v1'), itemPending);
+    assert.equal(ui.storage.size, Object.keys(preferences).length + 2);
+    const storage = { getItem: key => ui.storage.get(key) ?? null };
+    assert.deepEqual(readLockPreference(storage), { enabled: true, idleMinutes: 5 });
+    assert.equal(readCoverPreference(storage), true);
+  }
+});
+
+test('encrypted restore reuses the key file input and submits only text with the checked token', async () => {
+  const ui = runtime('DataManagement', settings(), null, async name => {
+    if (name === 'inspect_backup') return { ...checkedBackup, encrypted: true, summary: null };
+    if (name === 'unlock_backup_session') return checkedBackup;
+  });
+  ui.click('选择…'); await settle();
+  ui.find(n => n.type === KeyInput).props.onChange('# fictional identity file\nAGE-SECRET-KEY-1FICTIONAL');
+  ui.click('解密并检查'); await settle();
+  const call = ui.calls.find(c => c.name === 'unlock_backup_session');
+  assert.equal(call.args.token, 'frozen-token');
+  assert.equal(call.args.keyText, '# fictional identity file\nAGE-SECRET-KEY-1FICTIONAL');
+  assert.equal('path' in call.args, false);
+  assert.ok(ui.button('确认替换当前资料'));
+  assert.equal(ui.find(n => n.type === KeyInput), undefined);
+  assert.equal(ui.storage.size, 0, 'recovery key text is never persisted');
+});
+
 test('lost restore response preserves its token and only the read-only result command resolves it', async () => {
   let receipt = 'unknown';
   const ui = runtime('DataManagement', settings(), null, async name => {

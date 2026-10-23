@@ -16,7 +16,7 @@ import { draftFromFlow, draftToFlowPatch, parseReviewInput, parseReviewResult } 
 import type { FieldIssueV1, FlowDraft } from './investment-review/model';
 import './investment-review/investment-review.css';
 import './planning-followup-ui/planning-followup-ui.css';
-
+import { t } from './i18n.ts';
 /** Real Store boundary. All balances, content keys and profit are native results. */
 function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, writeVersion, incomes, accountNames = {}, blocked, reload, onPending, onEditingChange, followupPort, today, movementPresentation = 'records', movementsEnabled = true, onViewAllMovements, receiptResolutionVersion = 0, onPreviewChange, pendingReceipt = false }: {
   generation: string; fromSnapshotId: string | null; toSnapshotId: string; writeVersion: number; incomes: Income[] | null;
@@ -37,11 +37,11 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
   useEffect(() => { setPair({ from: fromSnapshotId, to: toSnapshotId }); setDraft(null); }, [fromSnapshotId, toSnapshotId, generation]);
   useEffect(() => {
     let live = true; onPreviewChange?.(null); setOuter({ status: 'loading' }); setRead(null); setListError(''); setListLoading(true);
-    listInvestmentReviews(generation).then(v => { if (!live) return; if (v.generation !== generation) throw Error('资料库已变化，请重新读取。'); setRecords(v.records); }).catch(e => { if (live) setListError(errorMessage(e)); }).finally(() => { if (live) setListLoading(false); });
+    listInvestmentReviews(generation).then(v => { if (!live) return; if (v.generation !== generation) throw Error(t('资料库已变化，请重新读取。')); setRecords(v.records); }).catch(e => { if (live) setListError(errorMessage(e)); }).finally(() => { if (live) setListLoading(false); });
     if (!pair.from) setOuter({ status: 'empty' });
     else readInvestmentReview(generation, pair.from, pair.to).then(v => {
       if (!live) return;
-      if (v.generation !== generation || !parseReviewInput(v.input) || !parseReviewResult(v.result)) throw Error('投资核对资料格式不兼容或资料库已变化。');
+      if (v.generation !== generation || !parseReviewInput(v.input) || !parseReviewResult(v.result)) throw Error(t('投资核对资料格式不兼容或资料库已变化。'));
       onPreviewChange?.({ fromSnapshotId: pair.from!, toSnapshotId: pair.to, result: v.result }); setRead(v); setOuter({ status: 'ready', input: v.input, result: v.result });
     }).catch(e => { if (live) setOuter({ status: 'error', code: 'READ_ERROR', message: errorMessage(e) }); });
     return () => { live = false; };
@@ -74,28 +74,28 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
   const hints = read && incomes ? incomes.filter(i => i.fields.date > read.input.from.date && i.fields.date <= read.input.to.date && ['interest','cash_dividend','other_investment'].includes(i.fields.category ?? 'unclassified')) : [];
   const scope = new Set(read?.input.from.members.filter(m => m.counted).map(m => m.account_id));
   const assigned = (i: Income) => !!i.fields.source_account_id && scope.has(i.fields.source_account_id) && (i.fields.destination === 'retained' || i.fields.destination === 'transferred' && !!i.fields.receiving_account_id);
-  const hintsView = <details><summary>已记录投资现金收入（仅供核对）</summary><p className="muted small">转到范围外的分红已包含在转出合计中，不再加进总损益。记录存在不代表资金流动已核对完整。</p>{incomes === null ? <p role="alert">收入明细读取失败。</p> : !hints.length ? <p>这一期间没有已记录的投资现金收入。</p> : <ul>{hints.map(i => <li key={i.id}>{i.fields.date} · {incomeCategories[i.fields.category ?? 'unclassified']} · {money(i.fields.net_cents)} · {assigned(i) ? i.fields.destination === 'retained' ? '留在投资账户' : scope.has(i.fields.receiving_account_id!) ? '范围内转移' : '转到范围外' : '未归属明细'}{i.fields.notes && ` · ${i.fields.notes}`}</li>)}</ul>}</details>;
+  const hintsView = <details><summary>{t('已记录投资现金收入（仅供核对）')}</summary><p className="muted small">{t('转到范围外的分红已包含在转出合计中，不再加进总损益。记录存在不代表资金流动已核对完整。')}</p>{incomes === null ? <p role="alert">{t('收入明细读取失败。')}</p> : !hints.length ? <p>{t('这一期间没有已记录的投资现金收入。')}</p> : <ul>{hints.map(i => <li key={i.id}>{i.fields.date} · {incomeCategories[i.fields.category ?? 'unclassified']} · {money(i.fields.net_cents)} · {assigned(i) ? i.fields.destination === 'retained' ? t('留在投资账户') : scope.has(i.fields.receiving_account_id!) ? t('范围内转移') : t('转到范围外') : t('未归属明细')}{i.fields.notes && ` · ${i.fields.notes}`}</li>)}</ul>}</details>;
   const disclosure = reviewDisclosureState(outer);
   const historyPending = records.filter(r => !r.deleted && !r.flow.confirmed_complete).length;
-  const messages = [disclosure.attention, listError && `已保存投资核对区间读取失败：${listError}`, historyPending ? `有 ${historyPending} 个已保存投资核对区间尚未确认完整，请查看已保存区间。` : '', read && incomes === null ? '投资现金收入明细读取失败，请展开查看。' : '', notice, pendingReceipt || uncertain ? '存在未确认的保存结果，请通过页面顶部“核对结果”确认。' : ''].filter((m): m is string => !!m);
-  return <section aria-label="投资区间复盘"><InvestmentReviewDisclosure label={disclosure.label} messages={messages} editing={draft !== null || busy || deleting !== null}>
+  const messages = [disclosure.attention, listError && t('已保存投资核对区间读取失败：{listError}', { listError }), historyPending ? t('有 {historyPending} 个已保存投资核对区间尚未确认完整，请查看已保存区间。', { historyPending }) : '', read && incomes === null ? t('投资现金收入明细读取失败，请展开查看。') : '', notice, pendingReceipt || uncertain ? t('存在未确认的保存结果，请通过页面顶部“核对结果”确认。') : ''].filter((m): m is string => !!m);
+  return <section aria-label={t('投资区间复盘')}><InvestmentReviewDisclosure label={disclosure.label} messages={messages} editing={draft !== null || busy || deleting !== null}>
     <InvestmentReviewCard accountNames={accountNames} outer={outer} onCheckFlow={followupPort ? undefined : edit} onEditFlow={followupPort ? undefined : edit} disabled={frozen}/>
     {/* 注入端口后由 FollowupSection 提供核对方式（手填／明细）与资金流动入口，避免双核对窗。 */}
     {followupPort && <FollowupSection port={followupPort} generation={generation} pair={pair.from ? { from_snapshot_id: pair.from, to_snapshot_id: pair.to } : null} writeVersion={writeVersion} today={today ?? ''} blocked={frozen} onPending={onPending} onEditingChange={onEditingChange} receiptResolutionVersion={receiptResolutionVersion} movementPresentation={movementPresentation} movementsEnabled={movementsEnabled} onViewAllMovements={onViewAllMovements} input={read?.input}/>}
-    {outer.status === 'error' && <button className="ui-btn" disabled={busy} onClick={() => setRetry(n => n + 1)}>重新读取投资区间</button>}
-    {(pair.from !== fromSnapshotId || pair.to !== toSnapshotId) && <button type="button" disabled={frozen || draft !== null} onClick={() => setPair({ from: fromSnapshotId, to: toSnapshotId })}>返回本期区间</button>}
+    {outer.status === 'error' && <button className="ui-btn" disabled={busy} onClick={() => setRetry(n => n + 1)}>{t('重新读取投资区间')}</button>}
+    {(pair.from !== fromSnapshotId || pair.to !== toSnapshotId) && <button type="button" disabled={frozen || draft !== null} onClick={() => setPair({ from: fromSnapshotId, to: toSnapshotId })}>{t('返回本期区间')}</button>}
     {read && hintsView}
-    <details><summary>已保存的投资核对区间（含最近删除）</summary>
-      <p className="muted small">插入中间盘点不会拆分旧核对。替换重叠区间前，请先明确删除旧记录；恢复冲突会保留原记录并提示。</p>
-      {listLoading ? <p role="status">正在读取已保存区间…</p> : listError ? <p role="alert">读取区间记录失败：{listError}<button disabled={busy} onClick={() => setRetry(n => n + 1)}>重试</button></p> : !records.length ? <p>还没有已保存的投资核对。</p> : <ul>{records.map(r => <li key={r.flow.id}>
-        {r.flow.from_date} → {r.flow.to_date} · {r.deleted ? '已删除' : '已保存'}
-        {!r.deleted && <button type="button" disabled={frozen || draft !== null} onClick={() => { setPair({ from: r.flow.from_snapshot_id, to: r.flow.to_snapshot_id }); setNotice(''); }}>查看原区间</button>}
-        {r.deleted ? <button type="button" disabled={frozen || draft !== null} onClick={() => void trash(r)}>恢复核对</button> : deleting === r.flow.id ? <><button type="button" disabled={frozen} onClick={() => void trash(r)}>确认删除核对</button><button type="button" disabled={busy} onClick={() => setDeleting(null)}>取消</button></> : <button type="button" disabled={frozen || draft !== null} onClick={() => setDeleting(r.flow.id)}>删除核对</button>}
+    <details><summary>{t('已保存的投资核对区间（含最近删除）')}</summary>
+      <p className="muted small">{t('插入中间盘点不会拆分旧核对。替换重叠区间前，请先明确删除旧记录；恢复冲突会保留原记录并提示。')}</p>
+      {listLoading ? <p role="status">{t('正在读取已保存区间…')}</p> : listError ? <p role="alert">{t('读取区间记录失败：{listError}', { listError })}<button disabled={busy} onClick={() => setRetry(n => n + 1)}>{t('重试')}</button></p> : !records.length ? <p>{t('还没有已保存的投资核对。')}</p> : <ul>{records.map(r => <li key={r.flow.id}>
+        {r.flow.from_date} → {r.flow.to_date} · {r.deleted ? t('已删除') : t('已保存')}
+        {!r.deleted && <button type="button" disabled={frozen || draft !== null} onClick={() => { setPair({ from: r.flow.from_snapshot_id, to: r.flow.to_snapshot_id }); setNotice(''); }}>{t('查看原区间')}</button>}
+        {r.deleted ? <button type="button" disabled={frozen || draft !== null} onClick={() => void trash(r)}>{t('恢复核对')}</button> : deleting === r.flow.id ? <><button type="button" disabled={frozen} onClick={() => void trash(r)}>{t('确认删除核对')}</button><button type="button" disabled={busy} onClick={() => setDeleting(null)}>{t('取消')}</button></> : <button type="button" disabled={frozen || draft !== null} onClick={() => setDeleting(r.flow.id)}>{t('删除核对')}</button>}
       </li>)}</ul>}
     </details>
     {notice && <p role="alert" className="notice">{notice}</p>}
-    {draft && read && !followupPort && <InvestmentFlowDialog accountNames={accountNames} input={read.input} initial={draft} issues={issues} busy={frozen} canClose={!busy} onDraftChange={setDraft} onSubmit={next => void save(next)} onCancel={() => { if (!busy) setDraft(null); }}>{hintsView}{uncertain && <p className="notice" role="status">原请求已保留，请回到页面顶部核对结果。<button type="button" onClick={() => setDraft(null)}>关闭，稍后核对</button></p>}</InvestmentFlowDialog>}
-    {uncertain && <p className="notice" role="status">提交结果未知，原请求已保留。请通过页面顶部“核对结果”确认。{draft && <button type="button" onClick={() => setDraft(null)}>关闭，稍后核对</button>}</p>}
+    {draft && read && !followupPort && <InvestmentFlowDialog accountNames={accountNames} input={read.input} initial={draft} issues={issues} busy={frozen} canClose={!busy} onDraftChange={setDraft} onSubmit={next => void save(next)} onCancel={() => { if (!busy) setDraft(null); }}>{hintsView}{uncertain && <p className="notice" role="status">{t('原请求已保留，请回到页面顶部核对结果。')}<button type="button" onClick={() => setDraft(null)}>{t('关闭，稍后核对')}</button></p>}</InvestmentFlowDialog>}
+    {uncertain && <p className="notice" role="status">{t('提交结果未知，原请求已保留。请通过页面顶部“核对结果”确认。')}{draft && <button type="button" onClick={() => setDraft(null)}>{t('关闭，稍后核对')}</button>}</p>}
   </InvestmentReviewDisclosure></section>;
 }
 

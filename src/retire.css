@@ -1,7 +1,7 @@
 /* 退休概览与假设分析：图表与卡片版式。颜色全部取主题变量，深浅色与各风格通用。 */
 .rc-wrap { position: relative; }
 .rc-chart { width: 100%; height: auto; display: block; touch-action: pan-y; }
-.rc-chart text { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.rc-chart text { font-size: 16px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .rc-chart .rc-strong { fill: var(--text); font-weight: 700; }
 .rc-grid { stroke: var(--line); stroke-width: 1; }
 .rc-axis { stroke: var(--muted); stroke-width: 1; opacity: .6; }
@@ -9,9 +9,9 @@
 .rc-required { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 6 4; opacity: .85; }
 .rc-ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; opacity: .55; }
 .rc-ref.rc-fi { stroke: var(--positive); opacity: .85; }
-.rc-chart .rc-label { font-size: 11px; font-weight: 600; fill: var(--muted); }
+.rc-chart .rc-label { font-size: 16px; font-weight: 600; fill: var(--muted); }
 .rc-chart .rc-fi-text { fill: var(--positive); }
-.rc-chart .rc-callout { font-size: 12px; font-weight: 700; }
+.rc-chart .rc-callout { font-size: 17px; font-weight: 700; }
 .rc-chart .rc-callout.rc-muted { fill: var(--muted); }
 .rc-dot-ref { fill: var(--bg); stroke: var(--muted); stroke-width: 1.5; }
 .rc-cursor { stroke: var(--text); stroke-width: 1; opacity: .25; }

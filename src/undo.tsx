@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { errorMessage } from './asset';
 import { listen } from '@tauri-apps/api/event';
 import { undoTarget } from './undo-shortcut';
-
+import { t } from './i18n.ts';
 // D17 rule 6: right after a deletion, one click puts it back. Recently Deleted
 // stays the durable path; this bar only covers a click made by mistake.
 type Offer = { label: string; run: () => Promise<void | string> };
@@ -48,14 +48,14 @@ export function UndoBar() {
   async function undo() {
     if (!offer || busy) return;
     setBusy(true); window.clearTimeout(timer.current);
-    try { setMessage((await offer.run()) || '已撤销删除。'); window.dispatchEvent(new Event(restoredEvent)); }
-    catch (e) { setMessage(errorMessage(e) + ' 可以到“最近删除”恢复。'); }
+    try { setMessage((await offer.run()) || t('已撤销删除。')); window.dispatchEvent(new Event(restoredEvent)); }
+    catch (e) { setMessage(errorMessage(e) + t(' 可以到“最近删除”恢复。')); }
     finally { setBusy(false); hideLater(4000); }
   }
   latest.current = { offered: !!offer && !message && !busy, undo: () => void undo() };
   if (!offer) return null;
   return <div className="undo-bar" role="status">
     <span>{message || offer.label}</span>
-    {!message && <button type="button" disabled={busy} onClick={() => void undo()}>{busy ? '正在撤销…' : <>撤销<kbd>{modKey()}Z</kbd></>}</button>}
+    {!message && <button type="button" disabled={busy} onClick={() => void undo()}>{busy ? t('正在撤销…') : <>{t('撤销')}<kbd>{modKey()}Z</kbd></>}</button>}
   </div>;
 }

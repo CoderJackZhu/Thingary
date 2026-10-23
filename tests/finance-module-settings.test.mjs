@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runtime } from './planning-component-runtime.mjs';
 import * as moduleModel from '../src/modules.ts';
+import * as choice from '../src/start-choice.ts';
 const base = { ...moduleModel.allModules, planning: false, incomes: true, movements: true, finance_status: 'ready', finance_revision: 1 };
 function mount(modules = base, invoke = async (_name, args) => ({ ...modules, ...args }), changes = []) {
-  return runtime('ModuleSettings', { modules, onChange: m => changes.push(m) }, undefined, undefined, { components: [], modules: { './modules': moduleModel, './asset': { errorMessage: e => e.message }, '@tauri-apps/api/core': { invoke } } });
+  const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
+  return runtime('ModuleSettings', { modules, onChange: m => changes.push(m) }, undefined, undefined, { components: [], modules: { './start-choice': { ...choice, choiceStorage: () => storage }, './modules': moduleModel, './asset': { errorMessage: e => e.message }, '@tauri-apps/api/core': { invoke } } });
 }
 test('income settings submit explicit choice without enabling goals', async () => {
   const calls = [], changes = [];

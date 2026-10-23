@@ -2,13 +2,13 @@
 // Pure functions; business values still come from src/asset.ts (`yuan` is reused, not reimplemented).
 import { localDay, unitMoney as unitMoneyShared, yuan } from '../asset.ts';
 import { forecastMoney } from '../plan-format.ts';
-
+import { t } from '../i18n.ts';
 /** 事实未知（金额、日期）。 */
-export const UNKNOWN = '未知';
+export const UNKNOWN = t('未知');
 /** 可选项没有设置（标签、备注、品牌……）。 */
-export const NOT_SET = '未设置';
+export const NOT_SET = t('未设置');
 /** 列表里什么都没有。 */
-export const NONE = '暂无';
+export const NONE = t('暂无');
 
 const dayPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -26,16 +26,16 @@ export function dayLabel(date: string | null | undefined, today: string = localD
   const match = dayPattern.exec(date);
   if (!match) return date;
   const [, year, month, day] = match;
-  const base = `${Number(month)}月${Number(day)}日`;
-  return year === today.slice(0, 4) ? base : `${Number(year)}年${base}`;
+  const base = t('{v1}月{v2}日', { v1: Number(month), v2: Number(day) });
+  return year === today.slice(0, 4) ? base : t('{v1}年{base}', { v1: Number(year), base });
 }
 
 /** `2026-10` 或 `2026-10-21` 的月份标题：「10月」，不是今年时「2025年10月」。 */
 export function monthLabel(month: string, today: string = localDay()): string {
   const match = /^(\d{4})-(\d{2})/.exec(month);
   if (!match) return month;
-  const base = `${Number(match[2])}月`;
-  return match[1] === today.slice(0, 4) ? base : `${Number(match[1])}年${base}`;
+  const base = t('{v1}月', { v1: Number(match[2]) });
+  return match[1] === today.slice(0, 4) ? base : t('{v1}年{base}', { v1: Number(match[1]), base });
 }
 
 /** 金额到元，有分才显示两位小数；未知显示「未知」（不是 0）。 */

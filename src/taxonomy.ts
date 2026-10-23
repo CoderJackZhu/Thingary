@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 // Public contracts for the T06a classification and purchase-channel UI.
 //
 // The integration target in T06b will own the canonical snapshot and the
@@ -21,12 +22,12 @@ export interface CategoryIconDescriptor {
 }
 
 export const CATEGORY_ICONS: readonly CategoryIconDescriptor[] = [
-  { value: "box", label: "箱子" },
-  { value: "computer", label: "电脑" },
-  { value: "phone", label: "手机" },
-  { value: "camera", label: "摄影" },
-  { value: "audio", label: "音频" },
-  { value: "home", label: "家电" },
+  { value: "box", label: t('箱子') },
+  { value: "computer", label: t('电脑') },
+  { value: "phone", label: t('手机') },
+  { value: "camera", label: t('摄影') },
+  { value: "audio", label: t('音频') },
+  { value: "home", label: t('家电') },
 ];
 
 export function findCategoryIcon(value: CategoryIcon): CategoryIconDescriptor {
@@ -156,9 +157,9 @@ export function previewSnapshot(catalog: PreviewCatalog): TaxonomySnapshot {
 
 export function validatePreviewName(entries: readonly TaxonomyEntry[], kind: TaxonomyKind, name: string, editingId?: string): string | null {
   const normalized = normalizeName(name);
-  if (!normalized) return "请填写名称。";
-  if (normalized === (kind === "category" ? "未分类" : "未记录")) return "这是未选择时的显示名称，请换一个名称。";
-  return isDuplicateName(entries, normalized, editingId) ? "已有同名项，请更换。" : null;
+  if (!normalized) return t('请填写名称。');
+  if (normalized === (kind === "category" ? t('未分类') : t('未记录'))) return t('这是未选择时的显示名称，请换一个名称。');
+  return isDuplicateName(entries, normalized, editingId) ? t('已有同名项，请更换。') : null;
 }
 
 export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCommand, newId?: string): PreviewCatalog {
@@ -171,16 +172,16 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
     if (error) throw new Error(error);
   }
   if (command.type === "create") {
-    if (!newId || entries.some(e => e.id === newId)) throw new Error("新建标识无效。");
+    if (!newId || entries.some(e => e.id === newId)) throw new Error(t('新建标识无效。'));
     entries.push({ id: newId, name: normalizeName(command.name), ...(kind === "category" ? { icon: command.icon ?? "box" } : {}), references: { activeAssets: 0, deletedAssets: 0 } });
     return catalog;
   }
   if (command.type === 'reorder') {
-    if(command.ids.length!==entries.length||new Set(command.ids).size!==entries.length||command.ids.some(id=>!entries.some(e=>e.id===id)))throw new Error('排序列表已变化，请重新加载。');
+    if(command.ids.length!==entries.length||new Set(command.ids).size!==entries.length||command.ids.some(id=>!entries.some(e=>e.id===id)))throw new Error(t('排序列表已变化，请重新加载。'));
     catalog[key]=command.ids.map(id=>entries.find(e=>e.id===id)!);return catalog;
   }
   const index = entries.findIndex(e => e.id === command.id);
-  if (index < 0) throw new Error("目标已不可用，请重新加载。");
+  if (index < 0) throw new Error(t('目标已不可用，请重新加载。'));
   switch (command.type) {
     case "rename": entries[index].name = normalizeName(command.name); break;
     case "set-icon": entries[index].icon = command.icon; break;
@@ -190,7 +191,7 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
       break;
     }
     case "remove": {
-      if (command.targetId === command.id || (command.targetId !== null && !entries.some(e => e.id === command.targetId))) throw new Error("请选择有效的迁移目标。");
+      if (command.targetId === command.id || (command.targetId !== null && !entries.some(e => e.id === command.targetId))) throw new Error(t('请选择有效的迁移目标。'));
       const field = kind === "category" ? "categoryId" : "channelId";
       for (const asset of catalog.assets) if (asset[field] === command.id) asset[field] = command.targetId;
       entries.splice(index, 1);
@@ -203,6 +204,6 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
 /** Production name policy; Rust canonical_name enforces the same NFC/scalar rules. */
 export function validateTaxonomyName(entries: readonly TaxonomyEntry[], kind: TaxonomyKind, name: string, editingId?: string): string | null {
   const normalized = normalizeName(name);
-  if (!normalized || [...normalized].length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(normalized)) return '名称须为 1–80 字，不能包含控制字符。';
+  if (!normalized || [...normalized].length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(normalized)) return t('名称须为 1–80 字，不能包含控制字符。');
   return validatePreviewName(entries, kind, normalized, editingId);
 }

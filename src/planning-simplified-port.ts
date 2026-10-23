@@ -18,11 +18,12 @@ import { buildBasicCapabilities } from './plan-basic.ts';
 import { simplifiedEmpty } from './plan-simplified.ts';
 import type { PlanningSources, ProfileUpdate } from './plan-basic-contract.ts';
 import type { SimplifiedPlanningReadV1, ResetReasonV1 } from './plan-simplified-contract.ts';
+import { t } from './i18n.ts';
 /** Native source adapter. Read errors are thrown, never represented as an empty plan. */
 export function simplifiedReadFromSourcesV1(s: PlanningSources): SimplifiedPlanningReadV1 {
-  if (!s.modules.planning) throw new Error('规划模块已关闭');
+  if (!s.modules.planning) throw new Error(t('规划模块已关闭'));
   if (s.profile.status === 'error') throw new Error(s.profile.value.message);
-  if (s.profile.value.generation !== s.generation) throw new Error('资料库身份已变化，请重新读取');
+  if (s.profile.value.generation !== s.generation) throw new Error(t('资料库身份已变化，请重新读取'));
   const saved = s.profile.value.saved, fields = saved?.profile.retire.simplified ?? simplifiedEmpty();
   const reset_reasons: ResetReasonV1[] = [];
   if (fields.time.target_month === null || fields.time.horizon_month === null) reset_reasons.push('time_unconfirmed');
@@ -36,8 +37,8 @@ export function nativeSimplifiedPlanningPortV1(modules: () => PlanningModules): 
   const read = async () => simplifiedReadFromSourcesV1(await readPlanningSources(modules()));
   const write = async (input: ProfileUpdate): Promise<SaveOutcomeV1> => {
     const pending = storedPending();
-    if (pending && JSON.stringify(pending) !== JSON.stringify({ command: 'plan_profile_update', input, label: '规划分区' })) {
-      return { status: 'rejected', issues: [{ path: '', code: 'pending_request', message: '还有一个提交结果待核对，原请求已保留；本次尚未提交。' }] };
+    if (pending && JSON.stringify(pending) !== JSON.stringify({ command: 'plan_profile_update', input, label: t('规划分区') })) {
+      return { status: 'rejected', issues: [{ path: '', code: 'pending_request', message: t('还有一个提交结果待核对，原请求已保留；本次尚未提交。') }] };
     }
     try { const result = await savePlanningSection(input); return { status: 'saved', revision: result.revision }; }
     catch (e) {
@@ -53,7 +54,7 @@ export function nativeSimplifiedPlanningPortV1(modules: () => PlanningModules): 
       const pending = storedPending();
       // Old full-profile submissions are checked by metadata only. Never replay
       // their policy/factual payload; clear it only after verifying the outcome.
-      if (!pending || !['plan_profile_update', 'plan_profile_save'].includes(pending.command) || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return { status: 'rejected', issues: [{ path: '', code: 'receipt_mismatch', message: '请核对原请求与资料库身份' }] };
+      if (!pending || !['plan_profile_update', 'plan_profile_save'].includes(pending.command) || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return { status: 'rejected', issues: [{ path: '', code: 'receipt_mismatch', message: t('请核对原请求与资料库身份') }] };
       return resolveSimplifiedReceiptV1(context, {
         lookup: () => invoke<string | null>('wealth_request_result', { request: context.request_id, generation: context.generation }),
         read, clear: clearPending,
@@ -66,10 +67,10 @@ export function nativeSimplifiedPlanningPortV1(modules: () => PlanningModules): 
 export async function resolveSimplifiedReceiptV1(context: SaveContextV1, driver: { lookup: () => Promise<string | null>; read: () => Promise<SimplifiedPlanningReadV1>; clear: () => void }): Promise<SaveOutcomeV1> {
   try {
     const id = await driver.lookup();
-    if (id === null) { driver.clear(); return { status: 'rejected', issues: [{ path: '', code: 'not_committed', message: '原请求未保存' }] }; }
-    if (id !== 'profile') throw new Error('回执结果不匹配');
+    if (id === null) { driver.clear(); return { status: 'rejected', issues: [{ path: '', code: 'not_committed', message: t('原请求未保存') }] }; }
+    if (id !== 'profile') throw new Error(t('回执结果不匹配'));
     const result = await driver.read();
-    if (result.generation !== context.generation || result.revision === null) throw new Error('已保存但资料无法核对');
+    if (result.generation !== context.generation || result.revision === null) throw new Error(t('已保存但资料无法核对'));
     driver.clear(); return { status: 'saved', revision: result.revision };
   } catch { return { status: 'unresolved', request_id: context.request_id }; }
 }

@@ -6,7 +6,7 @@ import type { WishlistItem, WishlistPage } from './wishlist';
 import type { WishLike } from './plan-wishes';
 import { readPlanningSources } from './planning-service.ts';
 import type { Modules } from './modules.ts';
-
+import { t } from './i18n.ts';
 export type PlanContext = { review: PlanReview | null; incomes: Income[]; profile: ProfileState; snapshot: Snapshot | null; sources: PlanningSources };
 
 /** Atomic sources; hidden wealth is never requested. History can fail independently. */
@@ -14,7 +14,7 @@ export async function loadPlanContext(): Promise<PlanContext> {
   const modules = await invoke<Modules>('modules_get');
   const sources = await readPlanningSources(modules);
   if (sources.profile.status === 'error') throw sources.profile.value;
-  if (!sources.profile.value.saved?.profile.retire.basic && (sources.review.status === 'error' || sources.snapshot.status === 'error')) throw new Error('原规划来源尚未齐全');
+  if (!sources.profile.value.saved?.profile.retire.basic && (sources.review.status === 'error' || sources.snapshot.status === 'error')) throw new Error(t('原规划来源尚未齐全'));
   return { sources, profile: sources.profile.value, review: sources.review.status === 'ready' ? sources.review.value : null, incomes: sources.incomes.status === 'ready' ? sources.incomes.value : [], snapshot: sources.snapshot.status === 'ready' ? sources.snapshot.value : null };
 }
 

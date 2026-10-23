@@ -5,15 +5,15 @@ import { errorMessage, inputMoney, money } from './asset';
 import { warrantyKinds } from './warranty';
 import { DateInput } from './DateInput';
 import { batchSummary, dateError, earliestAction, saleNet, stateBlock, warrantyDefault, warrantyPreview, addYears, type BatchRow } from './batch-select';
-
+import { t } from './i18n.ts';
 // D19 first batch: a selection panel in the summary column and one table per
 // action. Every row starts at “保持不变”; “全部设为” fills a whole column.
 export type BatchKind = 'classify' | 'label' | 'retire' | 'activate' | 'exclude' | 'delete' | 'warranty' | 'sell';
 export type BatchInput = { request_id: string; generation: string; action: Exclude<BatchKind, never>; items: Record<string, unknown>[] };
 type Choice = { id: string; name: string; enabled: boolean };
-const stateText = { active: '使用中', retired: '已退役', sold: '已售出' } as const;
-const exclusionLabels = [['total', '总价'], ['daily', '日均'], ['statistics', '统计'], ['timeline', '时间轴']] as const;
-export const batchVerb: Record<BatchKind, string> = { classify: '设置分类与渠道', label: '设置标签', retire: '退役', activate: '重新启用', exclude: '设置统计口径', delete: '删除', warranty: '添加保障', sell: '售出' };
+const stateText = { active: t('使用中'), retired: t('已退役'), sold: t('已售出') } as const;
+const exclusionLabels = [['total', t('总价')], ['daily', t('日均')], ['statistics', t('统计')], ['timeline', t('时间轴')]] as const;
+export const batchVerb: Record<BatchKind, string> = { classify: t('设置分类与渠道'), label: t('设置标签'), retire: t('退役'), activate: t('重新启用'), exclude: t('设置统计口径'), delete: t('删除'), warranty: t('添加保障'), sell: t('售出') };
 
 function useRows(ids: string[], version: number) {
   const [loaded, setLoaded] = useState<{ key: string; rows: BatchRow[] } | null>(null), [failure, setFailure] = useState<{ key: string; message: string } | null>(null), [retry, setRetry] = useState(0);
@@ -31,23 +31,23 @@ export function BatchPanel({ ids, version, onClear, onOpen }: { ids: string[]; v
   const s = rows ? batchSummary(rows) : null;
   const states = s ? [['active', s.states.active], ['retired', s.states.retired], ['sold', s.states.sold]].filter(([, n]) => n).map(([k, n]) => `${stateText[k as keyof typeof stateText]} ${n}`).join(' · ') : '';
   return <div className="summary-body batch-panel">
-    <div className="panel-top"><span>批量操作</span><button aria-label="取消选择" onClick={onClear}>×</button></div>
-    <h2 className="batch-count">已选 {ids.length} 件</h2>
-    {error ? <p role="alert">{error} <button onClick={reload}>重新读取</button></p> : !s ? <p className="muted small" role="status">正在读取…</p> : <>
+    <div className="panel-top"><span>{t('批量操作')}</span><button aria-label={t('取消选择')} onClick={onClear}>×</button></div>
+    <h2 className="batch-count">{t('已选 {length} 件', { length: ids.length })}</h2>
+    {error ? <p role="alert">{error} <button onClick={reload}>{t('重新读取')}</button></p> : !s ? <p className="muted small" role="status">{t('正在读取…')}</p> : <>
       <p className="muted small">{states}</p>
-      <dl className="facts"><dt>购入合计</dt><dd>{money(s.total)}</dd><dt>金额未知</dt><dd>{s.unknown} 件</dd></dl>
+      <dl className="facts"><dt>{t('购入合计')}</dt><dd>{money(s.total)}</dd><dt>{t('金额未知')}</dt><dd>{t('{unknown} 件', { unknown: s.unknown })}</dd></dl>
       <div className="batch-actions">
-        <button onClick={() => onOpen('classify')}>设置分类与渠道…</button>
-        <button onClick={() => onOpen('label')}>设置标签…</button>
-        {s.states.active > 0 && <button onClick={() => onOpen('retire')}>退役…</button>}
-        {s.states.active === 0 && s.states.retired > 0 && <button onClick={() => onOpen('activate')}>重新启用…</button>}
-        <button onClick={() => onOpen('warranty')}>添加保障…</button>
-        {s.states.active + s.states.retired > 0 && <button onClick={() => onOpen('sell')}>售出…</button>}
-        <button onClick={() => onOpen('exclude')}>统计口径…</button>
-        <button className="danger" onClick={() => onOpen('delete')}>删除 {ids.length} 件…</button>
+        <button onClick={() => onOpen('classify')}>{t('设置分类与渠道…')}</button>
+        <button onClick={() => onOpen('label')}>{t('设置标签…')}</button>
+        {s.states.active > 0 && <button onClick={() => onOpen('retire')}>{t('退役…')}</button>}
+        {s.states.active === 0 && s.states.retired > 0 && <button onClick={() => onOpen('activate')}>{t('重新启用…')}</button>}
+        <button onClick={() => onOpen('warranty')}>{t('添加保障…')}</button>
+        {s.states.active + s.states.retired > 0 && <button onClick={() => onOpen('sell')}>{t('售出…')}</button>}
+        <button onClick={() => onOpen('exclude')}>{t('统计口径…')}</button>
+        <button className="danger" onClick={() => onOpen('delete')}>{t('删除 {length} 件…', { length: ids.length })}</button>
       </div>
     </>}
-    <p className="muted batch-hint">{modKey().replace(/\+$/, '')} 点击加选 · Shift 点击连选 · {modKey()}A 全选当前筛选结果 · Esc 取消</p>
+    <p className="muted batch-hint">{t('{v1} 点击加选 · Shift 点击连选 · {v2}A 全选当前筛选结果 · Esc 取消', { v1: modKey().replace(/\+$/, ''), v2: modKey() })}</p>
   </div>;
 }
 
@@ -85,7 +85,7 @@ export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: {
   function set(id: string, part: Partial<RowValue>) { request.current = null; setValues(v => ({ ...v, [id]: { ...v[id], ...part } })); }
   function fill(part: Partial<RowValue>) { request.current = null; setValues(v => Object.fromEntries(Object.entries(v).map(([id, value]) => { const row = rows?.find(r => r.id === id); return [id, row && blocked(row) ? value : { ...value, ...part }]; }))); }
   const action = kind === 'activate' ? 'activate' : 'retire';
-  const blocked = (r: BatchRow) => (kind === 'retire' || kind === 'activate') ? stateBlock(r, action) : kind === 'sell' && r.state === 'sold' ? '已售出 · 不适用' : '';
+  const blocked = (r: BatchRow) => (kind === 'retire' || kind === 'activate') ? stateBlock(r, action) : kind === 'sell' && r.state === 'sold' ? t('已售出 · 不适用') : '';
   const norm = (v: string | null) => v ?? '';
   const price = (v: string) => { try { return inputMoney(v); } catch { return null; } };
   function change(r: BatchRow): Record<string, unknown> | null {
@@ -108,8 +108,8 @@ export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: {
   function rowError(r: BatchRow): string {
     const v = values[r.id]; if (!v?.on || blocked(r)) return '';
     if (kind === 'retire' || kind === 'activate') return dateError(r, v.date, today);
-    if (kind === 'warranty') return v.start && v.end && v.end < v.start ? '结束日期早于开始日期' : '';
-    if (kind === 'sell') { if (price(v.price) === null) return v.price.trim() ? '金额格式不正确' : '请填写售价，可为 0'; if (v.date > today) return '不能晚于今天'; const e = earliestAction(r); return e && v.date < e ? `不能早于 ${e}` : ''; }
+    if (kind === 'warranty') return v.start && v.end && v.end < v.start ? t('结束日期早于开始日期') : '';
+    if (kind === 'sell') { if (price(v.price) === null) return v.price.trim() ? t('金额格式不正确') : t('请填写售价，可为 0'); if (v.date > today) return t('不能晚于今天'); const e = earliestAction(r); return e && v.date < e ? t('不能早于 {e}', { e }) : ''; }
     return '';
   }
   const invalid = !!rows?.some(r => rowError(r));
@@ -119,44 +119,44 @@ export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: {
     request.current ??= crypto.randomUUID();
     const input: BatchInput = { request_id: request.current, generation, action: kind, items };
     try { const out = await invoke<{ changed: number }>('batch_change', { input }); onDone(input, out.changed); }
-    catch (e) { setNotice(errorMessage(e) + ' 本次没有保存任何更改。'); }
+    catch (e) { setNotice(errorMessage(e) + t(' 本次没有保存任何更改。')); }
     finally { setBusy(false); }
   }
-  const options = (list: Choice[] | undefined, empty: string) => [<option key={KEEP} value={KEEP}>保持不变</option>, <option key="none" value="">{empty}</option>, ...(list ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)];
-  const nameOf = (list: Choice[] | undefined, id: string | null, empty: string) => id ? list?.find(c => c.id === id)?.name ?? '已停用的项' : empty;
+  const options = (list: Choice[] | undefined, empty: string) => [<option key={KEEP} value={KEEP}>{t('保持不变')}</option>, <option key="none" value="">{empty}</option>, ...(list ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)];
+  const nameOf = (list: Choice[] | undefined, id: string | null, empty: string) => id ? list?.find(c => c.id === id)?.name ?? t('已停用的项') : empty;
   const changed = (r: BatchRow) => !!change(r);
-  const title = kind === 'delete' ? `删除 ${ids.length} 件物品？` : `${{ classify: '批量分类', label: '批量设置标签', exclude: '批量统计口径', retire: '批量退役', activate: '批量重新启用', warranty: '批量添加保障', sell: '批量售出' }[kind]} · 为 ${ids.length} 件物品分别设置`;
-  const note = { classify: '每行默认保持不变；在“全部设为”选择可一次填满整列，再单独改个别行。', label: '每行默认保持不变；在“全部设为”选择可一次填满整列。', exclude: '勾选表示不计入对应口径；表头可整列勾选或取消。', retire: '日期默认今天，不早于购入与上一条状态记录；不适用的行不参与保存。', activate: '日期默认今天，不早于上一条状态记录；不适用的行不参与保存。', warranty: '每件各添加一份保障：默认从购入日期起一年，购入日期未知时从今天起；表头可统一类型与年限。', sell: '售价逐件填写（必填，可为 0）；日期与渠道可在“全部设为”统一。已售出的行不参与保存。', delete: '删除用于录错或重复的记录。这些物品及它们的维护、保障、关联支出会从各处隐藏，可从“最近删除”逐件恢复。已经不用、送人或丢失了？请改用“退役”；卖掉了请用“售出”。' }[kind];
+  const title = kind === 'delete' ? t('删除 {length} 件物品？', { length: ids.length }) : t('{v1} · 为 {length} 件物品分别设置', { v1: { classify: '批量分类', label: t('批量设置标签'), exclude: '批量统计口径', retire: '批量退役', activate: '批量重新启用', warranty: '批量添加保障', sell: '批量售出' }[kind], length: ids.length });
+  const note = { classify: t('每行默认保持不变；在“全部设为”选择可一次填满整列，再单独改个别行。'), label: t('每行默认保持不变；在“全部设为”选择可一次填满整列。'), exclude: t('勾选表示不计入对应口径；表头可整列勾选或取消。'), retire: t('日期默认今天，不早于购入与上一条状态记录；不适用的行不参与保存。'), activate: t('日期默认今天，不早于上一条状态记录；不适用的行不参与保存。'), warranty: t('每件各添加一份保障：默认从购入日期起一年，购入日期未知时从今天起；表头可统一类型与年限。'), sell: t('售价逐件填写（必填，可为 0）；日期与渠道可在“全部设为”统一。已售出的行不参与保存。'), delete: t('删除用于录错或重复的记录。这些物品及它们的维护、保障、关联支出会从各处隐藏，可从“最近删除”逐件恢复。已经不用、送人或丢失了？请改用“退役”；卖掉了请用“售出”。') }[kind];
   return <dialog ref={dialog} className="editor batch-editor" aria-labelledby="batch-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>
-    <header><div><p className="eyebrow">物品 · 批量操作</p><h2 id="batch-title">{title}</h2><p className="muted">{note}</p></div>
-      <div className="editor-header-actions"><button disabled={busy} onClick={onClose}>取消</button><button className={kind === 'delete' ? 'primary danger' : 'primary'} disabled={busy || !rows || !!error || !choicesReady || reviewRevisions || !items.length || invalid} onClick={() => void save()}>{busy ? '正在保存…' : kind === 'delete' ? `移入最近删除` : `保存 ${items.length} 项更改`}</button></div></header>
+    <header><div><p className="eyebrow">{t('物品 · 批量操作')}</p><h2 id="batch-title">{title}</h2><p className="muted">{note}</p></div>
+      <div className="editor-header-actions"><button disabled={busy} onClick={onClose}>{t('取消')}</button><button className={kind === 'delete' ? 'primary danger' : 'primary'} disabled={busy || !rows || !!error || !choicesReady || reviewRevisions || !items.length || invalid} onClick={() => void save()}>{busy ? t('正在保存…') : kind === 'delete' ? t('移入最近删除') : t('保存 {length} 项更改', { length: items.length })}</button></div></header>
     {notice && <p className="notice" role="alert">{notice}</p>}
-    {choiceError && <p role="alert">选项读取失败：{choiceError} <button onClick={() => setChoiceRetry(n => n + 1)}>重新读取选项</button></p>}
-    {reviewRevisions && rows && <p role="alert">物品资料已更新，请核对下方填写内容与最新状态。<button onClick={() => setReviewRevisions(false)}>已核对，继续保存</button></p>}
-    {error ? <p role="alert">{error} <button onClick={reload}>重新读取</button></p> : !rows ? <p className="muted" role="status">正在读取…</p> : kind === 'delete'
-      ? <ul className="batch-names">{rows.slice(0, 8).map(r => <li key={r.id}>{r.name}</li>)}{rows.length > 8 && <li className="muted">等共 {rows.length} 件</li>}</ul>
-      : <table className="distribution-table check-in-table"><thead>{kind === 'classify' ? <tr><th>物品</th><th>当前分类</th><th>新分类</th><th>当前渠道</th><th>新渠道</th></tr>
-        : kind === 'label' ? <tr><th>物品</th><th>当前标签</th><th>新标签</th></tr>
-        : kind === 'exclude' ? <tr><th>物品</th>{exclusionLabels.map(([k, l]) => <th key={k}>不计入{l}</th>)}</tr>
-        : kind === 'warranty' ? <tr><th>物品</th><th>添加</th><th>类型</th><th>开始</th><th>结束</th><th>状态预览</th></tr>
-        : kind === 'sell' ? <tr><th>物品</th><th>售出</th><th>售价（元）</th><th>日期</th><th>渠道</th><th>结算预览</th></tr>
-        : <tr><th>物品</th><th>当前状态</th><th>{batchVerb[kind]}</th><th>日期</th></tr>}</thead>
+    {choiceError && <p role="alert">{t('选项读取失败：{choiceError}', { choiceError })} <button onClick={() => setChoiceRetry(n => n + 1)}>{t('重新读取选项')}</button></p>}
+    {reviewRevisions && rows && <p role="alert">{t('物品资料已更新，请核对下方填写内容与最新状态。')}<button onClick={() => setReviewRevisions(false)}>{t('已核对，继续保存')}</button></p>}
+    {error ? <p role="alert">{error} <button onClick={reload}>{t('重新读取')}</button></p> : !rows ? <p className="muted" role="status">{t('正在读取…')}</p> : kind === 'delete'
+      ? <ul className="batch-names">{rows.slice(0, 8).map(r => <li key={r.id}>{r.name}</li>)}{rows.length > 8 && <li className="muted">{t('等共 {length} 件', { length: rows.length })}</li>}</ul>
+      : <table className="distribution-table check-in-table"><thead>{kind === 'classify' ? <tr><th>{t('物品')}</th><th>{t('当前分类')}</th><th>{t('新分类')}</th><th>{t('当前渠道')}</th><th>{t('新渠道')}</th></tr>
+        : kind === 'label' ? <tr><th>{t('物品')}</th><th>{t('当前标签')}</th><th>{t('新标签')}</th></tr>
+        : kind === 'exclude' ? <tr><th>{t('物品')}</th>{exclusionLabels.map(([k, l]) => <th key={k}>{t('不计入{l}', { l })}</th>)}</tr>
+        : kind === 'warranty' ? <tr><th>{t('物品')}</th><th>{t('添加')}</th><th>{t('类型')}</th><th>{t('开始')}</th><th>{t('结束')}</th><th>{t('状态预览')}</th></tr>
+        : kind === 'sell' ? <tr><th>{t('物品')}</th><th>{t('售出')}</th><th>{t('售价（元）')}</th><th>{t('日期')}</th><th>{t('渠道')}</th><th>{t('结算预览')}</th></tr>
+        : <tr><th>{t('物品')}</th><th>{t('当前状态')}</th><th>{batchVerb[kind]}</th><th>{t('日期')}</th></tr>}</thead>
         <tbody>
-          <tr className="batch-fill"><td><strong>全部设为</strong></td>{kind === 'classify' ? <><td/><td><select aria-label="全部设为分类" value="" onChange={e => fill({ category: e.target.value === '-' ? '' : e.target.value })}><option value="" disabled>选择…</option><option value="-">未分类</option>{choices.category?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></td><td/><td><select aria-label="全部设为渠道" value="" onChange={e => fill({ channel: e.target.value === '-' ? '' : e.target.value })}><option value="" disabled>选择…</option><option value="-">未选择</option>{choices.channel?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></td></>
-            : kind === 'label' ? <><td/><td><select aria-label="全部设为标签" value="" onChange={e => fill({ label: e.target.value === '-' ? '' : e.target.value })}><option value="" disabled>选择…</option><option value="-">未设置</option>{choices.label?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></td></>
-            : kind === 'warranty' ? <><td/><td><select aria-label="全部设为保障类型" value="" onChange={e => fill({ kind: e.target.value })}><option value="" disabled>选择…</option>{warrantyKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></td><td/><td><select aria-label="全部设为保障年限" value="" onChange={e => { const years = Number(e.target.value); request.current = null; setValues(v => Object.fromEntries(Object.entries(v).map(([id, value]) => [id, { ...value, end: value.start ? addYears(value.start, years) : value.end }]))); }}><option value="" disabled>年限…</option>{[1, 2, 3, 5].map(n => <option key={n} value={n}>开始后 {n} 年</option>)}</select></td><td/></>
-            : kind === 'sell' ? <><td/><td/><td><DateInput yearIntent="past" id="batch-fill-sale-date" label="全部设为售出日期" value={today} max={today} onChange={v => v && fill({ date: v })}/></td><td><select aria-label="全部设为售出渠道" value="" onChange={e => fill({ platform: e.target.value })}><option value="" disabled>选择…</option>{choices.sale_channel?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></td><td/></>
-            : kind === 'exclude' ? exclusionLabels.map(([k, l]) => { const all = rows.every(r => values[r.id]?.exclude[k]); return <td key={k}><label><input type="checkbox" aria-label={'全部不计入' + l} checked={all} onChange={e => { request.current = null; setValues(v => Object.fromEntries(Object.entries(v).map(([id, value]) => [id, { ...value, exclude: { ...value.exclude, [k]: e.target.checked } }]))); }}/> 整列</label></td>; })
-            : <><td/><td><label><input type="checkbox" aria-label={'全部' + batchVerb[kind]} checked={rows.filter(r => !blocked(r)).every(r => values[r.id]?.on)} onChange={e => fill({ on: e.target.checked })}/> {batchVerb[kind]}</label></td><td><DateInput yearIntent="past" id="batch-fill-date" label="全部设为日期" value={today} max={today} onChange={v => v && fill({ date: v })}/></td></>}</tr>
+          <tr className="batch-fill"><td><strong>{t('全部设为')}</strong></td>{kind === 'classify' ? <><td/><td><select aria-label={t('全部设为分类')} value="" onChange={e => fill({ category: e.target.value === '-' ? '' : e.target.value })}><option value="" disabled>{t('选择…')}</option><option value="-">{t('未分类')}</option>{choices.category?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></td><td/><td><select aria-label={t('全部设为渠道')} value="" onChange={e => fill({ channel: e.target.value === '-' ? '' : e.target.value })}><option value="" disabled>{t('选择…')}</option><option value="-">{t('未选择')}</option>{choices.channel?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></td></>
+            : kind === 'label' ? <><td/><td><select aria-label={t('全部设为标签')} value="" onChange={e => fill({ label: e.target.value === '-' ? '' : e.target.value })}><option value="" disabled>{t('选择…')}</option><option value="-">{t('未设置')}</option>{choices.label?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></td></>
+            : kind === 'warranty' ? <><td/><td><select aria-label={t('全部设为保障类型')} value="" onChange={e => fill({ kind: e.target.value })}><option value="" disabled>{t('选择…')}</option>{warrantyKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></td><td/><td><select aria-label={t('全部设为保障年限')} value="" onChange={e => { const years = Number(e.target.value); request.current = null; setValues(v => Object.fromEntries(Object.entries(v).map(([id, value]) => [id, { ...value, end: value.start ? addYears(value.start, years) : value.end }]))); }}><option value="" disabled>{t('年限…')}</option>{[1, 2, 3, 5].map(n => <option key={n} value={n}>{t('开始后 {n} 年', { n })}</option>)}</select></td><td/></>
+            : kind === 'sell' ? <><td/><td/><td><DateInput yearIntent="past" id="batch-fill-sale-date" label={t('全部设为售出日期')} value={today} max={today} onChange={v => v && fill({ date: v })}/></td><td><select aria-label={t('全部设为售出渠道')} value="" onChange={e => fill({ platform: e.target.value })}><option value="" disabled>{t('选择…')}</option>{choices.sale_channel?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></td><td/></>
+            : kind === 'exclude' ? exclusionLabels.map(([k, l]) => { const all = rows.every(r => values[r.id]?.exclude[k]); return <td key={k}><label><input type="checkbox" aria-label={t('全部不计入') + l} checked={all} onChange={e => { request.current = null; setValues(v => Object.fromEntries(Object.entries(v).map(([id, value]) => [id, { ...value, exclude: { ...value.exclude, [k]: e.target.checked } }]))); }}/> {t('整列')}</label></td>; })
+            : <><td/><td><label><input type="checkbox" aria-label={t('全部') + batchVerb[kind]} checked={rows.filter(r => !blocked(r)).every(r => values[r.id]?.on)} onChange={e => fill({ on: e.target.checked })}/> {batchVerb[kind]}</label></td><td><DateInput yearIntent="past" id="batch-fill-date" label={t('全部设为日期')} value={today} max={today} onChange={v => v && fill({ date: v })}/></td></>}</tr>
           {rows.map(r => { const v = values[r.id]; if (!v) return null; const reason = blocked(r); const err = (kind === 'retire' || kind === 'activate') && v.on && !reason ? dateError(r, v.date, today) : '';
             return <tr key={r.id} aria-disabled={!!reason || undefined}><td><strong>{r.name}</strong></td>
-              {kind === 'classify' ? <><td>{nameOf(choices.category, r.category_id, '未分类')}</td><td><select aria-label={r.name + ' 新分类'} value={v.category} onChange={e => set(r.id, { category: e.target.value })}>{options(choices.category, '未分类')}</select>{v.category !== KEEP && v.category !== norm(r.category_id) && <small className="batch-changed">将更改</small>}</td><td>{nameOf(choices.channel, r.channel_id, '未选择')}</td><td><select aria-label={r.name + ' 新渠道'} value={v.channel} onChange={e => set(r.id, { channel: e.target.value })}>{options(choices.channel, '未选择')}</select>{v.channel !== KEEP && v.channel !== norm(r.channel_id) && <small className="batch-changed">将更改</small>}</td></>
-              : kind === 'label' ? <><td>{nameOf(choices.label, r.label_id, '未设置')}</td><td><select aria-label={r.name + ' 新标签'} value={v.label} onChange={e => set(r.id, { label: e.target.value })}>{options(choices.label, '未设置')}</select>{changed(r) && <small className="batch-changed">将更改</small>}</td></>
-              : kind === 'exclude' ? exclusionLabels.map(([k, l]) => <td key={k}><input type="checkbox" aria-label={`${r.name} 不计入${l}`} checked={v.exclude[k]} onChange={e => set(r.id, { exclude: { ...v.exclude, [k]: e.target.checked } })}/></td>)
-              : kind === 'warranty' ? (() => { const p = v.start && v.end ? warrantyPreview(v.start, v.end, today) : null; return <><td><input type="checkbox" aria-label={`${r.name} 添加保障`} checked={v.on} onChange={e => set(r.id, { on: e.target.checked })}/></td><td><select aria-label={r.name + ' 保障类型'} value={v.kind} disabled={!v.on} onChange={e => set(r.id, { kind: e.target.value })}>{warrantyKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></td><td><DateInput id={'batch-start-' + r.id} label={r.name + ' 保障开始'} value={v.start} disabled={!v.on} allowClear onChange={d => set(r.id, { start: d })}/></td><td><DateInput id={'batch-end-' + r.id} label={r.name + ' 保障结束'} value={v.end} disabled={!v.on} allowClear invalid={!!rowError(r)} onChange={d => set(r.id, { end: d })}/>{rowError(r) && <small className="error">{rowError(r)}</small>}</td><td className="batch-preview">{p ? <><small>{p.text}</small>{p.percent !== null && <span className="saving-bar" role="progressbar" aria-label={r.name + ' 保障进度'} aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: p.percent + '%' }}/></span>}</> : <small className="muted">日期未知</small>}</td></>; })()
-              : kind === 'sell' && !reason ? (() => { const net = saleNet(r, price(v.price)); return <><td><input type="checkbox" aria-label={`${r.name} 售出`} checked={v.on} onChange={e => set(r.id, { on: e.target.checked })}/></td><td><input className="batch-price" inputMode="decimal" aria-label={r.name + ' 售价'} placeholder="必填，可为 0" value={v.price} disabled={!v.on} aria-invalid={!!rowError(r)} onChange={e => set(r.id, { price: e.target.value })}/>{rowError(r) && <small className="error">{rowError(r)}</small>}</td><td><DateInput yearIntent="past" id={'batch-sale-' + r.id} label={r.name + ' 售出日期'} value={v.date} min={earliestAction(r)} max={today} disabled={!v.on} onChange={d => d && set(r.id, { date: d })}/></td><td><select aria-label={r.name + ' 售出渠道'} value={v.platform} disabled={!v.on} onChange={e => set(r.id, { platform: e.target.value })}><option value="">未记录</option>{choices.sale_channel?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></td><td className="batch-preview"><small>{!v.on ? '' : net === null ? (r.price_cents === null ? '购入金额未知' : '填写售价后显示') : `净成本 ${money(net)}`}</small></td></>; })()
-              : reason ? <><td>{stateText[r.state]}</td><td colSpan={kind === 'sell' ? 4 : 2}>{reason}，不参与保存</td></>
-              : <><td>{stateText[r.state]}</td><td><label><input type="checkbox" aria-label={`${r.name} ${batchVerb[kind]}`} checked={v.on} onChange={e => set(r.id, { on: e.target.checked })}/> {batchVerb[kind]}</label></td><td><DateInput yearIntent="past" id={'batch-date-' + r.id} label={r.name + ' 日期'} value={v.date} min={earliestAction(r)} max={today} disabled={!v.on} invalid={!!err} onChange={d => d && set(r.id, { date: d })}/>{err && <small className="error">{err}</small>}</td></>}
+              {kind === 'classify' ? <><td>{nameOf(choices.category, r.category_id, t('未分类'))}</td><td><select aria-label={r.name + t(' 新分类')} value={v.category} onChange={e => set(r.id, { category: e.target.value })}>{options(choices.category, t('未分类'))}</select>{v.category !== KEEP && v.category !== norm(r.category_id) && <small className="batch-changed">{t('将更改')}</small>}</td><td>{nameOf(choices.channel, r.channel_id, t('未选择'))}</td><td><select aria-label={r.name + t(' 新渠道')} value={v.channel} onChange={e => set(r.id, { channel: e.target.value })}>{options(choices.channel, t('未选择'))}</select>{v.channel !== KEEP && v.channel !== norm(r.channel_id) && <small className="batch-changed">{t('将更改')}</small>}</td></>
+              : kind === 'label' ? <><td>{nameOf(choices.label, r.label_id, t('未设置'))}</td><td><select aria-label={r.name + t(' 新标签')} value={v.label} onChange={e => set(r.id, { label: e.target.value })}>{options(choices.label, t('未设置'))}</select>{changed(r) && <small className="batch-changed">{t('将更改')}</small>}</td></>
+              : kind === 'exclude' ? exclusionLabels.map(([k, l]) => <td key={k}><input type="checkbox" aria-label={t('{name} 不计入{l}', { name: r.name, l })} checked={v.exclude[k]} onChange={e => set(r.id, { exclude: { ...v.exclude, [k]: e.target.checked } })}/></td>)
+              : kind === 'warranty' ? (() => { const p = v.start && v.end ? warrantyPreview(v.start, v.end, today) : null; return <><td><input type="checkbox" aria-label={t('{name} 添加保障', { name: r.name })} checked={v.on} onChange={e => set(r.id, { on: e.target.checked })}/></td><td><select aria-label={r.name + t(' 保障类型')} value={v.kind} disabled={!v.on} onChange={e => set(r.id, { kind: e.target.value })}>{warrantyKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></td><td><DateInput id={'batch-start-' + r.id} label={r.name + t(' 保障开始')} value={v.start} disabled={!v.on} allowClear onChange={d => set(r.id, { start: d })}/></td><td><DateInput id={'batch-end-' + r.id} label={r.name + t(' 保障结束')} value={v.end} disabled={!v.on} allowClear invalid={!!rowError(r)} onChange={d => set(r.id, { end: d })}/>{rowError(r) && <small className="error">{rowError(r)}</small>}</td><td className="batch-preview">{p ? <><small>{p.text}</small>{p.percent !== null && <span className="saving-bar" role="progressbar" aria-label={r.name + t(' 保障进度')} aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: p.percent + '%' }}/></span>}</> : <small className="muted">{t('日期未知')}</small>}</td></>; })()
+              : kind === 'sell' && !reason ? (() => { const net = saleNet(r, price(v.price)); return <><td><input type="checkbox" aria-label={t('{name} 售出', { name: r.name })} checked={v.on} onChange={e => set(r.id, { on: e.target.checked })}/></td><td><input className="batch-price" inputMode="decimal" aria-label={r.name + t(' 售价')} placeholder={t('必填，可为 0')} value={v.price} disabled={!v.on} aria-invalid={!!rowError(r)} onChange={e => set(r.id, { price: e.target.value })}/>{rowError(r) && <small className="error">{rowError(r)}</small>}</td><td><DateInput yearIntent="past" id={'batch-sale-' + r.id} label={r.name + t(' 售出日期')} value={v.date} min={earliestAction(r)} max={today} disabled={!v.on} onChange={d => d && set(r.id, { date: d })}/></td><td><select aria-label={r.name + t(' 售出渠道')} value={v.platform} disabled={!v.on} onChange={e => set(r.id, { platform: e.target.value })}><option value="">{t('未记录')}</option>{choices.sale_channel?.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></td><td className="batch-preview"><small>{!v.on ? '' : net === null ? (r.price_cents === null ? t('购入金额未知') : t('填写售价后显示')) : t('净成本 {v1}', { v1: money(net) })}</small></td></>; })()
+              : reason ? <><td>{stateText[r.state]}</td><td colSpan={kind === 'sell' ? 4 : 2}>{t('{reason}，不参与保存', { reason })}</td></>
+              : <><td>{stateText[r.state]}</td><td><label><input type="checkbox" aria-label={`${r.name} ${batchVerb[kind]}`} checked={v.on} onChange={e => set(r.id, { on: e.target.checked })}/> {batchVerb[kind]}</label></td><td><DateInput yearIntent="past" id={'batch-date-' + r.id} label={r.name + t(' 日期')} value={v.date} min={earliestAction(r)} max={today} disabled={!v.on} invalid={!!err} onChange={d => d && set(r.id, { date: d })}/>{err && <small className="error">{err}</small>}</td></>}
             </tr>; })}
         </tbody></table>}
   </dialog>;

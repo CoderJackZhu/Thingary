@@ -1,3 +1,4 @@
+import { t } from '../../i18n.ts';
 // Small SVG charts. Every chart is role="img" and needs `summary`, a text conclusion that screen readers
 // get instead of the picture. Colors come from theme tokens; unknown values (null) are gaps, never zero.
 type Num = number | null;
@@ -36,7 +37,7 @@ export function HBarChart({ rows, summary }: { rows: { label: string; value: Num
   return <div role="img" aria-label={summary} className="m-hbars">{rows.map((row, i) => <div className="m-hbar" key={i} aria-hidden="true">
     <span className="m-hbar-label">{row.label}</span>
     <span className="m-hbar-track">{row.value != null && <span style={{ width: `${Math.max(2, (row.value / max) * 100)}%`, background: series(i) }}/>}</span>
-    <span className={`m-hbar-value${row.value == null ? ' m-unknown' : ''}`}>{row.display ?? (row.value == null ? '未知' : String(row.value))}</span></div>)}</div>;
+    <span className={`m-hbar-value${row.value == null ? ' m-unknown' : ''}`}>{row.display ?? (row.value == null ? t('未知') : String(row.value))}</span></div>)}</div>;
 }
 
 /** Ring chart for shares of a total, with a centre label. Slices with null or 0 values are skipped. */

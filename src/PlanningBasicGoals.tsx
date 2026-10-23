@@ -38,7 +38,7 @@ import { goalState, refinementCards } from './planning-first-run';
 import { fundScopeSummary } from './planning-fund-scope';
 import type { Refinement } from './planning-first-run';
 import './planning.css';
-
+import { t } from './i18n.ts';
 type GoalDialog =
   | { kind: 'single'; field: GoalEdit }
   | { kind: 'debt' | 'funds' | 'costs'; completion: boolean }
@@ -86,19 +86,19 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     return () => { live = false; };
   }, [progressKey]);
   const state = goalState(saved, caps);
-  const debtLabels = Object.fromEntries((snapshot?.entries ?? []).filter(e => e.side === 'liability').map(e => [`debt:${e.account_id}`, { name: accounts.find(a => a.id === e.account_id)?.fields.name ?? '负债账户', balance: e.amount_cents === null ? '未知' : money(e.amount_cents) }]));
+  const debtLabels = Object.fromEntries((snapshot?.entries ?? []).filter(e => e.side === 'liability').map(e => [`debt:${e.account_id}`, { name: accounts.find(a => a.id === e.account_id)?.fields.name ?? t('负债账户'), balance: e.amount_cents === null ? t('未知') : money(e.amount_cents) }]));
   const cards = saved && caps ? refinementCards(saved, caps, today, debtLabels) : [];
-  const goEvents = (eventId?: string) => { onViewChange?.('goals'); requestAnimationFrame(() => { const el = eventId ? document.getElementById(`plan-event-edit-${eventId}`) : document.getElementById('plan-events-section'); el?.scrollIntoView({ block: 'center' }); el?.focus(); }); };
+  const goEvents = (eventId?: string) => { onViewChange?.('goals'); requestAnimationFrame(() => { const el = eventId ? document.getElementById(`plan-event-edit-${eventId}`) : document.getElementById('plan-events-section'); const disclosure = el?.closest('details'); if (disclosure) disclosure.open = true; el?.scrollIntoView({ block: 'center' }); el?.focus(); }); };
   useEffect(() => { if (focus && view === 'goals') { const entry = document.getElementById('plan-budget-entry'); if (entry) { entry.focus(); onFocusDone(); } } }, [focus, view, onFocusDone, saved]);
   const wishCalc = useMemo(() => saved && caps && pred?.source === 'saved'
     ? retireCalcFromCapabilities(saved, caps, today)
     : null, [saved, caps, pred, today]);
   const events: EventsStore | null = saved && caps ? { retire: saved.profile.retire, snapshot, accounts, busy: saver.busy, stuck: saver.stuck, notice: saver.notice,
-    ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
+    ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : t('资料待补齐'),
     onContribution: needsContribution(caps) ? () => openSetup(4, null, true) : undefined,
     write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
   const purchasePlans = <div className="planning-purchase-plans">
-    {events && <div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={setEventEditing}/></div>}
+    {events && (saved!.profile.retire.life_events.length ? <div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={setEventEditing}/></div> : <details className="ui-card goal-empty-plans"><summary>{t('有买房、买车等大额计划？')}</summary><div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={setEventEditing}/></div></details>)}
   </div>;
   function openDialog(next: GoalDialog, from: HTMLElement | null = document.activeElement as HTMLElement | null) {
     onViewChange?.('goals');
@@ -161,30 +161,30 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     const r = saved.profile.retire;
     if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: o ? [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] : retractOccurrence(r.core!.occurrences, r.core!.occurrences.find(x => x.event_id === dialog.event.id)?.id ?? '') }))) closeRefinement();
   }
-  if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;
-  if (view === 'trial') return <div className="plan-goals" aria-label="临时试算">
-    <PlanningWishes calc={wishCalc} today={today} hint={caps && needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '退休资料待补齐'} onContribution={saved?.profile.retire.basic ? () => { onViewChange?.('goals'); openSetup(4, null, true); } : undefined}/>
-    {saved?.profile.retire.basic && caps ? <PlanningCareerCard sources={sources} today={today}/> : <article className="ui-card ui-content" aria-label="职业变化试算"><h3>职业变化试算</h3><p className="muted">退休资料待补齐</p></article>}
+  if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>{t('规划资料读取失败：{message}', { message: sources.profile.value.message })}</p><button onClick={reload}>{t('重新读取')}</button></article>;
+  if (view === 'trial') return <div className="plan-goals" aria-label={t('临时试算')}>
+    <PlanningWishes calc={wishCalc} today={today} hint={caps && needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : t('退休资料待补齐')} onContribution={saved?.profile.retire.basic ? () => { onViewChange?.('goals'); openSetup(4, null, true); } : undefined}/>
+    {saved?.profile.retire.basic && caps ? <PlanningCareerCard sources={sources} today={today}/> : <article className="ui-card ui-content" aria-label={t('职业变化试算')}><h3>{t('职业变化试算')}</h3><p className="muted">{t('退休资料待补齐')}</p></article>}
     <RunwayCard caps={caps} today={today} onOwner={owner}/>
   </div>;
   if (view === 'detail' && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={setDetailEditing} advancedOpen={advancedOpen} onAdvancedOpenChange={onAdvancedOpenChange} openSetup={(step, from) => { onViewChange?.('goals'); openSetup(step, from, true); }} onEvents={() => goEvents()} onBack={() => { onViewChange?.('goals'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} assumptionsPort={assumptionsPort}/>;
   return <div className="plan-goals" data-goal-state={state}>
     {saved && assumptionsPort && <AssumptionsSummary embedded readEpoch={assumptionReadEpoch} port={assumptionsPort} generation={sources.generation} writeVersion={sources.write_version} blocked={saver.busy || saver.stuck} reload={reload} onPending={onPending} open={assumptionEditing} onOpenChange={value => { setAssumptionEditing(value); if (!value) requestAnimationFrame(() => opener.current?.focus()); }} onReadChange={setAssumptionRead}/>}
-    {!!caps?.reset_reasons?.length && <article className="ui-card ui-content" role="status"><h3>规划条件需要重新确认</h3><p>规划已改为通用时间、资金和预计收入。请核对{caps.reset_reasons.map(r => ({ time_unconfirmed: '目标与终点月份', income_unconfirmed: '未来收入', funds_unconfirmed: '可用资金' })[r]).join('、')}；账户、盘点和实际记录不受影响。</p><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget, true)}>核对规划条件</button></article>}
+    {!!caps?.reset_reasons?.length && <article className="ui-card ui-content" role="status"><h3>{t('规划条件需要重新确认')}</h3><p>{t('规划已改为通用时间、资金和预计收入。请核对')}{caps.reset_reasons.map(r => ({ time_unconfirmed: t('目标与终点月份'), income_unconfirmed: t('未来收入'), funds_unconfirmed: t('可用资金') })[r]).join('、')}{t('；账户、盘点和实际记录不受影响。')}</p><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget, true)}>{t('核对规划条件')}</button></article>}
     {dialog?.kind === 'debt' && saved && <PlanningDebtDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'funds' && saved && <FundsDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'costs' && saved && <CostsDialog completion={dialog.completion} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'occurrence' && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={dialog.completion} event={dialog.event} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === dialog.event.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} saveDisabled={sources.accounts.status !== 'ready' || sources.snapshot.status !== 'ready' || !snapshot} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     {dialog?.kind === 'single' && saved && <GoalEditor kind={dialog.field} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {saved?.profile.retire.basic && caps ? <GoalOverview saved={saved} caps={caps} today={today} cards={cards} purchasePlans={purchasePlans} accountFunds={fundScopeSummary(snapshot, saved.profile.retire.core?.fund_rules ?? [], accounts)} onAnnotation={annotationAction} onEdit={editGoal} onRefine={action} savingHint={hintAction} onDetail={() => { onViewChange?.('detail'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onTrial={() => { onViewChange?.('trial'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onReport={onReport} reportDisabled={reportDisabled} assumptionRead={assumptionsPort ? assumptionRead : undefined}/> : <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
+    {saved?.profile.retire.basic && caps ? <GoalOverview saved={saved} caps={caps} today={today} cards={cards} purchasePlans={purchasePlans} accountFunds={fundScopeSummary(snapshot, saved.profile.retire.core?.fund_rules ?? [], accounts)} onAnnotation={annotationAction} onEdit={editGoal} onRefine={action} savingHint={hintAction} onDetail={() => { onViewChange?.('detail'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onTrial={() => { onViewChange?.('trial'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onReport={onReport} reportDisabled={reportDisabled} assumptionRead={assumptionsPort ? assumptionRead : undefined}/> : <article className="ui-card ui-content plan-goal planning-first-result" aria-label={t('退休目标')}>
       {!saved?.profile.retire.basic ? <>
-        <h3>想知道：要攒多少钱才够？</h3>
-        <p className="planning-first-promise">回答 5 个问题，算出“从目标月份起使用资金，每月大约要存多少钱”。</p><p className="muted">可以只算自己，也可以按全家算：生活费、资金和收入按同一范围填。没想好的可以先留空，随时退出，不保存草稿。</p>
-        <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始（约 2 分钟）</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>查看财务复盘</button></div>
-      </> : <p>正在读取你的规划条件…</p>}
+        <h3>{t('想知道：要攒多少钱才够？')}</h3>
+        <p className="planning-first-promise">{t('分 5 步填好时间、生活费和已有资金，看看每月需要存多少。')}</p><p className="muted">{t('可以只算自己，也可以按全家算：生活费、资金和收入按同一范围填。没想好的可以先留空，随时退出，不保存草稿。')}</p>
+        <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>{t('开始设置')}</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>{t('查看财务复盘')}</button></div>
+      </> : <p>{t('正在读取你的规划条件…')}</p>}
     </article>}
     <GoalProgress entries={progress}/>
-    {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}
-    {saved?.profile.retire.basic && caps && <PlanningRefinements title="核算注意事项" cards={cards.filter(c => c.required || c.impacts || c.condition)} busy={saver.busy || saver.stuck} onAction={action}/>}
+    {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>{t('重新读取')}</button></>}
+    {saved?.profile.retire.basic && caps && <PlanningRefinements title={t('还有这些事可以核对')} cards={cards.filter(c => c.required || c.impacts || c.condition)} busy={saver.busy || saver.stuck} onAction={action}/>}
   </div>;
 }

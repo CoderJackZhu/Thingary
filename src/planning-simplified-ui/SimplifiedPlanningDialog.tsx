@@ -6,7 +6,7 @@ import { TimeFields } from './TimeFields';
 import { householdIssues, householdOf } from './household-view';
 import { FutureIncomeSection } from './FutureIncomeSection';
 import './simplified-ui.css';
-
+import { t } from '../i18n.ts';
 type ReadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
@@ -82,7 +82,7 @@ export function SimplifiedPlanningDialog({ port, today, onClose, pendingContext 
       if (outcome.status === 'saved') { retain(null); setIssues([]); onClose(true); }
       else if (outcome.status === 'rejected') { retain(null); setIssues(outcome.issues); }
     } catch {
-      if (alive.current) setNotice('未能确认保存结果，请核对原请求，避免重复保存。');
+      if (alive.current) setNotice(t('未能确认保存结果，请核对原请求，避免重复保存。'));
     } finally {
       locked.current = false;
       if (alive.current) setBusy(false);
@@ -98,9 +98,9 @@ export function SimplifiedPlanningDialog({ port, today, onClose, pendingContext 
       if (!alive.current) return; // The host reconciles the retained request after a remount.
       if (outcome.status === 'saved') { retain(null); setIssues([]); onClose(true); }
       else if (outcome.status === 'rejected') { retain(null); setIssues(outcome.issues); }
-      else setNotice('仍未能确认上次保存的结果；原请求保留，请稍后继续核对。');
+      else setNotice(t('仍未能确认上次保存的结果；原请求保留，请稍后继续核对。'));
     } catch {
-      if (alive.current) setNotice('暂时无法核对；原请求仍保留，请稍后重试。');
+      if (alive.current) setNotice(t('暂时无法核对；原请求仍保留，请稍后重试。'));
     } finally {
       locked.current = false;
       if (alive.current) setBusy(false);
@@ -110,33 +110,33 @@ export function SimplifiedPlanningDialog({ port, today, onClose, pendingContext 
   const cannotClose = busy || (!!unresolved && !onPendingChange);
   return <dialog ref={dialog} className="editor wealth-account-editor simplified-dialog" aria-labelledby="simplified-heading"
     onCancel={e => { e.preventDefault(); close(); }}>
-    <header><div><p className="eyebrow">规划 · 时间与收入</p><h2 id="simplified-heading" ref={heading} tabIndex={-1}>时间与未来收入</h2>
-      <p className="muted">目标时间是你自己的安排，不等于法定退休或养老金开始领取时间。</p></div>
-      <CloseButton type="button" aria-label="关闭时间与未来收入" disabled={cannotClose} onClick={close}/></header>
+    <header><div><p className="eyebrow">{t('规划 · 时间与收入')}</p><h2 id="simplified-heading" ref={heading} tabIndex={-1}>{t('时间与未来收入')}</h2>
+      <p className="muted">{t('目标时间是你自己的安排，不等于法定退休或养老金开始领取时间。')}</p></div>
+      <CloseButton type="button" aria-label={t('关闭时间与未来收入')} disabled={cannotClose} onClick={close}/></header>
     <div className="simplified-body">
-      {read.status === 'loading' && <p className="muted">正在读取…</p>}
-      {read.status === 'error' && <section className="form-block"><p className="error" role="alert">暂时读不到规划资料：{read.message}</p>
-        <p className="muted small">读取失败不当作「暂不计入」，也不会用旧结果冒充。</p>
-        <button type="button" className="ui-btn" onClick={() => void reload()}>重新读取</button></section>}
+      {read.status === 'loading' && <p className="muted">{t('正在读取…')}</p>}
+      {read.status === 'error' && <section className="form-block"><p className="error" role="alert">{t('暂时读不到规划资料：{message}', { message: read.message })}</p>
+        <p className="muted small">{t('读取失败不当作「暂不计入」，也不会用旧结果冒充。')}</p>
+        <button type="button" className="ui-btn" onClick={() => void reload()}>{t('重新读取')}</button></section>}
       {read.status === 'ready' && draft && <>
-        {read.read.reset_reasons.length > 0 && <div className="caution" role="status"><strong>规划条件已简化</strong>
+        {read.read.reset_reasons.length > 0 && <div className="caution" role="status"><strong>{t('规划条件已简化')}</strong>
           <p>{resetReasonText(read.read.reset_reasons)}</p>
-          <p className="muted small">旧政策资料已移除；下面的时间和收入按你的安排重新确认即可。</p></div>}
+          <p className="muted small">{t('旧政策资料已移除；下面的时间和收入按你的安排重新确认即可。')}</p></div>}
         <TimeFields value={draft.time} issues={issues} busy={frozen} today={today} onChange={time => setDraft({ ...draft, time })} household={householdOf(draft)} onHouseholdChange={household => setDraft({ ...draft, household })}/>
         <FutureIncomeSection fields={draft} issues={issues} busy={frozen} today={today} onOpenOfficial={onOpenOfficial} onEditingChange={active => { editing.current = active; setEditingIncome(active); }} onDraftChange={setDraft}/>
-        <p className="muted small">关闭不保存草稿；金额或时间没填的收入会保留为「未计入」，不会当成 0。</p>
+        <p className="muted small">{t('关闭不保存草稿；金额或时间没填的收入会保留为「未计入」，不会当成 0。')}</p>
       </>}
     </div>
     {(notice || unresolved) && <div className="caution" role="alert">
-      {unresolved && <><strong>保存请求已发出，结果未知</strong><p>已冻结重复提交，防止重复保存。可以先核对上次保存的结果。</p>
-        <button type="button" className="ui-btn" disabled={busy} onClick={() => void resolveReceipt()}>核对保存结果</button></>}
+      {unresolved && <><strong>{t('保存请求已发出，结果未知')}</strong><p>{t('已冻结重复提交，防止重复保存。可以先核对上次保存的结果。')}</p>
+        <button type="button" className="ui-btn" disabled={busy} onClick={() => void resolveReceipt()}>{t('核对保存结果')}</button></>}
       {notice && <p>{notice}</p>}
     </div>}
-    {issues.length > 0 && <p ref={issueSummary} tabIndex={-1} className="notice" role="alert">有 {issues.length} 项内容需要修改：{issues.map(i => i.message).join(' ')}</p>}
-    {editingIncome && <p className="notice" role="status">请先完成或取消正在编辑的收入，再保存整个安排。</p>}
+    {issues.length > 0 && <p ref={issueSummary} tabIndex={-1} className="notice" role="alert">{t('有 {length} 项内容需要修改：', { length: issues.length })}{issues.map(i => i.message).join(' ')}</p>}
+    {editingIncome && <p className="notice" role="status">{t('请先完成或取消正在编辑的收入，再保存整个安排。')}</p>}
     <footer className="rs-actions">
-      <button type="button" disabled={cannotClose} onClick={close}>{unresolved ? (onPendingChange ? '关闭，稍后核对保存结果' : '请先核对保存结果') : '取消'}</button>
-      <button type="button" className="primary" aria-label="保存" disabled={frozen || editingIncome || read.status !== 'ready'} onClick={() => void submit()}>{busy ? '保存中…' : '保存'}</button>
+      <button type="button" disabled={cannotClose} onClick={close}>{unresolved ? (onPendingChange ? t('关闭，稍后核对保存结果') : t('请先核对保存结果')) : t('取消')}</button>
+      <button type="button" className="primary" aria-label={t('保存')} disabled={frozen || editingIncome || read.status !== 'ready'} onClick={() => void submit()}>{busy ? t('保存中…') : t('保存')}</button>
     </footer>
   </dialog>;
 }

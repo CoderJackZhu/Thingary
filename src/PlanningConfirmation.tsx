@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
-
+import { t } from './i18n.ts';
 export type ConfirmationIssue = { label: string; attempt: number };
-export const CONFIRMATION_MESSAGE = '这一项还没确认，确认后才能算出结果';
+export const CONFIRMATION_MESSAGE = t('这一项还没确认，确认后才能算出结果');
 /** A local form cue only: no persistence or calculation gate is changed. */
 export function ConfirmationField({ label, attention = false, focus = false, issue, controlLabel, children }: { label: string; attention?: boolean; focus?: boolean; issue?: ConfirmationIssue | null; controlLabel?: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null), id = useId();

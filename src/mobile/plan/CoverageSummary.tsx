@@ -5,7 +5,7 @@ import { Icon } from "../ui";
 import { coverageGroups } from "./coverage-model";
 import type { CoverageTarget } from "./coverage-model";
 import "./plan.css";
-
+import { t as tr } from '../../i18n.ts';
 /** Open the page where a calculation condition is edited. */
 export function useOpenTarget() {
   const nav = useNav();
@@ -29,7 +29,7 @@ export function CoverageSummary({
     groups = coverageGroups(annotations);
   if (!groups.length) return null;
   return (
-    <div className="mp-coverage" role="note" aria-label="计算条件与确认依据">
+    <div className="mp-coverage" role="note" aria-label={tr('计算条件与确认依据')}>
       {groups.map((g) => {
         const expanded = shown === g.effect;
         return (
@@ -50,7 +50,7 @@ export function CoverageSummary({
                   className="mp-coverage-go"
                   onClick={() => open(g.target!)}
                 >
-                  去核对
+                  {tr('去核对')}
                 </button>
               )}
             </div>
@@ -60,10 +60,10 @@ export function CoverageSummary({
                   <li key={item.key}>
                     <span>
                       {item.message}
-                      {item.count > 1 ? `（共 ${item.count} 项）` : ""}
+                      {item.count > 1 ? tr('（共 {count} 项）', { count: item.count }) : ""}
                     </span>
                     {item.fields.length > 0 && (
-                      <small>还差：{item.fields.join("、")}</small>
+                      <small>{tr('还差：{v1}', { v1: item.fields.join("、") })}</small>
                     )}
                     {!g.target && item.target && (
                       <button
@@ -71,7 +71,7 @@ export function CoverageSummary({
                         className="mp-coverage-go"
                         onClick={() => open(item.target!)}
                       >
-                        去核对
+                        {tr('去核对')}
                       </button>
                     )}
                   </li>

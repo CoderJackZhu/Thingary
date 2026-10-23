@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import type { CommandResult, TaxonomyCommand, TaxonomySnapshot } from './taxonomy';
-
+import { t } from './i18n.ts';
 export interface StoredTaxonomy extends TaxonomySnapshot { generation: string; revision: number }
 type Request = { request_id: string; generation: string; expected_revision: number; command: TaxonomyCommand };
 const pendingKey = 'thingary.taxonomy-request.v1';
@@ -24,7 +24,7 @@ export function useTaxonomy(onChange: () => void) {
   function publish(value: StoredTaxonomy) { current.current = value; setSnapshot(value); setLoadError(null); }
   function clearPending() { localStorage.removeItem(pendingKey); pending.current = null; setBlocked(false); }
   async function reload() {
-    if (lock.current) throw new Error('请等待当前操作完成。');
+    if (lock.current) throw new Error(t('请等待当前操作完成。'));
     lock.current = true; setLoading(true); setLoadError(null);
     try {
       const fresh = await invoke<StoredTaxonomy>('taxonomy_snapshot');
@@ -39,7 +39,7 @@ export function useTaxonomy(onChange: () => void) {
   }
   useEffect(() => { void reload().catch(() => {}); const changed=()=>void reload().catch(()=>{}); window.addEventListener("thingary-choices-changed",changed);return()=>window.removeEventListener("thingary-choices-changed",changed); }, []);
   async function command(command: TaxonomyCommand): Promise<CommandResult> {
-    if (lock.current || !current.current || pending.current) return {status:'error',message:'请先重新加载并核对上次操作。',recovery:'reload'};
+    if (lock.current || !current.current || pending.current) return {status:'error',message:t('请先重新加载并核对上次操作。'),recovery:'reload'};
     lock.current = true; setBusy(true);
     const input: Request = {request_id:crypto.randomUUID(),generation:current.current.generation,expected_revision:current.current.revision,command};
     try {
@@ -47,7 +47,7 @@ export function useTaxonomy(onChange: () => void) {
       localStorage.setItem(pendingKey,JSON.stringify(input)); pending.current = input; setBlocked(true);
     } catch {
       lock.current = false; setBusy(false);
-      return {status:'error',message:'无法暂存操作请求，尚未提交。请检查可用空间。',recovery:'retry'};
+      return {status:'error',message:t('无法暂存操作请求，尚未提交。请检查可用空间。'),recovery:'retry'};
     }
     try {
       const result = await invoke<StoredTaxonomy>('change_taxonomy',{input});
@@ -63,7 +63,7 @@ export function useTaxonomy(onChange: () => void) {
         clearPending();
         const code = typeof e === 'object' && e !== null && 'code' in e ? e.code : '';
         return {status:'error',message:errorMessage(e),recovery:['TAXONOMY_CONFLICT','TAXONOMY_STALE','STALE_DATASET'].includes(String(code)) ? 'reload' : 'retry'};
-      } catch { return {status:'error',message:'暂时无法确认操作结果，请重新加载核对；原请求已保留。',recovery:'reload'}; }
+      } catch { return {status:'error',message:t('暂时无法确认操作结果，请重新加载核对；原请求已保留。'),recovery:'reload'}; }
     } finally { lock.current = false; setBusy(false); }
   }
   return {snapshot,loading,busy,loadError,blocked,reload,command};

@@ -17,6 +17,7 @@ import {
   Switch,
   FormRow,
 } from "../ui";
+import { t } from '../../i18n.ts';
 /** Frozen snapshot: refreshes never replace the body while the report is open. */
 export default function Report({
   sources,
@@ -34,7 +35,7 @@ export default function Report({
       );
       return parsed.ok
         ? { report: parsed.report, error: "" }
-        : { report: null, error: "报告数据无法识别，请返回重新生成。" };
+        : { report: null, error: t('报告数据无法识别，请返回重新生成。') };
     } catch (e) {
       return {
         report: null,
@@ -48,7 +49,7 @@ export default function Report({
   if (!snapshot.report)
     return (
       <div className="m-page mp-page">
-        <NavBar title="当前报告" back={{ label: "目标", onClick: onClose }} />
+        <NavBar title={t('当前报告')} back={{ label: t('目标'), onClick: onClose }} />
         <ErrorState message={snapshot.error} />
       </div>
     );
@@ -56,9 +57,9 @@ export default function Report({
   async function copy() {
     try {
       await navigator.clipboard.writeText(copyText(report, privacy));
-      setNotice("已复制当前摘要。");
+      setNotice(t('已复制当前摘要。'));
     } catch {
-      setNotice("复制失败，请重试。");
+      setNotice(t('复制失败，请重试。'));
     }
   }
   async function download() {
@@ -67,31 +68,31 @@ export default function Report({
     try {
       setNotice(await shareReport(exportFileName(report, privacy), printableHtml(report, { privacy })));
     } catch {
-      setNotice("导出失败，请重试。");
+      setNotice(t('导出失败，请重试。'));
     } finally { setExporting(false); }
   }
   return (
     <div className="m-page mp-page">
-      <NavBar title="当前报告" back={{ label: "目标", onClick: onClose }} />
+      <NavBar title={t('当前报告')} back={{ label: t('目标'), onClick: onClose }} />
       <Card>
-        <FormRow label="隐藏金额和私人名称">
+        <FormRow label={t('隐藏金额和私人名称')}>
           <Switch
-            label="报告隐私模式"
+            label={t('报告隐私模式')}
             checked={privacy}
             onChange={setPrivacy}
           />
         </FormRow>
         <p className="mp-muted">
-          固定于生成时的已保存资料。关闭后重新生成可取得最新结果。
+          {t('固定于生成时的已保存资料。关闭后重新生成可取得最新结果。')}
         </p>
       </Card>
       <Card>
         <pre className="mp-report">{copyText(report, privacy)}</pre>
       </Card>
       <div className="mp-actions">
-        <Button onClick={() => void copy()}>复制摘要</Button>
+        <Button onClick={() => void copy()}>{t('复制摘要')}</Button>
         <Button variant="primary" disabled={exporting} onClick={() => void download()}>
-          {exporting ? '正在导出…' : '导出当前报告'}
+          {exporting ? t('正在导出…') : t('导出当前报告')}
         </Button>
       </div>
       {notice && <Notice>{notice}</Notice>}

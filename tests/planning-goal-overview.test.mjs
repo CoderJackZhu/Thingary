@@ -31,7 +31,7 @@ test('confirmed assumptions do not hide a missing optional contribution or turn 
  const known=fixture(),knownSaved=known.profile.value.saved,knownCaps=buildBasicCapabilities(known);
  knownCaps.prediction.value.outcome.success=false;knownCaps.prediction.value.terminal='surplus';
  let trials=0;const failed=runtime('planning-goal/Overview',{saved:knownSaved,caps:knownCaps,today:known.today,cards:[],onEdit(){},onRefine(){},onDetail(){},onTrial(){trials++;},assumptionRead:readOf(known.generation,'confirmed')});
- assert.match(failed.text(goalArticle(failed)),/尚未满足完整目标/); failed.button('试算：歇一阵或换工作会怎样 →').props.onClick();assert.equal(trials,1); assert.doesNotMatch(failed.text(failed.nodes().find(n=>n.props?.['aria-label']==='预测结果')),/全程结论/);
+ assert.match(failed.text(goalArticle(failed)),/还不能完成这个计划/); failed.button('试算：歇一阵或换工作会怎样 →').props.onClick();assert.equal(trials,1); assert.doesNotMatch(failed.text(failed.nodes().find(n=>n.props?.['aria-label']==='预测结果')),/全程结论/);
 });
 
 test('embedded assumption read retry issues a fresh request even when profile write version stays unchanged',async()=>{
@@ -81,13 +81,13 @@ test('the result shows the saved prediction instead of reading the requirement g
   const result = r.nodes().find(n => n.props?.['aria-label'] === '预测结果');
   assert.ok(result, 'saved prediction renders');
   const text = r.text(result);
-  assert.match(text, /按已保存投入的预测/);
+  assert.match(text, /按你每月能存的钱估算/);
   assert.doesNotMatch(text, /全程结论/);
-  assert.match(text, /终点资产/);
+  assert.match(text, /最后一个月预计剩下/);
   const article = r.text(goalArticle(r));
-  assert.match(article, /固定目标需要每月存/);
+  assert.match(article, /为目标每月需存/);
   assert.match(article, /每月(还差|余量)约/);
-  assert.match(article, /两者口径不同/);
+  assert.match(article, /不能只比较两个金额/);
 });
 
 test('FIRE separates the hoped month from the predicted retirement month', () => {
@@ -105,19 +105,19 @@ test('unconfirmed and changed assumptions keep a light hint outside the closed d
   saved.profile.retire.real_return_before_hundredths = 175;
   const edits = [];
   const show = assumptionRead => runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit: (action, from) => edits.push([action, from]), onRefine() {}, onDetail() {}, realSummary: true, assumptionRead });
-  const outsideHint = r => r.nodes().find(n => n.type === 'p' && r.text(n).includes('展开「条件与核对」'));
+  const outsideHint = r => r.nodes().find(n => n.props?.className === 'ui-content goal-assumption-status')?.props.children.find?.(n => n?.type === 'p');
   for (const [state, label] of [['unconfirmed', '试算值，未确认'], ['needs_review', '条件已变，请确认'], ['confirmed', '已核对']]) {
     const read = readOf(sources.generation, state); read.value.values.real_return_before_hundredths = 175;
     const r = show(read), row = assumptionsArticle(r);
-    const disclosure = r.nodes().find(n => n.type === 'details' && r.text(n).includes('条件与核对'));
+    const disclosure = r.nodes().find(n => n.type === 'details' && n.props.className === 'goal-more-settings');
     assert.ok(disclosure); assert.ok(!disclosure.props.open);
     assert.ok(r.text(disclosure).includes(label));
     const hint = outsideHint(r);
     if (state === 'confirmed') assert.equal(hint, undefined);
     else {
-      assert.equal(r.text(hint), `${label}；展开「条件与核对」可查看与确认。`);
+      assert.equal(r.text(hint), `${state === 'needs_review' ? '条件有变化，需要再核对一次。' : '这些是假设，还没有核对。'}可在下方「更多设置」查看与确认。`);
       assert.equal(hint.props.className, 'muted small');
-      assert.doesNotMatch(r.text(disclosure), /展开「条件与核对」/, 'the hint remains visible while details are closed');
+      assert.doesNotMatch(r.text(disclosure), /可在下方「更多设置」/, 'the hint remains visible while details are closed');
     }
     assert.match(r.text(row), /1.75%/);
     assert.doesNotMatch(r.text(row), /默认值/);
@@ -206,4 +206,35 @@ test('goal cautions keep all three impact directions visible while their actiona
   assert.equal(r.nodes().filter(n => n.type === 'li' && /虚构安排/.test(r.text(n))).length, 3);
   assert.match(r.text(details), /还差：付款金额/);
   assert.equal(r.nodes().filter(n => n.type === 'button' && r.text(n) === '去核对').length, 3);
+});
+
+test('less-used settings and reports are disclosures while risk directions remain beside the result', () => {
+  const { r } = render();
+  const settings = r.nodes().find(n => n.props?.className === 'goal-more-settings');
+  assert.equal(settings.type, 'details');
+  assert.ok(!settings.props.open);
+  assert.match(r.text(settings), /计算假设/);
+  assert.match(r.text(settings), /应急金/);
+  assert.doesNotMatch(r.text(settings), /每月能存的钱/);
+  const evidence = r.nodes().find(n => n.props?.['aria-label'] === '依据与提醒');
+  assert.equal(evidence.type, 'details');
+  assert.ok(!evidence.props.open);
+  const answer = r.text(goalArticle(r));
+  assert.match(answer, /为目标每月需存/);
+  assert.match(answer, /每月需要存的钱可能偏低/);
+  assert.doesNotMatch(answer, /反求|口径|可覆盖/);
+});
+
+test('the large-plan entry expands its empty disclosure before focusing the editor area', () => {
+  const sources = fixture(), caps = buildBasicCapabilities(sources);
+  sources.profile.value.saved.profile.retire.life_events = [];
+  const disclosure = { open: false }, calls = [];
+  const r = runtime('PlanningBasicGoals', { sources, today: sources.today, mode: 'basic', onGoto() {}, openSetup() {} }, undefined, caps, {
+    document: { getElementById: id => ({ closest: () => disclosure, scrollIntoView: () => calls.push('scroll:' + id), focus: () => calls.push('focus:' + id) }) },
+  });
+  const emptyPlans = r.nodes().find(n => n.type === 'details' && n.props?.className === 'ui-card goal-empty-plans');
+  assert.ok(emptyPlans); assert.ok(!emptyPlans.props.open);
+  r.button('买房买车等大额计划').props.onClick({ currentTarget: { focus() {} } });
+  assert.equal(disclosure.open, true);
+  assert.deepEqual(calls, ['scroll:plan-events-section', 'focus:plan-events-section']);
 });

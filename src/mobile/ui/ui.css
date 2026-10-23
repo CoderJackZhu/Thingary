@@ -228,3 +228,4 @@ button.m-hero,button.m-metric{display:flex}
 @keyframes m-ptr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.m-ptr-busy span{animation-duration:2s}}
 .m-has-fab{padding-bottom:76px}
+.m-money-below{padding:0 16px 12px}

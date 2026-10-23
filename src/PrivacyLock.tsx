@@ -6,7 +6,7 @@ import { errorMessage } from './asset';
 import { coverKey, lockKey, initialPrivacyState, privacyTransition, readCoverPreference, readLockPreference, setPrivacyScreenBlocked, shouldCover, writePrivacyPreference } from './privacy-lock';
 import type { LockPreference, PrivacyEvent } from './privacy-lock';
 import './privacy-lock.css';
-
+import { t } from './i18n.ts';
 function storage() { try { return window.localStorage; } catch { return null; } }
 const PrivacyContext = createContext<{
   cover: boolean; lock: LockPreference; available: boolean | null; checking: boolean;
@@ -102,8 +102,8 @@ export function PrivacyBoundary({ children }: { children: (onBusy: (busy: boolea
     <div className="privacy-app" inert={blocked} aria-hidden={blocked || undefined}>{state.mounted && children(onBusy)}</div>
     <dialog ref={dialog} className="privacy-screen" aria-labelledby="privacy-screen-heading" onCancel={event => event.preventDefault()}>
       <div className="privacy-screen-content"><span className="privacy-mark"><LogoMark maskId="privacy-screen-logo"/></span>
-        <h1 id="privacy-screen-heading">{state.locked ? '物谱已锁定' : '物谱内容已遮住'}</h1>
-        {state.locked && <><p className="muted">验证身份后查看本机资料</p><button type="button" className="ui-btn primary" disabled={checking || (available === null && !error)} onClick={() => void unlock()}>{checking ? '正在验证…' : available === null && !error ? '正在检查…' : '解锁'}</button>{error && <p role="alert">{error}</p>}</>}
+        <h1 id="privacy-screen-heading">{state.locked ? t('物谱已锁定') : t('物谱内容已遮住')}</h1>
+        {state.locked && <><p className="muted">{t('验证身份后查看本机资料')}</p><button type="button" className="ui-btn primary" disabled={checking || (available === null && !error)} onClick={() => void unlock()}>{checking ? t('正在验证…') : available === null && !error ? t('正在检查…') : t('解锁')}</button>{error && <p role="alert">{error}</p>}</>}
       </div>
     </dialog>
   </PrivacyContext.Provider>;
@@ -116,17 +116,17 @@ export function PrivacySettings() {
   const windows = /Windows/i.test(navigator.userAgent);
   async function changeLock(value: LockPreference) {
     setError('');
-    try { if (!await privacy!.setLock(value)) setError('无法保存隐私设置，请重试。'); }
+    try { if (!await privacy!.setLock(value)) setError(t('无法保存隐私设置，请重试。')); }
     catch (e) { setError(errorMessage(e)); }
   }
   return <section className="privacy-settings" aria-labelledby="privacy-settings-heading">
-    <h3 id="privacy-settings-heading">屏幕隐私</h3>
-    <label className="privacy-toggle"><input type="checkbox" checked={privacy.cover} onChange={event => { setError(privacy.setCover(event.target.checked) ? '' : '无法保存隐私设置，请重试。'); }}/>窗口不在前台时遮住内容</label>
-    <label className="privacy-toggle privacy-toggle-stacked"><input type="checkbox" checked={privacy.lock.enabled} disabled={windows || privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, enabled: event.target.checked })}/><span>启用身份验证<small className="muted">每次打开物谱需要验证身份</small></span></label>
-    {windows ? <p className="muted small">Windows 版暂不支持</p> : privacy.available === false ? <p className="muted small">这台 Mac 没有设置登录密码或 Touch ID</p> : privacy.available === null ? <p className="muted small">暂未确认这台设备是否支持验证身份</p> : null}
-    {privacy.lock.enabled && <><label className="privacy-idle">闲置后重新验证<select value={privacy.lock.idleMinutes} disabled={privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, idleMinutes: Number(event.target.value) })}><option value="0">从不</option><option value="5">5 分钟</option><option value="15">15 分钟</option><option value="60">1 小时</option></select></label>
-      <p className="small muted">闲置时长只在离开窗口后返回时检查；未完成的编辑、保存或待核对请求会延后验证，处理完后再锁定。如需离开就遮住内容，请同时开启上方的遮挡选项。</p></>}
-    <p className="small muted">这只是防止旁人看到屏幕，不会加密资料库文件。可另行创建加密备份；本机资料库文件仍未加密。</p>
+    <h3 id="privacy-settings-heading">{t('屏幕隐私')}</h3>
+    <label className="privacy-toggle"><input type="checkbox" checked={privacy.cover} onChange={event => { setError(privacy.setCover(event.target.checked) ? '' : t('无法保存隐私设置，请重试。')); }}/>{t('窗口不在前台时遮住内容')}</label>
+    <label className="privacy-toggle privacy-toggle-stacked"><input type="checkbox" checked={privacy.lock.enabled} disabled={windows || privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, enabled: event.target.checked })}/><span>{t('启用身份验证')}<small className="muted">{t('每次打开物谱需要验证身份')}</small></span></label>
+    {windows ? <p className="muted small">{t('Windows 版暂不支持')}</p> : privacy.available === false ? <p className="muted small">{t('这台 Mac 没有设置登录密码或 Touch ID')}</p> : privacy.available === null ? <p className="muted small">{t('暂未确认这台设备是否支持验证身份')}</p> : null}
+    {privacy.lock.enabled && <><label className="privacy-idle">{t('闲置后重新验证')}<select value={privacy.lock.idleMinutes} disabled={privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, idleMinutes: Number(event.target.value) })}><option value="0">{t('从不')}</option><option value="5">{t('5 分钟')}</option><option value="15">{t('15 分钟')}</option><option value="60">{t('1 小时')}</option></select></label>
+      <p className="small muted">{t('闲置时长只在离开窗口后返回时检查；未完成的编辑、保存或待核对请求会延后验证，处理完后再锁定。如需离开就遮住内容，请同时开启上方的遮挡选项。')}</p></>}
+    <p className="small muted">{t('这只是防止旁人看到屏幕，不会加密资料库文件。可另行创建加密备份；本机资料库文件仍未加密。')}</p>
     {error && <p role="alert">{error}</p>}
   </section>;
 }

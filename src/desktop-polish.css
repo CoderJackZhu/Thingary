@@ -220,3 +220,10 @@
 .asset-editor .editor-body>.more-fields>summary{min-height:46px;display:flex;align-items:center;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)}
 .asset-editor .editor-body>.more-fields[open]>summary{border-bottom:1px solid var(--line)}
 .asset-editor .editor-body>.more-fields .fields{padding-bottom:14px}
+
+/* The photo strip sits inside the notes box (bottom left) instead of taking its own row under it. */
+.asset-editor .editor-body>.form-notes{position:relative}
+.asset-editor .editor-body>.form-notes .photo-strip{position:absolute;left:16px;right:16px;bottom:12px;width:auto;min-height:0;padding:0;margin:0;border-top:0;pointer-events:none}
+.asset-editor .editor-body>.form-notes .photo-strip>*{pointer-events:auto}
+.asset-editor .editor-body>.form-notes textarea,.editor .asset-editor .form-notes .field textarea{padding-bottom:68px;box-sizing:border-box;min-height:140px}
+.asset-editor .editor-body>.form-notes:has(.photo-tile:nth-child(6)) textarea{padding-bottom:144px}

@@ -61,9 +61,9 @@ test('household totals read as totals only for two people', () => {
 test('household payload: age, share and switching back', async () => {
   const r = runtime('PlanningSetup', { sources: sources(couple(null, null)), initialStep: 4 });
   // age first (step 0), then the share on the saving step
-  r.button('1. 目标与时间').props.onClick(); r.render();
+  r.button('1. 什么时候退休').props.onClick(); r.render();
   pick(r, '伴侣停工时间', 'age'); enter(r, 'input', '伴侣停工年龄（岁）', '60');
-  r.button('5. 每月净投入').props.onClick(); r.render();
+  r.button('5. 每月能存多少').props.onClick(); r.render();
   enter(r, 'CentInput', '其中伴侣每月存多少', '30000');
   await save(r);
   assert.deepEqual(r.calls.at(-1).fields.simplified.household, couple(720, '30000'));
@@ -85,7 +85,7 @@ test('same-time partner saves no age and no share', async () => {
 
 test('missing birth month or a bad age blocks the save and shows the issue on the field', async () => {
   const r = runtime('PlanningSetup', { sources: sources(), initialStep: 4 });
-  r.button('1. 目标与时间').props.onClick(); r.render();
+  r.button('1. 什么时候退休').props.onClick(); r.render();
   pick(r, '规划给谁', 'couple');
   await save(r);
   assert.equal(r.calls.length, 0);

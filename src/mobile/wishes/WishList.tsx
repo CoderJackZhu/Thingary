@@ -10,7 +10,7 @@ import { StatePill, ReceiptCards, WishIcon, useReceipts, useTaxonomy } from './p
 import { DecisionSheet } from './DetailSheets';
 import { dropChange, loadList, loadMore, reconsiderChange, submitOp } from './service';
 import './wishes.css';
-
+import { t } from '../../i18n.ts';
 type Totals = Record<'all' | 'considering' | 'purchased' | 'dropped', number>;
 
 /** 物品标签下的「心愿」：筛选、预计价格合计、卡片列表；沿用电脑端的排序与分页规则（一页 100 条，加载更多续读）。 */
@@ -51,8 +51,8 @@ export default function WishList(_: PageProps) {
     const { kind, item } = deciding, change = (kind === 'drop' ? dropChange : reconsiderChange)(item, page.generation, note, crypto.randomUUID());
     setDecideBusy(true); setBusy(true); setDecideError('');
     try {
-      const outcome = await submitOp({ kind: 'decision', label: kind === 'drop' ? '不再考虑' : '重新考虑', input: change });
-      if (outcome.status === 'saved') { setDeciding(null); setNotice(kind === 'drop' ? `已记录「${item.fields.name}」为不再考虑；档案与图片都保留着。` : `「${item.fields.name}」已回到考虑中。`); setTick(n => n + 1); }
+      const outcome = await submitOp({ kind: 'decision', label: kind === 'drop' ? t('不再考虑') : t('重新考虑'), input: change });
+      if (outcome.status === 'saved') { setDeciding(null); setNotice(kind === 'drop' ? t('已记录「{name}」为不再考虑；档案与图片都保留着。', { name: item.fields.name }) : t('「{name}」已回到考虑中。', { name: item.fields.name })); setTick(n => n + 1); }
       else { setDecideError(outcome.message); if (outcome.status === 'unknown') { setDeciding(null); receipts.refresh(); } }
     } finally { setDecideBusy(false); setBusy(false); }
   }
@@ -67,55 +67,55 @@ export default function WishList(_: PageProps) {
   const filtered = isFiltered(query);
 
   return <div className="m-page">
-    <LargeTitle title="心愿" segments/>
-    <Fab label="添加心愿" disabled={blocked || !taxonomy.data} onClick={add}/>
+    <LargeTitle title={t('心愿')} segments/>
+    <Fab label={t('添加心愿')} disabled={blocked || !taxonomy.data} onClick={add}/>
     <div className="w-stack">
       <ReceiptCards ops={receipts.all} busy={receipts.busy} notice={receipts.notice} onResolve={op => void receipts.resolve(op)}/>
       {notice && <Notice tone="positive">{notice}</Notice>}
-      <SearchField subject="心愿" value={searchText} onChange={setSearchText}/>
-      <div className="w-filter" role="group" aria-label="心愿状态">
+      <SearchField subject={t('心愿')} value={searchText} onChange={setSearchText}/>
+      <div className="w-filter" role="group" aria-label={t('心愿状态')}>
         {filterItems.map(item => <button key={item.id} type="button" aria-pressed={query.filter === item.id} onClick={() => adjust({ filter: item.id })}>{item.label}<small>{count(item.id)}</small></button>)}
       </div>
-      {error ? <ErrorState title="心愿读取失败" message={error} onRetry={() => setTick(n => n + 1)}/> : !page ? <Loading label="正在读取心愿…"/> : <>
-        {summary && <Card className="w-summary" label="心愿合计">
-          <span className="w-summary-line">{summary.count} · 预计价格合计</span>
+      {error ? <ErrorState title={t('心愿读取失败')} message={error} onRetry={() => setTick(n => n + 1)}/> : !page ? <Loading label={t('正在读取心愿…')}/> : <>
+        {summary && <Card className="w-summary" label={t('心愿合计')}>
+          <span className="w-summary-line">{t('{count} · 预计价格合计', { count: summary.count })}</span>
           <strong className={`w-summary-amount${summary.allUnknown ? ' m-unknown' : ''}`}>{summary.amount}{summary.unknown && <small>{summary.unknown}</small>}</strong>
-          {summary.legacy && <span className="w-summary-line">{summary.legacy}，不计入合计</span>}
-          <p className="w-foot">这只是想法的预计价格，不是已发生的支出，也不是资金承诺。</p>
+          {summary.legacy && <span className="w-summary-line">{t('{legacy}，不计入合计', { legacy: summary.legacy })}</span>}
+          <p className="w-foot">{t('这只是想法的预计价格，不是已发生的支出，也不是资金承诺。')}</p>
         </Card>}
         {banner && <button type="button" className="w-banner" onClick={() => open(banner.id)}>
           <span className="w-banner-icon"><Icon name="calendar" size={20}/></span>
           <span className="w-banner-main"><strong>{banner.title}</strong><span>{banner.text}</span></span><Icon name="chevronRight" size={18}/>
         </button>}
         {items.length === 0 && !loading ? (filtered
-          ? <EmptyState icon="box" title="当前条件下没有找到记录" message={query.filter === 'purchased' ? '记录购入的心愿会保留在这里。' : '换个筛选或关键词试试。'} action={<Button onClick={() => { setQuery(initialQuery); setSearchText(''); }}>清除筛选</Button>}/>
-          : <EmptyState icon="box" title="记下第一件想要的物品" message="名称之外都可以留空，之后再决定。" action={<Button variant="primary" disabled={blocked || !taxonomy.data} onClick={add}>添加心愿</Button>}/>) : <>
-          <div className="w-head"><h2>{filterItems.find(item => item.id === query.filter)?.label}心愿</h2><button type="button" className="w-sort" onClick={() => setSortOpen(true)}>{sortLabel(query.sort, query.descending)}<Icon name="sort" size={16}/></button></div>
+          ? <EmptyState icon="box" title={t('当前条件下没有找到记录')} message={query.filter === 'purchased' ? t('记录购入的心愿会保留在这里。') : t('换个筛选或关键词试试。')} action={<Button onClick={() => { setQuery(initialQuery); setSearchText(''); }}>{t('清除筛选')}</Button>}/>
+          : <EmptyState icon="box" title={t('记下第一件想要的物品')} message={t('名称之外都可以留空，之后再决定。')} action={<Button variant="primary" disabled={blocked || !taxonomy.data} onClick={add}>{t('添加心愿')}</Button>}/>) : <>
+          <div className="w-head"><h2>{filterItems.find(item => item.id === query.filter)?.label}{t('心愿')}</h2><button type="button" className="w-sort" onClick={() => setSortOpen(true)}>{sortLabel(query.sort, query.descending)}<Icon name="sort" size={16}/></button></div>
           <ul className="w-list" aria-busy={loading}>
-            {items.map(item => { const view = cardView(item, today, categories); const swipe = item.decision_state === 'considering' ? { label: '不再考虑', icon: 'close' as const, onAction: () => { setDecideError(''); setDeciding({ kind: 'drop', item }); } } : item.decision_state === 'dropped' ? { label: '重新考虑', icon: 'refresh' as const, onAction: () => { setDecideError(''); setDeciding({ kind: 'reconsider', item }); } } : null;
+            {items.map(item => { const view = cardView(item, today, categories); const swipe = item.decision_state === 'considering' ? { label: t('不再考虑'), icon: 'close' as const, onAction: () => { setDecideError(''); setDeciding({ kind: 'drop', item }); } } : item.decision_state === 'dropped' ? { label: t('重新考虑'), icon: 'refresh' as const, onAction: () => { setDecideError(''); setDeciding({ kind: 'reconsider', item }); } } : null;
               const card = <button type="button" className="m-card w-card" onClick={() => open(item.id)}>
                 <span className="w-card-top"><WishIcon photo={view.cover} generation={page.generation}/>
                   <span className="w-card-main"><span className="w-card-name">{view.name}</span>
-                    <span className="w-card-tags"><StatePill tone={view.tone}>{view.state}</StatePill>{view.category && <span>{view.category}</span>}{view.pinned && <span className="w-pill w-pill-neutral">置顶</span>}</span></span>
-                  <span className="w-card-price">{view.price ? <b>{view.price}</b> : <b className="m-unknown">价格未知</b>}<small>预计价格</small></span></span>
+                    <span className="w-card-tags"><StatePill tone={view.tone}>{view.state}</StatePill>{view.category && <span>{view.category}</span>}{view.pinned && <span className="w-pill w-pill-neutral">{t('置顶')}</span>}</span></span>
+                  <span className="w-card-price">{view.price ? <b>{view.price}</b> : <b className="m-unknown">{t('价格未知')}</b>}<small>{t('预计价格')}</small></span></span>
                 {view.reason && <span className="w-card-reason">{view.reason}</span>}
-                <span className="w-card-meta"><span>加入 {view.added}</span><i aria-hidden="true"/><span>{view.plan}</span>{view.overdue && <span className="w-pill w-pill-warn">计划日期已过</span>}</span>
+                <span className="w-card-meta"><span>{t('加入 {added}', { added: view.added })}</span><i aria-hidden="true"/><span>{view.plan}</span>{view.overdue && <span className="w-pill w-pill-warn">{t('计划日期已过')}</span>}</span>
               </button>;
-              return <li key={item.id}>{swipe && !blocked ? <SwipeRow label={`${view.name} 操作`} actions={[swipe]}>{card}</SwipeRow> : card}</li>; })}
+              return <li key={item.id}>{swipe && !blocked ? <SwipeRow label={t('{name} 操作', { name: view.name })} actions={[swipe]}>{card}</SwipeRow> : card}</li>; })}
           </ul>
-          <div className="w-more"><span>已显示 {items.length} / {page.total} 条</span>
+          <div className="w-more"><span>{t('已显示 {length} / {total} 条', { length: items.length, total: page.total })}</span>
             {moreError && <Notice tone="danger">{moreError}</Notice>}
-            {hasMore(items.length, page.total) && <Button disabled={moreBusy} onClick={() => void more()}>{moreBusy ? '正在读取…' : '加载更多'}</Button>}
-            <p className="w-foot">未设置的价格与日期始终排在已知值之后；历史待核实不计入考虑中合计。</p></div>
+            {hasMore(items.length, page.total) && <Button disabled={moreBusy} onClick={() => void more()}>{moreBusy ? t('正在读取…') : t('加载更多')}</Button>}
+            <p className="w-foot">{t('未设置的价格与日期始终排在已知值之后；历史待核实不计入考虑中合计。')}</p></div>
         </>}
       </>}
     </div>
     {deciding && <DecisionSheet kind={deciding.kind} item={deciding.item} busy={decideBusy} error={decideError} onSubmit={note => void decide(note)} onClose={() => setDeciding(null)}/>}
-    {sortOpen && <Sheet title="排序" onClose={() => setSortOpen(false)}>
+    {sortOpen && <Sheet title={t('排序')} onClose={() => setSortOpen(false)}>
       <div className="w-sheet-stack">
-        <ChipRow label="排序依据" items={sortItems} value={query.sort} onChange={id => adjust({ sort: id as WishlistQuery['sort'], descending: defaultDescending(id as WishlistQuery['sort']) })}/>
-        <ChipRow label="排序方向" items={[{ id: 'desc', label: '降序' }, { id: 'asc', label: '升序' }]} value={query.descending ? 'desc' : 'asc'} onChange={id => adjust({ descending: id === 'desc' })}/>
-        <p>置顶的心愿始终排在最前。</p>
+        <ChipRow label={t('排序依据')} items={sortItems} value={query.sort} onChange={id => adjust({ sort: id as WishlistQuery['sort'], descending: defaultDescending(id as WishlistQuery['sort']) })}/>
+        <ChipRow label={t('排序方向')} items={[{ id: 'desc', label: t('降序') }, { id: 'asc', label: t('升序') }]} value={query.descending ? 'desc' : 'asc'} onChange={id => adjust({ descending: id === 'desc' })}/>
+        <p>{t('置顶的心愿始终排在最前。')}</p>
       </div>
     </Sheet>}
   </div>;

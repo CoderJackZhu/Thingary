@@ -5,7 +5,7 @@
 // 按账户升序、未知为 null）；界面代码从不拼接内容键。
 
 import type { InvestmentEndpointV1, InvestmentFlowV1, InvestmentReviewInputV1, InvestmentReviewResultV1 } from './model.ts';
-
+import { t } from '../i18n.ts';
 const FROM_KEY =
   '["snap-2026-06-30","2026-06-30",[["acc-bond-03","bond",false,null],["acc-fund-02","fund",true,"4000000"],["acc-inv-01","investment",true,"6000000"]]]';
 const TO_KEY_BASE =
@@ -217,7 +217,7 @@ export const reviewFixtures: Record<FixtureKey, { input: InvestmentReviewInputV1
         {
           path: 'flow.inflow_cents',
           code: 'confirmed_without_amount',
-          message: '已确认完整时金额必须明确：未知请先留空并取消确认，零必须显式填 0',
+          message: t('已确认完整时金额必须明确：未知请先留空并取消确认，零必须显式填 0'),
         },
       ],
     },

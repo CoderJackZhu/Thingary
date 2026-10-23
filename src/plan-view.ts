@@ -4,7 +4,8 @@ import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, ta
 import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
-
+import { t as tr, numberLocale } from './i18n.ts';
+import { t as tt } from './i18n.ts';
 export type ValueMode = 'today' | 'nominal';
 export type Tone = 'good' | 'watch' | 'bad';
 export type Seg = { t: string; strong?: boolean };
@@ -15,14 +16,14 @@ export const scaleAt = (P: Plan, mode: ValueMode, month: number) => (mode === 'n
 /** 紧凑金额（分 → 万／亿），图表坐标与卡片用。 */
 export function compactYuan(cents: number): string {
   const v = cents / 100, a = Math.abs(v), sign = v < 0 ? '−' : '';
-  if (a >= 1e8) return `${sign}¥${trim(a / 1e8)}亿`;
-  if (a >= 1e4) return `${sign}¥${trim(a / 1e4)}万`;
-  return `${sign}¥${Math.round(a).toLocaleString('zh-CN')}`;
+  if (a >= 1e8) return tt('{sign}¥{v2}亿', { sign, v2: trim(a / 1e8) });
+  if (a >= 1e4) return tt('{sign}¥{v2}万', { sign, v2: trim(a / 1e4) });
+  return `${sign}¥${Math.round(a).toLocaleString(numberLocale())}`;
 }
 const trim = (x: number) => (x >= 100 ? Math.round(x).toString() : x.toFixed(1).replace(/\.0$/, ''));
 
 export const ageInt = (months: number) => Math.floor(months / 12);
-const durationText = (months: number) => { const y = Math.floor(months / 12), m = months % 12; return y === 0 ? `${m} 个月` : m === 0 ? `${y} 年` : `${y} 年 ${m} 个月`; };
+const durationText = (months: number) => { const y = Math.floor(months / 12), m = months % 12; return y === 0 ? tt('{m} 个月', { m }) : m === 0 ? tt('{y} 年', { y }) : tt('{y} 年 {m} 个月', { y, m }); };
 
 export type Verdict = {
   annotations?: PlanningAnnotation[];
@@ -55,16 +56,16 @@ export function verdict(P: Plan, proj: Projection, out: Outcome, _assetsNow: num
   const reserve = out.assets_at_goal - out.required_at_goal;
   const at = (month: number) => timeLabel(P, month);
   const summaries = [
-    seg('预计每月投入 '), seg(fmt(P.saving_cents), true),
-    seg(`；${goalTime}时的预计余额为 `), seg(fmt(out.assets_at_goal * displayFactor), true),
-    seg('，所需资金为 '), seg(fmt(out.required_at_goal * displayFactor), true),
-    seg('。目标时点的预算为每年'), seg(fmt(annualBudget * displayFactor), true), seg('。'),
+    seg(tt('预计每月投入 ')), seg(fmt(P.saving_cents), true),
+    seg(tt('；{goalTime}时的预计余额为 ', { goalTime })), seg(fmt(out.assets_at_goal * displayFactor), true),
+    seg(tt('，所需资金为 ')), seg(fmt(out.required_at_goal * displayFactor), true),
+    seg(tt('。目标时点的预算为每年')), seg(fmt(annualBudget * displayFactor), true), seg('。'),
   ];
   const messages: string[] = [];
-  if (proj.failure_month !== null) messages.push(`${at(proj.failure_month)}开始有付款无法由当时资金承担`);
-  if (proj.shortfall_month !== null) messages.push(`${at(proj.shortfall_month)}开始必需开销出现缺口`);
-  if (!out.funded_at_goal) messages.push(`目标时点还差 ${fmt(Math.max(0, -reserve) * displayFactor)}`);
-  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) messages.push('有限期间完整预算已覆盖，终点无余量；此结果不覆盖终点之后');
+  if (proj.failure_month !== null) messages.push(tt('{v1}开始有付款无法由当时资金承担', { v1: at(proj.failure_month) }));
+  if (proj.shortfall_month !== null) messages.push(tt('{v1}开始必需开销出现缺口', { v1: at(proj.shortfall_month) }));
+  if (!out.funded_at_goal) messages.push(tt('目标时点还差 {v1}', { v1: fmt(Math.max(0, -reserve) * displayFactor) }));
+  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) messages.push(tt('有限期间完整预算已覆盖，终点无余量；此结果不覆盖终点之后'));
   let tone: Tone = proj.failure_month !== null ? 'bad' : messages.length ? 'watch' : 'good';
   const common = { annotations: P.annotations ?? [], summary: summaries, sub: [] as Seg[], guidance: messages.length ? messages.join('；') + '。' : null, tone };
   if (P.mode === 'traditional') {
@@ -72,25 +73,25 @@ export function verdict(P: Plan, proj: Projection, out: Outcome, _assetsNow: num
     // calculated requirement; smaller reserves are shown without a surplus badge.
     const status: NonNullable<Verdict['status']> = proj.failure_month !== null ? 'depleted'
       : !out.funded_at_goal ? 'shortfall' : reserve >= Math.max(1, annualBudget) ? 'overfunded' : 'on_track';
-    const badges = { depleted: '资金不足', shortfall: '缺口', overfunded: '盈余', on_track: '进展顺利' };
+    const badges = { depleted: tt('资金不足'), shortfall: tt('缺口'), overfunded: tt('盈余'), on_track: tt('进展顺利') };
     const headline = status === 'depleted'
-      ? [seg(`计划在 ${goalTime}退休，`), seg(`${at(proj.failure_month!)}出现资金不足`, true)]
+      ? [seg(tt('计划在 {goalTime}退休，', { goalTime })), seg(tt('{v1}出现资金不足', { v1: at(proj.failure_month!) }), true)]
       : status === 'shortfall'
-        ? [seg(`${goalTime}退休还需要 `), seg(fmt(Math.max(0, -reserve) * displayFactor), true)]
-        : [seg(`${goalTime}的资金需求已满足`), ...(status === 'overfunded' ? [seg('，需求之外还有 '), seg(fmt(reserve * displayFactor), true)] : [])];
+        ? [seg(tt('{goalTime}退休还需要 ', { goalTime })), seg(fmt(Math.max(0, -reserve) * displayFactor), true)]
+        : [seg(tt('{goalTime}的资金需求已满足', { goalTime })), ...(status === 'overfunded' ? [seg(tt('，需求之外还有 ')), seg(fmt(reserve * displayFactor), true)] : [])];
     return { ...common, status, badge: badges[status], headline, reached: out.funded_at_goal, late_months: null };
   }
   const fi = proj.fi_month;
-  if (fi === null) return { ...common, tone: 'bad', badge: `预计 ${horizonTime}前无法达到`, headline: [seg(`这些条件下，规划期内没有达到财务独立。`)], status: null, late_months: null, reached: false };
+  if (fi === null) return { ...common, tone: 'bad', badge: tt('预计 {horizonTime}前无法达到', { horizonTime }), headline: [seg(tt('这些条件下，规划期内没有达到财务独立。'))], status: null, late_months: null, reached: false };
   const reachedNow = fi <= P.now_months;
   const delay = Math.max(0, fi - P.target_months);
-  if (delay) messages.push(`比目标晚 ${durationText(delay)}后实现财务独立`);
+  if (delay) messages.push(tt('比目标晚 {v1}后实现财务独立', { v1: durationText(delay) }));
   if (delay && tone === 'good') tone = 'watch';
   return {
     ...common, tone, status: null, reached: reachedNow || delay === 0,
-    badge: reachedNow ? '已实现财务独立' : delay ? `晚 ${durationText(delay)}` : '进展顺利',
-    headline: reachedNow ? [seg('当前资金已达到这组条件下的财务独立门槛。')]
-      : [seg('按所设条件，财务独立的测算时点为 '), seg(at(fi), true)],
+    badge: reachedNow ? tt('已实现财务独立') : delay ? tt('晚 {v1}', { v1: durationText(delay) }) : tt('进展顺利'),
+    headline: reachedNow ? [seg(tt('当前资金已达到这组条件下的财务独立门槛。'))]
+      : [seg(tt('按所设条件，财务独立的测算时点为 ')), seg(at(fi), true)],
     guidance: messages.length ? messages.join('；') + '。' : null,
     late_months: delay || null,
   };
@@ -112,10 +113,10 @@ export function milestones(P: Plan, assetsNow: number, mode: ValueMode): Milesto
   const coast = coastAmount(P);
   const make = (id: Milestone['id'], label: string, hint: string, real: number, shown: number): Milestone => ({ id, label, hint, amount: shown, done: assetsNow >= real });
   return [
-    make('coast', 'Coast FIRE', '目前所需资金估算', coast, coast * (mode === 'nominal' ? k : 1)),
-    make('lean', 'Lean FIRE', '计划支出的 70%', at(0.7), at(0.7) * k),
-    make('fi', 'FI', '完整的计划支出', at(1), at(1) * k),
-    make('fat', 'Fat FIRE', '计划支出的 150%', at(1.5), at(1.5) * k),
+    make('coast', 'Coast FIRE', tt('目前所需资金估算'), coast, coast * (mode === 'nominal' ? k : 1)),
+    make('lean', 'Lean FIRE', tt('计划支出的 70%'), at(0.7), at(0.7) * k),
+    make('fi', 'FI', tt('完整的计划支出'), at(1), at(1) * k),
+    make('fat', 'Fat FIRE', tt('计划支出的 150%'), at(1.5), at(1.5) * k),
   ];
 }
 
@@ -147,18 +148,18 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
   const c = coverageAt(P, proj, month), k = scaleAt(P, mode, month);
   const segments: CoverageSegment[] = [
     ...c.items.filter(x => x.monthly > 0).map(x => ({ key: x.id, label: x.label, monthly: x.monthly * k, kind: 'income' as const })),
-    ...(c.pension > 0 ? [{ key: 'pension', label: '国家养老金', monthly: c.pension * k, kind: 'pension' as const }] : []),
-    ...(c.withdrawal > 0 ? [{ key: 'portfolio', label: '投资组合提取', monthly: c.withdrawal * k, kind: 'portfolio' as const }] : []),
-    ...(c.unfunded > 0 ? [{ key: 'unfunded', label: '无资金支持', monthly: c.unfunded * k, kind: 'unfunded' as const }] : []),
+    ...(c.pension > 0 ? [{ key: 'pension', label: tr('国家养老金'), monthly: c.pension * k, kind: 'pension' as const }] : []),
+    ...(c.withdrawal > 0 ? [{ key: 'portfolio', label: tr('投资组合提取'), monthly: c.withdrawal * k, kind: 'portfolio' as const }] : []),
+    ...(c.unfunded > 0 ? [{ key: 'unfunded', label: tr('无资金支持'), monthly: c.unfunded * k, kind: 'unfunded' as const }] : []),
   ];
   const spend = c.spend * k, pct = (v: number) => (spend > 0 ? Math.min(100, (v / spend) * 100) : 0);
   const income = segments.filter(s => s.kind === 'income' || s.kind === 'pension').reduce((s, x) => s + x.monthly, 0);
   const row = proj.rows.find(r => month >= r.start_month && month < r.start_month + 12);
   const value = row ? row.start : 0;
-  const ageOf = (a: number | null) => (a === null ? P.age_reference === undefined ? '终身' : '未设结束月' : timeLabel(P, a * 12));
+  const ageOf = (a: number | null) => (a === null ? P.age_reference === undefined ? tt('终身') : tt('未设结束月') : timeLabel(P, a * 12));
   const pensionStart = proj.pension ? pensionIncomeStart(proj.pension) : Infinity;
   const hasPension = !!proj.pension && proj.pension.monthly_cents > 0 && Number.isFinite(pensionStart);
-  const pensionStartText = `${ageInt(pensionStart)} 岁${pensionStart % 12 ? ` ${pensionStart % 12} 个月` : ''}`;
+  const pensionStartText = tt('{v1} 岁{v2}', { v1: ageInt(pensionStart), v2: pensionStart % 12 ? ` ${pensionStart % 12} 个月` : '' });
   const nextIncome = P.incomes.filter(s => s.start_age * 12 > month).map(s => s.start_age).sort((a, b) => a - b)[0] ?? (hasPension && pensionStart > month ? ageInt(pensionStart) : null);
   return {
     month, calendar_month: timeLabel(P, month), age: ageAt(P, month) === null ? null : ageInt(ageAt(P, month)!), spend, essential: c.essential * k,
@@ -167,13 +168,13 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
     spend_items: P.items.map(it => {
       const detail = c.expense_items.find(item => item.id === it.id);
       const active = detail?.active ?? false;
-      return { id: it.id, label: it.label, monthly: (detail?.monthly ?? 0) * k, start: it.start_age === null ? P.age_reference === undefined ? '退休' : timeLabel(P, proj.retire_month ?? P.target_months) : timeLabel(P, it.start_age * 12), end: ageOf(it.end_age), essential: it.essential, active };
+      return { id: it.id, label: it.label, monthly: (detail?.monthly ?? 0) * k, start: it.start_age === null ? P.age_reference === undefined ? tt('退休') : timeLabel(P, proj.retire_month ?? P.target_months) : timeLabel(P, it.start_age * 12), end: ageOf(it.end_age), essential: it.essential, active };
     }),
-    flow_items: (P.spend_flows ?? []).map((f, index) => { const detail = c.flow_items[index], active = detail?.active ?? false; return { id: f.label + f.from_month, label: f.label, monthly: (detail?.monthly ?? 0) * k, start: timeLabel(P, f.from_month), end: f.to_month === null ? '未设结束月' : timeLabel(P, f.to_month), essential: f.essential, active }; }),
+    flow_items: (P.spend_flows ?? []).map((f, index) => { const detail = c.flow_items[index], active = detail?.active ?? false; return { id: f.label + f.from_month, label: f.label, monthly: (detail?.monthly ?? 0) * k, start: timeLabel(P, f.from_month), end: f.to_month === null ? tt('未设结束月') : timeLabel(P, f.to_month), essential: f.essential, active }; }),
     income_items: [
       ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: timeLabel(P, s.start_age * 12), end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
-      ...(P.future_incomes ?? []).map(s => ({ id: s.id, label: s.name, monthly: (c.items.find(x => x.id === s.id)?.monthly ?? 0) * k, start: s.start_month ?? '待确认', end: s.end_month ?? '未设结束月', active: c.items.find(x => x.id === s.id)?.active ?? false })),
-      ...(hasPension ? [{ id: 'pension', label: '国家养老金', monthly: c.pension * k, start: proj.pension!.income_start_age_months === undefined ? `${ageInt(pensionStart)} 岁` : pensionStartText, end: '终身', active: c.pension > 0 }] : []),
+      ...(P.future_incomes ?? []).map(s => ({ id: s.id, label: s.name, monthly: (c.items.find(x => x.id === s.id)?.monthly ?? 0) * k, start: s.start_month ?? tt('待确认'), end: s.end_month ?? tt('未设结束月'), active: c.items.find(x => x.id === s.id)?.active ?? false })),
+      ...(hasPension ? [{ id: 'pension', label: tr('国家养老金'), monthly: c.pension * k, start: proj.pension!.income_start_age_months === undefined ? tt('{v1} 岁', { v1: ageInt(pensionStart) }) : pensionStartText, end: tt('终身'), active: c.pension > 0 }] : []),
     ],
     next_income_age: nextIncome,
   };
@@ -189,9 +190,9 @@ export function snapshotRows(P: Plan, proj: Projection, mode: ValueMode): Snapsh
   const within = (m: number | null, s: number) => m !== null && m >= s && m < s + 12;
   return proj.rows.map(r => {
     const k = scaleAt(P, mode, r.start_month), last = Math.min(r.start_month + 11, P.horizon_months - 1);
-    const marks = ([[P.target_months, '目标'], [proj.fi_month, 'FI'], [proj.retire_month, '退休']] as const).filter(([m]) => within(m, r.start_month)).map(([, label]) => label);
+    const marks = ([[P.target_months, tt('目标')], [proj.fi_month, tt('预计不靠工资')], [proj.retire_month, tt('退休')]] as const).filter(([m]) => within(m, r.start_month)).map(([, label]) => label);
     return { age: r.age, year: r.year, phase: r.phase, end: r.end * k, contribution: r.contribution * k, income: r.income * k, unlock: r.unlock * k, spend: r.spend * k, oneoff: r.oneoff * k, withdrawal: r.withdrawal * k, unfunded: r.unfunded * k, start_month: r.start_month,
-      period: base === null ? null : `${ymOf(base + r.start_month)} 至 ${ymOf(base + last)}`, marks, retire_starts: proj.retire_month !== null && proj.retire_month > r.start_month && within(proj.retire_month, r.start_month) };
+      period: base === null ? null : tt('{v1} 至 {v2}', { v1: ymOf(base + r.start_month), v2: ymOf(base + last) }), marks, retire_starts: proj.retire_month !== null && proj.retire_month > r.start_month && within(proj.retire_month, r.start_month) };
   });
 }
 
@@ -216,7 +217,7 @@ export function coverageSeries(P: Plan, proj: Projection, mode: ValueMode): Cove
 export type RangeRow = { id: string; label: string; fi_month: number | null; late_months: number | null; surplus: number; failed: boolean };
 export function rangeRows(stress: { id: string; label: string; stressed: Outcome }[], base: Outcome): RangeRow[] {
   const row = (id: string, label: string, o: Outcome): RangeRow => ({ id, label, fi_month: o.fi_month, late_months: o.fi_month !== null && base.fi_month !== null ? o.fi_month - base.fi_month : null, surplus: o.assets_at_goal - o.required_at_goal, failed: o.failure_month !== null || o.shortfall_month !== null });
-  return [row('base', '基准', base), ...stress.map(r => row(r.id, r.label, r.stressed))];
+  return [row('base', tt('基准'), base), ...stress.map(r => row(r.id, r.label, r.stressed))];
 }
 
 /** 图顶竖线标签分行：同一行放不下（会盖住前一个）就挪到第二行；贴右边界时改为向左伸展。 */

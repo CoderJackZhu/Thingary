@@ -1,5 +1,5 @@
 import { supportsUpdateChecks } from './update-check.ts';
-
+import { t } from './i18n.ts';
 /** Update discovery (D5): shared display state derived from the backend's
  * machine-local preference/cache view, plus the small local markers that
  * coordinate the one-time ask. Pure logic only; the React controller lives in
@@ -82,9 +82,9 @@ export function versionNewer(a: string, b: string): boolean {
 /** The 上次检查 line: success when known, otherwise the last attempt. */
 export function lastCheckLine(state: UpdateDiscoveryState): string {
   const success = stampLabel(state.last_success_at);
-  if (success) return `上次成功检查：${success}`;
+  if (success) return t('上次成功检查：{success}', { success });
   const attempt = stampLabel(state.last_attempt_at);
-  return attempt ? `上次尝试检查：${attempt}（未成功）` : '';
+  return attempt ? t('上次尝试检查：{attempt}（未成功）', { attempt }) : '';
 }
 
 export type ManualOutcome =
@@ -96,9 +96,9 @@ export type ManualOutcome =
 /** What a finished manual round should say, from the shared state. */
 export function manualOutcome(state: UpdateDiscoveryState, task: UpdateTaskResult | null, error: string | null): ManualOutcome {
   if (error) return { kind: 'failed', message: error };
-  if (task?.cancelled) return { kind: 'failed', message: '自动检查已取消，可点击手动检查。' };
+  if (task?.cancelled) return { kind: 'failed', message: t('自动检查已取消，可点击手动检查。') };
   if (task && !task.applied && task.error) return { kind: 'failed', message: task.error };
-  if (state.last_unreachable.length === 2) return { kind: 'failed', message: '上次检查未能连接 Gitee 和 GitHub，请重新检查；已有发现仅供历史参考。' };
+  if (state.last_unreachable.length === 2) return { kind: 'failed', message: t('上次检查未能连接 Gitee 和 GitHub，请重新检查；已有发现仅供历史参考。') };
   if (state.update_available && state.candidate) {
     return {
       kind: 'update',
@@ -114,18 +114,18 @@ export function manualOutcome(state: UpdateDiscoveryState, task: UpdateTaskResul
 
 export function outcomeLine(outcome: ManualOutcome): string {
   const mirrorNote = (unreachable: string[]) =>
-    unreachable.length ? `（未能连接 ${unreachable.map(mirrorLabel).join('、')}，结果只来自其余来源，可能不是最新。）` : '';
+    unreachable.length ? t('（未能连接 {v1}，结果只来自其余来源，可能不是最新。）', { v1: unreachable.map(mirrorLabel).join('、') }) : '';
   if (outcome.kind === 'update') {
-    return `发现新版本 ${outcome.version}${outcome.date ? `（${outcome.date} 发布）` : ''}，当前版本 ${outcome.current}。${mirrorNote(outcome.unreachable)}`;
+    return t('发现新版本 {version}{v2}，当前版本 {current}。{v4}', { version: outcome.version, v2: outcome.date ? `（${outcome.date} 发布）` : '', current: outcome.current, v4: mirrorNote(outcome.unreachable) });
   }
-  if (outcome.kind === 'unavailable') return `版本 ${outcome.version} 暂未提供适合当前设备的安装包。`;
-  if (outcome.kind === 'latest') return `本次未发现适合当前设备的新版本（当前 ${outcome.current}）。${mirrorNote(outcome.unreachable)}`;
+  if (outcome.kind === 'unavailable') return t('版本 {version} 暂未提供适合当前设备的安装包。', { version: outcome.version });
+  if (outcome.kind === 'latest') return t('本次未发现适合当前设备的新版本（当前 {current}）。{v2}', { current: outcome.current, v2: mirrorNote(outcome.unreachable) });
   return outcome.message;
 }
 
-export const autoCheckHint = '开启后，打开物谱时每天最多查询一次公开版本列表，不上传你的资料。下载和安装由你决定。';
-export const inviteTitle = '自动发现新版本？';
-export const inviteBody = '开启后，打开物谱时每天最多查询一次公开版本列表，不上传你的资料，下载和安装仍由你决定。';
+export const autoCheckHint = t('开启后，打开物谱时每天最多查询一次公开版本列表，不上传你的资料。下载和安装由你决定。');
+export const inviteTitle = t('自动发现新版本？');
+export const inviteBody = t('开启后，打开物谱时每天最多查询一次公开版本列表，不上传你的资料，下载和安装仍由你决定。');
 
 // --- One-time ask, machine-local like the reminder ask ----------------------
 

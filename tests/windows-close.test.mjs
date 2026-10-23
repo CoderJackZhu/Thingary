@@ -7,13 +7,13 @@ const main = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const lib = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 const commands = readFileSync(new URL('../src-tauri/src/commands.rs', import.meta.url), 'utf8');
 const closeExpression = main.match(/const pageCloseBlocked = ([^;]+);/)[1];
-const idle = { startChoiceBusy: false, featureEditing: false, dataBusy: false, modeBusy: false, batch: null, wishlistEditing: false, draft: null, trashAction: null, recordTrashAction: null, lifecycleDraft: null, saleDraft: null, maintenanceDraft: null, warrantyDraft: null };
+const idle = { featureEditing: false, dataBusy: false, modeBusy: false, batch: null, wishlistEditing: false, draft: null, trashAction: null, recordTrashAction: null, lifecycleDraft: null, saleDraft: null, maintenanceDraft: null, warrantyDraft: null };
 const blocked = state => vm.runInNewContext(closeExpression, { ...idle, ...state });
 
 test('Windows close guard covers account/planning/recurring/virtual forms and foreground tasks', () => {
   assert.equal(blocked({}), false);
   for (const state of [
-    { featureEditing: true }, { dataBusy: true }, { startChoiceBusy: true },
+    { featureEditing: true }, { dataBusy: true },
     { modeBusy: true }, { batch: { action: 'classify' } },
   ]) assert.equal(blocked(state), true, 'active input or foreground work stays open');
 });
@@ -39,7 +39,7 @@ test('persistent unknown receipts retain library isolation without trapping exit
   assert.equal(blocked({ durablePending: true, pendingReceipt: { command: 'wealth_account_save' }, recovered: { pending: { request_id: 'fictional' } } }), false);
   assert.equal(blocked({ featureEditing: true, durablePending: true }), true, 'an open foreground editor still blocks');
   assert.match(main, /set_library_busy', \{ busy: modeBlocked, closeBlocked: pageCloseBlocked \}/);
-  assert.match(main, /const modeBlocked = startChoiceBusy \|\| durablePending \|\| featureEditing \|\| dataBusy/);
+  assert.match(main, /const modeBlocked = durablePending \|\| featureEditing \|\| dataBusy/);
 });
 
 test('Windows X and process exit consult the distinct guard while aggregate busy consumers remain intact', () => {

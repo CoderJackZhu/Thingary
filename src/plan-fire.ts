@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 // 退休估算的小工具：养老金结果类型、进展与应急金线。主体计算在 plan-ledger.ts。
 // 「未来缺口折现」代替 4% 法则：提前辞职的人先靠存款，到养老金起领年龄后才有养老金与公积金、
 // 个人养老金的一次性解锁。输出是估算，内部用浮点，显示时取整到分。
@@ -22,9 +23,9 @@ export const progressHundredths = (assets: number, required: number): number => 
 
 /** 距离达成还有多久：「已经够了」「7 个月」「12 年 4 个月」。 */
 export function monthsLeftText(months: number): string {
-  if (months <= 0) return '已经够了';
+  if (months <= 0) return t('已经够了');
   const y = Math.floor(months / 12), m = months % 12;
-  return y === 0 ? `${m} 个月` : m === 0 ? `${y} 年` : `${y} 年 ${m} 个月`;
+  return y === 0 ? t('{m} 个月', { m }) : m === 0 ? t('{y} 年', { y }) : t('{y} 年 {m} 个月', { y, m });
 }
 
 /** 当前可支配资产相当于几个月支出；低于应急金线时 below 为 true。 */

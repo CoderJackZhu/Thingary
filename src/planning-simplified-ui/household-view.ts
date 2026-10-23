@@ -1,6 +1,6 @@
 import type { FieldIssueV1, HouseholdV1, SimplifiedPlanningFieldsV1, TimeInputV1 } from '../plan-simplified-contract.ts';
 import { monthIndexV1, validMonthV1, validateSimplifiedPlanningV1 } from '../plan-simplified.ts';
-
+import { t as tr } from '../i18n.ts';
 /** Household view helpers: pure, shared by the setup fields and the result lines. */
 export const SINGLE: HouseholdV1 = { mode: 'single', partner: null };
 export const PARTNER_STOP_MIN_YEARS = 18, PARTNER_STOP_MAX_YEARS = 100;
@@ -28,8 +28,8 @@ export const stopAgeText = (months: number | null): string => months === null ||
 /** Household issues only, with a friendlier age message than the contract's month range. */
 export function householdIssues(f: SimplifiedPlanningFieldsV1, today: string): FieldIssueV1[] {
   return validateSimplifiedPlanningV1(f, today).filter(i => i.path.startsWith('household')).map(i =>
-    i.path === 'household.partner.stop_age_months' ? { ...i, message: `伴侣停工年龄请填 ${PARTNER_STOP_MIN_YEARS} 到 ${PARTNER_STOP_MAX_YEARS} 的整岁数。` }
-      : i.path === 'household.partner.birth_month' ? { ...i, message: '请填写有效的伴侣出生年月，不能晚于当前月份。' } : i);
+    i.path === 'household.partner.stop_age_months' ? { ...i, message: tr('伴侣停工年龄请填 {PARTNER_STOP_MIN_YEARS} 到 {PARTNER_STOP_MAX_YEARS} 的整岁数。', { PARTNER_STOP_MIN_YEARS, PARTNER_STOP_MAX_YEARS }) }
+      : i.path === 'household.partner.birth_month' ? { ...i, message: tr('请填写有效的伴侣出生年月，不能晚于当前月份。') } : i);
 }
 
 /** The partner's birth month as an age-zero reference, for converting an age into a month. */
@@ -48,20 +48,20 @@ export function isSplitCouple(h: HouseholdV1 | null | undefined, today: string):
   if (!isCouple(h) || h.partner.stop_age_months === null || h.partner.monthly_cents === null || !validMonthV1(h.partner.birth_month)) return false;
   return monthIndexV1(h.partner.birth_month) + h.partner.stop_age_months > monthIndexV1(today.slice(0, 7));
 }
-export const SPLIT_REQUIREMENT_HINT = '这是两人合计每月要存的钱：伴侣还在工作时，包含伴侣那一份。';
+export const SPLIT_REQUIREMENT_HINT = tr('这是两人合计每月要存的钱：伴侣还在工作时，包含伴侣那一份。');
 
-export const monthLabel = (m: string): string => `${m.slice(0, 4)} 年 ${Number(m.slice(5, 7))} 月`;
+export const monthLabel = (m: string): string => tr('{v1} 年 {v2} 月', { v1: m.slice(0, 4), v2: Number(m.slice(5, 7)) });
 
 /** At most two short result lines for a couple; each is omitted when its facts are not known. */
 export function householdLines(household: HouseholdV1 | null | undefined, summary: { both_stop_month: string | null; same_time_stop_month: string | null } | undefined, myStopMonth: string | null): string[] {
   if (!summary || !isCouple(household)) return [];
   const lines: string[] = [];
   const age = partnerAgeMonthsAt(household, summary.both_stop_month);
-  if (summary.both_stop_month && age !== null) lines.push(`两人都不上班：${monthLabel(summary.both_stop_month)}，那时伴侣 ${Math.floor(age / 12)} 岁`);
+  if (summary.both_stop_month && age !== null) lines.push(tr('两人都不上班：{v1}，那时伴侣 {v2} 岁', { v1: monthLabel(summary.both_stop_month), v2: Math.floor(age / 12) }));
   const stop = household.partner.stop_age_months;
   if (summary.same_time_stop_month && myStopMonth && stop !== null && stop >= 0) {
     const diff = monthIndexV1(summary.same_time_stop_month) - monthIndexV1(myStopMonth);
-    if (diff !== 0) lines.push(`伴侣工作到 ${Math.floor(stop / 12)} 岁，你${diff > 0 ? '能比两人同时停工早' : '比两人同时停工晚'} ${Math.abs(diff)} 个月`);
+    if (diff !== 0) lines.push(tr('伴侣工作到 {v1} 岁，你{v2} {v3} 个月', { v1: Math.floor(stop / 12), v2: diff > 0 ? '能比两人同时停工早' : '比两人同时停工晚', v3: Math.abs(diff) }));
   }
   return lines;
 }

@@ -470,6 +470,76 @@ fn b07_closed_modules_and_stale_generations_are_isolated() {
 }
 
 #[test]
+fn physical_switch_hides_search_results_and_counts_without_removing_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("library");
+    let mut s = Store::open(&root).unwrap();
+    let asset_id = asset(
+        &mut s,
+        &format!("{NEEDLE} 私人物品"),
+        "物品备注",
+        Some("120000"),
+    );
+    wish(&mut s, &format!("{NEEDLE} 心愿"), "");
+    let original = s.record(&asset_id).unwrap().unwrap();
+    let before = s.search_all(&q(&s, NEEDLE, "all", 0)).unwrap();
+    assert_eq!(before.total, 2);
+    modules::write(
+        &root,
+        &Modules {
+            physical: false,
+            ..Modules::default()
+        },
+    )
+    .unwrap();
+    for filter in ["all", "asset"] {
+        let closed = s.search_all(&q(&s, NEEDLE, filter, 0)).unwrap();
+        assert_eq!(closed.total, if filter == "all" { 1 } else { 0 });
+        assert!(closed.items.iter().all(|item| item.kind != "asset"));
+        assert_eq!(
+            closed
+                .type_counts
+                .iter()
+                .find(|(kind, _)| kind == "asset")
+                .unwrap()
+                .1,
+            0,
+            "hidden physical records must not affect result counts"
+        );
+        assert_eq!(
+            closed
+                .type_counts
+                .iter()
+                .find(|(kind, _)| kind == "wish")
+                .unwrap()
+                .1,
+            1,
+            "independent enabled modules remain searchable"
+        );
+        assert_eq!(
+            closed.revision, before.revision,
+            "search and toggles do not write library facts"
+        );
+    }
+    let hidden = s.record(&asset_id).unwrap().unwrap();
+    assert_eq!(hidden.asset.name, original.asset.name);
+    assert_eq!(hidden.asset.price_cents, original.asset.price_cents);
+    assert_eq!(hidden.asset.revision, original.asset.revision);
+    modules::write(&root, &Modules::default()).unwrap();
+    drop(s);
+    let reopened = Store::open(&root).unwrap();
+    let restored = reopened
+        .search_all(&q(&reopened, NEEDLE, "all", 0))
+        .unwrap();
+    assert_eq!(restored.total, before.total);
+    assert_eq!(restored.type_counts, before.type_counts);
+    assert!(restored
+        .items
+        .iter()
+        .any(|item| matches!(&item.target, Target::Asset { id } if id == &asset_id)));
+}
+
+#[test]
 fn b08_matching_rules_keyword_bounds_and_unsearched_fields() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();

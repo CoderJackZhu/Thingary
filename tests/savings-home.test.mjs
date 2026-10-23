@@ -10,7 +10,7 @@ const source = readFileSync(new URL('../src/SavingsGoals.tsx', import.meta.url),
 const ast = ts.createSourceFile('SavingsGoals.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const functions = ast.statements.filter(n => ts.isFunctionDeclaration(n) && ['financialAmountsHidden', 'SavingsGoals', 'GoalCard'].includes(n.name?.text)).map(n => n.getText()).join('\n');
 const script = ts.transpileModule(functions + '\nmodule.exports={SavingsGoals,GoalCard};', { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-const fixture = () => ({ generation: 'fictional', today: '2026-10-19', year: 2026, years: [2026], basis: { snapshot_id: 's', date: '2026-10-15', revision: 1 }, newer_incomplete: false, accounts: [], goals: [{
+const fixture = () => ({ generation: 'fictional', today: '2026-10-19', year: 2026, years: [2026], basis: { snapshot_id: 's', date: '2026-10-15', revision: 1 }, newer_incomplete: false, accounts: [{ id: 'a', fields: { name: '虚构现金', side: 'asset', kind: 'cash', closed_on: null } }], goals: [{
   goal: { id: 'g', fields: { name: '虚构应急金', target_cents: '5000000', target_date: '2027-10-15' }, created_on: '2026-10-01' }, observations: [{ account_id: 'a', name: '虚构现金', kind: 'cash', status: 'known', amount_cents: '3000000' }], shared_account_ids: [], planning_overlap: false, history: [],
 }] });
 function nodes(root) { if (root == null || typeof root === 'boolean') return []; if (Array.isArray(root)) return root.flatMap(nodes); if (typeof root !== 'object') return [root]; return [root, ...nodes(root.props?.children)]; }
@@ -22,7 +22,7 @@ function runtime({ data = fixture(), failure = false, compact = true, hidden = f
   const props = { generation: 'fictional', today: '2026-10-19', compact, hideAmounts: hidden, focusRequested, onManage: () => managed.push(true), onFocusDone: () => { props.focusRequested = false; } };
   const context = { ...savings, module: { exports: {} }, exports: {}, require: () => jsx, crypto,
     localStorage: { getItem: () => null }, storedPending: () => null, useRestored: () => {}, errorMessage: e => e.message,
-    money: cents => `金额${cents}`, GoalEditor: 'goal-editor', YearSelect: 'year-select',
+    money: cents => `金额${cents}`, kindLabel: kind => kind, GoalEditor: 'goal-editor', GoalHistoryChart: 'goal-history-chart', YearSelect: 'year-select',
     invoke: async (command, args) => { calls.push({ command, args }); if (failure) throw new Error('虚构读取失败'); return structuredClone(data); },
     useState: initial => { const i = si++; if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : initial; return [states[i], v => { states[i] = typeof v === 'function' ? v(states[i]) : v; }]; },
     useRef: initial => refs[ri++] ??= { current: initial },
@@ -95,4 +95,32 @@ test('home management navigation clears a stale account search and uses same-lib
   vm.runInNewContext(code, context); context.module.exports('wealth', 'savings-goals');
   assert.equal(calls[0].wealth, ''); assert.equal(calls[0].assets, '保留'); assert.equal(calls[1].generation, 'fictional'); assert.equal(calls[1].kind, 'savings-goals'); assert.equal(calls[2], 'wealth');
   context.modeBlocked = true; context.module.exports('wealth', 'savings-goals'); assert.equal(calls.length, 3);
+});
+
+test('without an eligible account, creation offers the existing account editor before any target fields',async()=>{
+ for(const accounts of [[],[{id:'debt',fields:{side:'liability',kind:'loan'}}],[{id:'home',fields:{side:'asset',kind:'property'}}],[{id:'closed',fields:{side:'asset',kind:'cash',closed_on:'2026-10-18'}}]]){
+  const r=runtime({data:{...fixture(),accounts,goals:[],basis:null},compact:false});let opened=0;r.props.onNewAccount=()=>opened++;
+  const tree=await ready(r);assert.match(text(tree),/先添加账户/);assert.doesNotMatch(text(tree),/尚无完整盘点/);
+  assert.equal(find(tree,n=>n.type==='button'&&n.props.children==='新增存钱目标'),undefined);
+  const add=find(tree,n=>n.type==='button'&&n.props.children==='先添加资产账户');assert.equal(add.props.disabled,false);add.props.onClick();assert.equal(opened,1);
+  assert.equal(find(r.render(),n=>n.type==='goal-editor'),undefined);
+ }
+});
+test('account creation and goal creation stay unavailable during loading, failures, blocked writes and library mismatch',async()=>{
+ for(const failure of [false,true]){const r=runtime({data:{...fixture(),accounts:[],goals:[]},compact:false,failure});let opened=0;r.props.onNewAccount=()=>opened++;r.props.blocked=true;
+  const first=r.render();assert.equal(find(first,n=>n.type==='button'&&n.props.children==='新增存钱目标').props.disabled,true);
+  const tree=await ready(r),action=find(tree,n=>n.type==='button'&&['先添加资产账户','新增存钱目标'].includes(n.props.children));assert.equal(action.props.disabled,true);action.props.onClick();assert.equal(opened,0);
+ }
+ const stale=runtime({data:{...fixture(),generation:'other-library',accounts:[],goals:[]},compact:false});stale.props.onNewAccount=()=>assert.fail('stale');const tree=await ready(stale);assert.match(text(tree),/资料已切换/);assert.equal(find(tree,n=>n.type==='button'&&n.props.children==='新增存钱目标').props.disabled,true);
+});
+test('after adding an eligible account, the refreshed manager enables target creation even when its balance is unknown',async()=>{
+ const r=runtime({data:{...fixture(),accounts:[],goals:[],basis:null},compact:false});r.props.onNewAccount=()=>{};await ready(r);
+ r.setData({...fixture(),goals:[],basis:null});r.props.version=2;let tree=await ready(r);
+ const create=find(tree,n=>n.type==='button'&&n.props.children==='新增存钱目标');assert.equal(create.props.disabled,false);assert.match(text(tree),/余额与进度暂未知/);create.props.onClick();assert.ok(find(r.render(),n=>n.type==='goal-editor'));
+});
+test('existing goals remain editable when no account currently qualifies for a new target',async()=>{
+ const r=runtime({data:{...fixture(),accounts:[]},compact:false});r.props.onNewAccount=()=>{};
+ const tree=await ready(r);assert.match(text(tree),/虚构应急金/);
+ const edit=find(tree,n=>n.type==='button'&&n.props.children==='编辑');assert.equal(edit.props.disabled,false);edit.props.onClick();
+ const editor=find(r.render(),n=>n.type==='goal-editor');assert.equal(editor.props.initial.id,'g');
 });

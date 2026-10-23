@@ -73,3 +73,7 @@
 .me-lock-error{margin:0;min-height:1.2em;font-size:13px;color:var(--error)}
 .me-lock .m-button{width:100%}
 .me-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+
+.star-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0;padding:14px 16px;border-radius:var(--ctl-radius);background:var(--soft);border:1px solid var(--line)}
+.star-card p{flex:1 1 200px;margin:0}
+.star-card .support-link a{display:inline-block;padding:8px 16px;border-radius:var(--ctl-radius);background:var(--accent);color:#fff;font-weight:600;text-decoration:none}

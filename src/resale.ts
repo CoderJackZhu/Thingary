@@ -1,6 +1,6 @@
 // U19 售出保值率：类型、百分比格式，以及浏览器预览用的同规则计算。原生数据来自 Rust `resale_rate`。
 import type { AssetRecord } from './asset.ts';
-
+import { t } from './i18n.ts';
 export type ResaleRow = { id: string; name: string; purchase_cents: string; sale_cents: string; gain_cents: string; rate_hundredths: number; sold_date: string };
 export type ResaleExcluded = { id: string; name: string; reason: string };
 export type ResaleRate = {
@@ -22,7 +22,7 @@ export function previewResaleRate(records: AssetRecord[]): ResaleRate {
   for (const r of records) {
     if (r.deleted || r.preferences?.exclude.statistics || r.lifecycle?.state !== 'sold' || !r.sale) continue;
     const price = r.asset.price_cents;
-    if (price === null || BigInt(price) === 0n) { excluded.push({ id: r.asset.id, name: r.asset.name, reason: price === null ? '购入金额未知' : '购入价为 ¥0，不计算' }); continue; }
+    if (price === null || BigInt(price) === 0n) { excluded.push({ id: r.asset.id, name: r.asset.name, reason: price === null ? t('购入金额未知') : t('购入价为 ¥0，不计算') }); continue; }
     const p = BigInt(price), s = BigInt(r.sale.fields.price_cents);
     purchaseTotal += p; saleTotal += s;
     rows.push({ id: r.asset.id, name: r.asset.name, purchase_cents: p.toString(), sale_cents: s.toString(), gain_cents: (s - p).toString(), rate_hundredths: hundredths(s, p), sold_date: r.sale.fields.date });

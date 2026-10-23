@@ -15,7 +15,7 @@ import type {
   TaxonomyManagerProps,
   TaxonomySnapshot,
 } from "./taxonomy";
-
+import { t } from './i18n.ts';
 // 草稿状态：仅保存当前编辑草稿，绝不缓存另一份实体列表
 type DraftState = {
   // rename / create 草稿
@@ -25,12 +25,12 @@ type DraftState = {
 };
 
 const KIND_TABS: { value: TaxonomyKind; label: string; helper: string }[] = [
-  { value: "category", label: "分类", helper: "决定列表与摘要里的分组归属" },
-  { value: "channel", label: "购买渠道", helper: "记录每件物品的购入场所" },
+  { value: "category", label: t('分类'), helper: t('决定列表与摘要里的分组归属') },
+  { value: "channel", label: t('购买渠道'), helper: t('记录每件物品的购入场所') },
 ];
 // Sale channels and labels share choice management in settings and form pickers.
 type ExtraTab = "sale_channel" | "label";
-const ALL_TABS: { value: TaxonomyKind | ExtraTab; label: string }[] = [...KIND_TABS, { value: "sale_channel", label: "售出渠道" }, { value: "label", label: "标签" }];
+const ALL_TABS: { value: TaxonomyKind | ExtraTab; label: string }[] = [...KIND_TABS, { value: "sale_channel", label: t('售出渠道') }, { value: "label", label: t('标签') }];
 
 const ICON_GLYPHS: Record<CategoryIcon, ReactNode> = {
   box: (
@@ -127,14 +127,14 @@ interface IconPickerProps {
 
 function IconPicker({ value, onChange, disabled, name }: IconPickerProps) {
   return (
-    <div className="taxonomy-icon-row" role="radiogroup" aria-label={`${name}图标`}>
+    <div className="taxonomy-icon-row" role="radiogroup" aria-label={t('{name}图标', { name })}>
       {CATEGORY_ICONS.map((icon) => (
         <button
           key={icon.value}
           type="button"
           className="taxonomy-icon-pick"
           aria-pressed={value === icon.value}
-          aria-label={`${name}，选择图标 ${icon.label}`}
+          aria-label={t('{name}，选择图标 {label}', { name, label: icon.label })}
           role="radio"
           aria-checked={value === icon.value}
           tabIndex={value === icon.value ? 0 : -1}
@@ -212,7 +212,7 @@ function ListRow({
     if (busy) return;
     const trimmed = normalizeName(draftName);
     if (!trimmed) {
-      setRowError("请填写名称。");
+      setRowError(t('请填写名称。'));
       return;
     }
     setRowError(null);
@@ -221,7 +221,7 @@ function ListRow({
       setMode("view");
       onCancelEdit();
     } catch (error) {
-      setRowError((error as Error).message || "保存未完成，请稍后重试。");
+      setRowError((error as Error).message || t('保存未完成，请稍后重试。'));
     }
   }
 
@@ -232,12 +232,12 @@ function ListRow({
       await onChangeIcon(next);
       setRowError(null);
     } catch (error) {
-      setRowError((error as Error).message || "图标未更新，请稍后重试。");
+      setRowError((error as Error).message || t('图标未更新，请稍后重试。'));
     }
   }
 
   if (mode === "view") {
-    return <li data-sort-id={entry.id}><DragHandle label={entry.name} disabled={busy} onDrop={onDrop} onStep={d=>{if(!(d<0?isFirst:isLast))void onMove(d<0?'up':'down')}}/><strong>{iconDescriptor&&<span className="taxonomy-icon-glyph" aria-label={'图标：'+iconDescriptor.label}>{ICON_GLYPHS[iconDescriptor.value]}</span>}{entry.name}</strong><span className="taxonomy-meta">{entry.references.activeAssets} 件物品</span><span className="taxonomy-order-controls" role="group" aria-label={entry.name+'的排序'}><button type="button" aria-label={'上移'+entry.name} title="上移" disabled={busy||isFirst} onClick={()=>void onMove('up')}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 10 4-4 4 4"/></svg></button><button type="button" aria-label={'下移'+entry.name} title="下移" disabled={busy||isLast} onClick={()=>void onMove('down')}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></span><details className="row-menu"><summary aria-label={entry.name+'的更多操作'}>•••</summary><div><button type="button" disabled={busy} onClick={()=>{setDraftName(entry.name);setRowError(null);onStartEdit();setMode('edit')}}>编辑名称与图标</button><button type="button" className="danger" disabled={busy} onClick={event=>{event.currentTarget.closest('details')?.removeAttribute('open');onRemove()}}>移除…</button></div></details></li>;
+    return <li data-sort-id={entry.id}><DragHandle label={entry.name} disabled={busy} onDrop={onDrop} onStep={d=>{if(!(d<0?isFirst:isLast))void onMove(d<0?'up':'down')}}/><strong>{iconDescriptor&&<span className="taxonomy-icon-glyph" aria-label={t('图标：')+iconDescriptor.label}>{ICON_GLYPHS[iconDescriptor.value]}</span>}{entry.name}</strong><span className="taxonomy-meta">{t('{activeAssets} 件物品', { activeAssets: entry.references.activeAssets })}</span><span className="taxonomy-order-controls" role="group" aria-label={entry.name+t('的排序')}><button type="button" aria-label={t('上移')+entry.name} title={t('上移')} disabled={busy||isFirst} onClick={()=>void onMove('up')}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 10 4-4 4 4"/></svg></button><button type="button" aria-label={t('下移')+entry.name} title={t('下移')} disabled={busy||isLast} onClick={()=>void onMove('down')}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></span><details className="row-menu"><summary aria-label={entry.name+t('的更多操作')}>•••</summary><div><button type="button" disabled={busy} onClick={()=>{setDraftName(entry.name);setRowError(null);onStartEdit();setMode('edit')}}>{t('编辑名称与图标')}</button><button type="button" className="danger" disabled={busy} onClick={event=>{event.currentTarget.closest('details')?.removeAttribute('open');onRemove()}}>{t('移除…')}</button></div></details></li>;
   }
 
   return (
@@ -249,7 +249,7 @@ function ListRow({
           value={draftName}
           disabled={busy}
           onChange={(event) => setDraftName(event.target.value)}
-          aria-label={`${entry.name} 的新名称`}
+          aria-label={t('{name} 的新名称', { name: entry.name })}
           aria-invalid={!!rowError}
           aria-describedby={rowError ? `edit-${entry.id}-err` : undefined}
           onKeyDown={(event) => {
@@ -266,10 +266,10 @@ function ListRow({
           }}
         />
         <span aria-live="polite" id={`edit-${entry.id}-err`} className="taxonomy-help" data-state={rowError ? "error" : undefined}>
-          {rowError ?? "按 Enter 保存，Esc 取消"}
+          {rowError ?? t('按 Enter 保存，Esc 取消')}
         </span>
         <button type="button" disabled={busy} onClick={() => void saveDraft()}>
-          保存
+          {t('保存')}
         </button>
         <button
           type="button"
@@ -280,21 +280,21 @@ function ListRow({
             onCancelEdit();
           }}
         >
-          取消
+          {t('取消')}
         </button>
         <button
           type="button"
           className="danger"
           disabled={busy}
           onClick={(event) => { event.currentTarget.focus(); onRemove(); }}
-          aria-label={`移除 ${entry.name}`}
+          aria-label={t('移除 {name}', { name: entry.name })}
         >
-          移除
+          {t('移除')}
         </button>
       </div>
       {kind === "category" ? (
         <div style={{ gridColumn: "1 / -1" }}>
-          <small className="muted small">图标即时保存；名称需单独保存</small>
+          <small className="muted small">{t('图标即时保存；名称需单独保存')}</small>
           <IconPicker
             value={entry.icon ?? "box"}
             name={entry.name}
@@ -336,7 +336,7 @@ function RemoveDialog({
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const ref = useRef<HTMLDialogElement | null>(null);
   const others = otherEntries(snapshot, target.kind, target.id);
-  const nullLabel = target.kind === "category" ? "未分类" : "未记录";
+  const nullLabel = target.kind === "category" ? t('未分类') : t('未记录');
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
@@ -360,11 +360,11 @@ function RemoveDialog({
       return;
     }
     if (choice === target.id) {
-      setConfirmError("无法迁移到自身，请选择其他目标。");
+      setConfirmError(t('无法迁移到自身，请选择其他目标。'));
       return;
     }
     if (!others.some((entry) => entry.id === choice)) {
-      setConfirmError("选中的目标已不再可用。");
+      setConfirmError(t('选中的目标已不再可用。'));
       return;
     }
     await onConfirm(choice);
@@ -388,20 +388,20 @@ function RemoveDialog({
       }}
     >
       <p className="taxonomy-eyebrow">
-        移除 {target.kind === "category" ? "分类" : "购买渠道"}
+        {t('移除')} {target.kind === "category" ? t('分类') : t('购买渠道')}
       </p>
-      <h2 id="taxonomy-confirm-title">确定要移除「{target.name}」吗？</h2>
+      <h2 id="taxonomy-confirm-title">{t('确定要移除「{name}」吗？', { name: target.name })}</h2>
       <p className="muted small">
-        这些引用将迁移到你指定的目标；选「{nullLabel}」则改为未分类/未记录，不会删除任何物品。
+        {t('这些引用将迁移到你指定的目标；选「{nullLabel}」则改为未分类/未记录，不会删除任何物品。', { nullLabel })}
       </p>
-      <div className="taxonomy-stats" aria-label="当前引用统计">
-        <span><strong>正常物品引用：</strong>{target.referenceCount}</span>
-        <span><strong>最近删除引用：</strong>{target.deletedReferenceCount}</span>
-        {target.kind === "category" ? <span><strong>进行中心愿：</strong>{target.ongoingWishlistCount}</span> : null}
-        {target.kind === "category" ? <span><strong>已放弃心愿：</strong>{target.abandonedWishlistCount}</span> : null}
-        <span><strong>合计：</strong>{target.referenceCount + target.deletedReferenceCount + target.ongoingWishlistCount + target.abandonedWishlistCount}</span>
+      <div className="taxonomy-stats" aria-label={t('当前引用统计')}>
+        <span><strong>{t('正常物品引用：')}</strong>{target.referenceCount}</span>
+        <span><strong>{t('最近删除引用：')}</strong>{target.deletedReferenceCount}</span>
+        {target.kind === "category" ? <span><strong>{t('进行中心愿：')}</strong>{target.ongoingWishlistCount}</span> : null}
+        {target.kind === "category" ? <span><strong>{t('已放弃心愿：')}</strong>{target.abandonedWishlistCount}</span> : null}
+        <span><strong>{t('合计：')}</strong>{target.referenceCount + target.deletedReferenceCount + target.ongoingWishlistCount + target.abandonedWishlistCount}</span>
       </div>
-      <div className="taxonomy-choices" role="radiogroup" aria-label="选择迁移目标">
+      <div className="taxonomy-choices" role="radiogroup" aria-label={t('选择迁移目标')}>
         <label data-selected={choice === null}>
           <input
             type="radio"
@@ -435,15 +435,15 @@ function RemoveDialog({
       </div>
       {confirmError ? (
         <p className="taxonomy-notice" data-state="error" role="alert">
-          <strong>无法继续</strong>
+          <strong>{t('无法继续')}</strong>
           <span>{confirmError}</span>
         </p>
       ) : null}
       {message && <p role="alert" className="taxonomy-select-hint">{message}</p>}
-      {locked && <button type="button" disabled={busy} onClick={onReload}>重新加载并核对</button>}
+      {locked && <button type="button" disabled={busy} onClick={onReload}>{t('重新加载并核对')}</button>}
       <footer>
         <button type="button" disabled={busy} onClick={onCancel}>
-          取消
+          {t('取消')}
         </button>
         <button
           type="button"
@@ -454,7 +454,7 @@ function RemoveDialog({
             void submit();
           }}
         >
-          {busy ? "正在迁移…" : "迁移并移除"}
+          {busy ? t('正在迁移…') : t('迁移并移除')}
         </button>
       </footer>
     </dialog>
@@ -511,7 +511,7 @@ export default function TaxonomyManager({
     if (next === kind) return;
     if (inFlight.current) {
       setNotice({
-        text: "请等待当前提交完成，再切换页签。",
+        text: t('请等待当前提交完成，再切换页签。'),
         state: "error",
       });
       return;
@@ -525,7 +525,7 @@ export default function TaxonomyManager({
 
   function selectTab(next: TaxonomyKind | ExtraTab) {
     if (next === (extra ?? kind)) return;
-    if (inFlight.current) { setNotice({ text: "请等待当前提交完成，再切换页签。", state: "error" }); return; }
+    if (inFlight.current) { setNotice({ text: t('请等待当前提交完成，再切换页签。'), state: "error" }); return; }
     if (next === "sale_channel" || next === "label") {
       editingRows.current.clear(); setEditingCount(0); setDraft(blankDraft()); setDraftError(null);
       setExtra(next);
@@ -539,13 +539,13 @@ export default function TaxonomyManager({
       const label = commandLabel(command);
       return {
         text: command.type === "remove"
-          ? `已迁移引用并移除。${label}`
-          : `已保存：${label}`,
+          ? t('已迁移引用并移除。{label}', { label })
+          : t('已保存：{label}', { label }),
         state: "info",
       };
     }
     return {
-      text: result.message + (result.recovery === "reload" ? "建议重新加载后再操作。" : ""),
+      text: result.message + (result.recovery === "reload" ? t('建议重新加载后再操作。') : ""),
       state: "error",
     };
   }
@@ -554,11 +554,11 @@ export default function TaxonomyManager({
 
   async function runCommand(command: TaxonomyCommand): Promise<CommandResult> {
     if (locked) {
-      setNotice({ text: "当前操作结果待核对，请先重新加载。", state: "error" });
+      setNotice({ text: t('当前操作结果待核对，请先重新加载。'), state: "error" });
       return { status: "error", message: "locked", recovery: "reload" };
     }
     if (inFlight.current || unavailable) {
-      return { status: "error", message: "请等待当前操作完成。", recovery: "retry" };
+      return { status: "error", message: t('请等待当前操作完成。'), recovery: "retry" };
     }
     inFlight.current = true;
     setSubmitting(true);
@@ -567,7 +567,7 @@ export default function TaxonomyManager({
       handleResult(command, result);
       return result;
     } catch (error) {
-      const message = (error as Error).message || "提交未完成。";
+      const message = (error as Error).message || t('提交未完成。');
       const result: CommandResult = { status: "error", message, recovery: "reload" };
       handleResult(command, result);
       return result;
@@ -606,9 +606,9 @@ export default function TaxonomyManager({
       setReloadVersion(version => version + 1);
       setBlocked(null);
       setUnverified(null);
-      setNotice({ text: "已重新加载，请核对当前输入后再保存。", state: "info" });
+      setNotice({ text: t('已重新加载，请核对当前输入后再保存。'), state: "info" });
     } catch (error) {
-      setNotice({ text: error instanceof Error ? error.message : "重新加载失败。", state: "error" });
+      setNotice({ text: error instanceof Error ? error.message : t('重新加载失败。'), state: "error" });
     } finally {
       inFlight.current = false;
       setReloading(false);
@@ -666,7 +666,7 @@ export default function TaxonomyManager({
 
   function requestRemove(entry: TaxonomyEntry) {
     if (locked) {
-      setNotice({ text: "当前操作结果待核对，请先重新加载。", state: "error" });
+      setNotice({ text: t('当前操作结果待核对，请先重新加载。'), state: "error" });
       return;
     }
     setConfirmDialog({
@@ -705,20 +705,20 @@ export default function TaxonomyManager({
 
   const reloadControl = (
     <button type="button" onClick={() => void clearBlockedAndReload()} disabled={loading || reloading}>
-      {reloading || loading ? "正在加载…" : "重新加载"}
+      {reloading || loading ? t('正在加载…') : t('重新加载')}
     </button>
   );
 
   return (
     <section className="taxonomy-shell" aria-labelledby="taxonomy-heading">
       <header>
-        <h1 id="taxonomy-heading">选项管理</h1>
+        <h1 id="taxonomy-heading">{t('选项管理')}</h1>
         <p className="taxonomy-lede">
-          整理分类、购买与售出渠道，以及给物品分组用的标签。
+          {t('整理分类、购买与售出渠道，以及给物品分组用的标签。')}
         </p>
       </header>
 
-      <div className="taxonomy-tabs" role="tablist" aria-label="选项">
+      <div className="taxonomy-tabs" role="tablist" aria-label={t('选项')}>
         {ALL_TABS.map((tab, index) => (
           <button
             key={tab.value}
@@ -745,7 +745,7 @@ export default function TaxonomyManager({
 
       {extra ? (
         <section id={`taxonomy-tabpanel-${extra}`} role="tabpanel" aria-labelledby={`taxonomy-tab-${extra}`} className="taxonomy-panel">
-          <ChoiceManager key={`${extra}:${generation}`} kind={extra} label={extra === "label" ? "标签" : "售出渠道"} generation={generation ?? ""} />
+          <ChoiceManager key={`${extra}:${generation}`} kind={extra} label={extra === "label" ? t('标签') : t('售出渠道')} generation={generation ?? ""} />
         </section>
       ) : (
       <section
@@ -757,18 +757,18 @@ export default function TaxonomyManager({
         <p className="taxonomy-status" data-state={loadError ? "error" : undefined}>
           <span>
 
-            {loading ? "正在加载…" : snapshot ? `共 ${entries.length} 项。` : "尚未加载。"}
+            {loading ? t('正在加载…') : snapshot ? t('共 {length} 项。', { length: entries.length }) : t('尚未加载。')}
           </span>
-          {loadError ? <span aria-live="polite">加载失败：{loadError}</span> : null}
+          {loadError ? <span aria-live="polite">{t('加载失败：{loadError}', { loadError })}</span> : null}
           {loadError ? reloadControl : null}
         </p>
 
         {blocked ? (
           <div className="taxonomy-locked" role="alert">
-            <strong>当前操作结果待核对。</strong>
+            <strong>{t('当前操作结果待核对。')}</strong>
             <span>{blocked.message}</span>
             <button type="button" disabled={reloading || loading} onClick={() => void clearBlockedAndReload()}>
-              重新加载并核对
+              {t('重新加载并核对')}
             </button>
           </div>
         ) : null}
@@ -779,22 +779,22 @@ export default function TaxonomyManager({
             data-state={notice.state === "error" ? "error" : undefined}
             role="status"
           >
-            <strong>{notice.state === "error" ? "结果" : "完成"}</strong>
+            <strong>{notice.state === "error" ? t('结果') : t('完成')}</strong>
             <span>{notice.text}</span>
           </p>
         ) : null}
 
         <p className="taxonomy-help taxonomy-intro">
           {kind === "category"
-            ? "每件物品归入一个分类，用来筛选和统计。拖动左侧手柄或点上下箭头调整顺序，选择分类时按此顺序列出。"
-            : "记录物品从哪里买来。拖动左侧手柄或点上下箭头调整顺序，选择渠道时按此顺序列出。"}
+            ? t('每件物品归入一个分类，用来筛选和统计。拖动左侧手柄或点上下箭头调整顺序，选择分类时按此顺序列出。')
+            : t('记录物品从哪里买来。拖动左侧手柄或点上下箭头调整顺序，选择渠道时按此顺序列出。')}
         </p>
-        {loading && !snapshot ? <p role="status">正在加载…</p> : !snapshot ? <p>暂时无法读取，请重新加载。</p> : entries.length === 0 ? (
+        {loading && !snapshot ? <p role="status">{t('正在加载…')}</p> : !snapshot ? <p>{t('暂时无法读取，请重新加载。')}</p> : entries.length === 0 ? (
           <div className="taxonomy-empty">
-            还没有{kind === "category" ? "分类" : "购买渠道"}。在下方添加第一项。
+            {t('还没有')}{kind === "category" ? t('分类') : t('购买渠道')}{t('。在下方添加第一项。')}
           </div>
         ) : (
-          <ul className="taxonomy-list" aria-label={`${kind === "category" ? "分类" : "购买渠道"} 列表`}>
+          <ul className="taxonomy-list" aria-label={t('{v1} 列表', { v1: kind === "category" ? t('分类') : t('购买渠道') })}>
             {entries.map((entry, index) => (
               <ListRow
                 key={entry.id}
@@ -823,16 +823,16 @@ export default function TaxonomyManager({
         )}
         <form
           className="taxonomy-fields taxonomy-create"
-          aria-label={`新建${kind === "category" ? "分类" : "购买渠道"}`}
+          aria-label={t('新建{v1}', { v1: kind === "category" ? t('分类') : t('购买渠道') })}
           onSubmit={(event) => {
             event.preventDefault();
             if (locked || unavailable) return;
             void submitCreate();
           }}
         >
-          <h2 className="taxonomy-create-title">新建{kind === "category" ? "分类" : "购买渠道"}</h2>
+          <h2 className="taxonomy-create-title">{t('新建')}{kind === "category" ? t('分类') : t('购买渠道')}</h2>
           <div className="taxonomy-field">
-            <label htmlFor="taxonomy-new-name">{kind === "category" ? "分类名称" : "渠道名称"}</label>
+            <label htmlFor="taxonomy-new-name">{kind === "category" ? t('分类名称') : t('渠道名称')}</label>
             <input
               id="taxonomy-new-name"
               type="text"
@@ -841,7 +841,7 @@ export default function TaxonomyManager({
                 setDraft((prev) => ({ ...prev, name: event.target.value }));
                 setDraftError(null);
               }}
-              placeholder={kind === "category" ? "例如：家电" : "例如：京东"}
+              placeholder={kind === "category" ? t('例如：家电') : t('例如：京东')}
               aria-invalid={!!draftError}
               aria-describedby={draftError ? "taxonomy-new-help" : "taxonomy-new-helper"}
               disabled={unavailable || locked}
@@ -852,18 +852,18 @@ export default function TaxonomyManager({
               data-state={draftError ? "error" : undefined}
               role={draftError ? "alert" : undefined}
             >
-              {draftError ?? (kind === "category" ? "新分类会加到上方列表末尾，名称和图标以后都能改。" : "新渠道会加到上方列表末尾，名称以后能改。")}
+              {draftError ?? (kind === "category" ? t('新分类会加到上方列表末尾，名称和图标以后都能改。') : t('新渠道会加到上方列表末尾，名称以后能改。'))}
             </span>
           </div>
           {kind === "category" ? (
             <details className="taxonomy-field taxonomy-icon-disclosure">
-              <summary>选择图标（可选） <span className="taxonomy-icon-glyph" aria-hidden="true">{ICON_GLYPHS[draft.icon]}</span><span>{findCategoryIcon(draft.icon).label}</span></summary>
-              <IconPicker name="新建分类" value={draft.icon} disabled={unavailable || locked}
+              <summary>{t('选择图标（可选）')} <span className="taxonomy-icon-glyph" aria-hidden="true">{ICON_GLYPHS[draft.icon]}</span><span>{findCategoryIcon(draft.icon).label}</span></summary>
+              <IconPicker name={t('新建分类')} value={draft.icon} disabled={unavailable || locked}
                 onChange={(value) => setDraft((prev) => ({ ...prev, icon: value }))}/>
-              <span className="taxonomy-help">用于分类列表中的小标识，不影响物品封面。</span>
+              <span className="taxonomy-help">{t('用于分类列表中的小标识，不影响物品封面。')}</span>
             </details>
           ) : null}
-          <button type="submit" className="primary taxonomy-create-button" disabled={unavailable||locked||!normalizeName(draft.name)}>{submitting?'正在保存…':kind==='category'?'新建分类':'新建购买渠道'}</button>
+          <button type="submit" className="primary taxonomy-create-button" disabled={unavailable||locked||!normalizeName(draft.name)}>{submitting?t('正在保存…'):kind==='category'?t('新建分类'):t('新建购买渠道')}</button>
         </form>
       </section>
       )}
@@ -885,7 +885,7 @@ export default function TaxonomyManager({
           onCancel={() => {
             if (inFlight.current) return;
             setConfirmDialog(INITIAL_CONFIRM);
-            setNotice({ text: "已取消移除。", state: "info" });
+            setNotice({ text: t('已取消移除。'), state: "info" });
           }}
           onConfirm={(choice) => confirmRemove(choice)}
         />
@@ -921,17 +921,17 @@ function extractId(command: TaxonomyCommand): string | null {
 function commandLabel(command: TaxonomyCommand): string {
   switch (command.type) {
     case "create":
-      return `新建（${command.name}）`;
+      return t('新建（{name}）', { name: command.name });
     case "rename":
-      return `改名（${command.name}）`;
+      return t('改名（{name}）', { name: command.name });
     case "set-icon":
-      return "更新分类图标";
+      return t('更新分类图标');
     case "move-category":
     case "reorder":
-      return "调整顺序";
+      return t('调整顺序');
     case "remove":
-      return "移除并迁移引用";
+      return t('移除并迁移引用');
     default:
-      return "更新";
+      return t('更新');
   }
 }

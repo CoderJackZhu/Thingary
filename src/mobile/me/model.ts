@@ -8,17 +8,18 @@ import type { Mode, Style } from '../../appearance.ts';
 import { styles } from '../../appearance.ts';
 import type { AutoBackupStatus } from '../../auto-backup-format.ts';
 import type { TimelineEvent } from '../../Timeline.tsx';
-
+import { t, numberLocale } from '../../i18n.ts';
+import { t as tr } from '../../i18n.ts';
 /** Settings sub-pages open as `me.settings` with `{ page }`; the title is also the back label of the next page. */
-export type SettingsPage = 'modules' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license';
+export type SettingsPage = 'modules' | 'general' | 'rates' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license';
 export const settingsTitles: Record<SettingsPage, string> = {
-  modules: '功能模块', appearance: '外观', options: '选项管理', materials: '素材库', checkin: '盘点提醒', notifications: '通知', privacy: '隐私',
-  trash: '最近删除', export: '导出表格', demo: '样例体验', about: '关于与帮助', feedback: '反馈问题', license: '开源许可',
+  modules: tr('功能模块'), general: tr('通用'), rates: tr('汇率'), appearance: tr('外观'), options: tr('选项管理'), materials: tr('素材库'), checkin: tr('盘点提醒'), notifications: tr('通知'), privacy: tr('隐私'),
+  trash: tr('最近删除'), export: tr('导出表格'), demo: tr('样例体验'), about: tr('关于与帮助'), feedback: tr('反馈问题'), license: tr('开源许可'),
 };
 export const isSettingsPage = (value: unknown): value is SettingsPage => typeof value === 'string' && Object.hasOwn(settingsTitles, value);
 
 export const enabledModuleCount = (modules: Modules): number => moduleList.filter(([key]) => modules[key]).length;
-export const appearanceSummary = (style: Style, mode: Mode): string => `${styles.find(item => item.value === style)?.label ?? '柔和卡片'} · ${mode === 'light' ? '浅色' : mode === 'dark' ? '深色' : '跟随系统'}`;
+export const appearanceSummary = (style: Style, mode: Mode): string => `${styles.find(item => item.value === style)?.label ?? tr('柔和卡片')} · ${mode === 'light' ? tr('浅色') : mode === 'dark' ? tr('深色') : tr('跟随系统')}`;
 
 /** 完整备份提醒：本机记录的上次完整备份（手动备份并分享成功时写入）；资料很久没有备份时提醒。 */
 export const backupReminderDays = 30;
@@ -33,15 +34,15 @@ export function writeLastBackup(storage: Store | null, at: Date): boolean {
 const dayMs = 86400000;
 export type BackupReminder = { tone: 'positive' | 'warn'; text: string; daysAgo: number | null };
 export function backupReminder(last: string | null, now: Date, hasRecords: boolean): BackupReminder {
-  if (!last) return { tone: hasRecords ? 'warn' : 'positive', text: hasRecords ? '还没有做过完整备份。手机丢失或损坏时，没有备份就找不回资料。' : '开始记录后，别忘了做一次完整备份。', daysAgo: null };
+  if (!last) return { tone: hasRecords ? 'warn' : 'positive', text: hasRecords ? t('还没有做过完整备份。手机丢失或损坏时，没有备份就找不回资料。') : t('开始记录后，别忘了做一次完整备份。'), daysAgo: null };
   const days = Math.max(0, Math.floor((now.getTime() - Date.parse(last)) / dayMs));
   const when = new Date(last);
   const date = dayLabel(localDay(when), localDay(now));
-  if (days >= backupReminderDays) return { tone: 'warn', text: `${date}做过完整备份，已过去 ${days} 天，建议再备份一次。`, daysAgo: days };
+  if (days >= backupReminderDays) return { tone: 'warn', text: t('{date}做过完整备份，已过去 {days} 天，建议再备份一次。', { date, days }), daysAgo: days };
   const next = new Date(when.getTime() + backupReminderDays * dayMs);
-  return { tone: 'positive', text: `${date}已完整备份。下次提醒 ${dayLabel(localDay(next), localDay(now))}。`, daysAgo: days };
+  return { tone: 'positive', text: t('{date}已完整备份。下次提醒 {v2}。', { date, v2: dayLabel(localDay(next), localDay(now)) }), daysAgo: days };
 }
-export const daysAgoText = (days: number | null): string => days === null ? '未备份' : days === 0 ? '今天' : `${days} 天前`;
+export const daysAgoText = (days: number | null): string => days === null ? tr('未备份') : days === 0 ? tr('今天') : tr('{days} 天前', { days });
 
 // --- 时间轴 ---------------------------------------------------------------------------------------
 /** 月合计里的「支出」：购入、维护、重要支出、周期付款与虚拟资产价格计入，退款冲减；盘点、心愿预计价格、售出不计入。 */
@@ -65,8 +66,8 @@ export function groupByMonth(events: TimelineEvent[], today?: string): MonthGrou
   return groups;
 }
 export const monthSpendingText = (group: MonthGroup, current: string): string => {
-  const unknown = group.unknownCount ? `（${group.unknownCount} 笔金额未知）` : '';
-  return `${group.key === current ? '本月' : '当月'}支出 ${moneyText(group.spendingCents)}${unknown}`;
+  const unknown = group.unknownCount ? tr('（{unknownCount} 笔金额未知）', { unknownCount: group.unknownCount }) : '';
+  return tr('{v1}支出 {v2}{unknown}', { v1: group.key === current ? '本月' : '当月', v2: moneyText(group.spendingCents), unknown });
 };
 export const monthsPerStep = 3;
 
@@ -74,8 +75,8 @@ export const monthsPerStep = 3;
 /** 关键词校验沿用桌面搜索面板：最多 200 个字符，不能含空字符。 */
 export function keywordError(keyword: string): string | null {
   const value = keyword.trim();
-  if ([...value].length > 200) return '关键词最多 200 个字符，请缩短后重新搜索。';
-  if (value.includes('\0')) return '关键词不能包含空字符。';
+  if ([...value].length > 200) return tr('关键词最多 200 个字符，请缩短后重新搜索。');
+  if (value.includes('\0')) return tr('关键词不能包含空字符。');
   return null;
 }
 
@@ -84,20 +85,20 @@ export type BackupSummary = { savings_goals?: number; planning_conditions_reset?
 /** 检查摘要：与桌面「用…替换当前全部资料？」确认里的同一组计数。 */
 export function restoreLines(summary: BackupSummary): string[] {
   return [
-    `物品 ${summary.assets} 件（其中最近删除 ${summary.deleted_assets}）`, `心愿 ${summary.wishes} 条`, `维护 ${summary.maintenances} 条`, `保障 ${summary.warranties} 份`,
-    `账户 ${summary.accounts} 个`, `存钱目标 ${summary.savings_goals ?? 0} 个`, `盘点 ${summary.snapshots} 次`, `支出 ${summary.expenses} 笔`, `周期计划 ${summary.plans} 项`,
-    `周期付款 ${summary.payments} 条`, `虚拟资产 ${summary.virtual_assets} 件`, `导入映射 ${summary.import_mappings ?? 0} 条`, `导入回执 ${summary.import_receipts ?? 0} 份`, `原图 ${summary.files} 个`,
+    tr('物品 {assets} 件（其中最近删除 {deleted_assets}）', { assets: summary.assets, deleted_assets: summary.deleted_assets }), tr('心愿 {wishes} 条', { wishes: summary.wishes }), tr('维护 {maintenances} 条', { maintenances: summary.maintenances }), tr('保障 {warranties} 份', { warranties: summary.warranties }),
+    tr('账户 {accounts} 个', { accounts: summary.accounts }), tr('存钱目标 {v1} 个', { v1: summary.savings_goals ?? 0 }), tr('盘点 {snapshots} 次', { snapshots: summary.snapshots }), tr('支出 {expenses} 笔', { expenses: summary.expenses }), tr('周期计划 {plans} 项', { plans: summary.plans }),
+    tr('周期付款 {payments} 条', { payments: summary.payments }), tr('虚拟资产 {virtual_assets} 件', { virtual_assets: summary.virtual_assets }), tr('导入映射 {v1} 条', { v1: summary.import_mappings ?? 0 }), tr('导入回执 {v1} 份', { v1: summary.import_receipts ?? 0 }), tr('原图 {files} 个', { files: summary.files }),
   ];
 }
-export const restoreTime = (summary: BackupSummary): string => new Date(summary.created_at).toLocaleString('zh-CN');
+export const restoreTime = (summary: BackupSummary): string => new Date(summary.created_at).toLocaleString(numberLocale());
 
 /** 自动备份列表：今天／昨天／日期 + 时间。 */
 export function autoBackupLabel(item: AutoBackupStatus['items'][number], today: string): { title: string; sub: string } {
   const encrypted = item.name.endsWith('.thingary.age');
   const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - dayMs).toISOString().slice(0, 10);
-  const when = item.date === today ? '今天' : item.date === yesterday ? '昨天' : dayLabel(item.date, today);
+  const when = item.date === today ? tr('今天') : item.date === yesterday ? tr('昨天') : dayLabel(item.date, today);
   const time = item.name.match(/-(\d{2})(\d{2})-[0-9a-f]{6}\.thingary/);
-  return { title: time ? `${when} ${time[1]}:${time[2]}` : when, sub: encrypted ? '已加密' : '' };
+  return { title: time ? `${when} ${time[1]}:${time[2]}` : when, sub: encrypted ? tr('已加密') : '' };
 }
 
 // --- 恢复后清理本机暂存 -----------------------------------------------------------------------------
@@ -115,7 +116,7 @@ export const countLocalWork = (keys: string[]): number => keys.filter(key => /dr
  * 所以已知金额只留「实付」「退回」这样的标签；「待补充」按手机约定写成「未知」。
  */
 export function timelineDetail(detail: string, event: Pick<TimelineEvent, 'kind' | 'amount_cents'>): string {
-  const text = detail.replace(/待补充/g, '未知');
+  const text = detail.replace(/待补充/g, tr('未知'));
   if (event.kind === 'snapshot' || event.amount_cents === null) return text;
   return text.split(' · ').map(part => part.replace(/\s*[−-]?\u2060?¥[\d,]+(?:\.\d+)?$/, '')).filter(Boolean).join(' · ');
 }

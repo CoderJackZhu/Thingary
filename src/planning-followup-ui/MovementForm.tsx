@@ -8,12 +8,12 @@ import { FormRow } from '../FormControls';
 import type { FollowupIssue, MovementAccountV1, MovementRecordV1, MovementSourceOptionV1, MovementSourceV1, PlanningFollowupPortV1, SourceQueryV1 } from '../planning-followup-contract.ts';
 import { centsFromYuanText, draftFromMovement, draftToFields, formatCents, movementDraftIssues, purposeHint, purposeLabel, yuanTextFromCents } from './model.ts';
 import type { MovementFormDraft } from './model.ts';
-
+import { t } from '../i18n.ts';
 function AmountInput({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (cents: string) => void }) {
   const [raw, setRaw] = useState(() => yuanTextFromCents(value));
   useEffect(() => { if ((centsFromYuanText(raw) ?? null) !== value) setRaw(yuanTextFromCents(value)); }, [value]);
   return <label className="pfu-field-label">{label}
-    <input className="pfu-amount" aria-label={label} inputMode="decimal" placeholder="必填，例如 8000.00" disabled={disabled} value={raw}
+    <input className="pfu-amount" aria-label={label} inputMode="decimal" placeholder={t('必填，例如 8000.00')} disabled={disabled} value={raw}
       onChange={e => { const cents = centsFromYuanText(e.target.value); if (cents === null) return; setRaw(e.target.value); onChange(cents); }}/>
   </label>;
 }
@@ -28,18 +28,18 @@ function EndpointField({ side, label, draft, disabled, accounts, patch }: {
   const setKind = (v: 'account' | 'external') => patch(side === 'from' ? { fromKind: v, fromAccount: v === 'account' ? '' : draft.fromAccount } : { toKind: v, toAccount: v === 'account' ? '' : draft.toAccount });
   // 端点选项以端口账户表为准；编辑中被引用但已不可选的历史账户仍显示，不能换成同名新账户。
   const options = [...accounts];
-  if (kind === 'account' && account && !options.some(a => a.id === account)) options.push({ id: account, name: `历史账户 ${account}`, kind: '', selectable: false });
+  if (kind === 'account' && account && !options.some(a => a.id === account)) options.push({ id: account, name: t('历史账户 {account}', { account }), kind: '', selectable: false });
   return <fieldset className="pfu-endpoint"><legend>{label}</legend>
-    <div className="pfu-segments" role="group" aria-label={`${label}类型`}>
-      <button type="button" aria-pressed={kind === 'account'} disabled={disabled} onClick={() => setKind('account')}>本应用账户</button>
-      <button type="button" aria-pressed={kind === 'external'} disabled={disabled} onClick={() => setKind('external')}>范围外对象</button>
+    <div className="pfu-segments" role="group" aria-label={t('{label}类型', { label })}>
+      <button type="button" aria-pressed={kind === 'account'} disabled={disabled} onClick={() => setKind('account')}>{t('本应用账户')}</button>
+      <button type="button" aria-pressed={kind === 'external'} disabled={disabled} onClick={() => setKind('external')}>{t('范围外对象')}</button>
     </div>
     {kind === 'account'
-      ? <select aria-label={`${label}账户`} value={account} disabled={disabled} onChange={e => patch(side === 'from' ? { fromAccount: e.target.value } : { toAccount: e.target.value })}>
-        <option value="">请选择账户</option>
-        {options.map(a => <option key={a.id} value={a.id} disabled={!a.selectable && a.id !== account}>{a.name}{a.selectable ? '' : '（不可用于新流动）'}</option>)}
+      ? <select aria-label={t('{label}账户', { label })} value={account} disabled={disabled} onChange={e => patch(side === 'from' ? { fromAccount: e.target.value } : { toAccount: e.target.value })}>
+        <option value="">{t('请选择账户')}</option>
+        {options.map(a => <option key={a.id} value={a.id} disabled={!a.selectable && a.id !== account}>{a.name}{a.selectable ? '' : t('（不可用于新流动）')}</option>)}
       </select>
-      : <input aria-label={`${label}范围外对象说明`} placeholder="例如：转入银行、工资来源" disabled={disabled} value={external} onChange={e => patch(side === 'from' ? { fromExternal: e.target.value } : { toExternal: e.target.value })}/>}
+      : <input aria-label={t('{label}范围外对象说明', { label })} placeholder={t('例如：转入银行、工资来源')} disabled={disabled} value={external} onChange={e => patch(side === 'from' ? { fromExternal: e.target.value } : { toExternal: e.target.value })}/>}
   </fieldset>;
 }
 
@@ -60,31 +60,31 @@ function SourcePicker({ port, generation, movementId, source, onPick, disabled }
     if (nextCursor === null) { setOptions(null); setCursor(null); } setError(''); setLoading(true);
     port.listSources(query, generation).then(v => {
       if (request !== requestId.current) return;
-      if (v.status === 'ready') { if (v.value.generation !== generation) { setError('资料库已变化，请重新搜索。'); return; } setOptions(prev => nextCursor === null ? v.value.options : [...(prev ?? []), ...v.value.options]); setCursor(v.value.next_cursor); }
+      if (v.status === 'ready') { if (v.value.generation !== generation) { setError(t('资料库已变化，请重新搜索。')); return; } setOptions(prev => nextCursor === null ? v.value.options : [...(prev ?? []), ...v.value.options]); setCursor(v.value.next_cursor); }
       else if (v.status === 'error') setError(v.message);
       else setError(v.message);
     }).catch(e => { if (request === requestId.current) setError(e instanceof Error ? e.message : String(e)); }).finally(() => { if (request === requestId.current) setLoading(false); });
   };
   return <div className="pfu-source">
-    <p className="pfu-muted small">关联一条已有的收入或重要支出记录（选填）：只说明同一笔现实发生，首版要求整笔、同额、同日，不产生额外余额或收益。没有可靠来源也可以不关联。</p>
-    {source ? <p role="status">已关联{source.kind === 'income' ? '收入' : '支出'}来源。<button type="button" className="pfu-btn" disabled={disabled} onClick={() => onPick(null)}>解除关联</button></p>
-      : <p className="pfu-muted small">尚未关联来源。</p>}
-    <div className="pfu-segments" role="group" aria-label="来源类型">
-      <button type="button" aria-pressed={kind === 'income'} disabled={disabled} onClick={() => { setKind('income'); search('income'); }}>收入记录</button>
-      <button type="button" aria-pressed={kind === 'expense'} disabled={disabled} onClick={() => { setKind('expense'); search('expense'); }}>支出记录</button>
+    <p className="pfu-muted small">{t('关联一条已有的收入或重要支出记录（选填）：只说明同一笔现实发生，首版要求整笔、同额、同日，不产生额外余额或收益。没有可靠来源也可以不关联。')}</p>
+    {source ? <p role="status">{t('已关联')}{source.kind === 'income' ? t('收入') : t('支出')}{t('来源。')}<button type="button" className="pfu-btn" disabled={disabled} onClick={() => onPick(null)}>{t('解除关联')}</button></p>
+      : <p className="pfu-muted small">{t('尚未关联来源。')}</p>}
+    <div className="pfu-segments" role="group" aria-label={t('来源类型')}>
+      <button type="button" aria-pressed={kind === 'income'} disabled={disabled} onClick={() => { setKind('income'); search('income'); }}>{t('收入记录')}</button>
+      <button type="button" aria-pressed={kind === 'expense'} disabled={disabled} onClick={() => { setKind('expense'); search('expense'); }}>{t('支出记录')}</button>
     </div>
     <div className="pfu-source-search">
-      <input aria-label="搜索来源记录" placeholder="按说明文字搜索" disabled={disabled} value={text} onChange={e => { requestId.current++; setText(e.target.value); setOptions(null); setCursor(null); setLoading(false); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); search(); } }}/>
-      <button type="button" className="pfu-btn" disabled={disabled} onClick={() => search()}>搜索</button>
+      <input aria-label={t('搜索来源记录')} placeholder={t('按说明文字搜索')} disabled={disabled} value={text} onChange={e => { requestId.current++; setText(e.target.value); setOptions(null); setCursor(null); setLoading(false); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); search(); } }}/>
+      <button type="button" className="pfu-btn" disabled={disabled} onClick={() => search()}>{t('搜索')}</button>
     </div>
-    {loading && <p role="status">正在读取来源…</p>}
-    {cursor && <button type="button" className="pfu-btn" disabled={disabled || loading} onClick={() => search(kind, text, cursor)}>更多来源</button>}
+    {loading && <p role="status">{t('正在读取来源…')}</p>}
+    {cursor && <button type="button" className="pfu-btn" disabled={disabled || loading} onClick={() => search(kind, text, cursor)}>{t('更多来源')}</button>}
     {error && <p className="pfu-notice" role="alert">{error}</p>}
-    {options === null ? <p className="pfu-muted small" role="status">点击类型或搜索后显示候选。</p>
-      : options.length === 0 ? <p className="pfu-muted small">没有可关联的记录。可先不关联，稍后再补充。</p>
+    {options === null ? <p className="pfu-muted small" role="status">{t('点击类型或搜索后显示候选。')}</p>
+      : options.length === 0 ? <p className="pfu-muted small">{t('没有可关联的记录。可先不关联，稍后再补充。')}</p>
       : <ul className="pfu-source-list">{options.map(o => <li key={o.ref.kind + o.ref.key}>
         <button type="button" disabled={disabled || !o.available} aria-pressed={source?.kind === o.ref.kind && source?.key === o.ref.key} onClick={() => onPick(o.ref)}>
-          <span>{o.label}</span><small>{o.date} · {formatCents(o.amount_cents)}{o.available ? '' : ` · ${o.unavailable_reason ?? '不可关联'}`}</small>
+          <span>{o.label}</span><small>{o.date} · {formatCents(o.amount_cents)}{o.available ? '' : ` · ${o.unavailable_reason ?? t('不可关联')}`}</small>
         </button>
       </li>)}</ul>}
   </div>;
@@ -122,36 +122,36 @@ function MovementFormContent({ port, generation, accounts, record, today, blocke
   return <dialog ref={dialogRef} className="pfu-dialog" aria-labelledby="pfu-movement-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}>
     <form noValidate onSubmit={e => { e.preventDefault(); void submit(); }}>
       <header className="pfu-dialog-head">
-        <div><p className="pfu-eyebrow">财富 · 资金流动</p><h3 id="pfu-movement-heading">{record ? '修改资金流动' : '记一笔资金流动'}</h3>
-          <p className="pfu-meta">记录钱从哪里转出、转入哪里。账户余额以盘点为准。</p></div>
-        <button type="button" className="pfu-close" aria-label="关闭资金流动表单" disabled={busy} onClick={() => onClose(false)}>×</button>
+        <div><p className="pfu-eyebrow">{t('财富 · 资金流动')}</p><h3 id="pfu-movement-heading">{record ? t('修改资金流动') : t('记一笔资金流动')}</h3>
+          <p className="pfu-meta">{t('记录钱从哪里转出、转入哪里。账户余额以盘点为准。')}</p></div>
+        <button type="button" className="pfu-close" aria-label={t('关闭资金流动表单')} disabled={busy} onClick={() => onClose(false)}>×</button>
       </header>
       <div className="pfu-form-grid">
-        <FormRow label="发生日期" hint="按实际结算日记录"><DateInput yearIntent="past" label="发生日期" min="0001-01-01" disabled={frozen} max={today} value={draft.date} onChange={date => patch({ date })}/></FormRow>
-        <AmountInput label="金额（元）" value={draft.amount} disabled={frozen} onChange={v => patch({ amount: v })}/>
+        <FormRow label={t('发生日期')} hint={t('按实际结算日记录')}><DateInput yearIntent="past" label={t('发生日期')} min="0001-01-01" disabled={frozen} max={today} value={draft.date} onChange={date => patch({ date })}/></FormRow>
+        <AmountInput label={t('金额（元）')} value={draft.amount} disabled={frozen} onChange={v => patch({ amount: v })}/>
       </div>
       <div className="pfu-form-grid pfu-transfer-grid">
-        <EndpointField side="from" label="转出端" draft={draft} disabled={frozen} accounts={accounts} patch={patch}/>
-        <EndpointField side="to" label="转入端" draft={draft} disabled={frozen} accounts={accounts} patch={patch}/>
+        <EndpointField side="from" label={t('转出端')} draft={draft} disabled={frozen} accounts={accounts} patch={patch}/>
+        <EndpointField side="to" label={t('转入端')} draft={draft} disabled={frozen} accounts={accounts} patch={patch}/>
       </div>
-      <p className="pfu-hint">本人账户互转只记一笔；有手续费时，将本金与费用分开记录。</p>
-      <label className="pfu-field-label">用途
-        <select aria-label="用途" value={draft.purpose} disabled={frozen} onChange={e => patch({ purpose: e.target.value as MovementFormDraft['purpose'] })}>
+      <p className="pfu-hint">{t('本人账户互转只记一笔；有手续费时，将本金与费用分开记录。')}</p>
+      <label className="pfu-field-label">{t('用途')}
+        <select aria-label={t('用途')} value={draft.purpose} disabled={frozen} onChange={e => patch({ purpose: e.target.value as MovementFormDraft['purpose'] })}>
           {(Object.keys(purposeLabel) as (keyof typeof purposeLabel)[]).map(p => <option key={p} value={p}>{purposeLabel[p]}</option>)}
         </select>
         <small className="pfu-hint">{purposeHint[draft.purpose]}</small>
       </label>
-      <details className="pfu-source-block"><summary>关联来源记录（选填）</summary>
+      <details className="pfu-source-block"><summary>{t('关联来源记录（选填）')}</summary>
         <SourcePicker port={port} generation={generation} movementId={record?.id ?? null} source={draft.source} disabled={frozen} onPick={source => patch({ source })}/>
       </details>
-      <label className="pfu-field-label">备注（选填）
-        <textarea aria-label="资金流动备注" rows={2} disabled={frozen} value={draft.notes} onChange={e => patch({ notes: e.target.value })}/>
+      <label className="pfu-field-label">{t('备注（选填）')}
+        <textarea aria-label={t('资金流动备注')} rows={2} disabled={frozen} value={draft.notes} onChange={e => patch({ notes: e.target.value })}/>
       </label>
       {issues.length > 0 && <div className="pfu-notice" role="alert" ref={issueRef} tabIndex={-1}>{issues.map(i => <p key={i.path + i.code}>{i.path ? `${i.path}：` : ''}{i.message}</p>)}</div>}
-      {phase === 'unresolved' && <p className="pfu-notice" role="status">提交结果未知，原请求已保留并冻结重复提交；请稍后通过页面顶部的核对入口确认结果。<button type="button" className="pfu-btn" onClick={() => onClose(false)}>关闭，稍后核对</button></p>}
+      {phase === 'unresolved' && <p className="pfu-notice" role="status">{t('提交结果未知，原请求已保留并冻结重复提交；请稍后通过页面顶部的核对入口确认结果。')}<button type="button" className="pfu-btn" onClick={() => onClose(false)}>{t('关闭，稍后核对')}</button></p>}
       <footer className="pfu-dialog-foot">
-        <button type="button" className="pfu-btn" disabled={busy} onClick={() => onClose(false)}>{phase === 'unresolved' ? '关闭（结果待核对）' : '取消（不保存）'}</button>
-        <button type="submit" className="pfu-btn pfu-primary" disabled={frozen}>{busy ? '保存中…' : record ? '保存修改' : '保存资金流动'}</button>
+        <button type="button" className="pfu-btn" disabled={busy} onClick={() => onClose(false)}>{phase === 'unresolved' ? t('关闭（结果待核对）') : t('取消（不保存）')}</button>
+        <button type="submit" className="pfu-btn pfu-primary" disabled={frozen}>{busy ? t('保存中…') : record ? t('保存修改') : t('保存资金流动')}</button>
       </footer>
     </form>
   </dialog>;

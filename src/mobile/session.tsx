@@ -5,7 +5,7 @@ import { resolvePending, storedPending } from '../wealth';
 import type { Pending } from '../wealth';
 import { readMobile } from './service';
 import type { MobileData } from './service';
-
+import { t } from '../i18n.ts';
 export type Session = {
   today: string;
   /** Wealth read for the current day (summary, accounts, draft); null until loaded. */
@@ -45,9 +45,9 @@ export function SessionProvider({ children, onFocusRecovery }: { children: React
     try {
       const outcome = await resolvePending(pending);
       if (outcome === 'saved') setSettled(pending);
-      setNotice(outcome === 'saved' ? '已确认保存。请核对已更新余额，再继续剩余账户。' : outcome === 'unsaved' ? '已确认没有保存，当前输入保留，请核对后重新提交。' : '资料库已切换，请重新核对当前账户。');
+      setNotice(outcome === 'saved' ? t('已确认保存。请核对已更新余额，再继续剩余账户。') : outcome === 'unsaved' ? t('已确认没有保存，当前输入保留，请核对后重新提交。') : t('资料库已切换，请重新核对当前账户。'));
       setPending(storedPending()); reload();
-    } catch (cause) { setNotice(errorMessage(cause) + ' 原请求已保留，请稍后重试核对。'); }
+    } catch (cause) { setNotice(errorMessage(cause) + t(' 原请求已保留，请稍后重试核对。')); }
     finally { checking.current = false; setBusy(false); }
   }
   const value: Session = { today, data, loading, error, reload, pending, settled, busy, setBusy, refreshPending, verify, notice, setNotice, navBlocked: busy || !!pending };

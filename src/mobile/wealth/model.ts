@@ -1,14 +1,14 @@
 import { convertCurrency, currencyCode } from '../../currency.ts';
 import { holdingFact } from '../../holdings.ts';
 import { dayLabel } from '../format.ts';
-import { applyClosing, previewTotals, quickAvailable, snapshotEntryInput } from '../../wealth.ts';
+import { applyClosing, prefillCheckInRow, previewTotals, quickAvailable, snapshotEntryInput } from '../../wealth.ts';
 import type { Account, CheckInRow, Draft, SnapshotSave } from '../../wealth.ts';
-
-/** New inventories start empty. Corrections keep every historical fact, including unchanged rows. */
+import { t } from '../../i18n.ts';
+/** New inventories start with each account's earlier amount carried over (沿用); accounts without one start empty. Corrections keep every historical fact, including unchanged rows. */
 export function inventoryRows(draft: Draft): Record<string, CheckInRow> {
-  return Object.fromEntries(draft.rows.map(({ account }) => {
+  return Object.fromEntries(draft.rows.map(({ account, previous }) => {
     const e = draft.existing?.entries.find(e => e.account_id === account.id);
-    return [account.id, e ? { ...e, cents: e.amount_cents ?? '' } : { state: null, cents: '' }];
+    return [account.id, e ? { ...e, cents: e.amount_cents ?? '' } : (!draft.existing && prefillCheckInRow(account, previous)) || { state: null, cents: '' }];
   }));
 }
 export function enteredRow(account: Account, amount: string, quantity: string, price: string, rate: string): CheckInRow {
@@ -18,7 +18,7 @@ export function enteredRow(account: Account, amount: string, quantity: string, p
     fact = account.fields.holding_mode ? holdingFact(currency, quantity, price, rate)
       : amount === '' ? { amount_cents: null } : currency === 'CNY' ? { amount_cents: amount }
       : { amount_cents: convertCurrency(currency, amount, rate), original_minor: amount, fx_rate_micro: rate };
-    if (fact.amount_cents != null && (!/^\d+$/.test(fact.amount_cents) || BigInt(fact.amount_cents) > 99999999999n)) throw Error('金额超出范围。');
+    if (fact.amount_cents != null && (!/^\d+$/.test(fact.amount_cents) || BigInt(fact.amount_cents) > 99999999999n)) throw Error(t('金额超出范围。'));
   } catch { fact = { amount_cents: null }; }
   return { ...fact, state: fact.amount_cents == null ? null : 'entered', cents: fact.amount_cents ?? '', edited: true,
     ...(account.fields.holding_mode ? { quantity_e8: quantity || null, unit_price_e6: price || null } : currency !== 'CNY' ? { original_minor: amount || null, fx_rate_micro: rate || null } : {}) };
@@ -49,10 +49,10 @@ export function inventoryDelta(draft: Draft, rows: Record<string, CheckInRow>, c
 /** `closing` rows are closed at the check-in date and carry no amount; a row marked 这次跳过 is saved as unknown. */
 export function inventoryInput(draft: Draft, rows: Record<string, CheckInRow>, notes: string, requestId: string, closing: ReadonlySet<string> = none): SnapshotSave {
   const open = draft.rows.filter(({ account }) => !closing.has(account.id));
-  if (!draft.rows.length) throw Error('这一天没有需要盘点的账户。');
+  if (!draft.rows.length) throw Error(t('这一天没有需要盘点的账户。'));
   const skipped = open.filter(({ account }) => rows[account.id]?.state === 'missing').length;
-  if (inventoryTotals(draft, rows, closing).missing > skipped) throw Error('请填齐所有账户，零余额填 0；已注销的账户可标为已注销，不用填。');
-  if ([...notes].length > 10000 || notes.includes('\0')) throw Error('备注最多 10000 字，不能含空字符。');
+  if (inventoryTotals(draft, rows, closing).missing > skipped) throw Error(t('请填齐所有账户，零余额填 0；已注销的账户可标为已注销，不用填。'));
+  if ([...notes].length > 10000 || notes.includes('\0')) throw Error(t('备注最多 10000 字，不能含空字符。'));
   const input: SnapshotSave = { request_id: requestId, generation: draft.generation, id: draft.existing?.id ?? null, expected_revision: draft.existing?.revision ?? null,
     date: draft.date, notes, entries: open.map(({ account }) => snapshotEntryInput(account.id, rows[account.id])) };
   return applyClosing(input, draft.rows.map(r => r.account), closing);
@@ -82,9 +82,9 @@ export function closeFields(fields: Account['fields'], date: string | null): Acc
 export function quickBlockedReason(account: Account, points: { date: string }[], today: string): string {
   if (quickAvailable(account, points, today)) return '';
   return account.fields.closed_on
-    ? `这个账户已在 ${account.fields.closed_on} 停用，不能再更新余额；历史金额请到盘点记录更正。`
-    : '最近一次盘点之后还没有可更新的日期；历史金额请到盘点记录更正。';
+    ? t('这个账户已在 {closed_on} 停用，不能再更新余额；历史金额请到盘点记录更正。', { closed_on: account.fields.closed_on })
+    : t('最近一次盘点之后还没有可更新的日期；历史金额请到盘点记录更正。');
 }
 
 /** Notice shown on the wealth page after a full check-in is saved. */
-export const savedText = (date: string, today: string): string => `已保存 ${dayLabel(date, today)} 的盘点`;
+export const savedText = (date: string, today: string): string => t('已保存 {v1} 的盘点', { v1: dayLabel(date, today) });

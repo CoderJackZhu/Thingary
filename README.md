@@ -10,7 +10,7 @@
 
 钱分散在银行卡、余额宝、券商、基金平台、公积金和房贷里，很难看清全貌。物谱是本地使用的应用，有 Mac、Windows 桌面版，iPhone 版即将推出（TestFlight 测试中，尚未上架）；手机与电脑的资料各自独立，靠备份文件搬运：每月对照各平台录一次余额和欠款，就能看到净资产变化，并回答三个问题：**每月要存多少、什么时候能不靠工资、歇一阵能撑多久。** 无需账号，不联网也能用，资料只在你的电脑上。
 
-**[下载 0.0.8](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)**（Mac：Apple Silicon 与 Intel；Windows 10/11 x64）· [产品主页](https://thingary.jackzhu.top/) · [快速上手](docs/QUICKSTART.md) · [国内镜像](https://gitee.com/CoderJackZhu/thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
+**[下载 0.0.8](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)**（Mac：Apple Silicon 与 Intel；Windows 10/11 x64）· [产品主页](https://thingary.jackzhu.top/) · [快速上手](https://thingary.jackzhu.top/quickstart/) · [国内镜像](https://gitee.com/CoderJackZhu/thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
 ![21 秒界面预览：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
 
@@ -18,7 +18,7 @@
 
 ## 三步开始
 
-1. Mac 下载 `.dmg` 拖入「应用程序」，Windows 下载 `x64-setup.exe` 运行安装；首次打开可能被系统拦一下，处理办法见[快速上手](docs/QUICKSTART.md#install)。
+1. Mac 下载 `.dmg` 拖入「应用程序」，Windows 下载 `x64-setup.exe` 运行安装；首次打开可能被系统拦一下，处理办法见[快速上手](https://thingary.jackzhu.top/quickstart/#install)。
 2. 点「开始记录我的资料」，选「先盘点账户」，把各平台余额和欠款录一遍。
 3. 到「目标」填目标时间和每月能存的钱，看右侧的结论（歇一阵能撑多久在「试算」页）。之后每月或每季盘一次即可。
 
@@ -36,15 +36,15 @@
 
 ## 资料与隐私
 
-资料只在本机，没有账号，资料使用完全离线（仅当你开启「启动时检查更新」或点「检查更新」时查询公开版本列表）。主资料库和图片未加密，备份可选加密；自动备份和主资料同盘，请另外保留一份异地备份。详见[隐私与资料安全](docs/USER_GUIDE.md#privacy)。
+资料只在本机，没有账号，资料使用完全离线（仅当你开启「启动时检查更新」或点「检查更新」时查询公开版本列表）。主资料库和图片未加密，备份可选加密；自动备份和主资料同盘，请另外保留一份异地备份。详见[隐私与资料安全](https://thingary.jackzhu.top/guide/#privacy)。
 
 ## 支持范围
 
-Mac：已在 Apple Silicon、macOS 27 验证，安装包同时含 Intel，最低目标 macOS 14（Intel 与旧系统尚未实机验证）。Windows 10 1809+／11 x64，安装包未签名，首次运行可能出现 SmartScreen 提示。两个平台都是公开测试版，已知限制见[快速上手](docs/QUICKSTART.md#limits)。
+Mac：已在 Apple Silicon、macOS 27 验证，安装包同时含 Intel，最低目标 macOS 14（Intel 与旧系统尚未实机验证）。Windows 10 1809+／11 x64，安装包未签名，首次运行可能出现 SmartScreen 提示。两个平台都是公开测试版，已知限制见[快速上手](https://thingary.jackzhu.top/quickstart/#limits)。
 
 ## 文档
 
-[快速上手](docs/QUICKSTART.md)（一页）· [完整使用指南](docs/USER_GUIDE.md) · [业务规则](docs/PRODUCT_RULES.md) · [版本记录](CHANGELOG.md) · [文档索引](docs/INDEX.md)。参与开发见[贡献指南](CONTRIBUTING.md)与[开发说明](docs/DEVELOPMENT.md)，漏洞请按[安全政策](SECURITY.md)私下报告。
+[快速上手](https://thingary.jackzhu.top/quickstart/)（一页）· [完整使用指南](https://thingary.jackzhu.top/guide/) · [业务规则](docs/PRODUCT_RULES.md) · [版本记录](CHANGELOG.md) · [文档索引](docs/INDEX.md)。参与开发见[贡献指南](CONTRIBUTING.md)与[开发说明](docs/DEVELOPMENT.md)，漏洞请按[安全政策](SECURITY.md)私下报告。
 
 ## 许可
 

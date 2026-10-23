@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { globalPauseText, type SecurityStatus } from './backup-security-format';
-
+import { t } from './i18n.ts';
 /** App-wide notice while automatic and extra backups are paused by the backup
  * security policy. The panel in 数据管理 stays the only place to change it;
  * this only makes sure an upgrade never pauses backups out of sight. */
@@ -24,16 +24,16 @@ export function BackupSecurityNotice({ hidden, quietUntilStarted = false, onOpen
   }, []);
   if (hidden) return null;
   if (failed) return <div className="backup-security-notice" role="status">
-    <span>备份安全状态暂时读取失败，无法确认自动备份是否在运行。</span>
-    <button type="button" onClick={() => void reload()}>重新读取</button>
+    <span>{t('备份安全状态暂时读取失败，无法确认自动备份是否在运行。')}</span>
+    <button type="button" onClick={() => void reload()}>{t('重新读取')}</button>
   </div>;
   // A library with nothing recorded yet has nothing to back up; the first-time
   // choice is announced once the first record exists.
   const text = status && !(quietUntilStarted && status.state === 'unconfigured') && globalPauseText(status);
   if (!text) return null;
   return <div className="backup-security-notice" role="status">
-    <strong>自动备份已暂停</strong>
+    <strong>{t('自动备份已暂停')}</strong>
     <span>{text}</span>
-    <button type="button" onClick={onOpen}>去数据管理处理</button>
+    <button type="button" onClick={onOpen}>{t('去数据管理处理')}</button>
   </div>;
 }

@@ -39,7 +39,7 @@ import {
   validateEvent,
 } from "./events-model";
 import "./events.css";
-
+import { t as tr } from '../../i18n.ts';
 type Props = {
   sources: PlanningSources;
   saved: NonNullable<ProfileState["saved"]>;
@@ -164,8 +164,8 @@ export default function Events({
     <div className="mp-events">
       {picker && onPicker && (
         <Sheet
-          title="添加大额支出"
-          cancelLabel="取消"
+          title={tr('添加大额支出')}
+          cancelLabel={tr('取消')}
           onClose={() => onPicker(false)}
         >
           <div className="mp-event-picker">
@@ -197,8 +197,8 @@ export default function Events({
       {!r.life_events.length && !editing && (
         <EmptyState
           icon="chart"
-          title="还没有大额计划"
-          message="买房、买车、装修这类大额支出，可以先设想一笔，看看对停工时间的影响。模板里的金额只是占位，请改成自己的估计。"
+          title={tr('还没有大额计划')}
+          message={tr('买房、买车、装修这类大额支出，可以先设想一笔，看看对停工时间的影响。模板里的金额只是占位，请改成自己的估计。')}
           action={
             onPicker && (
               <Button
@@ -206,7 +206,7 @@ export default function Events({
                 disabled={locked}
                 onClick={() => onPicker(true)}
               >
-                从模板添加
+                {tr('从模板添加')}
               </Button>
             )
           }
@@ -223,12 +223,12 @@ export default function Events({
                 <small>
                   {e.date} · {moneyText(e.price_cents)} ·{" "}
                   {e.included || occurrence?.status === "occurred"
-                    ? "已计入"
-                    : "未计入"}
+                    ? tr('已计入')
+                    : tr('未计入')}
                 </small>
               </div>
               <Switch
-                label={`计入${e.label}`}
+                label={tr('计入{label}', { label: e.label })}
                 checked={e.included || occurrence?.status === "occurred"}
                 disabled={locked || occurrence?.status === "occurred"}
                 onChange={(included) =>
@@ -243,12 +243,12 @@ export default function Events({
             {occurrence && (
               <p className="mp-event-note">
                 {occurrence.status === "occurred"
-                  ? `已发生 · ${occurrence.actual_date}，按实际资料接续`
-                  : `已取消 · ${occurrence.actual_date}`}
+                  ? tr('已发生 · {actual_date}，按实际资料接续', { actual_date: occurrence.actual_date })
+                  : tr('已取消 · {actual_date}', { actual_date: occurrence.actual_date })}
               </p>
             )}
             {e.time_unconfirmed && (
-              <Notice>持有或循环终点待重设，这部分未计入。</Notice>
+              <Notice>{tr('持有或循环终点待重设，这部分未计入。')}</Notice>
             )}
             {impact ? (
               <>
@@ -260,15 +260,14 @@ export default function Events({
                   )}
                   。
                   {impact.short === 0
-                    ? "预计现金足够"
-                    : `预计现金还差 ${moneyText(String(Math.round(impact.short)))}`}
-                  （含应急金线）。
+                    ? tr('预计现金足够')
+                    : tr('预计现金还差 {v1}', { v1: moneyText(String(Math.round(impact.short))) })}
+                  {tr('（含应急金线）。')}
                 </p>
                 {impact.payment_nominal > 0 && (
                   <p className="mp-event-note">
-                    固定名义月供{" "}
-                    {moneyText(String(Math.round(impact.payment_nominal)))}
-                    ；买后每月约能存{" "}
+                    {tr('固定名义月供')}{" "}
+                    {tr('{v1}；买后每月约能存', { v1: moneyText(String(Math.round(impact.payment_nominal))) })}{" "}
                     {moneyText(String(Math.round(impact.saving_after)))}。
                   </p>
                 )}
@@ -276,8 +275,8 @@ export default function Events({
             ) : (
               <p className="mp-event-help">
                 {occurrence?.status === "occurred"
-                  ? "实际付款与剩余贷款继续计入。"
-                  : "补齐规划与每月能存的钱后，可比较影响。"}
+                  ? tr('实际付款与剩余贷款继续计入。')
+                  : tr('补齐规划与每月能存的钱后，可比较影响。')}
               </p>
             )}
             {issues
@@ -293,7 +292,7 @@ export default function Events({
                   setEditing(structuredClone(e));
                 }}
               >
-                编辑
+                {tr('编辑')}
               </Button>
               <Button
                 disabled={locked}
@@ -302,7 +301,7 @@ export default function Events({
                   setOccurring(e);
                 }}
               >
-                发生核对
+                {tr('发生核对')}
               </Button>
               {confirm === e.id ? (
                 <>
@@ -318,10 +317,10 @@ export default function Events({
                         setConfirm("");
                     }}
                   >
-                    确认删除
+                    {tr('确认删除')}
                   </Button>
                   <Button disabled={locked} onClick={() => setConfirm("")}>
-                    取消删除
+                    {tr('取消删除')}
                   </Button>
                 </>
               ) : (
@@ -330,7 +329,7 @@ export default function Events({
                   disabled={locked || occurrence?.status === "occurred"}
                   onClick={() => setConfirm(e.id)}
                 >
-                  删除
+                  {tr('删除')}
                 </Button>
               )}
             </div>
@@ -341,13 +340,11 @@ export default function Events({
         !r.core?.occurrences.some((o) => o.status === "occurred") &&
         r.life_events.some((e) => e.included) && (
           <p className="mp-event-help">
-            全部计入的计划合计：
-            {impactText(
+            {tr('全部计入的计划合计：{v1}。已经含在退休结论中。', { v1: impactText(
               impacts.total.delay_months,
               impacts.total.base_fi,
               impacts.total.with_fi,
-            )}
-            。已经含在退休结论中。
+            ) })}
           </p>
         )}
       {editing && (
@@ -411,7 +408,7 @@ export default function Events({
       {saver.notice && <Notice tone="danger">{saver.notice}</Notice>}
       {r.life_events.length > 0 && (
         <p className="mp-event-help">
-          这些是设想，计入后会重算，不扣实际余额。
+          {tr('这些是设想，计入后会重算，不扣实际余额。')}
         </p>
       )}
     </div>
@@ -450,49 +447,49 @@ function EventEditor({
       className="mp-event-editor"
       id="mp-event-editor"
       role="group"
-      aria-label="大额计划表单"
+      aria-label={tr('大额计划表单')}
     >
       <h3>{value.label}</h3>
-      <FormGroup footer="所有金额按今天的钱。首付、杂费只扣一次；每月成本要核对是否含在生活费里。">
+      <FormGroup footer={tr('所有金额按今天的钱。首付、杂费只扣一次；每月成本要核对是否含在生活费里。')}>
         <SelectField
-          label="计划类型"
+          label={tr('计划类型')}
           value={d.kind}
           options={[
-            { id: "house", label: "买房" },
-            { id: "car", label: "买车" },
-            { id: "other", label: "其他" },
+            { id: "house", label: tr('买房') },
+            { id: "car", label: tr('买车') },
+            { id: "other", label: tr('其他') },
           ]}
           disabled={busy}
           onChange={(v) => patch({ kind: v as StoredLifeEvent["kind"] })}
         />
         <TextField
-          label="计划名称"
+          label={tr('计划名称')}
           value={d.label}
           maxLength={40}
           disabled={busy}
           onChange={(label) => patch({ label })}
         />
         <MonthField
-          label="计划月份"
+          label={tr('计划月份')}
           value={d.date}
           disabled={busy}
           onChange={(date) => patch({ date })}
         />
         <MoneyField
-          label="计划总价"
+          label={tr('计划总价')}
           value={d.price_cents}
           disabled={busy}
           onChange={(price_cents) => patch({ price_cents })}
         />
         <MoneyField
-          label="首付或一次付清"
-          hint="等于总价表示全款；首付须明确填写。"
+          label={tr('首付或一次付清')}
+          hint={tr('等于总价表示全款；首付须明确填写。')}
           value={d.down_cents}
           disabled={busy}
           onChange={(down_cents) => patch({ down_cents })}
         />
         <MoneyField
-          label="一次性杂费"
+          label={tr('一次性杂费')}
           value={d.extra_cents}
           disabled={busy}
           onChange={(extra_cents) => patch({ extra_cents })}
@@ -500,14 +497,14 @@ function EventEditor({
         {financed && (
           <>
             <TextField
-              label="贷款年利率（%）"
+              label={tr('贷款年利率（%）')}
               value={rate}
               inputMode="decimal"
               disabled={busy}
               onChange={setRate}
             />
             <TextField
-              label="贷款年限"
+              label={tr('贷款年限')}
               value={years}
               inputMode="numeric"
               disabled={busy}
@@ -516,15 +513,15 @@ function EventEditor({
           </>
         )}
         <MoneyField
-          label={d.kind === "car" ? "每月养车费" : "每月持续支出"}
+          label={d.kind === "car" ? tr('每月养车费') : tr('每月持续支出')}
           value={d.holding_cents}
           disabled={busy}
           onChange={(holding_cents) => patch({ holding_cents })}
         />
         {d.kind === "house" ? (
           <MoneyField
-            label="买房后省下的月房租"
-            hint="不会自动增加每月能存的钱；退休后只扣除已含的房租。"
+            label={tr('买房后省下的月房租')}
+            hint={tr('不会自动增加每月能存的钱；退休后只扣除已含的房租。')}
             value={d.rent_saved_cents}
             disabled={busy}
             onChange={(rent_saved_cents) => patch({ rent_saved_cents })}
@@ -532,16 +529,16 @@ function EventEditor({
         ) : (
           <>
             <TextField
-              label="每隔几年重复"
-              hint="留空表示只发生一次"
+              label={tr('每隔几年重复')}
+              hint={tr('留空表示只发生一次')}
               value={cycle}
               inputMode="numeric"
               disabled={busy}
               onChange={setCycle}
             />
             <MonthField
-              label="持续截止月份"
-              hint="留空到规划终点"
+              label={tr('持续截止月份')}
+              hint={tr('留空到规划终点')}
               value={d.until_month ?? ""}
               disabled={busy}
               onChange={(v) =>
@@ -550,7 +547,7 @@ function EventEditor({
             />
             {d.kind === "car" && (
               <MoneyField
-                label="每次卖旧车回收"
+                label={tr('每次卖旧车回收')}
                 value={d.resale_cents}
                 disabled={busy}
                 onChange={(resale_cents) => patch({ resale_cents })}
@@ -561,24 +558,24 @@ function EventEditor({
         {d.kind === "other" && (
           <>
             <MonthField
-              label="孩子出生年月（换算用）"
+              label={tr('孩子出生年月（换算用）')}
               value={child}
               disabled={busy}
               onChange={(v) => childChange(v, age)}
             />
             <TextField
-              label="负担到孩子几岁"
+              label={tr('负担到孩子几岁')}
               value={age}
               inputMode="numeric"
               disabled={busy}
               onChange={(v) => childChange(child, v)}
-              hint="只换算持续截止月份，不保存孩子资料；仍可手动调整。"
+              hint={tr('只换算持续截止月份，不保存孩子资料；仍可手动调整。')}
             />
           </>
         )}
-        <FormRow label="计入目标">
+        <FormRow label={tr('计入目标')}>
           <Switch
-            label="大额计划计入目标"
+            label={tr('大额计划计入目标')}
             checked={d.included}
             disabled={busy}
             onChange={(included) => patch({ included })}
@@ -588,7 +585,7 @@ function EventEditor({
       {error && <Notice tone="danger">{error}</Notice>}
       <div className="mp-event-actions">
         <Button disabled={busy} onClick={onCancel}>
-          取消本次修改
+          {tr('取消本次修改')}
         </Button>
         <Button
           variant="primary"
@@ -613,7 +610,7 @@ function EventEditor({
             }
           }}
         >
-          保存大额计划
+          {tr('保存大额计划')}
         </Button>
       </div>
     </div>
@@ -673,18 +670,18 @@ function OccurrenceEditor({
       payments: x.payments.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }));
   const accountName = (id: string) =>
-    accounts.find((a) => a.id === id)?.fields.name ?? "历史账户";
+    accounts.find((a) => a.id === id)?.fields.name ?? tr('历史账户');
   function save() {
     if (busy || unavailable) return;
     if (pending) {
       if (existing && !canRetractOccurrence(existing))
-        return setError("已有实际事实，请核对更正，不能撤回。");
+        return setError(tr('已有实际事实，请核对更正，不能撤回。'));
       onSave(null);
       return;
     }
     if (!o.actual_date || o.actual_date > today)
-      return setError("实际日期须不晚于今天。");
-    if (o.payments.some((p) => !p.date)) return setError("请填写付款日期。");
+      return setError(tr('实际日期须不晚于今天。'));
+    if (o.payments.some((p) => !p.date)) return setError(tr('请填写付款日期。'));
     setError("");
     onSave(
       o.status === "cancelled"
@@ -697,26 +694,26 @@ function OccurrenceEditor({
       className="mp-event-editor"
       id="mp-event-editor"
       role="group"
-      aria-label="实际发生核对"
+      aria-label={tr('实际发生核对')}
     >
-      <h3>核对 {event.label}</h3>
+      <h3>{tr('核对 {label}', { label: event.label })}</h3>
       <p className="mp-event-help">
-        只维护实际发生与来源关系，不改变账户余额，不复制支出。未知资料可先留空，结果会提示未计入。
+        {tr('只维护实际发生与来源关系，不改变账户余额，不复制支出。未知资料可先留空，结果会提示未计入。')}
       </p>
       {unavailable && (
         <Notice>
-          账户或完整盘点暂不可用，目前仅能查看。重新读取后才能保存。
+          {tr('账户或完整盘点暂不可用，目前仅能查看。重新读取后才能保存。')}
         </Notice>
       )}
       <FormGroup>
         <SelectField
-          label="是否已经发生"
+          label={tr('是否已经发生')}
           value={pending ? "pending" : o.status}
           disabled={busy || existing?.status === "occurred"}
           options={[
-            { id: "pending", label: "尚未发生" },
-            { id: "occurred", label: "已发生" },
-            { id: "cancelled", label: "已取消" },
+            { id: "pending", label: tr('尚未发生') },
+            { id: "occurred", label: tr('已发生') },
+            { id: "cancelled", label: tr('已取消') },
           ]}
           onChange={(v) => {
             setPending(v === "pending");
@@ -725,7 +722,7 @@ function OccurrenceEditor({
         />
         {!pending && (
           <DateField
-            label={o.status === "occurred" ? "实际发生日期" : "取消日期"}
+            label={o.status === "occurred" ? tr('实际发生日期') : tr('取消日期')}
             value={o.actual_date}
             max={today}
             disabled={busy}
@@ -736,9 +733,9 @@ function OccurrenceEditor({
       {!pending && o.status === "occurred" && (
         <>
           {o.payments.map((p, index) => (
-            <FormGroup title={`付款 ${index + 1}`} key={p.id}>
+            <FormGroup title={tr('付款 {v1}', { v1: index + 1 })} key={p.id}>
               <DateField
-                label={`付款${index + 1}日期`}
+                label={tr('付款{v1}日期', { v1: index + 1 })}
                 value={p.date}
                 disabled={busy}
                 onChange={(date) =>
@@ -750,18 +747,18 @@ function OccurrenceEditor({
                 }
               />
               <MoneyField
-                label={`付款${index + 1}金额`}
-                hint="留空未知，明确零可保存。"
+                label={tr('付款{v1}金额', { v1: index + 1 })}
+                hint={tr('留空未知，明确零可保存。')}
                 value={p.amount_cents ?? ""}
                 disabled={busy}
                 onChange={(v) => payment(p.id, { amount_cents: v || null })}
               />
               <SelectField
-                label={`付款${index + 1}账户`}
+                label={tr('付款{v1}账户', { v1: index + 1 })}
                 value={p.account_id ?? ""}
                 disabled={busy}
                 options={[
-                  { id: "", label: "请选择付款账户" },
+                  { id: "", label: tr('请选择付款账户') },
                   ...(snapshot?.entries
                     .filter((e) => e.side === "asset" && e.counted)
                     .map((e) => ({
@@ -779,12 +776,12 @@ function OccurrenceEditor({
               />
               {snapshot && p.date <= snapshot.date && (
                 <FormRow
-                  label={`付款已包含在 ${snapshot.date} 盘点`}
-                  hint="更正或新增盘点后，需要重新核对。"
+                  label={tr('付款已包含在 {date} 盘点', { date: snapshot.date })}
+                  hint={tr('更正或新增盘点后，需要重新核对。')}
                   stacked
                 >
                   <Switch
-                    label={`付款${index + 1}已计入盘点`}
+                    label={tr('付款{v1}已计入盘点', { v1: index + 1 })}
                     disabled={busy || !p.account_id}
                     checked={
                       p.absorbed_snapshot_id === snapshot.id &&
@@ -800,15 +797,15 @@ function OccurrenceEditor({
                 </FormRow>
               )}
               <details>
-                <summary>关联已有来源</summary>
+                <summary>{tr('关联已有来源')}</summary>
                 <SelectField
-                  label={`付款${index + 1}来源类型`}
+                  label={tr('付款{v1}来源类型', { v1: index + 1 })}
                   value={p.source_kind ?? ""}
                   options={[
-                    { id: "", label: "暂不关联" },
-                    { id: "asset", label: "物品" },
-                    { id: "expense", label: "重要支出" },
-                    { id: "wish", label: "已购入心愿" },
+                    { id: "", label: tr('暂不关联') },
+                    { id: "asset", label: tr('物品') },
+                    { id: "expense", label: tr('重要支出') },
+                    { id: "wish", label: tr('已购入心愿') },
                   ]}
                   disabled={busy}
                   onChange={(v) =>
@@ -820,7 +817,7 @@ function OccurrenceEditor({
                 />
                 {p.source_kind && (
                   <TextField
-                    label={`付款${index + 1}来源ID`}
+                    label={tr('付款{v1}来源ID', { v1: index + 1 })}
                     value={p.source_id ?? ""}
                     disabled={busy}
                     onChange={(v) => payment(p.id, { source_id: v || null })}
@@ -836,7 +833,7 @@ function OccurrenceEditor({
                   })
                 }
               >
-                移除此付款分项
+                {tr('移除此付款分项')}
               </Button>
             </FormGroup>
           ))}
@@ -849,16 +846,16 @@ function OccurrenceEditor({
               })
             }
           >
-            添加付款分项
+            {tr('添加付款分项')}
           </Button>
           <FormGroup>
             <FormRow
-              label="已核对全部一次性付款"
-              hint="首付和杂费等都已列出；部分付款保持关闭。"
+              label={tr('已核对全部一次性付款')}
+              hint={tr('首付和杂费等都已列出；部分付款保持关闭。')}
               stacked
             >
               <Switch
-                label="付款分项完整"
+                label={tr('付款分项完整')}
                 checked={o.payments_complete}
                 disabled={busy}
                 onChange={(payments_complete) => patch({ payments_complete })}
@@ -867,15 +864,15 @@ function OccurrenceEditor({
           </FormGroup>
           {(Number(event.price_cents) > Number(event.down_cents) || o.loan) && (
             <FormGroup
-              title="截至起点的剩余贷款"
-              footer="仅核对剩余本金和期数，不重新开始贷款。"
+              title={tr('截至起点的剩余贷款')}
+              footer={tr('仅核对剩余本金和期数，不重新开始贷款。')}
             >
               <SelectField
-                label="贷款账户"
+                label={tr('贷款账户')}
                 value={o.loan?.account_id ?? ""}
                 disabled={busy}
                 options={[
-                  { id: "", label: "请选择负债账户" },
+                  { id: "", label: tr('请选择负债账户') },
                   ...(snapshot?.entries
                     .filter(
                       (e) =>
@@ -908,13 +905,13 @@ function OccurrenceEditor({
               {o.loan && (
                 <>
                   <DateField
-                    label="剩余欠款截至日"
+                    label={tr('剩余欠款截至日')}
                     value={o.loan.as_of}
                     disabled={busy}
                     onChange={(as_of) => patch({ loan: { ...o.loan!, as_of } })}
                   />
                   <MoneyField
-                    label="剩余本金"
+                    label={tr('剩余本金')}
                     value={o.loan.principal_cents}
                     disabled={busy}
                     onChange={(principal_cents) =>
@@ -922,7 +919,7 @@ function OccurrenceEditor({
                     }
                   />
                   <TextField
-                    label="剩余期数（月）"
+                    label={tr('剩余期数（月）')}
                     value={String(o.loan.remaining_months)}
                     inputMode="numeric"
                     disabled={busy}
@@ -947,20 +944,20 @@ function OccurrenceEditor({
             disabled={busy || unavailable || !canRetractOccurrence(existing)}
             onClick={() => onSave(null)}
           >
-            撤回为尚未发生
+            {tr('撤回为尚未发生')}
           </Button>
           <p className="mp-event-help">
-            已有实际付款、来源或贷款事实时不能撤回，请在这里核对更正。
+            {tr('已有实际付款、来源或贷款事实时不能撤回，请在这里核对更正。')}
           </p>
         </>
       )}
       {error && <Notice tone="danger">{error}</Notice>}
       <div className="mp-event-actions">
         <Button disabled={busy} onClick={onCancel}>
-          取消核对
+          {tr('取消核对')}
         </Button>
         <Button variant="primary" disabled={busy || unavailable} onClick={save}>
-          保存核对
+          {tr('保存核对')}
         </Button>
       </div>
     </div>

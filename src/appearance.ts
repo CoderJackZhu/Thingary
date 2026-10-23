@@ -1,10 +1,11 @@
+import { t } from './i18n.ts';
 // U15a 外观：主题（data-style）与浅色／深色（data-theme 为用户选择，data-mode 为解析结果）。
 export type Mode = 'light' | 'dark' | 'system';
 export type Style = 'native' | 'olive' | 'bento';
 export const styles: readonly { value: Style; label: string; note: string }[] = [
-  { value: 'native', label: '清新原生', note: '简洁 · 蓝色' },
-  { value: 'olive', label: '暖米橄榄', note: '圆角 · 暖色 · 橄榄' },
-  { value: 'bento', label: '柔和卡片', note: '圆角 · 彩色 · 默认' },
+  { value: 'native', label: t('清新原生'), note: t('简洁 · 蓝色') },
+  { value: 'olive', label: t('暖米橄榄'), note: t('圆角 · 暖色 · 橄榄') },
+  { value: 'bento', label: t('柔和卡片'), note: t('圆角 · 彩色 · 默认') },
 ];
 const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
 export function readMode(): Mode { const v = localStorage.getItem('thingary.theme'); return v === 'light' || v === 'dark' ? v : 'system'; }
