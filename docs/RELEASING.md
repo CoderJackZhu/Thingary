@@ -130,7 +130,7 @@ NSIS 使用 `currentUser`、简体中文，当前不配置 Authenticode 签名�
 
 [Windows 候选包工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)保存候选包和验收材料，artifact 保留 30 天、下载需登录 GitHub，不创建标签或 Release。release 构建在 `windows-latest` x64；隔离安装验收在 `windows-11-arm` 跑 x64 模拟，原生运行器与手工未验项详见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。失败任务保存的 artifact 仅供诊断，不得作为已通过候选包交付。发布用标签还会由 `release-draft.yml` 在同一标签构建 Windows NSIS 并附到草稿；该草稿仍不公开，公开前按本页核验。
 
-winget 清单由 `scripts/generate-winget-manifest.mjs` 生成，目录、验证与提交步骤见 [packaging/winget/README.md](../packaging/winget/README.md)。当前 `0.0.8` 清单已生成但未提交；下一版定为 `0.1.0`，发布后用同一生成器生成 `0.1.0` 清单再提交。
+winget 清单由 `scripts/generate-winget-manifest.mjs` 生成，目录、验证与提交步骤见 [packaging/winget/README.md](../packaging/winget/README.md)。当前 `0.0.8` 清单已生成但未提交；下一版定为 `0.1.0`，`release-draft.yml` 会在标签构建时从最终安装包生成 `winget-manifests` artifact，Release 公开后再下载并提交，避免沿用旧 SHA。
 
 SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，再打 NSIS，最后签安装包；不能只签安装包。`windows-package.yml` 只把 release 矩阵的 `signing` 改为 `signed`，acceptance 保持 `unsigned`；`release-draft.yml` 同时把 `THINGARY_WINDOWS_SIGNING_STATUS` 改为 `signed`、`EXPECTED_WINDOWS_SIGNATURE` 改为 `Signed`（两者必须一致）。按实际签名主体决定是否加 `-ExpectedSubjectContains` 与 `-RequireTimestamp`，并重新核验 `BUILD_INFO.json` 的 `signing_status` 与实际文件一致。详细接入步骤、所需配置与回退方案见 [Windows 签名接入](SIGNING.md)。
 

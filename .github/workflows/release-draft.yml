@@ -244,6 +244,26 @@ jobs:
           $installer = Get-ChildItem (Join-Path $PWD 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis') -Filter '*.exe' | Select-Object -First 1
           if (-not $installer) { throw 'NSIS installer missing' }
           pwsh -NoProfile -File scripts/verify-windows-signature.ps1 -Payload $payload -Installer $installer.FullName -Expected $env:EXPECTED_WINDOWS_SIGNATURE
+      - name: Generate winget manifests from the built installer
+        run: |
+          version=$(node -p "require('./package.json').version")
+          installer=$(find src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis -maxdepth 1 -name 'Thingary_*_x64-setup.exe' | head -n 1)
+          if [ -z "$installer" ]; then
+            echo "::error::No normalized Windows installer found for winget."
+            exit 1
+          fi
+          node scripts/generate-winget-manifest.mjs \
+            --version "$version" \
+            --installer "$installer" \
+            --release-date "$(git log -1 --format=%cs)" \
+            --output .local/winget-manifests
+      - name: Save winget manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests
+          path: .local/winget-manifests/**
+          if-no-files-found: error
+          retention-days: 30
       - name: Save the NSIS installer and checksum
         uses: actions/upload-artifact@v4
         with:

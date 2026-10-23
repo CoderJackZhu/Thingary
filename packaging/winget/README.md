@@ -51,6 +51,8 @@ https://github.com/CoderJackZhu/Thingary/releases/download/v<版本>/Thingary_<�
 
 ## 本地验证（Windows）
 
+`release-draft.yml` 在标签构建时会从最终安装包生成 `winget-manifests` artifact；Release 公开后下载该 artifact，按下面的步骤验证并提交。也可以本地重新生成。
+
 在 Windows 上安装 winget 后：
 
 ```powershell
@@ -59,6 +61,10 @@ winget install --manifest .\packaging\winget\manifests\c\CoderJackZhu\Thingary\0
 ```
 
 建议在干净虚拟机里验证安装、开始菜单入口、卸载保留资料和重装。`winget install` 仍可能遇到 SmartScreen 或 Smart App Control，未签名包不会被 winget 变成受信任包。
+
+## 从 release-draft 取清单
+
+标签构建成功后，在对应 `release-draft.yml` 运行页面下载 `winget-manifests` artifact，解压后得到 `c/CoderJackZhu/Thingary/<版本>/` 四个文件。把该目录复制到 winget-pkgs fork 的相同路径，再按上面的验证和 PR 步骤提交。不要提交候选 artifact 里的 SHA 到公开 Release；清单必须对应最终公开安装包。
 
 ## 提交到 winget-pkgs
 
