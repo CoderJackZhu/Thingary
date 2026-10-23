@@ -57,6 +57,9 @@ fn origin_must_convert_to_the_saved_price_and_is_hidden_once_the_price_moves() {
         s.record(&a.asset.id).unwrap().unwrap().price_origin,
         Some(origin("USD", "129900", "7123400"))
     );
+    // The paid CNY amount is the fact: a rate rounded to six decimals may be a cent off, a clearly different rate may not.
+    assert!(set(&mut s, Some(origin("USD", "129900", "7123401"))).is_ok());
+    assert!(set(&mut s, Some(origin("USD", "129900", "7123400"))).is_ok());
     // A wrong rate, CNY itself and a bad code are refused.
     assert!(set(&mut s, Some(origin("USD", "129900", "7000000"))).is_err());
     assert!(set(&mut s, Some(origin("CNY", "129900", "1000000"))).is_err());

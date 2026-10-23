@@ -113,7 +113,7 @@ test('openEditor reports success only after the draft is prepared, and guards or
     taxonomyGuard: false, taxonomy: { loading: false, loadError: null, snapshot: { generation: 'fictional-generation' } },
     opener: { current: null }, document: { activeElement: null }, detailId: null, listScroll: { current: 0 }, collectionRef: { current: null },
     emptyFields: { name: '', price: '', date: '', brand: '', model: '', serial_number: '', notes: '' },
-    localDay: () => '2026-10-13', readDefaultCurrency: () => 'CNY', invoke: async () => undefined, errorMessage: error => error.message, setNotice() {}, setSection() {}, setCloseIntent() {},
+    localDay: () => '2026-10-13', readDefaultCurrency: () => 'CNY', readRate: () => '', invoke: async () => undefined, errorMessage: error => error.message, setNotice() {}, setSection() {}, setCloseIntent() {},
   };
   for (const field of ['draft', 'trashAction', 'recordTrashAction', 'lifecycleDraft', 'lifecycleRecovery', 'saleDraft', 'saleRecovery', 'maintenanceDraft', 'maintenanceRecovery', 'warrantyDraft', 'warrantyRecovery', 'trashRecovery', 'recordTrashRecovery', 'recovered']) base[field] = null;
   let savedDraft;

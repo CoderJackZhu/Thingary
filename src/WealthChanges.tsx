@@ -1,4 +1,4 @@
-import { accountVisible, changeVisible } from './wealth-display';
+import { accountVisible, changeVisible, fxSplit } from './wealth-display';
 import type { AccountView } from './wealth-display';
 // U20「变化」分段：两次盘点的逐账户比较、按类型的结构比较与单账户历史。
 // 规则由只读命令 wealth_compare / wealth_account_history 计算，前端只展示、排序与展开（产品设计 17.14）。
@@ -177,7 +177,7 @@ function ChangesRow({ r, open, onToggle, history, onRetry }: {
       <td>{cellText(r.from, r.side)}</td>
       <td>{cellText(r.to, r.side)}</td>
       <td>{r.change_cents === null ? <span className="muted">{tt('未知')}</span> : r.side === 'liability' ? tt('欠款 {v1}', { v1: changeText(r.change_cents) }) : changeText(r.change_cents)}</td>
-      <td>{r.group === 'uncounted' ? <span className="muted">{tt('不计入')}</span> : r.effect_cents === null ? <span className="muted">{tt('未知')}</span> : changeText(r.effect_cents)}</td>
+      <td>{r.group === 'uncounted' ? <span className="muted">{tt('不计入')}</span> : r.effect_cents === null ? <span className="muted">{tt('未知')}</span> : changeText(r.effect_cents)}{(() => { const split = r.group === 'uncounted' ? null : fxSplit(r); return split && split.fx_cents !== '0' ? <small className="muted fx-split">{tt('其中汇率 {v1}', { v1: changeText(split.fx_cents) })}</small> : null; })()}</td>
       <td className="col-rate">{r.rate_hundredths === null ? '—' : rateText(r.rate_hundredths)}</td>
       <td><button className="row-expand" aria-expanded={open} aria-label={tt('{v1}「{name}」的盘点历史', { v1: open ? tt('收起') : tt('展开'), name: r.name })} onClick={() => onToggle(r.account_id)}>{open ? '▾' : '▸'}</button></td>
     </tr>

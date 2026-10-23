@@ -9,7 +9,7 @@ import { useSession } from '../session';
 import { Button, DateField, DeleteSheet, FormGroup, FormRow, MoneyField, SelectField, Switch, TextAreaField } from '../ui';
 import { blankIncome, changeIncomeCategory, incomeSave, validateIncome } from './forms';
 import { dayLabel } from '../format';
-import { CurrencyUnit, useForeignAmount } from '../../ForeignAmount';
+import { CurrencyButton, OriginalInput, RateRow, useForeignAmount } from '../../ForeignAmount';
 import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
 import { t } from '../../i18n.ts';
@@ -45,8 +45,7 @@ function Form({ generation, income, hpfDefault }: { generation: string; income: 
       <DateField label={t('到账日期')} value={f.date} max={today} onChange={v => set({ date: v })} disabled={saver.busy}/>
       <SelectField label={t('来源分类')} value={f.category ?? 'unclassified'} onChange={v => { setProblem(''); setConfirmed(false); setF(x => changeIncomeCategory(x, v as NonNullable<IncomeFields['category']>, !income, edited)); }}
         options={Object.entries(incomeCategories).map(([id, label]) => ({ id, label }))} disabled={saver.busy}/>
-      {!fa.foreign && <MoneyField label={t('税后到账')} value={f.net_cents} onChange={v => set({ net_cents: v })} hint={t('实际收到的净额；没有到账就填 0')} disabled={saver.busy}/>}
-      <FormRow label={fa.foreign ? t('金额与币种') : t('币种')}><CurrencyUnit fa={fa} label={t('收入币种')} disabled={saver.busy}/></FormRow>
+      <MoneyField label={t('税后到账')} value={f.net_cents} onChange={v => set({ net_cents: v })} hint={t('实际收到的净额；没有到账就填 0')} disabled={saver.busy} unit={<CurrencyButton code={fa.code} onChange={c => fa.edit('code', c)} label={t('币种')} disabled={saver.busy}/>} replaceInput={fa.foreign ? <OriginalInput s={fa} onText={v => fa.edit('text', v)} label={t('税后到账')} disabled={saver.busy}/> : undefined} below={fa.foreign ? <RateRow s={fa} onFx={v => fa.edit('fx', v)} onPaid={v => fa.edit('paid', v)} disabled={saver.busy}/> : undefined}/>
       {(!investment || f.hpf_cents !== null) && <MoneyField label={t('公积金缴存')} value={f.hpf_cents ?? ''} onChange={v => { setEdited(true); set({ hpf_cents: v === '' ? null : v }); }} hint={!income && hpfDefault ? t('已带入最新一条的已知金额，可改；留空表示未知') : t('个人与单位合计；留空表示未知')} disabled={saver.busy}/>}
       {changed && <FormRow label={t('保留已有公积金缴存事实')}><Switch label={t('确认保留已有公积金缴存事实')} checked={confirmed} onChange={setConfirmed} disabled={saver.busy}/></FormRow>}
     </FormGroup>

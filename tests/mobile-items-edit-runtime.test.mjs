@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { runtime } from './planning-component-runtime.mjs';
 import * as asset from '../src/asset.ts';
 import * as currency from '../src/currency.ts';
+import * as foreignAmount from '../src/foreign-amount.ts';
 import * as currencyPicker from '../src/currency-picker.ts';
 import * as preferences from '../src/preferences.ts';
 import * as media from '../src/asset-media.ts';
@@ -21,7 +22,7 @@ function sessionState() {
   };
 }
 function leaves(session, nav, invoke, submit) {
-  return { './CurrencyPicker': { CurrencyPicker: 'CurrencyPicker' }, './currency': currency, './currency-picker': currencyPicker, './asset': asset, './mobile/format': format, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model, './asset-editor-layout': layout, './mobile/items/glyphs': { Glyph() {} }, './mobile/items/PhotoViewer': { PhotoThumbs: 'PhotoThumbs', PhotoViewer: 'PhotoViewer' },
+  return { './CurrencyPicker': { CurrencyPicker: 'CurrencyPicker' }, './ForeignAmount': { applyFa: (s, f, v) => foreignAmount.editFa(s, f, v), changeFaCode: (s, c) => foreignAmount.editFa(s, 'code', c), CurrencyButton: 'CurrencyButton', OriginalInput: 'OriginalInput', RateRow: 'RateRow' }, './foreign-amount': foreignAmount, './currency': currency, './currency-picker': currencyPicker, './asset': asset, './mobile/format': format, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model, './asset-editor-layout': layout, './mobile/items/glyphs': { Glyph() {} }, './mobile/items/PhotoViewer': { PhotoThumbs: 'PhotoThumbs', PhotoViewer: 'PhotoViewer' },
     './NotificationNotice': { allowReminders: async () => {} }, './materials': { materialArt: () => '<svg/>' },
     './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => nav, useDirtyGuard() {}, useFormChanged: () => false },
     './wealth': { submit }, '@tauri-apps/api/core': { invoke },

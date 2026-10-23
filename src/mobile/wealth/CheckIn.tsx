@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { ReactNode } from 'react';
 import { dayLabel, moneyText } from '../format';
-import { currencyCode, currencyDecimals, rateSuggestions } from '../../currency';
+import { currencyCode, currencyDecimals, rateHint, rateSuggestions } from '../../currency';
 import { accountGroupTotals } from '../../wealth-display';
 import { canCloseInCheckIn, changeText, checkInUnfilledTargets, nextUnfilledLabel } from '../../wealth';
 import type { CheckInRow, Draft } from '../../wealth';
@@ -66,7 +66,7 @@ export function Inventory({draft,groups,header,onDirty}:{draft:Draft;groups:Acco
   <div ref={root} className="mw-inventory" onFocusCapture={e=>{focused.current=(e.target as HTMLElement).closest<HTMLElement>('[data-check-in-field]')?.dataset.checkInField??null;}}>
     {draft.existing && <Notice>{tr('正在更正 {date} 的盘点。已记录金额与历史计入范围会保留，保存后替换同一次盘点。', { date: draft.date })}</Notice>}
     <fieldset disabled={writer.frozen} style={{border:0,padding:0,margin:0,minWidth:0}}>
-      {[...new Set(accounts.map(a=>currencyCode(a.fields.currency)).filter(c=>c!=='CNY'))].map(code=><FormGroup key={code} title={tr('{code} 汇率', { code })} footer={rateSuggestions(draft)[code]?tr('{date} 记录的参考汇率，请核对。', { date: rateSuggestions(draft)[code].date }):tr('每单位原币兑换人民币，手动填写。')}><div data-check-in-field={`rate:${code}`} className={flag===code&&!/^\d+$/.test(rates[code]??'')?'mw-check-flag':undefined}><MoneyField label={tr('{code} 本次汇率', { code })} symbol="" places={6} value={rates[code]??''} onEnter={enter} onChange={v=>changeRate(code,v)}/></div></FormGroup>)}
+      {[...new Set(accounts.map(a=>currencyCode(a.fields.currency)).filter(c=>c!=='CNY'))].map(code=><FormGroup key={code} title={tr('{code} 汇率', { code })} footer={rateHint(code, rateSuggestions(draft)[code], draft.date)}><div data-check-in-field={`rate:${code}`} className={flag===code&&!/^\d+$/.test(rates[code]??'')?'mw-check-flag':undefined}><MoneyField label={tr('{code} 本次汇率', { code })} symbol="" places={6} value={rates[code]??''} onEnter={enter} onChange={v=>changeRate(code,v)}/></div></FormGroup>)}
       {grouped.filter(g=>g.accounts.length).map(group=><FormGroup key={group.id} title={group.name} footer={tr('已填小计 {v1}{v2}', { v1: group.known ? moneyText(group.net_cents) : tr('待填写'), v2: group.partial?tr(' · 仍有未填账户'):'' })}>
         {group.accounts.map(account=>{
           const row=rows[account.id], previous=draft.rows.find(r=>r.account.id===account.id)!.previous, code=currencyCode(account.fields.currency);

@@ -19,8 +19,8 @@ export type Point = { snapshot_id: string; date: string; notes: string; assets_c
 export type Share = { kind: string; amount_cents: string; share_hundredths: number | null };
 export type Summary = { generation: string; points: Point[]; structure_date: string | null; structure_entries?: Entry[]; latest_entries?: Entry[]; structure: Share[]; liabilities: Share[] };
 // U20 账户变化与盘点比较（产品设计 17.14）：一次比较的两个端点。
-export type CompareCell = { state: string; amount_cents: string | null; counted: boolean | null };
-export type CompareRow = { account_id: string; name: string; institution: string; side: Side; kind: string; from: CompareCell; to: CompareCell; change_cents: string | null; effect_cents: string | null; rate_hundredths: number | null; group: 'counted' | 'uncounted' | 'scope_changed'; tag: 'new' | 'closed' | null };
+export type CompareCell = { state: string; amount_cents: string | null; counted: boolean | null; original_minor?: string | null; fx_rate_micro?: string | null };
+export type CompareRow = { account_id: string; name: string; institution: string; side: Side; currency?: string; kind: string; from: CompareCell; to: CompareCell; change_cents: string | null; effect_cents: string | null; rate_hundredths: number | null; group: 'counted' | 'uncounted' | 'scope_changed'; tag: 'new' | 'closed' | null };
 export type CompareEnd = { snapshot_id: string; date: string; notes: string; complete: boolean; missing: number };
 export type StructurePair = { kind: string; from_cents: string | null; from_share: number | null; to_cents: string | null; to_share: number | null };
 export type Compare = { generation: string; from: CompareEnd; to: CompareEnd; reconciled: boolean; net_change_cents: string | null; assets_change_cents: string | null; liabilities_change_cents: string | null; net_rate_hundredths: number | null; known_effect_cents: string; missing_names: string[]; rows: CompareRow[]; structure: StructurePair[] };

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import './date.css';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, money, priceCents, type AssetRecord, type Fields, type Photo } from '../../asset';
-import { CurrencyPicker } from '../../CurrencyPicker';
-import { currencyCode, currencyDecimals, decimalUnits, parseDecimal } from '../../currency';
-import { rememberCurrency } from '../../currency-picker.ts';
+import { errorMessage, type AssetRecord, type Fields, type Photo } from '../../asset';
+import { applyFa, changeFaCode, CurrencyButton, OriginalInput, RateRow } from '../../ForeignAmount';
+import { currencyCode, decimalUnits, parseDecimal } from '../../currency';
+import { rememberCurrency, rememberRate } from '../../currency-picker.ts';
+import { isForeign, type FaField, type FaState } from '../../foreign-amount.ts';
 import { changeNewAssetWarrantyPurchase, newAssetWarranty, type AssetPreferences } from '../../preferences';
 import { replaceDraftCover } from '../../asset-media';
 import { allowReminders } from '../../NotificationNotice';
@@ -59,12 +60,13 @@ export default function ItemEdit({ params }: PageProps) {
     return () => { live = false; };
   }, [session.settled, catalog]);
   const cur = currencyCode(draft?.fields.currency);
-  /** Switching unit keeps the typed number, trimmed to the new unit's decimals. */
-  function changeCurrency(code: string) {
+  const faOf = (f: Fields): FaState => ({ code: currencyCode(f.currency), text: f.price, fx: f.fx ?? '', paid: f.paid ?? '' });
+  function changePrice(field: FaField | 'unit', value: string) {
+    if (field === 'unit') rememberCurrency(value);
     setDraft(current => {
       if (!current) return current;
-      const places = currencyDecimals(code), [whole, fraction = ''] = current.fields.price.split('.');
-      return { ...current, fields: { ...current.fields, currency: code, price: places ? (fraction ? `${whole}.${fraction.slice(0, places)}` : current.fields.price) : whole } };
+      const cur = faOf(current.fields), n = field === 'unit' ? changeFaCode(cur, value) : applyFa(cur, field, value);
+      return { ...current, fields: { ...current.fields, currency: n.code, price: n.text, fx: n.fx, paid: n.paid } };
     });
   }
   /** After the CNY price is saved: keep (or clear) the original-currency record. A failure here leaves the saved CNY price intact. */
@@ -72,7 +74,7 @@ export default function ItemEdit({ params }: PageProps) {
     if (!draft || !catalog) return;
     const origin = itemPriceOrigin(draft);
     if (!origin && !record.price_origin) return;
-    try { await invoke('set_price_origin', { input: { generation: catalog.generation, asset_id: record.asset.id, origin } }); } catch { /* annotation only */ }
+    try { await invoke('set_price_origin', { input: { generation: catalog.generation, asset_id: record.asset.id, origin } }); if (origin) rememberRate(origin.currency, draft.fields.fx ?? ''); } catch { /* annotation only */ }
   }
   function change(key: keyof Fields, value: string) {
     setDraft(current => {
@@ -132,7 +134,7 @@ export default function ItemEdit({ params }: PageProps) {
       <div className="m-item-icon-slot"><button type="button" className="m-item-icon-tile" aria-label={t('更换图标')} onClick={openIcons} disabled={disabled}>{coverPhoto ? <PhotoView photo={coverPhoto} generation={catalog.generation}/> : <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt={t('默认物品图标')}/>}<span className="m-item-icon-badge" aria-hidden="true"><Glyph name="swap" size={14} strokeWidth={2.4}/></span></button></div>
       {photoError && <ErrorState title={t('图片未全部读取')} message={photoError}/>}{photoError && <Button onClick={() => setPhotoError('')}>{t('不使用未读取的图片')}</Button>}
       {notice && <Notice>{notice}</Notice>}
-      <FormGroup><TextField label={t('名称')} value={draft.fields.name} onChange={value => change('name', value)} disabled={disabled} placeholder={t('物品名称')} maxLength={200}/><MoneyField label={t('购买价格')} places={currencyDecimals(cur)} symbol={cur === 'CNY' ? '¥' : ''} value={draft.fields.price ? unitsOf(draft.fields.price, currencyDecimals(cur)) : ''} onChange={value => change('price', value ? decimalUnits(value, currencyDecimals(cur)) : '')} disabled={disabled} hint={t('留空为未知；0 为免费。')}/><FormRow label={t('币种')}><CurrencyPicker label={t('购买价格的币种')} value={cur} disabled={disabled} onChange={code => { rememberCurrency(code); changeCurrency(code); }}/></FormRow>{cur !== 'CNY' && <TextField label={t('汇率：1 {code} 折合人民币', { code: cur })} value={draft.fields.fx ?? ''} onChange={value => change('fx', value)} disabled={disabled} placeholder="7.12" hint={convertedHint(draft.fields)}/>}<DateField label={t('购买日期')} value={draft.fields.date} onChange={value => change('date', value)} disabled={disabled} max={session.today} allowClear hint={t('留空为未知')}/><SelectField label={t('分类')} value={draft.classification.category_id ?? ''} options={[{ id: '', label: t('未分类') }, ...catalog.categories.map(entry => ({ id: entry.id, label: entry.name }))]} onChange={value => setDraft({ ...draft, classification: { ...draft.classification, category_id: value || null } })} disabled={disabled}/><SelectField label={t('标签')} value={p.label_id ?? ''} options={[{ id: '', label: t('无标签') }, ...labels.map(entry => ({ id: entry.id, label: entry.name }))]} onChange={value => preferences({ label_id: value || null })} disabled={disabled}/><SelectField label={t('购买渠道')} value={draft.classification.channel_id ?? ''} options={[{ id: '', label: t('未记录') }, ...catalog.channels.map(entry => ({ id: entry.id, label: entry.name }))]} onChange={value => setDraft({ ...draft, classification: { ...draft.classification, channel_id: value || null } })} disabled={disabled}/></FormGroup>
+      <FormGroup><TextField label={t('名称')} value={draft.fields.name} onChange={value => change('name', value)} disabled={disabled} placeholder={t('物品名称')} maxLength={200}/><MoneyField label={t('购买价格')} value={cur === 'CNY' && draft.fields.price ? unitsOf(draft.fields.price, 2) : ''} onChange={value => changePrice('text', value ? decimalUnits(value, 2) : '')} disabled={disabled} hint={t('留空为未知；0 为免费。')} unit={<CurrencyButton code={cur} onChange={code => changePrice('unit', code)} label={t('购买价格的币种')} disabled={disabled}/>} replaceInput={isForeign(faOf(draft.fields)) ? <OriginalInput s={faOf(draft.fields)} onText={value => changePrice('text', value)} label={t('购买价格')} disabled={disabled}/> : undefined} below={isForeign(faOf(draft.fields)) ? <RateRow s={faOf(draft.fields)} onFx={value => changePrice('fx', value)} onPaid={value => changePrice('paid', value)} disabled={disabled}/> : undefined}/><DateField label={t('购买日期')} value={draft.fields.date} onChange={value => change('date', value)} disabled={disabled} max={session.today} allowClear hint={t('留空为未知')}/><SelectField label={t('分类')} value={draft.classification.category_id ?? ''} options={[{ id: '', label: t('未分类') }, ...catalog.categories.map(entry => ({ id: entry.id, label: entry.name }))]} onChange={value => setDraft({ ...draft, classification: { ...draft.classification, category_id: value || null } })} disabled={disabled}/><SelectField label={t('标签')} value={p.label_id ?? ''} options={[{ id: '', label: t('无标签') }, ...labels.map(entry => ({ id: entry.id, label: entry.name }))]} onChange={value => preferences({ label_id: value || null })} disabled={disabled}/><SelectField label={t('购买渠道')} value={draft.classification.channel_id ?? ''} options={[{ id: '', label: t('未记录') }, ...catalog.channels.map(entry => ({ id: entry.id, label: entry.name }))]} onChange={value => setDraft({ ...draft, classification: { ...draft.classification, channel_id: value || null } })} disabled={disabled}/></FormGroup>
       <section className="m-form-group" aria-label={t('备注')}><h2 className="m-group-title">{t('备注')}</h2><div className="m-card m-item-notes"><textarea className="m-item-notes-text" aria-label={t('备注')} rows={4} placeholder={t('例如：存放在书房左侧柜；保修卡在抽屉')} value={draft.fields.notes} disabled={disabled} onChange={event => change('notes', event.target.value)}/><PhotoThumbs photos={attachments} generation={catalog.generation} onOpen={setViewing} onAdd={openAddPhoto} addDisabled={disabled || draft.photos.length >= 20}/></div></section>
       {!draft.id && <FormGroup footer={draft.options.warranty ? t('默认从购买日期起一年；购买日期未知时从今天起。') : undefined}>
         <FormRow label={t('保障时间')}><Switch label={t('设置保障时间')} checked={!!draft.options.warranty} onChange={checked => setDraft({ ...draft, options: { ...draft.options, warranty: checked ? newAssetWarranty(draft.fields.date || null, session.today) : null } })} disabled={disabled}/></FormRow>
@@ -152,4 +154,3 @@ export default function ItemEdit({ params }: PageProps) {
   </div>;
 }
 function unitsOf(price: string, places: number): string { try { return parseDecimal(price, places); } catch { return ''; } }
-function convertedHint(fields: Fields): string | undefined { try { const cents = priceCents(fields); return cents === null ? undefined : t('折合 {v1}（汇率手填，不联网）', { v1: money(cents) }); } catch { return undefined; } }

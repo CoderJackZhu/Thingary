@@ -38,7 +38,7 @@ test('a real history read failure remains expanded and exposes a working reload 
 test('missing history, explicit zero and loading retain their distinct presentations', () => {
   const unknown = summary({ status: 'ready', value: { intervals: [], stats: stats(null) } });
   assert.ok(historical(unknown));
-  assert.equal(historical(unknown).props.open, undefined);
+  assert.equal(historical(unknown).props.open, true);
   assert.match(shown(unknown), /待补充 · 还没有完整盘点/);
   assert.doesNotMatch(shown(unknown), /历史资产参考暂时无法读取/);
   const zero = summary({ status: 'ready', value: { intervals: [], stats: stats('0') } });

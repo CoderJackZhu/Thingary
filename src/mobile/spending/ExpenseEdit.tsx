@@ -10,7 +10,7 @@ import { Button, DateField, DeleteSheet, FormGroup, FormRow, MoneyField, SelectF
 import { blankExpense, expenseSave, toggleRefund, validateExpense } from './forms';
 import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
-import { CurrencyUnit, useForeignAmount } from '../../ForeignAmount';
+import { CurrencyButton, OriginalInput, RateRow, useForeignAmount } from '../../ForeignAmount';
 import { t } from '../../i18n.ts';
 /** spending.expenseEdit: record, edit or delete a standalone important expense, with an optional refund. */
 export default function ExpenseEdit({ params }: PageProps) {
@@ -44,8 +44,7 @@ function Form({ generation, expense }: { generation: string; expense: Expense | 
     <p className="sp-note sp-note-pad">{t('记录没有对应物品的大额花费。买了物品请直接新增物品，购入会自动计入。')}</p>
     <FormGroup>
       <TextField label={t('名称')} value={f.title} onChange={v => set('title', v)} placeholder={t('例如：东京旅行')} maxLength={80} disabled={saver.busy}/>
-      {!fa.foreign && <MoneyField label={t('金额')} value={f.amount_cents} onChange={v => set('amount_cents', v)} disabled={saver.busy}/>}
-      <FormRow label={fa.foreign ? t('金额与币种') : t('币种')}><CurrencyUnit fa={fa} label={t('支出币种')} disabled={saver.busy}/></FormRow>
+      <MoneyField label={t('金额')} value={f.amount_cents} onChange={v => set('amount_cents', v)} disabled={saver.busy} unit={<CurrencyButton code={fa.code} onChange={c => fa.edit('code', c)} label={t('币种')} disabled={saver.busy}/>} replaceInput={fa.foreign ? <OriginalInput s={fa} onText={v => fa.edit('text', v)} label={t('金额')} disabled={saver.busy}/> : undefined} below={fa.foreign ? <RateRow s={fa} onFx={v => fa.edit('fx', v)} onPaid={v => fa.edit('paid', v)} disabled={saver.busy}/> : undefined}/>
       <DateField label={t('日期')} value={f.date} onChange={v => set('date', v)} disabled={saver.busy}/>
       <SelectField label={t('分类')} value={f.category} onChange={v => set('category', v)} options={expenseCategories.map(([id, label]) => ({ id, label }))} disabled={saver.busy}/>
     </FormGroup>

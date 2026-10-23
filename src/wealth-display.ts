@@ -1,4 +1,5 @@
 import type { Account, CompareRow } from './wealth.ts';
+import { currencyDecimals } from './currency.ts';
 import { t } from './i18n.ts';
 export type AccountView = 'active' | 'closed' | 'all';
 export const accountVisible = (a: Account, view: AccountView) => view === 'all' || (view === 'closed') === !!a.fields.closed_on;
@@ -58,4 +59,18 @@ export function balanceComparison(points: import('./wealth').Point[], snapshotId
   if (!end?.complete || !end.compared_to) return null;
   const start = points.find(point => point.complete && point.date === end.compared_to);
   return start ? { fromSnapshotId: start.snapshot_id, toSnapshotId: end.snapshot_id } : null;
+}
+
+/**
+ * A foreign account's change split into its own movement (original amount change at the starting rate) and the exchange rate
+ * (the end amount times the rate difference). Both are in the direction of the net-worth effect and add up to it. Null unless both ends carry an original amount and a rate.
+ */
+export function fxSplit(row: Pick<CompareRow, 'side' | 'currency' | 'from' | 'to' | 'change_cents'>): { own_cents: string; fx_cents: string } | null {
+  const { from, to } = row;
+  if (!row.currency || row.currency === 'CNY' || row.change_cents === null || from.original_minor == null || to.original_minor == null || !from.fx_rate_micro || !to.fx_rate_micro) return null;
+  const scale = 10n ** BigInt(2 - currencyDecimals(row.currency));
+  const num = BigInt(to.original_minor) * scale * (BigInt(to.fx_rate_micro) - BigInt(from.fx_rate_micro));
+  const fx = (num < 0n ? -((-num + 500000n) / 1000000n) : (num + 500000n) / 1000000n);
+  const sign = row.side === 'liability' ? -1n : 1n;
+  return { own_cents: (sign * (BigInt(row.change_cents) - fx)).toString(), fx_cents: (sign * fx).toString() };
 }

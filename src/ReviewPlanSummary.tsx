@@ -54,7 +54,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
         <p className="review-plan-main">{retire.main}</p>
         <p className="review-plan-sub">{retire.note}</p>
       </>}
-    {saving.kind !== 'disabled' && <details className="review-plan-divide" open={saving.kind === 'error' ? true : undefined}><summary>{t('过去每月家底变化（含投资涨跌）')}</summary>
+    {saving.kind !== 'disabled' && <details className="review-plan-divide" open><summary>{t('过去每月家底变化（含投资涨跌）')}</summary>
       <div className="review-plan-save">
         <span>{t('每月平均变化')}<Info text={t('近 12 个月里、前后都是完整盘点的区间，金融净资产的平均变化（按天数加权，含投资涨跌）。这只是过去的参考，不会自动当成以后每月能存的钱。')}/></span>
         {saving.kind === 'known' ? <b className={saving.negative ? 'neg' : undefined}>{money(saving.monthly_cents)}<small>{t('／月')}</small></b> : null}

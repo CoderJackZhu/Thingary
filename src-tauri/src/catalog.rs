@@ -84,6 +84,22 @@ impl PriceOrigin {
         let rate = crate::currency::integer(&self.fx_rate_micro).map_err(bad)?;
         crate::currency::convert(&self.currency, original, rate).map_err(bad)
     }
+    /// Whether this original amount and rate account for the CNY amount that was actually paid.
+    /// The paid CNY amount is the fact; the rate is derived from it with six decimals, so the
+    /// conversion may differ by the rounding that rate can carry (at least one cent).
+    fn explains(&self, cents: Option<&str>) -> bool {
+        let (Some(cents), Ok(converted), Ok(original)) = (
+            cents.and_then(|c| c.parse::<i128>().ok()),
+            self.converted(),
+            crate::currency::integer(&self.original_minor),
+        ) else {
+            return false;
+        };
+        let scaled =
+            i128::from(original) * 10i128.pow(2 - crate::currency::decimals(&self.currency));
+        let tolerance = 1 + (scaled + 1_999_999) / 2_000_000;
+        (cents - i128::from(converted)).abs() <= tolerance
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -214,10 +230,7 @@ impl Store {
                 },
             )
             .optional()?;
-        Ok(origin.filter(|o| {
-            o.converted()
-                .is_ok_and(|v| price_cents.is_some_and(|p| p == v.to_string()))
-        }))
+        Ok(origin.filter(|o| o.explains(price_cents)))
     }
     /// Records (or clears) the original-currency price of an already saved item. The CNY price must be what it converts to.
     pub fn set_price_origin(&mut self, input: &PriceOriginSave) -> Result<()> {
@@ -243,8 +256,8 @@ impl Store {
                 )?;
             }
             Some(origin) => {
-                let converted = origin.converted()?;
-                if price.as_deref() != Some(converted.to_string().as_str()) {
+                origin.converted()?;
+                if !origin.explains(price.as_deref()) {
                     return Err(Error::new(
                         "PRICE_ORIGIN",
                         "原币金额与汇率折算的人民币金额和物品价格不一致",
@@ -506,10 +519,7 @@ impl Store {
                 },
             )
             .optional()?;
-        Ok(origin.filter(|o| {
-            o.converted()
-                .is_ok_and(|v| amount.as_deref() == Some(v.to_string().as_str()))
-        }))
+        Ok(origin.filter(|o| o.explains(amount.as_deref())))
     }
     /// Records (or clears) the original-currency amount of an already saved record.
     pub fn set_amount_origin(&mut self, input: &AmountOriginSave) -> Result<()> {
@@ -528,8 +538,8 @@ impl Store {
                 )?;
             }
             Some(origin) => {
-                let converted = origin.converted()?;
-                if amount.as_deref() != Some(converted.to_string().as_str()) {
+                origin.converted()?;
+                if !origin.explains(amount.as_deref()) {
                     return Err(Error::new(
                         "PRICE_ORIGIN",
                         "原币金额与汇率折算的人民币金额和记录金额不一致",

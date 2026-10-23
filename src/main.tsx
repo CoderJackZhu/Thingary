@@ -97,7 +97,7 @@ import './theme.css';
 import './controls.css';
 import { SettingsView, type SettingsCategory } from './SettingsView';
 import { AppearanceSettings } from './AppearanceSettings';
-import { readDefaultCurrency } from './currency-picker.ts';
+import { readDefaultCurrency, readRate } from './currency-picker.ts';
 import { applyAppearance, readMode, readStyle, toggledMode, watchSystemMode, type Mode, type Style } from './appearance';
 import { t as tr } from './i18n.ts';
 // 首帧前套用主题，避免深色用户先看到浅色闪一下。
@@ -816,7 +816,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
     if (!detailId) listScroll.current = collectionRef.current?.scrollTop ?? 0;
     try {
       await invoke('set_editing', { editing: true });
-      const fields = record ? fieldsOf(record) : { ...emptyFields, currency: readDefaultCurrency(), fx: '', name: wish?.fields.name ?? '', date: wish ? localDay() : '' };
+      const fields = record ? fieldsOf(record) : { ...emptyFields, currency: readDefaultCurrency(), fx: readRate(readDefaultCurrency()), paid: '', name: wish?.fields.name ?? '', date: wish ? localDay() : '' };
       const classification = record?.classification ?? { category_id: wish?.fields.category_id ?? null, channel_id: null };
       let photos = record?.photos ?? [], coverNotice = '';
       if (wish?.cover) {

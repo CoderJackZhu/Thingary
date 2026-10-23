@@ -58,3 +58,12 @@ export function pickerSections(query: string, defaultCode = readDefaultCurrency(
   sections.push({ id: 'all', title: t('全部币种'), codes: allCodes().filter(c => !seen.has(c)) });
   return sections.filter(s => s.codes.length);
 }
+
+const rateKey = 'thingary.currency.rates';
+const readRates = (): Record<string, string> => { try { const v = JSON.parse(store()?.getItem(rateKey) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } };
+/** 这个币种上次保存时用的汇率（文本），没有则为空。只在本机，方便下次预填，不进备份。 */
+export const readRate = (code: string): string => (typeof readRates()[code] === 'string' ? readRates()[code] : '');
+export function rememberRate(code: string, rate: string): void {
+  if (!known(code) || !rate) return;
+  try { store()?.setItem(rateKey, JSON.stringify({ ...readRates(), [code]: rate })); } catch { /* storage unavailable: nothing to remember */ }
+}

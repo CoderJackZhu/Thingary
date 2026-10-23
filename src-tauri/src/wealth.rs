@@ -364,6 +364,9 @@ pub struct CompareCell {
     pub amount_cents: Option<String>,
     /// The check-in row's recorded setting; None without a row.
     pub counted: Option<bool>,
+    /// Foreign accounts: the original amount and rate recorded with this end, so a change can be split into the account's own movement and the exchange rate.
+    pub original_minor: Option<String>,
+    pub fx_rate_micro: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -372,6 +375,7 @@ pub struct CompareRow {
     pub name: String,
     pub institution: String,
     pub side: String,
+    pub currency: String,
     /// The to-end row's kind, else the from-end's, else the account's current one.
     pub kind: String,
     pub from: CompareCell,
@@ -1755,6 +1759,8 @@ impl Store {
                     },
                     amount_cents: e.amount_cents.clone(),
                     counted: Some(e.counted),
+                    original_minor: e.original_minor.clone(),
+                    fx_rate_micro: e.fx_rate_micro.clone(),
                 },
                 None => {
                     let state = if a.fields.opened_on.as_str() > s.date.as_str() {
@@ -1773,6 +1779,8 @@ impl Store {
                         state: state.into(),
                         amount_cents: None,
                         counted: None,
+                        original_minor: None,
+                        fx_rate_micro: None,
                     }
                 }
             };
@@ -1831,6 +1839,7 @@ impl Store {
                 name: a.fields.name.clone(),
                 institution: a.fields.institution.clone(),
                 side,
+                currency: a.fields.currency.clone(),
                 kind,
                 from: from_cell,
                 to: to_cell,

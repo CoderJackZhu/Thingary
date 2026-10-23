@@ -53,3 +53,11 @@ export function flipSign(text: string): string {
   const trimmed = text.trim();
   return trimmed.startsWith('-') ? trimmed.slice(1) : `-${trimmed}`;
 }
+
+/** "上次 1 USD = 7.12（2026-08-23）"; after a month it also says the rate may have moved, so an old rate is not reused unnoticed. */
+export function rateHint(code: string, suggestion: { rate: string; date: string } | undefined, on: string): string {
+  if (!suggestion) return t('没有历史汇率，请手动填写。');
+  const days = Math.round((Date.parse(on + 'T00:00:00Z') - Date.parse(suggestion.date + 'T00:00:00Z')) / 86400000);
+  const base = t('上次 1 {code} = {rate}（{date}）', { code, rate: rateLabel(suggestion.rate), date: suggestion.date });
+  return days > 30 ? base + t('，已是 {days} 天前，汇率可能已变化，请核对。', { days }) : base + t('，可修改。');
+}

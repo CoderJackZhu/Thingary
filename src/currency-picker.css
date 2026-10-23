@@ -22,3 +22,9 @@
 .price-field{display:flex;flex-direction:column;gap:2px;min-width:0;width:100%}
 .price-field small{color:var(--muted)}
 .price-field small.error{color:var(--danger,#d33)}
+.amt-line{display:flex;gap:8px;align-items:center;min-width:0;width:100%}
+.amt-line .amt-input,.amt-line input{flex:1;min-width:0}
+.rate-row{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px;font-size:13px;color:var(--muted);width:100%}
+.rate-row label{display:flex;gap:6px;align-items:center}
+.rate-row input{width:7em;min-height:32px}
+.fx-split{display:block}
