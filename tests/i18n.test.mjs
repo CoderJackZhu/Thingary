@@ -32,3 +32,10 @@ test('the English table covers the interface (a new Chinese string without a tra
   const missing = keys.filter(k => !(k in en));
   assert.ok(missing.length / keys.length < 0.02, `${missing.length} untranslated, e.g. ${missing.slice(0, 5).join(' / ')}`);
 });
+
+test('an English entry keeps the leading and trailing spaces of its Chinese key (they join it to neighbouring text)', () => {
+  for (const [key, value] of Object.entries(en)) {
+    if (/^\s/.test(key)) assert.match(value, /^\s/, `leading space: ${JSON.stringify(key)}`);
+    if (/\s$/.test(key)) assert.match(value, /\s$/, `trailing space: ${JSON.stringify(key)}`);
+  }
+});
