@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { ReactNode } from 'react';
 import { dayLabel, moneyText } from '../format';
 import { currencyCode, currencyDecimals, rateHint, rateSuggestions } from '../../currency';
+import { checkInRates } from '../../currency-picker.ts';
 import { accountGroupTotals } from '../../wealth-display';
 import { canCloseInCheckIn, changeText, checkInUnfilledTargets, nextUnfilledLabel, prefilledCount } from '../../wealth';
 import type { CheckInRow, Draft } from '../../wealth';
@@ -18,7 +19,7 @@ import { factText, ReadState, useGroups, useRead, useWrite } from './shared';
 import { t as tr } from '../../i18n.ts';
 export function Inventory({draft,groups,header,onDirty}:{draft:Draft;groups:AccountGroup[];header?:ReactNode;/** Reports whether anything was entered, so the page can ask before switching the date. */onDirty?:(dirty:boolean)=>void}) {
   const nav=useNav(), s=useSession(), [edits,setRows]=useState<Record<string,CheckInRow>>({}), [notes,setNotes]=useState(draft.existing?.notes??'');
-  const [rates,setRates]=useState<Record<string,string>>(()=>Object.fromEntries(Object.entries(rateSuggestions(draft)).map(([c,v])=>[c,v.rate])));
+  const [rates,setRates]=useState<Record<string,string>>(()=>checkInRates(draft.rows.map(r=>currencyCode(r.account.fields.currency)),rateSuggestions(draft)));
   // An account added from this page appears on the next read without losing what was typed.
   const rows={...inventoryRows(draft),...edits};
   const writer=useWrite(()=>{s.setNotice(savedText(draft.date,s.today));setTimeout(()=>s.setNotice(''),6000);nav.pop();}),[flag,setFlag]=useState<string|null>(null), root=useRef<HTMLDivElement>(null), focused=useRef<string|null>(null);

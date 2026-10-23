@@ -1,5 +1,5 @@
 // 选币种：默认币种、最近使用、常用、全部（按代码字母序）。名称与符号来自 Intl，随界面语言变化；不联网。
-import { currencies, currencyRegion, decimalUnits } from './currency.ts';
+import { currencies, currencyRegion, decimalUnits, parseDecimal } from './currency.ts';
 import { referenceRates, referenceRatesDate } from './reference-rates.ts';
 import { numberLocale, t } from './i18n.ts';
 
@@ -79,4 +79,17 @@ export function rememberRate(code: string, rate: string): void {
 export function clearRate(code: string): void {
   const { [code]: _gone, ...rest } = readRates();
   try { store()?.setItem(rateKey, JSON.stringify(rest)); } catch { /* storage unavailable */ }
+}
+
+/** Rate in micro units for check-ins when no earlier check-in has one: the saved default, else the built-in reference, else ''. */
+export function rateMicroDefault(code: string): string {
+  const saved = savedRate(code);
+  if (saved) { try { return parseDecimal(saved, 6); } catch { /* fall through to the reference */ } }
+  return referenceRates[code] ?? '';
+}
+/** Suggested rates for a check-in: earlier check-ins first, then the defaults above for foreign accounts that have none. */
+export function checkInRates(codes: Iterable<string>, suggestions: Record<string, { rate: string }>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const code of codes) { if (code === 'CNY') continue; const rate = suggestions[code]?.rate ?? rateMicroDefault(code); if (rate) out[code] = rate; }
+  return out;
 }

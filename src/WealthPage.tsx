@@ -8,6 +8,7 @@ import type { AccountGroup, AccountGroupList } from './account-groups';
 import { QuickUpdateDialog } from './QuickUpdateDialog';
 import { CurrencyInput } from './CurrencyInput';
 import { CurrencyPicker } from './CurrencyPicker';
+import { checkInRates } from './currency-picker.ts';
 import { rateHint, currencyCode, currencyDecimals, currencyAmount, rateLabel, rateSuggestions, convertCurrency, validCurrency } from './currency';
 import { accountUpdateAge } from './wealth';
 import { SavingsGoals } from './SavingsGoals';
@@ -484,7 +485,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
       // or as a brand-new check-in; the user returns and re-reads instead.
       if (pin && d.existing?.id !== pin) { setError(tt('这条盘点已删除或变化，请返回后重新读取。')); return; }
       setDraft(d);
-      setRates(Object.fromEntries(Object.entries(rateSuggestions(d)).map(([c,s])=>[c,s.rate])));
+      setRates(checkInRates(d.rows.map(r => currencyCode(r.account.fields.currency)), rateSuggestions(d)));
       // Notes belong to the snapshot of the viewed date; a new date starts empty.
       setNotes(d.existing?.notes ?? '');
       setNotesDirty(false);

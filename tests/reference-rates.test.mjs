@@ -29,3 +29,15 @@ test('currencies the reference does not cover stay empty until a rate is saved',
   rememberRate('TWD', '0.2290');
   assert.equal(readRate('TWD'), '0.2290');
 });
+
+import { checkInRates, rateMicroDefault } from '../src/currency-picker.ts';
+test('a check-in uses earlier rates first, then the saved default, then the built-in reference, and never invents a CNY rate', () => {
+  store.clear();
+  assert.equal(rateMicroDefault('HKD'), referenceRates.HKD);
+  rememberRate('HKD', '0.9');
+  assert.equal(rateMicroDefault('HKD'), '900000');
+  const rates = checkInRates(['CNY', 'USD', 'HKD', 'TWD'], { USD: { rate: '7000000' } });
+  assert.deepEqual(rates, { USD: '7000000', HKD: '900000' });
+  store.clear();
+  assert.equal(checkInRates(['HKD'], {}).HKD, referenceRates.HKD);
+});

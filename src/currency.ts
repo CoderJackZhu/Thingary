@@ -1,4 +1,5 @@
 import { t, numberLocale } from './i18n.ts';
+import { referenceRates, referenceRatesDate } from './reference-rates.ts';
 import { t as tr } from './i18n.ts';
 /** Offline input units. CNY cents remain the only input to downstream calculations. */
 export const currencies = [['CNY',tr('人民币'),2],['USD',tr('美元'),2],['JPY',tr('日元'),0],['EUR',tr('欧元'),2],['GBP',tr('英镑'),2],['KRW',tr('韩元'),0],['HKD',tr('港币'),2],['TWD',tr('新台币'),2],['MOP',tr('澳门元'),2],['SGD',tr('新加坡元'),2],['AUD',tr('澳元'),2],['CAD',tr('加元'),2],['CHF',tr('瑞士法郎'),2],['NZD',tr('新西兰元'),2],['THB',tr('泰铢'),2],['MYR',tr('马来西亚林吉特'),2],['IDR',tr('印尼盾'),2],['PHP',tr('菲律宾比索'),2],['VND',tr('越南盾'),0],['INR',tr('印度卢比'),2],['AED',tr('阿联酋迪拉姆'),2],['SAR',tr('沙特里亚尔'),2],['TRY',tr('土耳其里拉'),2],['RUB',tr('俄罗斯卢布'),2],['BRL',tr('巴西雷亚尔'),2],['MXN',tr('墨西哥比索'),2],['ZAR',tr('南非兰特'),2],['SEK',tr('瑞典克朗'),2],['NOK',tr('挪威克朗'),2],['DKK',tr('丹麦克朗'),2],['PLN',tr('波兰兹罗提'),2],['CZK',tr('捷克克朗'),2],['HUF',tr('匈牙利福林'),2],['ILS',tr('以色列新谢克尔'),2]] as const;
@@ -56,7 +57,7 @@ export function flipSign(text: string): string {
 
 /** "上次 1 USD = 7.12（2026-08-23）"; after a month it also says the rate may have moved, so an old rate is not reused unnoticed. */
 export function rateHint(code: string, suggestion: { rate: string; date: string } | undefined, on: string): string {
-  if (!suggestion) return t('没有历史汇率，请手动填写。');
+  if (!suggestion) return referenceRates[code] ? t('没有历史汇率，已带出内置参考汇率（{date}），只是估算，请按实际情况核对。', { date: referenceRatesDate }) : t('没有历史汇率，请手动填写。');
   const days = Math.round((Date.parse(on + 'T00:00:00Z') - Date.parse(suggestion.date + 'T00:00:00Z')) / 86400000);
   const base = t('上次 1 {code} = {rate}（{date}）', { code, rate: rateLabel(suggestion.rate), date: suggestion.date });
   return days > 30 ? base + t('，已是 {days} 天前，汇率可能已变化，请核对。', { days }) : base + t('，可修改。');
