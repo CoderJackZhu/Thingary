@@ -49,3 +49,14 @@
 .rate-paid{flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;text-align:right;white-space:nowrap}
 .rate-paid input{width:6.5em}
 .rate-edit input{width:6em}
+.rate-est{flex-direction:column;align-items:flex-start;gap:0;flex:1 1 auto;min-width:0}
+.rate-est>span{color:inherit;font-size:14px}
+.rate-link{background:none;border:0;padding:0;margin:0;color:var(--muted);font:inherit;font-size:12px;text-align:left;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.rate-paid{flex:0 0 auto}
+.rate-paid input{width:8em}
+.rate-link{white-space:nowrap}
+.rate-paid input{width:7em}
+.rate-paid input{width:9em}
+.rate-paid input{width:7.5em}
+.rate-est{overflow:hidden}
+.rate-link{max-width:100%;overflow:hidden;text-overflow:ellipsis}
