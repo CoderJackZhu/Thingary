@@ -36,3 +36,5 @@
 .rate-paid{display:flex;flex-direction:column;gap:2px;text-align:right}
 .rate-paid input{text-align:right}
 .rate-row .link{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-decoration:underline}
+/* iOS zooms the page into any input under 16px and does not zoom back out afterwards. */
+@media (max-width:600px),(pointer:coarse){.rate-row input,.amt-line input,.price-field input,.cp-body header input{font-size:16px}}
