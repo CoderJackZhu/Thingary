@@ -110,7 +110,10 @@ async function fill(selector, text) {
   await wait(`document.querySelector(${JSON.stringify(selector)})?.value===${JSON.stringify(text)}`, "input value");
 }
 function native(action, width = 0, height = 0) {
-  return JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", resolve(dirname(fileURLToPath(import.meta.url)), "windows-native-acceptance.ps1"), "-WindowOnly", action, "-ApplicationPid", String(pid), "-Width", String(width), "-Height", String(height)], { encoding: "utf8" }).trim());
+  // SW_HIDE makes PowerShell skip its taskbar JumpList COM initialization, which
+  // can fatally crash the CLR on Windows ARM runners (dotnet/runtime#131636).
+  // Only the helper console is hidden; the installed application stays visible.
+  return JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", resolve(dirname(fileURLToPath(import.meta.url)), "windows-native-acceptance.ps1"), "-WindowOnly", action, "-ApplicationPid", String(pid), "-Width", String(width), "-Height", String(height)], { encoding: "utf8", windowsHide: true }).trim());
 }
 async function shot(label, settle = true) {
   let renderReadiness;

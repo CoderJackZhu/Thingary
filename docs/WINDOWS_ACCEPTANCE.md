@@ -39,6 +39,8 @@ pwsh -NoProfile -File scripts/windows-native-acceptance.ps1
 
 脚本检查保存／取消／重启、第二次启动不产生重复主实例、恢复夹具界面、实际通知排队／移除与系统历史送达、默认卸载每个数据文件散列不变及重装。恢复夹具的表计数与图片散列和 UI 可见内容分别核对；生成截图不等于人工视觉复核通过。
 
+窗口辅助进程通过 Node 的 `windowsHide: true` 启动 `pwsh`，只隐藏辅助控制台，应用窗口仍可见。这样使 PowerShell 跳过任务栏 JumpList 的 COM 初始化，避开 Windows ARM 运行器上已报告的 [CLR 启动崩溃](https://github.com/dotnet/runtime/issues/131636)。若出现 `Internal CLR error. (0x80131506)`，先检查 `ui-<模式>-<标签>.json` 的失败命令及调用栈：`pwsh ... -WindowOnly inspect/resize` 与 `Microsoft.PowerShell.TaskbarJumpList.CreateElevatedEntry` 指向辅助进程，不应直接判为应用崩溃。可在已启动的隔离验收实例上重复原失败命令排查；该故障可能偶发，单次通过不证明修复。原始日志、失败 JSON 与异常后的 CDP 观察／截图均保留；辅助命令非零退出仍使整轮失败，不自动重跑或忽略错误。
+
 自动截图的窗口尺寸检查还受系统「显示缩放」和「辅助功能 → 文本大小」共同影响；执行前分别记录两项，不把显示缩放 100% 推定为文本大小 100%。当前固定尺寸 fixture 在两项均为 100% 时已通过真实 x64 检查；其他组合出现尺寸等待超时，应保留失败结果，不能用单独重跑 fixture 的成功覆盖整轮失败。产品在其他缩放下的交互仍按 N8 另验。
 
 ## 原生交互与同尺寸对照
