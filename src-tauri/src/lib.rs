@@ -450,6 +450,8 @@ pub fn run() {
             commands::read_asset,
             commands::save_asset,
             commands::set_price_origin,
+            commands::set_amount_origin,
+            commands::get_amount_origin,
             commands::change_trash,
             commands::list_trash,
             commands::change_record_trash,

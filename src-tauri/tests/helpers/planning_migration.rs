@@ -63,6 +63,9 @@ fn manifest(c: &Connection, files: &Path) -> Value {
     tables.entry("asset_price_origin".into()).or_insert_with(
         || json!({"columns":["asset_id","currency","original_minor","fx_rate_micro"],"rows":[]}),
     );
+    tables
+        .entry("amount_origin".into())
+        .or_insert_with(|| json!({"columns":["kind","record_id","currency","original_minor","fx_rate_micro"],"rows":[]}));
     let mut hashes = BTreeMap::new();
     if files.exists() {
         for e in fs::read_dir(files).unwrap() {
@@ -245,7 +248,7 @@ fn snapshot_db(s: &Store, dir: &Path, old: &Value, version: i64) {
     }
     // Build a real pre-37 layout rather than only lowering its version marker.
     if version < 37 {
-        c.execute_batch("DROP TABLE IF EXISTS asset_price_origin; DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed;").unwrap();
+        c.execute_batch("DROP TABLE IF EXISTS amount_origin; DROP TABLE IF EXISTS asset_price_origin; DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed;").unwrap();
     }
     c.execute_batch(&format!("PRAGMA user_version={version}"))
         .unwrap();
@@ -560,7 +563,7 @@ fn live_upgrade_reopen_preserves_identity_then_scoped_unknown_commit_is_exactly_
         ["90000000-0000-4000-8000-000000000001"],
     )
     .unwrap();
-    c.execute_batch("DROP TABLE IF EXISTS asset_price_origin; DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=35;").unwrap();
+    c.execute_batch("DROP TABLE IF EXISTS amount_origin; DROP TABLE IF EXISTS asset_price_origin; DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=35;").unwrap();
     legacy_account_schema::restore_pre41_account_schema(c);
     let before = manifest(c, &dataset(&root).join("files"));
     drop(s);
@@ -723,7 +726,7 @@ fn schema36_income_receipts_upgrade_and_backup_preserve_original_facts() {
     let data = dataset(&root);
     drop(s);
     let c = Connection::open(data.join("data.sqlite")).unwrap();
-    c.execute_batch("DROP TABLE IF EXISTS asset_price_origin; DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=36;").unwrap();
+    c.execute_batch("DROP TABLE IF EXISTS amount_origin; DROP TABLE IF EXISTS asset_price_origin; DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=36;").unwrap();
     legacy_account_schema::restore_pre41_account_schema(&c);
     drop(c);
     let mut upgraded = Store::open(&root).unwrap();

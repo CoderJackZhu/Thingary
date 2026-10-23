@@ -6,7 +6,7 @@ pub fn restore_pre41_account_schema(c: &rusqlite::Connection) {
         .unwrap();
     c.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
     let tx = c.unchecked_transaction().unwrap();
-    tx.execute_batch("DROP TABLE IF EXISTS asset_price_origin")
+    tx.execute_batch("DROP TABLE IF EXISTS asset_price_origin; DROP TABLE IF EXISTS amount_origin")
         .unwrap();
     let resumptions: bool = tx
         .query_row(

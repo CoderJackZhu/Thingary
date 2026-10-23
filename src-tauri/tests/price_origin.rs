@@ -86,3 +86,18 @@ fn zero_decimal_currency_uses_whole_units() {
     });
     assert!(r.is_ok(), "{r:?}");
 }
+
+#[test]
+fn expense_amount_origin_must_explain_the_amount() {
+    use thingary_lib::catalog::{AmountKind, AmountOriginSave};
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let missing = s.set_amount_origin(&AmountOriginSave {
+        generation: s.generation(),
+        kind: AmountKind::Expense,
+        record_id: "none".into(),
+        origin: Some(origin("USD", "100", "7000000")),
+    });
+    assert!(missing.is_err());
+    assert_eq!(s.amount_origin(AmountKind::Expense, "none").unwrap(), None);
+}

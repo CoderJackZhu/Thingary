@@ -443,3 +443,112 @@ impl Store {
         })
     }
 }
+
+/// Which record an original-currency amount belongs to, and the CNY column it must explain.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum AmountKind {
+    Expense,
+    Income,
+    Wish,
+}
+impl AmountKind {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Expense => "expense",
+            Self::Income => "income",
+            Self::Wish => "wish",
+        }
+    }
+    fn amount_sql(self) -> &'static str {
+        match self {
+            Self::Expense => {
+                "SELECT CAST(amount_cents AS TEXT) FROM expenses WHERE id=?1 AND deleted_at IS NULL"
+            }
+            Self::Income => {
+                "SELECT CAST(net_cents AS TEXT) FROM plan_income WHERE id=?1 AND deleted_at IS NULL"
+            }
+            Self::Wish => {
+                "SELECT CAST(estimated_price_cents AS TEXT) FROM wishlist_items WHERE id=?1"
+            }
+        }
+    }
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AmountOriginSave {
+    pub generation: String,
+    pub kind: AmountKind,
+    pub record_id: String,
+    pub origin: Option<PriceOrigin>,
+}
+impl Store {
+    fn record_amount(&self, kind: AmountKind, id: &str) -> Result<Option<Option<String>>> {
+        Ok(self
+            .conn()?
+            .query_row(kind.amount_sql(), [id], |r| r.get(0))
+            .optional()?)
+    }
+    /// The stored original amount, unless the CNY amount moved since (then it no longer explains it).
+    pub fn amount_origin(&self, kind: AmountKind, id: &str) -> Result<Option<PriceOrigin>> {
+        let amount = self.record_amount(kind, id)?.flatten();
+        let origin = self
+            .conn()?
+            .query_row(
+                "SELECT currency,original_minor,fx_rate_micro FROM amount_origin WHERE kind=?1 AND record_id=?2",
+                params![kind.name(), id],
+                |r| {
+                    Ok(PriceOrigin {
+                        currency: r.get(0)?,
+                        original_minor: r.get::<_, i64>(1)?.to_string(),
+                        fx_rate_micro: r.get::<_, i64>(2)?.to_string(),
+                    })
+                },
+            )
+            .optional()?;
+        Ok(origin.filter(|o| {
+            o.converted()
+                .is_ok_and(|v| amount.as_deref() == Some(v.to_string().as_str()))
+        }))
+    }
+    /// Records (or clears) the original-currency amount of an already saved record.
+    pub fn set_amount_origin(&mut self, input: &AmountOriginSave) -> Result<()> {
+        if input.generation != self.generation() {
+            return Err(Error::new("STALE_DATASET", "资料已切换，请重新读取"));
+        }
+        let Some(amount) = self.record_amount(input.kind, &input.record_id)? else {
+            return Err(Error::new("NOT_FOUND", "找不到这条记录"));
+        };
+        let tx = self.conn()?.unchecked_transaction()?;
+        match &input.origin {
+            None => {
+                tx.execute(
+                    "DELETE FROM amount_origin WHERE kind=?1 AND record_id=?2",
+                    params![input.kind.name(), input.record_id],
+                )?;
+            }
+            Some(origin) => {
+                let converted = origin.converted()?;
+                if amount.as_deref() != Some(converted.to_string().as_str()) {
+                    return Err(Error::new(
+                        "PRICE_ORIGIN",
+                        "原币金额与汇率折算的人民币金额和记录金额不一致",
+                    ));
+                }
+                tx.execute(
+                    "INSERT INTO amount_origin(kind,record_id,currency,original_minor,fx_rate_micro) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(kind,record_id) DO UPDATE SET currency=excluded.currency,original_minor=excluded.original_minor,fx_rate_micro=excluded.fx_rate_micro",
+                    params![
+                        input.kind.name(),
+                        input.record_id,
+                        crate::currency::integer(&origin.original_minor)
+                            .map_err(|m| Error::new("PRICE_ORIGIN", m))?,
+                        crate::currency::integer(&origin.fx_rate_micro)
+                            .map_err(|m| Error::new("PRICE_ORIGIN", m))?
+                    ],
+                )?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+}
