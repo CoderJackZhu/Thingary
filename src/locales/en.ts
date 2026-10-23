@@ -2825,6 +2825,7 @@ export const en: Record<string, string> = {
   "备款提醒 {reminders} 条": "{reminders} payment reminders",
   "备款提醒方式": "Reminder Method",
   "备注": "Note",
+  "更多选项（平台、分组、启用日期、备注）": "More options (platform, group, opened date, notes)",
   "备注必须是不超过 {MAX_FLOW_NOTE_CHARS} 字的字符串": "Note must be a string with no more than {MAX_FLOW_NOTE_CHARS} characters",
   "备注必须是不超过 {MAX_FLOW_NOTE_CHARS} 字的字符串。": "Note must be a string with no more than {MAX_FLOW_NOTE_CHARS} characters.",
   "备注最多 10000 字，不能含空字符。": "Notes must be 10000 characters or fewer and cannot contain null characters.",
