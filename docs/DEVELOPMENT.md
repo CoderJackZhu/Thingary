@@ -246,6 +246,10 @@ npm run dev -- --port 1429
 | `?section=overview&receipt-recovery=account`（可加 `state=unresolved` 或 `plan-wealth=off`） | 重启总览的虚构回执核对、失败保留与模块关闭恢复 |
 | `?section=finance-records&income-default-error` | 收入默认值读取失败仍可填写，缴存未知不补零 |
 
+### 手机总览长按排序验证
+
+虚构入口 `/mobile-preview.html?theme=light|dark`，在 320、390、430px 宽检查：短按仍打开原卡片；长按约 450ms 浮起并在顶部出现「取消 / 完成」；上下拖动、边缘自动滚动、松手后留在排序；取消恢复、完成刷新后保留；关闭模块后重开位置保留；坏偏好回默认、保存失败提示并可重试。自动回归为 `tests/mobile-home-order.test.mjs`（顺序持久化与取消、坏偏好、模块隐藏、手势阈值／多指／滚动取消、点击抑制、保存失败）。浏览器证据只覆盖 Chromium 预览；iOS WKWebView 原生长按与系统滚动接管、触觉反馈、VoiceOver 和真机安全区未验。
+
 ### 订阅期间与付款维护
 
 schema 44 增加明确的停订／重新开通边界。未来重开沿用既有分段表，不增加 schema；新段服务与付款锚点分别验证，待生效不计当前负担。未付款末段调整／撤销、预付后的取消续费、软删除付款保护、旧回执兼容及特殊期清理纳入 `recurring.rs`、`subscriptions.rs` 和 `virtual_billing.rs` 回归。专项回归覆盖同 ID 多段订阅、停订空档排除、月末与固定天数、旧付款和分段价格保留、历史补记、迁移中断回滚、关联双方修订、未知回执重放、重启及完整备份恢复。`tests/subscription-usability.test.mjs` 执行实际组件处理器，覆盖付款更正入口、最新修订与生效期价格、读取失败、历史分页和重新订阅的未知结果保留；另覆盖未来日历、独立付款日、日期预览、提前实付覆盖、待生效调整／撤销与付款事实保护。

@@ -9,13 +9,14 @@ import { t } from '../../i18n.ts';
  * it listens on the document and draws a small spinner at the top while pulling. Skipped while a sheet or
  * modal covers the page, and when the finger starts inside a horizontally swiped row.
  */
-export function PullToRefresh({ onRefresh, children }: { onRefresh: () => void | Promise<void>; children: ReactNode }) {
+export function PullToRefresh({ onRefresh, children, disabled = false }: { onRefresh: () => void | Promise<void>; children: ReactNode; disabled?: boolean }) {
   const covered = useCovered();
   const [pull, setPull] = useState(0), [busy, setBusy] = useState(false);
   const refresh = useRef(onRefresh), state = useRef<{ x: number; y: number; active: boolean; distance: number } | null>(null), running = useRef(false);
   refresh.current = onRefresh;
   useEffect(() => {
-    if (covered) return;
+    state.current = null; setPull(0);
+    if (covered || disabled) return;
     const top = () => window.scrollY || document.documentElement.scrollTop || 0;
     const start = (event: TouchEvent) => {
       const target = event.target as Element | null;
@@ -41,7 +42,7 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => void |
     document.addEventListener('touchend', end);
     document.addEventListener('touchcancel', end);
     return () => { document.removeEventListener('touchstart', start); document.removeEventListener('touchmove', move); document.removeEventListener('touchend', end); document.removeEventListener('touchcancel', end); };
-  }, [covered]);
+  }, [covered, disabled]);
   const shown = busy || pull > 0;
   return <>
     {shown && <div className={`m-ptr${busy ? ' m-ptr-busy' : ''}`} role="status" aria-label={busy ? t('正在刷新') : t('下拉刷新')} style={{ transform: `translate(-50%, ${pull - 44}px)`, opacity: Math.min(1, pull / 40) }}>
