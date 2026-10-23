@@ -72,6 +72,12 @@ impl SyncRuntime {
         *config = next;
         Ok(())
     }
+
+    /// Establishes the in-memory passphrase session, the same step performed by
+    /// `sync_unlock` before a Tauri command enters its blocking worker.
+    pub fn unlock(&self, passphrase: &str) -> Result<()> {
+        self.passphrase.unlock(passphrase.to_string())
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -319,7 +325,7 @@ pub async fn sync_resolve_conflict(
     .map_err(|_| Error::new("SYNC_TASK", "同步冲突处理未完成"))?
 }
 
-fn status(worker: &Worker, runtime: &SyncRuntime) -> Result<StatusResult> {
+pub fn status(worker: &Worker, runtime: &SyncRuntime) -> Result<StatusResult> {
     let config = runtime.config()?;
     if !is_configured(&config) {
         return Ok(StatusResult {
@@ -374,7 +380,7 @@ fn status(worker: &Worker, runtime: &SyncRuntime) -> Result<StatusResult> {
     })
 }
 
-fn push(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PushResult> {
+pub fn push(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PushResult> {
     let mut config = require_configured(runtime)?;
     let client = client(&config)?;
     let (remote, etag) = resolve_remote(&client, &config)?;
@@ -559,7 +565,7 @@ fn retry_pending_manifest(
     })
 }
 
-fn pull_inspect(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PullInspection> {
+pub fn pull_inspect(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PullInspection> {
     let config = require_configured(runtime)?;
     let client = client(&config)?;
     let (remote, _) = resolve_remote(&client, &config)?;
@@ -614,7 +620,7 @@ fn pull_inspect(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<P
     Ok(result)
 }
 
-fn finalize_pending_pull(worker: &Worker, runtime: &SyncRuntime) -> Result<()> {
+pub fn finalize_pending_pull(worker: &Worker, runtime: &SyncRuntime) -> Result<()> {
     let pending = runtime
         .pending_pull
         .lock()
