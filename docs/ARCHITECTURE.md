@@ -326,7 +326,7 @@ schema 41 重建 `fin_accounts` 和 `fin_snapshot_entries` 的 CHECK，新增 pr
 
 schema 45（`asset_price_origin.sql`）新增 `asset_price_origin`（主键 `asset_id` 引用 `assets`，`currency` 不为 CNY，`original_minor`、`fx_rate_micro` 为整数）。`set_price_origin` 在物品保存之后单独写入，并要求原币金额按汇率折算后恰等于 `assets.price_cents`；读取时折算不符的记录视为过期而不返回。清除物品（`purge`）一并删除该行。
 
-schema 46（`amount_origin.sql`）新增 `amount_origin`（主键 `kind`+`record_id`，kind 为 expense、income、wish），保存支出金额、收入税后到账或心愿预计价格的原币记录；`set_amount_origin` 与 `get_amount_origin` 按 kind 对应的人民币列校验，折算不符即视为过期。界面目前接入支出和收入，心愿预计价格只有后端。
+schema 46（`amount_origin.sql`）新增 `amount_origin`（主键 `kind`+`record_id`，kind 为 expense、income、wish），保存支出金额、收入税后到账或心愿预计价格的原币记录；`set_amount_origin` 与 `get_amount_origin` 按 kind 对应的人民币列校验，折算不符即视为过期。界面接入支出、收入和心愿预计价格；心愿保存后用 `fa.persist` 补写原币记录，折算为人民币分仍写入 `estimated_price_cents`。
 
 schema 43（`schema43.sql` 与 `storage::migrate_schema43`）再次重建两表：新增 receivable、vehicle 类型（车辆不强制 counted=false）；`fin_accounts` 增加 `currency`（三位大写，默认 CNY）、`purchase_cents`／`purchased_on`（仅房产与车辆）、`group_id`（引用新表 `fin_account_groups`，名称唯一，硬删除）、`holding_mode`／`holding_unit`（仅投资类）；`fin_snapshot_entries` 增加 `original_minor`／`fx_rate_micro`（外币原币金额与汇率 ×1e6，成对出现）和 `quantity_e8`／`unit_price_e6`（份额 ×1e8、单价 ×1e6，成对出现），`missing` 条目不得携带。`amount_cents` 始终是人民币整数分，所有汇总与规划只读它；新增列是录入层，旧资料迁移后取默认值，行为不变。旧表定义由空库重放迁移链到 42 得到后逐字核对，不手抄；其余步骤与 schema 41 相同，注入点为 `migration.schema43.after_copy`、`migration.schema43.after_swap` 与 `migration.before_commit`。
 
