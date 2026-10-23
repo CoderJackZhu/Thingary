@@ -36,6 +36,7 @@ export default function About({ page }: { page: Extract<SettingsPage, 'about' | 
       <p className="me-prose-p">{t('点「写邮件反馈」会同时复制物谱版本、iOS 版本和设备类型，粘贴到邮件里即可，不包含你的资料。收件地址：{feedbackEmail}', { feedbackEmail })}</p>
       <h2 className="me-h2">{t('反馈时提供什么')}</h2>
       <p className="me-prose-p">{t('请写明物谱版本、系统版本、机型、安装来源、操作步骤和错误文字。截图请遮住真实资料，不要上传数据库、备份、发票或序列号。资料损坏时先保留现有资料和备份，再反馈问题。')}</p>
+      <p className="me-prose-p">{t('只想说使用感受？回答三个问题就很有帮助：你以前用什么？第二次盘点你回来了吗，为什么没回来？什么会让你推荐给别人？')}</p>
     </Card>
     <p className="m-group-footer"><SupportLink target="feedback">{t('在 GitHub 提交（需要账号）')}</SupportLink></p>
   </SettingsShell>;

@@ -2283,6 +2283,7 @@ export const en: Record<string, string> = {
   "双方都有效，无需修复删除关系": "Both are valid; no need to fix the deletion relationship",
   "反馈": "Feedback",
   "反馈时提供什么": "What to include in feedback",
+  "只想说使用感受？回答三个问题就很有帮助：你以前用什么？第二次盘点你回来了吗，为什么没回来？什么会让你推荐给别人？": "Just sharing how it feels to use? Three answers help a lot: what did you use before? Did you come back for a second check-in, and if not, why? What would make you recommend it to others?",
   "反馈问题": "Report a Problem",
   "发布说明": "Release Notes",
   "发布页与手动下载": "Release page and manual download",
