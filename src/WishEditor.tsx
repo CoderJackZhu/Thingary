@@ -12,8 +12,9 @@ import {allowReminders,ReminderPermissionHelp} from './NotificationNotice';
 import {loadAssetCandidates,assetStateLabel,type AssetCandidate} from './asset-picker';
 import type {AssetRecord} from './asset';
 import {defaultWishPreferences} from './preferences';
-import { validateWishlist, wishlistDraftKey, type WishlistDraft, type WishlistItem } from './wishlist';
+import { estimatedPriceText, validateWishlist, wishlistDraftKey, type WishlistDraft, type WishlistItem } from './wishlist';
 import type {TaxonomySnapshot} from './taxonomy';
+import {AmountEntry, useForeignAmount} from './ForeignAmount';
 import {DeleteButton} from './WealthPage';
 import { t } from './i18n.ts';
 export function WishlistEditor({initial,closeIntent,onKeep,onClose,onSaved,onDeleted}:{initial:WishlistDraft;taxonomy:TaxonomySnapshot;closeIntent:CloseIntent|null;onKeep:()=>void;onClose:(intent:CloseIntent,keep:boolean)=>void;onSaved:(i:WishlistItem)=>void;onDeleted?:(i:WishlistItem)=>void}){
@@ -30,6 +31,8 @@ export function WishlistEditor({initial,closeIntent,onKeep,onClose,onSaved,onDel
  const legacySavings=draft.item?.preferences?.mode==='savings';
  // 分类、渠道、置顶只给已有值的旧记录；挂载时判定，清除时该行不消失。
  const [shown]=useState(()=>({category:!!draft.fields.category_id,channel:!!p.channel_id,pinned:!!p.pinned}));
+ // 预计价格可以按外币录入；保存的仍是人民币分，原币、原额与汇率只用于显示和再编辑。
+ const fa=useForeignAmount('wish',draft.item?.id??null,v=>field('estimated_price',estimatedPriceText(v)));
  useEffect(()=>{dialog.current?.showModal();return ()=>dialog.current?.close()},[]);useEffect(()=>{if(closeIntent)askClose(closeIntent)},[closeIntent]);
  function remember(next:WishlistDraft){setDraft(next);try{persistSubmission(wishlistDraftKey, next);return true}catch{setNotice(t('暂时无法记录保存请求，请重试。'));return false}}
  function field<K extends keyof WishlistDraft['fields']>(key:K,value:WishlistDraft['fields'][K]){remember({...draft,fields:{...draft.fields,[key]:value}})}
@@ -44,7 +47,7 @@ export function WishlistEditor({initial,closeIntent,onKeep,onClose,onSaved,onDel
  if(Object.keys(errors).length){setNotice(Object.values(errors).join(' '));return}
  let input=draft.planPending??null;
  if(!input){input={request_id:crypto.randomUUID(),generation:draft.generation,id:draft.item?.id??null,expected_revision:draft.item?.revision??null,fields:{...draft.fields,estimated_price_cents:inputMoney(draft.fields.estimated_price),target_date:draft.fields.target_date||null},preferences:p,photos:{ids:photos.map(x=>x.id),cover_id:draft.cover?.id??null},replacement_asset_id:replacementId,...(draft.replacementAssetId===null?{clear_replacement:true}:{})};delete (input.fields as unknown as Record<string,unknown>).estimated_price;if(!remember({...draft,planPending:input}))return}
- try{const item=await invoke<WishlistItem>('save_wish_plan',{input});localStorage.removeItem(wishlistDraftKey);onSaved(item)}catch(e){try{const saved=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation:input.generation});if(saved){localStorage.removeItem(wishlistDraftKey);onSaved(saved)}else{remember({...draft,planPending:null});setNotice(errorMessage(e))}}catch{setNotice(t('暂时无法核对保存结果，请重试同一请求。'))}}
+ try{const item=await invoke<WishlistItem>('save_wish_plan',{input});if(item.id)await fa.persist(draft.generation,item.id);localStorage.removeItem(wishlistDraftKey);onSaved(item)}catch(e){try{const saved=await invoke<WishlistItem|null>('saved_wish_feature',{request:input.request_id,generation:input.generation});if(saved){if(saved.id)await fa.persist(draft.generation,saved.id);localStorage.removeItem(wishlistDraftKey);onSaved(saved)}else{remember({...draft,planPending:null});setNotice(errorMessage(e))}}catch{setNotice(t('暂时无法核对保存结果，请重试同一请求。'))}}
  }catch(e){setNotice(errorMessage(e))}finally{lock.current=false;setBusy(false)}}
  // Query/open/retry starts a new page session; closed or superseded reads
  // cannot append candidates or overwrite a newer query's cursor.
@@ -72,7 +75,7 @@ export function WishlistEditor({initial,closeIntent,onKeep,onClose,onSaved,onDel
  return <dialog ref={dialog} className={picker?'icon-picker-host':'editor wishlist-editor'} aria-labelledby={picker?'icon-picker-title':'wishlist-editor-title'} onCancel={e=>{e.preventDefault();askClose('form')}}><form hidden={picker} onSubmit={e=>{e.preventDefault();void save()}}><header><div><p className="eyebrow">{t('心愿清单')}</p><h2 id="wishlist-editor-title">{draft.item?t('编辑心愿'):t('新增心愿')}</h2></div><div className="editor-header-actions"><button type="button" disabled={disabled} onClick={()=>askClose('form')}>{t('取消')}</button><button type="submit" className="primary" disabled={busy||!!draft.photoError}>{busy?t('正在保存…'):pending?t('重试并核对保存'):t('保存心愿')}</button></div></header><div className="editor-body">
  <p className="muted">{t('名称之外都可以留空，之后回来再补；保存不会生成物品，也不产生支出。')}</p>
  <div className="asset-identity-editor"><button type="button" className="asset-avatar-button" aria-label={t('选择心愿图标')} disabled={disabled} onClick={()=>setPicker(true)}>{draft.cover?<PhotoView photo={draft.cover} generation={draft.generation}/>:<DefaultAssetIcon/>}<span className="avatar-edit">{t('更换图标')}</span></button><label className="field"><span>{t('物品名称')}</span><input autoFocus placeholder={t('请输入物品名称')} value={draft.fields.name} disabled={disabled} onChange={e=>field('name',e.target.value)}/></label></div>
- <section className="form-block"><FormRow label={t('预计价格（元）')}><input aria-label={t('预计价格')} placeholder={t('可留空')} inputMode="decimal" value={draft.fields.estimated_price} disabled={disabled} onChange={e=>field('estimated_price',e.target.value)}/></FormRow><div className="field wide"><label htmlFor="wish-notes">{t('想买的理由与顾虑')}</label><textarea id="wish-notes" rows={4} placeholder={t('为什么想买？还有什么顾虑？以后回来时提醒自己')} value={draft.fields.notes} disabled={disabled} onChange={e=>field('notes',e.target.value)}/></div></section>
+ <section className="form-block"><FormRow label={t('预计价格（元）')}><AmountEntry fa={fa} label={t('预计价格')} disabled={disabled}><input aria-label={t('预计价格')} placeholder={t('可留空')} inputMode="decimal" value={draft.fields.estimated_price} disabled={disabled} onChange={e=>field('estimated_price',e.target.value)}/></AmountEntry></FormRow><div className="field wide"><label htmlFor="wish-notes">{t('想买的理由与顾虑')}</label><textarea id="wish-notes" rows={4} placeholder={t('为什么想买？还有什么顾虑？以后回来时提醒自己')} value={draft.fields.notes} disabled={disabled} onChange={e=>field('notes',e.target.value)}/></div></section>
  <section className="form-block"><FormRow label={t('相关链接')} hint={t('http:// 或 https://，可留空')}><input aria-label={t('相关链接')} placeholder="https://example.com/item" value={draft.fields.external_link} disabled={disabled} onChange={e=>field('external_link',e.target.value)}/></FormRow></section>
  <details className="more-fields"><summary>{t('更多资料')}<span>{t('计划日期、替换物品与图片')}</span></summary><section className="form-block" style={{border:0,padding:0}}>
  {shown.category&&<FormRow label={t('分类')}><ChoiceField label={t('分类')} kind="category" generation={draft.generation} value={draft.fields.category_id} disabled={disabled} onChange={v=>field('category_id',v)}/></FormRow>}

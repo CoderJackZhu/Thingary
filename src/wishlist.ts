@@ -34,6 +34,13 @@ export const wishlistAbandonKey = 'thingary.wishlist-abandon.v1';
 export const wishlistDecisionKey = 'thingary.wishlist-decision.v1';
 export const emptyWishlistFields: WishlistFields = { name: '', category_id: null, estimated_price: '', priority: null, target_date: '', external_link: '', notes: '' };
 
+/** CNY cents as the estimated-price input text without trailing zeros; empty/null stays unknown instead of 0. */
+export function estimatedPriceText(cents: string | null): string {
+  if (!cents) return '';
+  const value = BigInt(cents), whole = value / 100n, fraction = (value % 100n).toString().padStart(2, '0').replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : whole.toString();
+}
+
 export const wishDecisionLabel = (decision: string): string => decision === 'purchased' ? t('已购入') : decision === 'dropped' ? t('不再考虑') : decision === 'legacy_achieved' ? t('历史待核实') : t('考虑中');
 
 /** 页头合计：只统计真正考虑中的心愿；历史待核实单列，不冒充未来计划。 */

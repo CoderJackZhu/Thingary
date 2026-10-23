@@ -6,7 +6,8 @@ import { replaceDraftCover } from '../../asset-media';
 import { allowReminders, openNotificationSettings } from '../../NotificationNotice';
 import { PhotoView } from '../../Photos';
 import { draftPhotos, draftPreferences, draftReplacementId, wishPlanSave } from '../../wish-save';
-import type { WishlistDraft, WishlistItem } from '../../wishlist';
+import { estimatedPriceText, type WishlistDraft, type WishlistItem } from '../../wishlist';
+import { AmountEntry, useForeignAmount } from '../../ForeignAmount';
 import { useDirtyGuard, useFormChanged, useNav } from '../nav-context';
 import type { PageProps } from '../routes';
 import { useSession } from '../session';
@@ -29,8 +30,10 @@ export default function WishEdit({ params }: PageProps) {
   const [more, setMore] = useState(false), [iconOpen, setIconOpen] = useState(false), [pickOpen, setPickOpen] = useState(false), [permission, setPermission] = useState('');
   const [replacement, setReplacement] = useState<AssetRecord | null>(null), [replacementError, setReplacementError] = useState(''), [replacementTick, setReplacementTick] = useState(0);
   const lock = useRef(false);
+  // 预计价格可按外币填写，保存的仍是人民币分；原币、原额与汇率用于显示和再编辑。
+  const fa = useForeignAmount('wish', id, value => setDraft(old => old && { ...old, fields: { ...old.fields, estimated_price: estimatedPriceText(value) } }));
   useDirtyGuard(useFormChanged(draft));
-  const receipts = useReceipts(generation, outcome => { if (outcome.status === 'saved') setDone(outcome.value as WishlistItem); }, id);
+  const receipts = useReceipts(generation, outcome => { if (outcome.status === 'saved') { const saved = outcome.value as WishlistItem; if (generation && saved.id) void fa.persist(generation, saved.id); setDone(saved); } }, id);
 
   // 打开时只初始化一次草稿；之后的编辑只在内存里，关闭不存草稿。
   useEffect(() => {
@@ -78,7 +81,7 @@ export default function WishEdit({ params }: PageProps) {
     lock.current = true; setBusy(true); setErrors([]); setNotice('');
     try {
       const outcome = await submitOp({ kind: 'save', label: item ? t('保存心愿修改') : t('新增心愿'), input: built.input, draft: saveDraft(draft, built.input) });
-      if (outcome.status === 'saved') setDone(outcome.value as WishlistItem);
+      if (outcome.status === 'saved') { const saved = outcome.value as WishlistItem; await fa.persist(draft.generation, saved.id); setDone(saved); }
       else if (outcome.status === 'failed') setErrors([outcome.message]);
       else { setErrors([]); receipts.refresh(); }
     } finally { lock.current = false; setBusy(false); }
@@ -115,7 +118,7 @@ export default function WishEdit({ params }: PageProps) {
           <button type="button" className="w-identity-button" aria-label={t('选择心愿图标')} disabled={disabled} onClick={() => setIconOpen(true)}><WishIcon photo={draft.cover} generation={draft.generation} large/><span className="w-identity-label">{t('更换图标')}</span></button>
           <input className="m-input" aria-label={t('物品名称')} placeholder={t('请输入物品名称')} value={draft.fields.name} maxLength={200} disabled={disabled} autoFocus onChange={event => field('name', event.target.value)}/>
         </div>
-        <TextField label={t('预计价格（元）')} value={draft.fields.estimated_price} onChange={value => field('estimated_price', value)} inputMode="decimal" placeholder={t('可留空')} disabled={disabled} hint={t('留空表示价格未知，不会当作 0。')}/>
+        <FormRow label={t('预计价格（元）')} hint={t('留空表示价格未知，不会当作 0。')}><AmountEntry fa={fa} label={t('预计价格')} disabled={disabled}><input className="m-input" aria-label={t('预计价格')} value={draft.fields.estimated_price} onChange={event => field('estimated_price', event.target.value)} inputMode="decimal" placeholder={t('可留空')} disabled={disabled}/></AmountEntry></FormRow>
         <TextAreaField label={t('想买的理由与顾虑')} value={draft.fields.notes} onChange={value => field('notes', value)} placeholder={t('为什么想买？还有什么顾虑？以后回来时提醒自己')} disabled={disabled} rows={4}/>
         <TextField label={t('相关链接')} value={draft.fields.external_link} onChange={value => field('external_link', value)} placeholder="https://example.com/item" hint={t('http:// 或 https://，可留空')} disabled={disabled}/>
       </FormGroup>
