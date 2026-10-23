@@ -65,6 +65,7 @@ pub mod source;
 pub mod spreadsheet;
 pub mod storage;
 mod support;
+pub mod sync;
 pub mod tag_investment;
 pub mod taxonomy;
 pub mod timeline;
@@ -158,6 +159,10 @@ pub fn run() {
             app.manage(worker::Worker::start(
                 app.path().app_local_data_dir()?.join("library"),
             )?);
+            app.manage(std::sync::Arc::new(sync::commands::SyncRuntime::new(
+                app.path().app_config_dir()?.join("sync"),
+                app.path().app_local_data_dir()?.join("sync-staging"),
+            )?));
             // Update discovery (D5) shares the app-identity preference folder
             // with the other machine-local files; never the library database.
             app.manage(std::sync::Arc::new(update_state::UpdateState::new(
@@ -527,7 +532,16 @@ pub fn run() {
             commands::add_material,
             commands::material_upload_result,
             commands::remove_material,
-            commands::material_preview
+            commands::material_preview,
+            sync::commands::sync_config_get,
+            sync::commands::sync_config_set,
+            sync::commands::sync_test_connection,
+            sync::commands::sync_disable,
+            sync::commands::sync_status,
+            sync::commands::sync_unlock,
+            sync::commands::sync_push,
+            sync::commands::sync_pull_inspect,
+            sync::commands::sync_resolve_conflict
         ]);
     #[cfg(desktop)]
     let builder = builder
