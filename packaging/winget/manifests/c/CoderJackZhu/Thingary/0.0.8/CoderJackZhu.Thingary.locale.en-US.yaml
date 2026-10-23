@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.10.0.schema.json
+
+PackageIdentifier: CoderJackZhu.Thingary
+PackageVersion: 0.0.8
+PackageLocale: en-US
+Publisher: Jack Zhu
+PublisherUrl: https://github.com/CoderJackZhu
+PublisherSupportUrl: https://github.com/CoderJackZhu/Thingary/issues
+PrivacyUrl: https://thingary.jackzhu.top/privacy/
+Author: Jack Zhu
+PackageName: Thingary
+PackageUrl: https://thingary.jackzhu.top/
+License: AGPL-3.0-or-later
+LicenseUrl: https://github.com/CoderJackZhu/Thingary/blob/main/LICENSE
+Copyright: Copyright © 2026 Jack Zhu
+ShortDescription: A local-first net-worth and financial-independence tracker.
+Description: |-
+  Thingary is a local-first desktop app for periodic net-worth check-ins and financial-independence planning. Record balances and debts across accounts, see how net worth changes, and estimate how much to save each month and when work becomes optional. It includes account check-ins, goals and projections, income and spending records, reviews, and optional belongings records. Unknown amounts stay unknown rather than becoming zero. No account or cloud service is required; data stays on the device. The interface is currently Simplified Chinese only.
+Moniker: thingary
+Tags:
+- personal-finance
+- net-worth
+- financial-independence
+- fire
+- budgeting
+- privacy
+- local-first
+- tauri
+ReleaseNotesUrl: https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8
+ManifestType: locale
+ManifestVersion: 1.10.0

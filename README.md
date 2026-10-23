@@ -44,11 +44,12 @@
 
 ### Windows
 
-下载 [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary_0.0.8_x64-setup.exe)（Windows 10 1809+／11 x64）。
+下载 [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary_0.0.8_x64-setup.exe)。**Windows 11 x64 已实测；Windows 10 1809+ 是目标范围，但尚未实机验证。** 当前只提供 x64 安装包；ARM64 设备（如 Snapdragon X）由系统模拟运行 x64 应用，不等同于原生 ARM 版。
 
-1. 运行安装包；默认只安装给当前用户。缺少 WebView2 时安装器会联网补装。
-2. 安装包**未签名**，SmartScreen 可能提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」。Windows 11 开启「智能应用控制」时可能没有放行按钮，处理办法见 [Windows 安装说明](https://thingary.jackzhu.top/guide/#windows-install)。
+1. 运行安装包；默认只安装给当前用户，通常不需要管理员权限。缺少 WebView2 时安装器会联网下载并安装运行时，首次安装需要联网。
+2. 安装包**未签名**，SmartScreen 可能提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」。Windows 11 开启「智能应用控制」时可能没有放行按钮，处理办法见 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)。不要为此关闭整机的系统保护。
 3. 核对校验和：在 PowerShell 运行 `Get-FileHash .\Thingary_0.0.8_x64-setup.exe -Algorithm SHA256`，把结果与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/SHA256SUMS.txt) 对照。
+4. 安装或启动失败时，先看 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)，并保留版本、Windows 版本、WebView2 版本和完整错误文字。
 
 ### Android（开发中，暂无安装包）
 
@@ -77,7 +78,7 @@ iPhone 版目前没有上架 App Store，也不提供公开安装包。有 Xcode
 - **不联网取行情，也不做交易。** 没有实时价格、收益率、自动付款或 AI；投资收益和汇率需要自己填写。不提供日常流水记账。
 - **跨设备同步尚未提供。** 计划做成默认关闭、只在设置里配置你自己的 WebDAV 后手动触发的可选功能，服务端只保存加密快照，不做自动同步、账号体系或多人协作。完成并验证前，手机与电脑仍各自使用独立资料库。
 - **安装包未签名、未公证。** 项目目前不购买 Apple Developer 账号和 Windows 代码签名证书；发布包只做本地临时签名和校验和。以后若使用量足够，再考虑签名与公证。自行构建的方法见[开发说明](docs/DEVELOPMENT.md)。
-- **界面目前只有简体中文。** 支持范围：macOS 14+（Apple Silicon 已实测，Intel 仅构建检查）、Windows 10 1809+／11 x64（未签名）；Android 开发中，iOS 需自行构建；没有 Linux 客户端。完整清单见[已知限制](https://thingary.jackzhu.top/quickstart/#limits)。
+- **界面目前只有简体中文。** 支持范围：macOS 14+（Apple Silicon 已实测，Intel 仅构建检查）、Windows 11 x64（已实测；Windows 10 1809+ 为目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟；未签名）；Android 开发中，iOS 需自行构建；没有 Linux 客户端。完整清单见[已知限制](https://thingary.jackzhu.top/quickstart/#limits)。
 
 ## 资料与隐私
 
@@ -88,6 +89,7 @@ iPhone 版目前没有上架 App Store，也不提供公开安装包。有 Xcode
 ## 反馈
 
 - [缺陷报告](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml)：发生了什么、怎么复现、版本与系统。
+- [Windows 安装问题](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml)：安装、SmartScreen、WebView2、启动或卸载失败。
 - [功能建议](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml)：先说想解决的问题，再说方案。
 - [使用反馈](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml)：问三件事——你以前用什么？第二次盘点你回来了吗，为什么没回来？什么会让你推荐给别人？
 

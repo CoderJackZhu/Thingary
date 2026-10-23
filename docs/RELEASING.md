@@ -65,7 +65,7 @@
 
 ## 1. 确认版本和范围
 
-每次公开发布前由维护者确认版本、支持平台、签名及公证范围；公开状态以对应 GitHub Release 与附件为准，不由本机安装推定。Mac 路线为 Apple Silicon 与 Intel 通用安装包、本地临时签名、未公证，测试版本标记为 Pre-release。Windows 路线为未签名 NSIS，目标 Windows 10 1809+／11 x64；每版是否公开及已验范围见对应[版本说明](INDEX.md#当前阶段)与 Release。制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但目前只在 macOS 27 实测，不承诺其他系统或 Intel 可用（Intel 部分只经构建与架构检查）。
+每次公开发布前由维护者确认版本、支持平台、签名及公证范围；公开状态以对应 GitHub Release 与附件为准，不由本机安装推定。Mac 路线为 Apple Silicon 与 Intel 通用安装包、本地临时签名、未公证，测试版本标记为 Pre-release。Windows 路线为未签名 NSIS，目标 Windows 10 1809+／11 x64；对外只宣称 **Windows 11 x64 已实测**，Windows 10 尚未实机验证；当前仅提供 x64 安装包，ARM64 走系统模拟。每版是否公开及已验范围见对应[版本说明](INDEX.md#当前阶段)与 Release。制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但目前只在 macOS 27 实测，不承诺其他系统或 Intel 可用（Intel 部分只经构建与架构检查）。
 
 版本号保持一致：`package.json`、`package-lock.json`（开头两处）、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`。发布配置不重复版本号，身份必须是 `local.thingary.main`，预览和验收身份不得作为正式安装包。
 
@@ -124,11 +124,15 @@ node scripts/verify-windows-package.mjs
 
 `release:win` 叠加正式身份配置与 Windows release 配置，明确 `--target x86_64-pc-windows-msvc --bundles nsis --ci`。产物为 `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/` 下的 `.exe` 与 `SHA256SUMS.txt`。只构建／静态检查正式身份包，不启动它；原生测试另用 `npm run build:win:acceptance` 生成的 debug 隔离包。故障注入、CDP 与验收身份不得进入普通 release 构建。
 
-NSIS 使用 `currentUser`、简体中文，不配置 Authenticode 签名。缺少 WebView2 时下载 bootstrapper，首次安装可能需要联网；未签名包可能触发 SmartScreen 或设备策略限制，静默安装不能证明真实下载后的交互首开已经通过。默认卸载保留资料，Tauri 卸载器仍提供用户主动勾选的“删除应用数据”；用户指南必须说明若保留记录不要勾选。
+NSIS 使用 `currentUser`、简体中文，当前不配置 Authenticode 签名。缺少 WebView2 时下载 bootstrapper，首次安装可能需要联网；未签名包可能触发 SmartScreen 或设备策略限制，静默安装不能证明真实下载后的交互首开已经通过。默认卸载保留资料，Tauri 卸载器仍提供用户主动勾选的“删除应用数据”；用户指南必须说明若保留记录不要勾选。
 
-`prepare-windows.mjs` 使用锁定依赖的缓存离线收集许可全文，随安装放入 `许可/`，包括 AGPL、直接内置内容告知、Windows 依赖与单独的 Windows SDK BSD-3-Clause 文本。`BUILD_INFO.json` 记录版本、资料身份、完整源码 SHA、对应源码 URL 与告知散列；候选包以此提交作为来源锚点，不能引用尚未创建的版本标签。`verify-windows-package.mjs` 解开 NSIS 检查 x64 PE、身份／版本、许可资源与散列，生成 `.local/windows-package/<类型>/package-verification.json` 和安装包校验值。工作流还提取 PE 内嵌清单核对 `longPathAware=true`、`asInvoker`、版本和未签名状态。
+`prepare-windows.mjs` 使用锁定依赖的缓存离线收集许可全文，随安装放入 `许可/`，包括 AGPL、直接内置内容告知、Windows 依赖与单独的 Windows SDK BSD-3-Clause 文本。`BUILD_INFO.json` 记录版本、资料身份、完整源码 SHA、对应源码 URL、告知散列与 `signing_status`（默认 `unsigned`；签名路线传 `--signing-status signed`）；候选包以此提交作为来源锚点，不能引用尚未创建的版本标签。`verify-windows-package.mjs` 解开 NSIS 检查 x64 PE、身份／版本、许可资源与散列，生成 `.local/windows-package/<类型>/package-verification.json` 和安装包校验值。工作流还提取 PE 内嵌清单核对 `longPathAware=true`、`asInvoker` 与版本；签名状态由 `scripts/verify-windows-signature.ps1` 分别检查程序文件与安装包，当前默认 `-Expected Unsigned`。
 
-[Windows 候选包工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)保存候选包和验收材料，artifact 保留 30 天、下载需登录 GitHub，不创建标签或 Release。release 构建在 `windows-latest` x64；隔离安装验收在 `windows-11-arm` 跑 x64 模拟，原生运行器与手工未验项详见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。失败任务保存的 artifact 仅供诊断，不得作为已通过候选包交付。
+[Windows 候选包工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)保存候选包和验收材料，artifact 保留 30 天、下载需登录 GitHub，不创建标签或 Release。release 构建在 `windows-latest` x64；隔离安装验收在 `windows-11-arm` 跑 x64 模拟，原生运行器与手工未验项详见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。失败任务保存的 artifact 仅供诊断，不得作为已通过候选包交付。发布用标签还会由 `release-draft.yml` 在同一标签构建 Windows NSIS 并附到草稿；该草稿仍不公开，公开前按本页核验。
+
+winget 清单由 `scripts/generate-winget-manifest.mjs` 生成，目录、验证与提交步骤见 [packaging/winget/README.md](../packaging/winget/README.md)。当前 `0.0.8` 清单已生成但未提交；建议稳定候选再提交。
+
+SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，再打 NSIS，最后签安装包；不能只签安装包。`windows-package.yml` 只把 release 矩阵的 `signing` 改为 `signed`，acceptance 保持 `unsigned`；`release-draft.yml` 同时把 `THINGARY_WINDOWS_SIGNING_STATUS` 改为 `signed`、`EXPECTED_WINDOWS_SIGNATURE` 改为 `Signed`（两者必须一致）。按实际签名主体决定是否加 `-ExpectedSubjectContains` 与 `-RequireTimestamp`，并重新核验 `BUILD_INFO.json` 的 `signing_status` 与实际文件一致。详细接入步骤、所需配置与回退方案见 [Windows 签名接入](SIGNING.md)。
 
 ## 3. 核验交付物
 
@@ -143,7 +147,7 @@ NSIS 使用 `currentUser`、简体中文，不配置 Authenticode 签名。缺�
 
 ### Windows
 
-1. 在最终源码提交重新构建，检查版本、正式身份、x64 架构、未签名状态、long-path 清单、WebView2 模式、当前用户安装与随包完整许可；不启动正式身份包。
+1. 在最终源码提交重新构建，检查版本、正式身份、x64 架构、签名状态、long-path 清单、WebView2 模式、当前用户安装与随包完整许可；不启动正式身份包。
 2. 从安装器解开的 payload 回读 `许可/BUILD_INFO.json`，完整源码 SHA 应等于构建输入；许可散列、NSIS 和 `SHA256SUMS.txt` 相符，包内无用户资料、夹具、备份或凭据。
 3. 用同源码的已安装隔离验收包执行[固定清单](WINDOWS_ACCEPTANCE.md)，分别记录自动检查、系统排队、可见通知、人工文件／安装对话框、键盘／IME／讲述人及平台范围；未验项明确写入候选交付说明。
 4. 核对 Mac 四项回归与两平台 CI、跨平台备份恢复，原生截图按相同内容尺寸对照；ARM 上的 x64 模拟不等于真实 x64 性能或兼容性。

@@ -1,4 +1,7 @@
 // Prepare the license resources for an NSIS build. Does not launch an application.
+// Usage: node scripts/prepare-windows.mjs --identity local.thingary.main [--signing-status unsigned|signed]
+// "signed" is only for a release pipeline that signs the payload before NSIS bundling
+// and the installer afterwards; the signature is verified separately after the build.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,6 +15,16 @@ const identity = process.argv[process.argv.indexOf('--identity') + 1];
 if (process.platform !== 'win32') throw new Error('NSIS resources must be prepared on Windows.');
 if (identity !== 'local.thingary.main' && !isAcceptanceIdentity(identity)) {
   throw new Error('An explicit release or isolated acceptance identity is required.');
+}
+const signingIndex = process.argv.indexOf('--signing-status');
+const signingStatus = signingIndex < 0
+  ? (process.env.THINGARY_WINDOWS_SIGNING_STATUS || 'unsigned')
+  : process.argv[signingIndex + 1];
+if (!['unsigned', 'signed'].includes(signingStatus)) {
+  throw new Error('--signing-status must be "unsigned" or "signed".');
+}
+if (signingStatus === 'signed' && isAcceptanceIdentity(identity)) {
+  throw new Error('The isolated acceptance identity must stay unsigned.');
 }
 const run = (command, args) => execFileSync(command, args, {
   cwd: root, encoding: 'utf8', maxBuffer: 1 << 28,
@@ -43,8 +56,10 @@ const sha = file => createHash('sha256').update(readFileSync(file)).digest('hex'
 const info = {
   version, identity, source_commit: sourceCommit,
   source_url: 'https://github.com/CoderJackZhu/Thingary/tree/' + sourceCommit,
-  platform: 'windows-x64', signed: false, installer: 'NSIS currentUser',
-  acceptance: isAcceptanceIdentity(identity),
+  platform: 'windows-x64', signed: signingStatus === 'signed',
+  signing_status: signingStatus,
+  signing_scope: signingStatus === 'signed' ? 'payload-and-installer' : 'none',
+  installer: 'NSIS currentUser', acceptance: isAcceptanceIdentity(identity),
   third_party_notices_sha256: sha(resolve(output, 'THIRD_PARTY_NOTICES.txt')),
 };
 writeFileSync(resolve(output, 'BUILD_INFO.json'), JSON.stringify(info, null, 2) + '\n');
@@ -60,7 +75,9 @@ writeFileSync(resolve(output, '许可与源码.txt'), [
   '名称“物谱”“Thingary”及图标使用权保留，不属于 AGPL 授权范围。',
   '修改后再分发请更换名称和图标，避免与官方版本混淆。',
   '',
-  '当前用户安装，无需管理员。未签名；首次下载可能触发 SmartScreen。',
+  '当前用户安装，无需管理员。' + (signingStatus === 'signed'
+    ? '安装包与程序文件使用 Authenticode 签名；签名在构建后核验。'
+    : '未签名；首次下载可能触发 SmartScreen。'),
   '缺少 WebView2 时安装器在线下载安装运行时，需要联网。',
   '默认卸载保留资料；不要勾选卸载器的“删除应用数据”。',
   '资料在 %LOCALAPPDATA%\\' + identity + '，完整换机使用 .thingary 备份。',

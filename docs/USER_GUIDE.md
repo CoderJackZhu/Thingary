@@ -65,7 +65,7 @@ iPhone 版与电脑版出自同一个应用，记录与测算用同一套口径�
 
 ### 选择正确的文件
 
-从 0.0.5 起提供 **通用安装包**，Apple Silicon（M 系列）与 Intel Mac 都下载同一个 `universal.dmg`。当前只在 Apple Silicon、macOS 27 验证，尚未实测 macOS 14 和 Intel Mac；Windows 10 1809+／11 x64 见[Windows 安装](#windows-install)；暂无 Linux 客户端。
+从 0.0.5 起提供 **通用安装包**，Apple Silicon（M 系列）与 Intel Mac 都下载同一个 `universal.dmg`。当前只在 Apple Silicon、macOS 27 验证，尚未实测 macOS 14 和 Intel Mac；Windows 11 x64 已实测，Windows 10 1809+ 为目标范围但尚未实机验证，见[Windows 安装](#windows-install)；暂无 Linux 客户端。
 
 1. 在 [GitHub 上的 0.0.8 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8) 打开对应公开测试版（标有 Pre-release）。**GitHub 打不开时，改用国内镜像 [Gitee 发行版](https://gitee.com/CoderJackZhu/thingary/releases)**，两处的安装包内容相同，可用 `SHA256SUMS.txt` 核对。
 2. 在附件（Assets）中下载 `Thingary-<版本>-universal.dmg`（0.0.4 及更早版本为 `arm64.dmg`）。`Source code.zip` 与 `Source code.tar.gz` 是源码，不是安装包。
@@ -90,14 +90,50 @@ iPhone 版与电脑版出自同一个应用，记录与测算用同一套口径�
 
 ### Windows 安装
 
-目标为 **Windows 10 1809+／Windows 11 x64**，安装包未签名。安装、通知和界面验收未全部完成，详细范围见[Windows 验收清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/WINDOWS_ACCEPTANCE.md)。ARM 机器运行 x64 应用依赖系统模拟，不等同于原生 ARM 安装包。
+**支持范围：** Windows 11 x64 已在本项目实测；Windows 10 1809+ 是目标范围，但尚未实机验证。当前只提供 x64 安装包；ARM64 设备（如 Snapdragon X）由系统模拟运行 x64 应用，不等同于原生 ARM 版。安装包未签名，安装、通知和界面验收未全部完成，详细范围见[Windows 验收清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/WINDOWS_ACCEPTANCE.md)。
+
+**安装前：**
+
+- 需要 64 位 Windows 10 1809+ 或 Windows 11。公司或学校管理的设备可能禁止未签名安装包；这类限制由设备策略决定，物谱无法绕过。
+- 安装器只安装给当前用户，通常不需要管理员权限；资料写入 `%LOCALAPPDATA%\local.thingary.main\`。
+- 缺少 Microsoft Edge WebView2 时，安装器会在线下载并安装运行时。首次安装需要能访问 Microsoft 的下载地址；完全离线安装目前未验证。
+
+**安装步骤：**
 
 1. 在 [0.0.8 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)（或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)）的附件里下载 `x64-setup.exe` 与 `SHA256SUMS.txt`。
-2. 用 `SHA256SUMS.txt` 核对文件后运行 `.exe`。安装器使用简体中文，只安装给当前用户；通常不需要管理员权限。缺少 Microsoft Edge WebView2 时会在线下载并安装运行时，这一步需要联网。
-3. 包尚未签名，首次下载可能出现 SmartScreen“Windows 已保护你的电脑”。确认来自本项目、校验值一致后，可展开“更多信息”查看并选择“仍要运行”。若提示恶意软件、没有该选项或设备策略禁止运行（例如 Windows 11 开启了「智能应用控制」，它可能直接拦截未签名安装包且没有放行按钮），请保留完整提示并反馈，不要为此关闭整机的系统保护。
+2. 在 PowerShell 中核对 SHA-256：`Get-FileHash .\Thingary_0.0.8_x64-setup.exe -Algorithm SHA256`，把输出与 `SHA256SUMS.txt` 里的值逐字比较，一致再运行。
+3. 运行安装包，按向导完成。安装器使用简体中文，只安装给当前用户。
 4. 从开始菜单打开物谱，先查看虚构样例。录入自己的资料前确认应用名称为「物谱」：名为 `Thingary Windows Acceptance` 的是独立验收包，只可使用虚构数据，不能当作正式安装。
 
 应用安装目录中的 `许可/BUILD_INFO.json` 列出版本、完整源码提交、资料身份与第三方告知散列；可用它核对安装包来源。程序代码、第三方许可全文和源码入口同在 `许可/`。
+
+**SmartScreen 与智能应用控制**
+
+- 未签名安装包首次下载可能出现「Windows 已保护你的电脑」。确认文件来自本项目、SHA-256 一致后，点「更多信息」→「仍要运行」。
+- Windows 11 开启「智能应用控制」时，可能直接拦截未签名安装包且没有放行按钮。不要为此关闭整机安全保护；可以等签名版本，或在另一台不受设备策略管理的电脑上试用。
+- 若提示「恶意软件」「病毒」或设备策略禁止运行，停止安装，保留完整提示并反馈。
+
+**常见问题**
+
+| 现象 | 怎么处理 |
+|---|---|
+| 提示缺少 WebView2，或下载失败 | 确认网络能访问 Microsoft 的下载地址；离线电脑请先安装 WebView2 Runtime。完全离线安装尚未验证。 |
+| 双击安装包没反应，或被拦截 | 检查 SmartScreen、智能应用控制、杀毒软件或公司设备策略。不要关闭整机保护；保留提示原文。 |
+| 安装完成但开始菜单没有入口 | 在「设置 › 应用 › 已安装的应用」（Windows 10 为「应用和功能」）中搜索「物谱」；仍找不到时重新运行安装包并记录错误。 |
+| 打开后白屏或闪退 | 先确认 WebView2 已安装；记录物谱版本、Windows 版本、WebView2 版本和错误文字。 |
+| 收不到提醒 | 检查「设置 › 系统 › 通知」中物谱是否允许；应用内提醒开关和系统通知是两件事。 |
+| 卸载后资料还在 | 默认保留资料；要保留记录就不要勾选卸载器的「删除应用数据」。资料位置见[卸载与重装](#uninstall)。 |
+| 想彻底删除资料 | 先做异地备份；卸载时勾选删除应用数据，或手动删除 `%LOCALAPPDATA%\local.thingary.main\`。 |
+| 杀毒软件报毒 | 未签名包可能被误报。不要直接关闭杀毒软件；核对 SHA-256、保留报告，并在 Issue 中附上软件名称和提示。 |
+
+**反馈时请附：**
+
+- 物谱版本（设置 › 关于与帮助）
+- Windows 版本与架构（`winver`；设置 › 系统 › 关于）
+- WebView2 版本（在「设置 › 应用 › 已安装的应用」或 Windows 10 的「应用和功能」中搜索 WebView2）
+- 安装包文件名与 SHA-256
+- 是否出现 SmartScreen、智能应用控制或杀毒软件提示
+- 完整错误文字或截图（遮住真实资料）
 
 Windows 选图仅接受 **JPEG、PNG、WebP**；HEIC／HEIF 请先另存为 JPEG 或 PNG，原图自行保留。Mac 继续使用系统支持的图片格式。应用正常使用无需联网；安装器下载 WebView2 与主动检查更新分别需要网络。
 
@@ -798,6 +834,8 @@ iPhone 版的更新全部由 App Store（TestFlight 测试期间为 TestFlight�
 
 在旧电脑做完整备份，把 `.thingary` 或 `.thingary.age` 文件复制到新电脑；加密备份还需要单独保管的对应恢复密钥。安装同版本或兼容的更新版本，切到「我的资料」，通过「从备份恢复」读取该文件。核对物品、账户、金额、未知值、关系和图片后再处理旧机器；不要依靠 Excel 搬迁完整档案。当前开发候选的 Mac 与 Windows 源码复用 schema 44；明文备份与解密后的内层格式相同，外层可选 age 加密。较早 Windows 双向恢复证据使用 schema 40，不能替代当前候选验收，跨平台恢复的当前验证边界见[开发说明](https://github.com/CoderJackZhu/Thingary/blob/main/docs/DEVELOPMENT.md#windows-validation)。主题、窗口尺寸、模块及通知偏好属于本机，需要重新检查；Windows 仍不能新增 HEIC／HEIF 图片。
 
+<a id="uninstall"></a>
+
 ### 卸载与重装
 
 Mac 在 Finder 的「应用程序」中移除「物谱」只删除应用，**不会删除资料或自动备份**。Windows 在设置的已安装应用中卸载，默认也保留资料；**若要保留记录，不要勾选卸载器的“删除应用数据”**。同一用户下重装相同身份通常仍能读到原资料。
@@ -825,7 +863,7 @@ Mac 在 Finder 的「应用程序」中移除「物谱」只删除应用，**不
 | 误删了一条记录 | 立即用「撤销」，或进入「设置 › 数据管理 › 最近删除」恢复；永久删除后不能靠最近删除找回。 |
 | 关闭表单后输入没了 | 普通表单不会保存草稿。要保留记录请点保存；仅结果未知的提交会留待核对。 |
 | 卸载后记录还在 | 应用和资料分别保存，这是为了重装可继续使用。详见「卸载与重装」。 |
-| 能在手机、Windows 上用吗 | Mac 与 Windows 10 1809+／11 x64 都有安装包，Windows 版未签名，见[安装说明](#windows-install)。iPhone 版即将推出（TestFlight 测试中，尚未上架 App Store），见[iPhone 版](#iphone)。手机与电脑的资料各自独立，没有跨设备同步，换设备用[备份导出再导入](#phone-transfer)。 |
+| 能在手机、Windows 上用吗 | Mac 与 Windows 都有安装包；Windows 11 x64 已实测，Windows 10 1809+ 是目标范围但未实机验证，当前仅提供 x64 安装包，安装包未签名，见[安装说明](#windows-install)。iPhone 版即将推出（TestFlight 测试中，尚未上架 App Store），见[iPhone 版](#iphone)。手机与电脑的资料各自独立，没有跨设备同步，换设备用[备份导出再导入](#phone-transfer)。 |
 | Windows 安装或通知失败 | 安装缺少 WebView2 时需要联网；核对是否安装了开始菜单快捷方式、系统通知开关和安装包来源。保留错误文字，见[当前限制](#limits)。 |
 | Windows 无法添加 HEIC 图片 | 先将副本转换为 JPEG 或 PNG，再选图；保留原图。Windows 当前只接受 JPEG、PNG、WebP。 |
 | 文件上传或同步到哪里了 | iPhone 版不联网，只有你自己用分享面板导出的备份文件会离开应用。电脑版：应用不上传资料，资料使用完全离线；只有你开启「启动时检查更新」或点「设置 › 关于与帮助 › 检查更新」时，才向 Gitee 和 GitHub 各查询一次公开的版本列表。你主动选择的额外备份位置若是云盘，其副本由该云盘软件同步；备份可选恢复密钥加密，主资料库、图片与恢复保护副本未加密。 |
@@ -842,7 +880,7 @@ Mac 在 Finder 的「应用程序」中移除「物谱」只删除应用，**不
 - Windows 版暂不支持打开时验证身份和闲置重新验证；「窗口不在前台时遮住内容」可用。Mac 的 Touch ID、密码兜底与闲置重锁仍需实机确认。
 
 - Mac 当前只在 Apple Silicon、macOS 27 验证；安装包同时包含 Intel 版本，但打包最低目标 macOS 14 与 Intel Mac 都尚未完成兼容性验收。公开包仅本地临时签名，未经过 Developer ID 签名和 Apple 公证。
-- Windows 版目标为 Windows 10 1809+／11 x64，安装包未签名，首次运行可能出现 SmartScreen 提示；是否已公开发布以[版本记录](../CHANGELOG.md)为准。缺少 WebView2 运行时、多显示器与部分提醒类型仍在验收中，详见 [Windows 验收清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/WINDOWS_ACCEPTANCE.md)。
+- Windows 11 x64 已实测；Windows 10 1809+ 是目标范围，但尚未实机验证。安装包未签名，首次运行可能出现 SmartScreen 提示；当前仅提供 x64 安装包，ARM64 设备通过系统模拟运行，不等同于原生 ARM 版。是否已公开发布以[版本记录](../CHANGELOG.md)为准。缺少 WebView2 运行时、多显示器与部分提醒类型仍在验收中，详见 [Windows 验收清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/WINDOWS_ACCEPTANCE.md)。
 - Windows 不支持把整个用户配置目录用目录联接（junction）迁到其他盘。Windows 11 x64 已在 OneDrive 虚构目录验证额外加密副本及文件占用后的重试；云同步、原生目录选择和从 OneDrive 文件恢复尚未验证。
 - Windows 11 x64 已验证中文与空格路径的恢复密钥原生保存、选回密钥并验证，以及手动加密备份保存与保存面板取消；这不代表所有文件选择器或进行中的备份取消已验证。Mac 提供的明文虚构备份在 Windows 恢复后，业务表内容及 8 张原图散列一致，跨平台恢复仍需按自己的备份逐项核对。
 - Mac 上通知三种状态的目视送达、VoiceOver 与完整键盘路径、系统显示缩放、Intel 与 macOS 14、接近容量上限的大库及部分强退时点尚未验证；恢复页只有「选择备份文件＋粘贴恢复密钥」，没有直接选择密钥文件的入口。
