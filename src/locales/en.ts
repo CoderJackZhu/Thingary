@@ -2811,7 +2811,7 @@ export const en: Record<string, string> = {
   "备份校验失败": "Backup validation failed",
   "备份检查未完成，请重试": "Backup check did not complete. Please try again.",
   "备份清单不完整": "Backup manifest is incomplete",
-  "备份版本暂不支持": "This backup version is not supported yet",
+  "这个备份来自更新版本的物谱，请先把应用升级到最新版本再恢复。": "This backup was made by a newer version of Thingary. Update the app to the latest version, then restore it.",
   "备份状态历史不一致": "Backup status history is inconsistent",
   "备份结构不符合已知版本": "Backup structure does not match a known version",
   "备份缺少文件": "Backup is missing files",

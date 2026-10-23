@@ -17,6 +17,7 @@ export function resolveLang(preference: LangPreference, systemLanguage = globalT
   return preference !== 'system' ? preference : /^zh\b/i.test(systemLanguage) ? 'zh-CN' : 'en';
 }
 let current: Lang = resolveLang(readLangPreference());
+if (typeof document !== 'undefined') document.documentElement.lang = current;
 export const currentLang = (): Lang => current;
 /** 保存并重新载入，让所有已渲染的文字换成新语言。 */
 export function setLangPreference(value: LangPreference, returnTo?: string): boolean {

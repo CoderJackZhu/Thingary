@@ -4,6 +4,10 @@
 .m-item-icon-tile>img{width:56px;height:56px;object-fit:contain}
 .m-item-icon-tile>.photo-image{width:100%;height:100%;object-fit:cover;border-radius:24px}
 .m-item-icon-badge{position:absolute;right:-5px;bottom:-5px;width:28px;height:28px;border-radius:14px;background:var(--m-brand);color:#fff;border:2px solid var(--bg);display:flex;align-items:center;justify-content:center}
+.m-item-notes-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.m-item-notes-head .m-group-title{padding:0 4px 8px}
+.m-item-notes-add{min-height:44px;border:0;background:transparent;color:var(--accent);font-size:14px;padding:0 4px;display:inline-flex;align-items:center;gap:4px}
+.m-item-notes-add:disabled{opacity:.4}
 .m-item-notes{display:flex;flex-direction:column;gap:12px;padding:14px 16px}
 .m-item-notes-text{width:100%;box-sizing:border-box;min-height:88px;border:0;padding:0;background:transparent;color:var(--text);font:inherit;font-size:16px;line-height:1.5;resize:vertical;outline:none}
 .m-item-notes .mi-thumbs{padding-top:12px;border-top:1px dashed var(--line-soft,var(--line))}
@@ -15,9 +19,3 @@
 .m-item-fold[open]>summary{border-bottom:1px solid var(--line-soft)}
 .m-item-add-sheet{display:flex;flex-direction:column;gap:10px}
 .m-item-add-sheet .m-button{width:100%}
-/* Photos sit inside the notes box (bottom left) instead of a separate row under it. */
-.m-item-notes{position:relative;gap:0}
-.m-item-notes .mi-thumbs{position:absolute;left:16px;right:16px;bottom:12px;padding:0;border-top:0;pointer-events:none}
-.m-item-notes .mi-thumbs>*{pointer-events:auto}
-.m-item-notes-text{min-height:132px;padding-bottom:64px}
-.m-item-notes:has(.mi-thumbs>*:nth-child(5)) .m-item-notes-text{padding-bottom:136px}

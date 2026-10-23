@@ -135,6 +135,7 @@ test('mobile edit photo multi-select keeps photos as attachments (not the cover)
   r.find('input', p => p.multiple).props.onChange({ target: { files: [file('一.png'), file('二.png')], value: 'temporary' } });
   await r.settle();
   assert.equal(uploads, 2); assert.equal(session.navBlocked, false);
+  assert.equal(r.nodes().some(n => n.type === 'PhotoThumbs'), true, 'photos appear as a row under the notes');
   assert.equal(action(r, '保存物品').props.disabled, true);
   assert.match(r.find('ErrorState', p => p.title === '图片未全部读取').props.message, /已成功读取的图片保留/);
   action(r, '不使用未读取的图片').props.onClick(); r.render();
@@ -153,12 +154,13 @@ test('mobile edit shows the common fields in order, notes with photos, and folds
   assert.equal(r.nodes().filter(n => n.type === 'details').length, 1);
   assert.equal(r.nodes().find(n => n.type === 'details').props.open, false);
   assert.ok(r.nodes().find(n => n.type === 'textarea' && n.props['aria-label'] === '备注'));
-  const strip = r.nodes().find(n => n.type === 'PhotoThumbs'); assert.ok(strip.props.onAdd);
+  assert.equal(r.nodes().some(n => n.type === 'PhotoThumbs'), false, 'no photo row without photos');
+  const add = r.button('添加图片'); assert.ok(add);
   assert.equal(r.nodes().some(n => r.text(n) === '拍照建档' || r.text(n) === '从相册选（可多选）'), false);
   r.find('Switch', p => p.label === '已售出').props.onChange(true); r.render();
   assert.ok(r.find('MoneyField', p => p.label === '售出价格'));
   let clicked = 0; r.find('input', p => p.multiple).props.ref.current = { click() { clicked++; } };
-  strip.props.onAdd(); r.render(); assert.equal(clicked, 1);
+  add.props.onClick(); r.render(); assert.equal(clicked, 1);
   assert.equal(r.find('Sheet', p => p.title === '添加图片'), undefined, 'one tap goes straight to the system picker');
   r.unmount();
 });

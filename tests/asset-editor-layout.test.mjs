@@ -57,6 +57,13 @@ test('an invalid brand keeps the fold open and focuses its first error', async (
   assert.equal(ui.render().find(({ node }) => node.type === 'details').node.props.open, true);
   assert.deepEqual(ui.focused, ['field-brand']); assert.deepEqual(ui.commands, []);
 });
+test('the notes block renders a photo row only when photos exist', () => {
+  const withoutPhotos = runtime().render();
+  assert.equal(withoutPhotos.some(({ node }) => node.props.className === 'photo-strip'), false);
+  const initial = blank(); initial.photos = [{ id: 'fictional-photo', name: '虚构图片.png' }];
+  const withPhotos = runtime(initial).render();
+  assert.equal(withPhotos.some(({ node }) => node.props.className === 'photo-strip'), true);
+});
 test('wishlist conversion preserves today and uses the same folded layout and save path', async () => {
   const initial = blank(); initial.fields.date = '2026-10-13'; initial.conversion = { wishlist_id: 'fictional-wish', expected_revision: 2, wish_name: '虚构心愿', estimated_price_cents: null };
   const ui = runtime(initial); assert.equal(ui.render().find(({ node }) => node.type === 'details').node.props.open, false);
