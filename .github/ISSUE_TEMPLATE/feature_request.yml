@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        请先看仓库里 docs/PRODUCT_RULES.md 的产品范围：日常流水记账、云同步、AI、按量成本模式等不在范围内。
+        请先看仓库里 docs/PRODUCT_RULES.md 的产品范围与 docs/QUICKSTART.md 的已知限制；不在当前范围内的方向，请先说明现有做法为什么不够用。
   - type: textarea
     id: problem
     attributes:

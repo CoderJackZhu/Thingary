@@ -13,20 +13,21 @@ body:
     id: steps
     attributes:
       label: 复现步骤
+      description: 如果只在特定状态出现（空白资料、未知金额、读取失败等），也请写出来。
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: 物谱版本
-      description: 「物谱 › 关于物谱」里可以看到。
+      description: 「设置 › 关于与帮助」里可以看到；自行构建的写提交号即可。
     validations:
       required: true
   - type: input
     id: system
     attributes:
-      label: macOS 版本与芯片
-      placeholder: 例如 macOS 27、Apple Silicon
+      label: 系统、版本与芯片
+      placeholder: 例如 macOS 27 / Apple Silicon；Windows 11 x64；Android 15；iOS 26 自行构建
     validations:
       required: true
   - type: checkboxes
