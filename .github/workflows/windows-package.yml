@@ -79,6 +79,10 @@ jobs:
         if: matrix.flavor == 'release'
         shell: bash
         run: npm run release:win
+      - name: Normalize the release installer name
+        if: matrix.flavor == 'release'
+        shell: bash
+        run: node scripts/normalize-windows-installer.mjs
       - name: Build isolated acceptance installer
         if: matrix.flavor == 'acceptance'
         shell: bash

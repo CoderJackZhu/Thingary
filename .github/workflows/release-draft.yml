@@ -233,6 +233,8 @@ jobs:
       # This workflow currently builds unsigned; see docs/RELEASING.md.
       - name: Build the Windows NSIS installer
         run: npm run release:win
+      - name: Normalize the release installer name
+        run: node scripts/normalize-windows-installer.mjs
       - name: Verify installer contents and x64 payload
         run: node scripts/verify-windows-package.mjs
       - name: Verify signature state

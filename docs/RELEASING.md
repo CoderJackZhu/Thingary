@@ -122,7 +122,7 @@ npm run release:win
 node scripts/verify-windows-package.mjs
 ```
 
-`release:win` 叠加正式身份配置与 Windows release 配置，明确 `--target x86_64-pc-windows-msvc --bundles nsis --ci`。产物为 `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/` 下的 `.exe` 与 `SHA256SUMS.txt`。只构建／静态检查正式身份包，不启动它；原生测试另用 `npm run build:win:acceptance` 生成的 debug 隔离包。故障注入、CDP 与验收身份不得进入普通 release 构建。
+`release:win` 叠加正式身份配置与 Windows release 配置，明确 `--target x86_64-pc-windows-msvc --bundles nsis --ci`。产物为 `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/` 下的 `.exe` 与 `SHA256SUMS.txt`。构建后用 `scripts/normalize-windows-installer.mjs` 把 Tauri 按产品名生成的 `物谱_<版本>_x64-setup.exe` 统一改名为公开使用的 `Thingary_<版本>_x64-setup.exe`，并重写校验值；README、下载页、winget 和应用内更新都依赖这个固定 ASCII 名称。只构建／静态检查正式身份包，不启动它；原生测试另用 `npm run build:win:acceptance` 生成的 debug 隔离包。故障注入、CDP 与验收身份不得进入普通 release 构建。
 
 NSIS 使用 `currentUser`、简体中文，当前不配置 Authenticode 签名。缺少 WebView2 时下载 bootstrapper，首次安装可能需要联网；未签名包可能触发 SmartScreen 或设备策略限制，静默安装不能证明真实下载后的交互首开已经通过。默认卸载保留资料，Tauri 卸载器仍提供用户主动勾选的“删除应用数据”；用户指南必须说明若保留记录不要勾选。
 
