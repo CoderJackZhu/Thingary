@@ -35,6 +35,7 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
     if (name === './AssetViews') return { Icon: () => null };
     if (name === './AutoBackup') return { AutoBackup: () => null };
     if (name === './BackupSecurity') return { BackupSecurity: () => null, KeyInput };
+    if (name === './sync/SyncSettings') return { SyncSettings: () => null };
     if (name === './backup-security-format') return { looksLikeRecoveryKey: v => ({ ok: !!v }), RESTORE_DISCLOSURE: 'disclosure', securitySummary: () => 'summary', STATE_LABELS: { disabled: '未加密', unconfigured: '待设置', enabled: '已加密' } };
     if (name === './SupportLink') return { SupportLink: 'a' };
     if (name === './CloseButton') return { CloseButton: 'button' };

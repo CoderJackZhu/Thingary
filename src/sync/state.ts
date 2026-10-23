@@ -194,7 +194,12 @@ export function syncView(
       return {
         headline: t('已是最新'),
         detail: upToDateDetail(status.remote),
-        primaryAction: null,
+        // Sync is manual, so the user needs a way to look again without writing anything.
+        primaryAction: {
+          id: 'reconcile',
+          label: t('检查云端'),
+          consequence: t('只读取云端清单并与本机比对，不上传，也不改动本机资料。'),
+        },
         secondaryActions: [],
         tone: 'positive',
         blocking: false,

@@ -46,6 +46,8 @@ test('every sync state has a headline, readable detail and a tone', () => {
   }
   assert.equal(syncView(status('conflict')).blocking, true);
   assert.equal(syncView(status('up_to_date')).blocking, false);
+  const idle = syncView(status('up_to_date')).primaryAction;
+  assert.deepEqual([idle.id, idle.label, idle.destructive], ['reconcile', '检查云端', undefined], 'up to date still offers a read-only re-check');
   assert.equal(syncView(status('local_ahead')).blocking, false);
 });
 
