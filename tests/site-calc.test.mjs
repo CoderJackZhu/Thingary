@@ -103,3 +103,24 @@ test('analytics stay off until configured and only send named events', async () 
   const events = [...app.matchAll(/track\(([^)]*)\)/g)].map(m => m[1]).filter(arg => arg !== 'name');
   assert.deepEqual(events.sort(), ["'calc-done'", "'calc-record'", "'calc-return'"]);
 });
+
+test('optional life rows move the date the right way and blank rows are ignored', () => {
+  const months = v => calculate(run, v, today).months;
+  const start = months(base);
+  assert.equal(months({ ...base, events: [{ age: null, wan: null }], flows: [{ from: null, to: null, monthly: null, dir: 'save' }] }), start);
+  assert.ok(months({ ...base, events: [{ age: 35, wan: 100 }] }) > start);
+  assert.ok(months({ ...base, flows: [{ from: 30, to: 40, monthly: 3000, dir: 'save' }] }) < start);
+  assert.ok(months({ ...base, flows: [{ from: 30, to: 40, monthly: 3000, dir: 'cost' }] }) > start);
+  assert.ok(months({ ...base, costs: [{ from: 60, to: 80, monthly: 2000 }] }) > start);
+  assert.ok(months({ ...base, incomes: [{ monthly: 3000, age: 55 }] }) < start);
+  assert.deepEqual(validate({ ...base, events: [{ age: 35, wan: null }] }).map(i => i.key), ['events.0.wan']);
+  assert.ok(validate({ ...base, costs: [{ from: 70, to: 60, monthly: 1 }] }).some(i => i.key === 'costs.0.to'));
+});
+
+test('result compares every return assumption and spending less', () => {
+  const r = calculate(run, base, today);
+  assert.deepEqual(r.compare.map(c => c.key), ['low', 'mid', 'high']);
+  assert.equal(r.compare[1].months, r.months);
+  assert.ok(r.compare[0].months >= r.compare[1].months && r.compare[1].months >= r.compare[2].months);
+  assert.ok(r.less_1000_months > 0);
+});

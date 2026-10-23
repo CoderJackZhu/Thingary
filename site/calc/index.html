@@ -43,6 +43,14 @@
           <div class="presets" role="radiogroup" aria-label="收益假设" data-presets></div>
           <p class="hint" data-preset-note></p>
         </fieldset>
+        <details class="more" data-rows-box>
+          <summary>让结果更贴近你的人生（选填）</summary>
+          <p class="hint">买房、孩子、房贷、加薪、多笔养老收入……没有就空着。每一条都会立刻重算。</p>
+          <div class="row-block" data-rows="events"><h3>一次性大笔开销</h3><p class="hint">买房首付、买车、孩子婚嫁等，按今天的钱。</p><div data-row-list></div><button type="button" class="button button-quiet" data-add>＋ 添加一笔</button></div>
+          <div class="row-block" data-rows="flows"><h3>存款的阶段变化</h3><p class="hint">不上班之前，某段时间每月多存或少存：加薪、房贷月供、孩子教育等。</p><div data-row-list></div><button type="button" class="button button-quiet" data-add>＋ 添加一段</button></div>
+          <div class="row-block" data-rows="costs"><h3>不上班后的阶段性支出</h3><p class="hint">在每月生活费之外，某个年龄段额外的开销：医疗、赡养、旅行等。</p><div data-row-list></div><button type="button" class="button button-quiet" data-add>＋ 添加一段</button></div>
+          <div class="row-block" data-rows="incomes"><h3>再加一笔不上班后的收入</h3><p class="hint">除上面的固定收入外：租金、配偶养老金、副业等，按今天的钱。</p><div data-row-list></div><button type="button" class="button button-quiet" data-add>＋ 添加一笔</button></div>
+        </details>
         <details class="more">
           <summary>更多设置</summary>
           <label class="field"><span>希望几岁不上班（选填）</span><span class="input"><input name="wish_age" inputmode="numeric" autocomplete="off" placeholder="例如 50"><em>岁</em></span><small>填了会多算一项：要在这个年龄停下，每月需要存多少。</small></label>
@@ -67,7 +75,7 @@
         <ul>
           <li>所有金额都按今天的钱算，已经扣掉通胀。收益假设是「比通胀多赚多少」。</li>
           <li>从现在起每个月存下的钱加进家底并按假设增值；家底够支付以后每月生活费（减去固定收入）直到设定的年龄，就算可以不上班。</li>
-          <li>没有考虑社保政策细节、税、大额开销（买房、买车、孩子）和市场大跌。这些可以在物谱桌面版里细算。</li>
+          <li>大笔开销、阶段性收支和多笔收入按你填的年龄计入；没有考虑社保政策细节、税、贷款利息细节和市场大跌。这些可以在物谱桌面版里细算。</li>
           <li>结果只是估算，不是理财建议，也不保证将来一定够用。</li>
         </ul>
       </details>
