@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as jsx from 'react/jsx-runtime';
+import { checkInRates } from '../src/currency-picker.ts';
 import * as currency from '../src/currency.ts';
 import * as wealth from '../src/wealth.ts';
 const source=readFileSync(new URL('../src/WealthPage.tsx',import.meta.url),'utf8');
@@ -17,7 +18,7 @@ function runtime(modify,onClose=()=>{}){
  const draft={generation:'虚构',date:'2026-10-17',existing:{id:'虚构盘点',revision:1,date:'2026-10-17',notes:'虚构原备注',entries,missing:[]},rows:accounts.map(a=>({account:a,previous:null}))};
  modify?.(draft);
  const states=[],refs=[],deps=[],effects=[],requests=[];let si=0,ri=0,ei=0;
- const context={...currency, ...holdings, HoldingInput: 'holding-input',...wealth,module:{exports:{}},exports:{},require:()=>jsx,crypto,Icon:'icon',DateInput:'date',CurrencyInput:'fx-input',CurrencyBalance:'fx-balance',CentInput:'cents',FormRow:'row',DeleteButton:'delete',localStorage:{getItem:()=>null},
+ const context={...currency, ...holdings, checkInRates, HoldingInput: 'holding-input',...wealth,module:{exports:{}},exports:{},require:()=>jsx,crypto,Icon:'icon',DateInput:'date',CurrencyInput:'fx-input',CurrencyBalance:'fx-balance',CentInput:'cents',FormRow:'row',DeleteButton:'delete',localStorage:{getItem:()=>null},
   errorMessage:e=>e.message,money:v=>`CNY${v}`,signedMoney:v=>`CNY${v}`,invoke:async()=>structuredClone(draft),submit:async req=>{requests.push(req);return draft.existing;},
   useState:init=>{const i=si++;if(!(i in states))states[i]=typeof init==='function'?init():init;return[states[i],v=>{states[i]=typeof v==='function'?v(states[i]):v;}];},useRef:init=>{const i=ri++;return refs[i]??={current:init};},
   useEffect:(fn,next)=>{const i=ei++,old=deps[i];if(!old||next.some((v,j)=>v!==old[j])){deps[i]=next;effects.push(fn);}}
