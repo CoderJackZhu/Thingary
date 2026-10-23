@@ -297,6 +297,16 @@ pub async fn sync_push(
 }
 
 #[tauri::command]
+pub async fn sync_reconcile(
+    runtime: tauri::State<'_, Arc<SyncRuntime>>,
+) -> Result<ReconcileResult> {
+    let runtime = runtime.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || reconcile(&runtime))
+        .await
+        .map_err(|_| Error::new("SYNC_TASK", "同步核对未完成"))?
+}
+
+#[tauri::command]
 pub async fn sync_pull_inspect(
     worker: tauri::State<'_, Worker>,
     runtime: tauri::State<'_, Arc<SyncRuntime>>,
@@ -563,6 +573,59 @@ fn retry_pending_manifest(
     Ok(PushResult {
         version: pending.manifest.version,
     })
+}
+
+/// What a read-only look at the cloud found out about an unconfirmed push.
+#[derive(Debug, Serialize)]
+pub struct ReconcileResult {
+    /// `nothing_pending`, `landed` (the manifest did reach the cloud), `not_landed`
+    /// (the cloud is unchanged) or `remote_changed` (another device wrote since).
+    pub outcome: &'static str,
+    pub version: Option<u64>,
+}
+
+/// Read-only: reads the remote manifest, never writes to the cloud or the library.
+/// It only settles this device's own bookkeeping (`pending_push`), so the next
+/// `status` is truthful: `landed` records the push as synced; the other two forget
+/// the unconfirmed attempt, leaving the ordinary local/remote comparison to decide
+/// between pushing again and asking the user about a conflict.
+pub fn reconcile(runtime: &SyncRuntime) -> Result<ReconcileResult> {
+    let mut config = require_configured(runtime)?;
+    if config.pending_push.is_none() {
+        return Ok(ReconcileResult {
+            outcome: "nothing_pending",
+            version: None,
+        });
+    }
+    let client = client(&config)?;
+    let (remote, _) = resolve_remote(&client, &config)?;
+    match reconcile_pending(&config, remote.as_ref())? {
+        PendingResolution::None => Ok(ReconcileResult {
+            outcome: "nothing_pending",
+            version: None,
+        }),
+        PendingResolution::Committed => {
+            let pending = config.pending_push.take().expect("pending push exists");
+            let version = pending.manifest.version;
+            commit_push(runtime, config, &pending.manifest, &pending.fingerprint)?;
+            Ok(ReconcileResult {
+                outcome: "landed",
+                version: Some(version),
+            })
+        }
+        resolution => {
+            config.pending_push = None;
+            runtime.save_config(config)?;
+            Ok(ReconcileResult {
+                outcome: if matches!(resolution, PendingResolution::Retryable) {
+                    "not_landed"
+                } else {
+                    "remote_changed"
+                },
+                version: remote.map(|manifest| manifest.version),
+            })
+        }
+    }
 }
 
 pub fn pull_inspect(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PullInspection> {

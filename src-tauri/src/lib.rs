@@ -557,6 +557,7 @@ pub fn run() {
             sync::commands::sync_unlock,
             sync::commands::sync_push,
             sync::commands::sync_pull_inspect,
+            sync::commands::sync_reconcile,
             sync::commands::sync_resolve_conflict
         ]);
     #[cfg(desktop)]

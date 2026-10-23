@@ -21,7 +21,7 @@ use thingary_lib::{
     files::Attach,
     storage::SCHEMA_VERSION,
     sync::{
-        commands::{finalize_pending_pull, pull_inspect, push, status, SyncRuntime},
+        commands::{finalize_pending_pull, pull_inspect, push, reconcile, status, SyncRuntime},
         engine::sha256_hex,
         fingerprint::{fingerprint, Fingerprint},
         manifest::Manifest,
@@ -47,6 +47,7 @@ struct DavControl {
     connections: AtomicUsize,
     offline: AtomicBool,
     drop_after_manifest_put: AtomicBool,
+    drop_before_manifest_put: AtomicBool,
 }
 
 struct FakeDav {
@@ -67,6 +68,7 @@ impl FakeDav {
             connections: AtomicUsize::new(0),
             offline: AtomicBool::new(false),
             drop_after_manifest_put: AtomicBool::new(false),
+            drop_before_manifest_put: AtomicBool::new(false),
         });
         let server_state = Arc::clone(&state);
         let server_control = Arc::clone(&control);
@@ -102,6 +104,21 @@ impl FakeDav {
     fn drop_after_manifest_put(&self) {
         self.control
             .drop_after_manifest_put
+            .store(true, Ordering::SeqCst);
+    }
+
+    fn allow_manifest_puts(&self) {
+        self.control
+            .drop_before_manifest_put
+            .store(false, Ordering::SeqCst);
+        self.control
+            .drop_after_manifest_put
+            .store(false, Ordering::SeqCst);
+    }
+
+    fn drop_before_manifest_put(&self) {
+        self.control
+            .drop_before_manifest_put
             .store(true, Ordering::SeqCst);
     }
 
@@ -239,6 +256,13 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<DavState>>, control: &DavCont
                 && state.files.contains_key(&path)
             {
                 respond(&mut stream, 412, &[], &[]);
+                return;
+            }
+            if path.ends_with("/manifest.json")
+                && control.drop_before_manifest_put.load(Ordering::SeqCst)
+            {
+                control.offline.store(true, Ordering::SeqCst);
+                drop(state);
                 return;
             }
             state.sequence += 1;
@@ -661,6 +685,73 @@ fn dropped_manifest_response_reconciles_without_a_second_manifest_write() {
     assert_eq!(server.manifest().unwrap().version, 1);
     assert_eq!(server.snapshot_names().len(), 1);
     assert_eq!(status(&a.worker, &a.runtime).unwrap().state, "up_to_date");
+}
+
+#[test]
+fn reconcile_confirms_a_push_that_landed_and_writes_nothing() {
+    let server = FakeDav::start();
+    server.drop_after_manifest_put();
+    let a = Device::new(sync_config(&server, "虚构设备甲", true), PASSPHRASE);
+    seed_library(&a.worker, "虚构相机");
+    assert!(push(&a.worker, &a.runtime, false).is_err());
+
+    server.set_offline(false);
+    let writes = server.writes();
+    let result = reconcile(&a.runtime).unwrap();
+    assert_eq!((result.outcome, result.version), ("landed", Some(1)));
+    assert_eq!(server.writes(), writes, "reconcile is read-only");
+    assert_eq!(server.manifest_puts(), 1);
+    assert_eq!(status(&a.worker, &a.runtime).unwrap().state, "up_to_date");
+    assert_eq!(reconcile(&a.runtime).unwrap().outcome, "nothing_pending");
+}
+
+#[test]
+fn reconcile_forgets_a_push_that_never_reached_the_cloud() {
+    let server = FakeDav::start();
+    server.drop_before_manifest_put();
+    let a = Device::new(sync_config(&server, "虚构设备甲", true), PASSPHRASE);
+    seed_library(&a.worker, "虚构相机");
+    assert!(push(&a.worker, &a.runtime, false).is_err());
+    assert!(server.manifest().is_none());
+
+    server.set_offline(false);
+    let writes = server.writes();
+    let result = reconcile(&a.runtime).unwrap();
+    assert_eq!(result.outcome, "not_landed");
+    assert_eq!(server.writes(), writes, "reconcile is read-only");
+    assert!(server.manifest().is_none());
+    // The attempt is forgotten, so the ordinary comparison applies and a fresh push works.
+    assert_ne!(status(&a.worker, &a.runtime).unwrap().state, "up_to_date");
+    server.allow_manifest_puts();
+    assert_eq!(push(&a.worker, &a.runtime, false).unwrap().version, 1);
+}
+
+#[test]
+fn reconcile_reports_when_another_device_wrote_in_the_meantime() {
+    let server = FakeDav::start();
+    let mut config_a = sync_config(&server, "虚构设备甲", true);
+    let mut config_b = sync_config(&server, "虚构设备乙", true);
+    config_a.library_id = Some("3f1c0e2a-0000-4000-8000-000000000001".into());
+    config_b.library_id = Some("3f1c0e2a-0000-4000-8000-000000000001".into());
+    let a = Device::new(config_a, PASSPHRASE);
+    let b = Device::new(config_b, PASSPHRASE);
+    seed_library(&a.worker, "虚构相机");
+    seed_library(&b.worker, "虚构耳机");
+
+    server.drop_before_manifest_put();
+    assert!(push(&a.worker, &a.runtime, false).is_err());
+    server.set_offline(false);
+    server.allow_manifest_puts();
+    assert_eq!(push(&b.worker, &b.runtime, false).unwrap().version, 1);
+
+    let writes = server.writes();
+    let result = reconcile(&a.runtime).unwrap();
+    assert_eq!(
+        (result.outcome, result.version),
+        ("remote_changed", Some(1))
+    );
+    assert_eq!(server.writes(), writes, "reconcile is read-only");
+    assert_eq!(status(&a.worker, &a.runtime).unwrap().state, "conflict");
 }
 
 #[test]

@@ -248,6 +248,14 @@ export function createSyncPreview(mode: string | null) {
           };
         return commitPush();
       }
+      case 'sync_reconcile': {
+        if (!enabled) throw unconfiguredError;
+        if (!pending) return { outcome: 'nothing_pending', version: null };
+        // The mock treats the unconfirmed push as having landed.
+        pending = false;
+        const version = commitPush().version;
+        return { outcome: 'landed', version };
+      }
       case 'sync_pull_inspect': {
         if (!enabled) throw unconfiguredError;
         if (remoteVersion === null)

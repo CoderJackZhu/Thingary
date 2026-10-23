@@ -110,6 +110,10 @@ export type SyncPullInspection = {
 /** `sync_resolve_conflict` is untagged: a push result, or a pull inspection. */
 export type SyncConflictResult = SyncPushResult | SyncPullInspection;
 
+export type SyncReconcileOutcome = 'nothing_pending' | 'landed' | 'not_landed' | 'remote_changed';
+/** `sync_reconcile`: read-only look at the cloud after an unconfirmed push. */
+export type SyncReconcileResult = { outcome: SyncReconcileOutcome; version: number | null };
+
 export type SyncConflictChoice = 'keep_local' | 'use_remote';
 
 export const syncConfigGet = (): Promise<SyncPublicConfig> => invoke('sync_config_get');
@@ -129,6 +133,9 @@ export const syncStatus = (input: SyncStatusInput = {}): Promise<SyncStatusResul
 /** Establishes the 10-minute in-memory passphrase session. */
 export const syncUnlock = (passphrase: string): Promise<void> =>
   invoke('sync_unlock', { input: { passphrase } });
+
+/** Read-only: settles this device's unconfirmed push (landed / not landed / remote changed). */
+export const syncReconcile = (): Promise<SyncReconcileResult> => invoke('sync_reconcile');
 
 export const syncPush = (): Promise<SyncPushResult> => invoke('sync_push');
 
