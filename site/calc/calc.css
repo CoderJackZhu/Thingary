@@ -127,3 +127,19 @@ legend { padding: 0 6px; font-weight: 600; font-size: 15px; }
 }
 @media (prefers-reduced-motion: no-preference) { .button { transition: background .15s, border-color .15s; } }
 .calc-history li span:first-child { white-space: nowrap; }
+
+.row-block { margin-top: 18px; display: grid; gap: 8px; }
+.row-block h3 { margin: 0; font-size: 15px; font-family: var(--display); }
+.row-line { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); margin-bottom: 8px; }
+.row-line .cell { flex: 1 1 88px; display: grid; gap: 2px; font-size: 12px; color: var(--muted); min-width: 0; }
+.row-line input, .row-line select { width: 100%; min-width: 0; padding: 9px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; }
+.row-line select { width: auto; }
+.row-line button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 8px 4px; }
+.row-line[data-invalid] { border-color: var(--warn); }
+.row-line .field-error { flex-basis: 100%; }
+.row-block .button { justify-self: start; padding: 8px 14px; font-size: 14px; }
+.compare { width: 100%; border-collapse: collapse; font-size: 14px; }
+.compare caption { text-align: left; color: var(--muted); font-size: 13px; padding-bottom: 6px; }
+.compare th, .compare td { padding: 8px 6px; text-align: left; border-top: 1px solid var(--line); font-weight: 400; }
+.compare thead th { color: var(--muted); font-size: 12px; border-top: 0; }
+.compare tr.current th, .compare tr.current td { font-weight: 700; color: var(--accent); }

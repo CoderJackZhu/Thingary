@@ -1,5 +1,5 @@
 // Calculator page: reads the form, runs the planning engine (WASM) locally, renders the result.
-import { RETURN_PRESETS, DEFAULTS, validate, calculate, durationText, yuanText } from './model.js';
+import { RETURN_PRESETS, DEFAULTS, ROW_KINDS, validate, calculate, durationText, yuanText } from './model.js';
 import { GOATCOUNTER_ENDPOINT } from './config.js';
 
 const STORE = 'thingary-calc-v1';
@@ -51,8 +51,44 @@ function readInputs() {
     const raw = parse(form.elements[name].value);
     v[name] = raw === null && name in optional ? optional[name] : raw;
   }
+  for (const kind of Object.keys(ROW_KINDS)) v[kind] = rows[kind].map((_, i) => Object.fromEntries(ROW_KINDS[kind].fields.map(([k]) => {
+    const el = form.elements[`${kind}.${i}.${k}`];
+    return [k, k === 'dir' ? el.value : parse(el.value)];
+  })));
   return v;
 }
+
+// Repeatable optional rows; the DOM inputs hold the values, `rows` only says how many of each kind exist.
+const rowValues = Object.fromEntries(Object.keys(ROW_KINDS).map(k => [k, Array.isArray(state.inputs?.rows?.[k]) ? state.inputs.rows[k].slice(0, 6) : []]));
+const rows = Object.fromEntries(Object.keys(ROW_KINDS).map(k => [k, rowValues[k].map(() => 1)]));
+function rowHtml(kind, i, values) {
+  const cells = ROW_KINDS[kind].fields.map(([k, label]) => k === 'dir'
+    ? `<select name="${kind}.${i}.dir" aria-label="多存还是多花"><option value="save">多存</option><option value="cost">少存</option></select>`.replace(`value="${values?.dir}"`, `value="${values?.dir}" selected`)
+    : `<label class="cell"><span>${label}</span><input name="${kind}.${i}.${k}" inputmode="decimal" autocomplete="off" value="${esc(values?.[k] ?? '')}"></label>`).join('');
+  return `<div class="row-line">${cells}<button type="button" data-del="${i}" aria-label="删除这一条">删除</button></div>`;
+}
+function renderRows() {
+  for (const kind of Object.keys(ROW_KINDS)) {
+    const box = form.querySelector(`[data-rows="${kind}"] [data-row-list]`);
+    box.innerHTML = rows[kind].map((_, i) => rowHtml(kind, i, rowValues[kind]?.[i])).join('');
+  }
+}
+function captureRows() {
+  for (const kind of Object.keys(ROW_KINDS)) rowValues[kind] = rows[kind].map((_, i) => Object.fromEntries(ROW_KINDS[kind].fields.map(([k]) => [k, form.elements[`${kind}.${i}.${k}`]?.value ?? ''])));
+}
+form.addEventListener('click', event => {
+  const block = event.target.closest('[data-rows]');
+  if (!block) return;
+  const kind = block.dataset.rows;
+  captureRows();
+  if (event.target.closest('[data-add]') && rows[kind].length < 6) { rows[kind].push(1); rowValues[kind].push({ dir: 'save' }); }
+  else if (event.target.closest('[data-del]')) { const i = Number(event.target.closest('[data-del]').dataset.del); rows[kind].splice(i, 1); rowValues[kind].splice(i, 1); }
+  else return;
+  edited = true;
+  renderRows();
+  block.querySelector('[data-add]').focus();
+  update();
+});
 
 async function engine() {
   const url = new URL('engine.wasm', import.meta.url);
@@ -118,6 +154,9 @@ function render(v, r) {
   }
   if (facts.length) parts.push(`<dl class="result-facts">${facts.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('')}</dl>`);
   if (r.extra_1000_months > 0) parts.push(`<p class="result-tip">每月多存 1000 元，可以提前约 <strong>${durationText(r.extra_1000_months)}</strong>。</p>`);
+  if (r.less_1000_months > 0) parts.push(`<p class="result-tip">每月少花 1000 元，可以提前约 <strong>${durationText(r.less_1000_months)}</strong>。</p>`);
+  parts.push(`<table class="compare"><caption>换个收益假设会怎样</caption><thead><tr><th scope="col">假设</th><th scope="col">最早停工</th><th scope="col">那时需要</th></tr></thead><tbody>${r.compare.map(c =>
+    `<tr${c.key === v.preset ? ' class="current"' : ''}><th scope="row">${c.label}</th><td>${c.months === null ? `${v.end_age} 岁前不够` : c.months === 0 ? '现在' : `${Math.floor(c.stop_age)} 岁`}</td><td>${c.need_yuan === null ? '—' : yuanText(c.need_yuan)}</td></tr>`).join('')}</tbody></table>`);
   parts.push(chart(r.series, r.reachable ? r.stop_age : null, v.age, resultBox.clientWidth - 42));
   parts.push(`<div class="result-actions"><button type="button" class="button" data-record>记下这次结果</button><small>下个月更新数字再来对比</small></div>`);
   resultBox.innerHTML = `<div class="result-card">${parts.join('')}</div>`;
@@ -130,18 +169,19 @@ function showIssues(issues) {
   for (const issue of issues) {
     const input = form.elements[issue.key];
     if (!input || input.value.trim() === '') continue;
-    const field = input.closest('.field');
+    const field = input.closest('.field') ?? input.closest('.row-line');
     field.setAttribute('data-invalid', '');
     field.insertAdjacentHTML('beforeend', `<span class="field-error">${esc(issue.message)}</span>`);
   }
-  const missing = issues.filter(i => form.elements[i.key]?.value.trim() === '');
-  resultBox.innerHTML = `<p class="result-empty">${missing.length ? esc(missing.map(i => i.message).join('，')) + '。' : '请先修改标出的内容。'}</p>`;
+  const missing = [...new Set(issues.filter(i => form.elements[i.key]?.value.trim() === '').map(i => i.message))];
+  resultBox.innerHTML = `<p class="result-empty">${missing.length ? esc(missing.join('，')) + '。' : '请先修改标出的内容。'}</p>`;
   last = null;
 }
 
 function update() {
   const v = readInputs();
-  state.inputs = Object.fromEntries([...fields.map(n => [n, form.elements[n].value]), ['preset', preset]]);
+  captureRows();
+  state.inputs = { ...Object.fromEntries(fields.map(n => [n, form.elements[n].value])), preset, rows: rowValues };
   save();
   const issues = validate(v);
   if (issues.length) return showIssues(issues);
@@ -222,6 +262,8 @@ form.addEventListener('input', () => { edited = true; clearTimeout(timer); timer
 form.addEventListener('submit', event => event.preventDefault());
 addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(() => last && render(last.v, last.r), 200); });
 renderPresets();
+renderRows();
+if (Object.values(rows).some(r => r.length)) form.querySelector('[data-rows-box]').open = true;
 renderHistory();
 loadAnalytics();
 document.querySelector('[data-analytics-note]').hidden = !GOATCOUNTER_ENDPOINT;
