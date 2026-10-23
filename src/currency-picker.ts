@@ -1,5 +1,6 @@
 // 选币种：默认币种、最近使用、常用、全部（按代码字母序）。名称与符号来自 Intl，随界面语言变化；不联网。
-import { currencies, currencyRegion } from './currency.ts';
+import { currencies, currencyRegion, decimalUnits } from './currency.ts';
+import { referenceRates, referenceRatesDate } from './reference-rates.ts';
 import { numberLocale, t } from './i18n.ts';
 
 export const commonCurrencies = ['CNY', 'USD', 'JPY', 'EUR', 'GBP', 'KRW', 'HKD', 'TWD'] as const;
@@ -61,9 +62,21 @@ export function pickerSections(query: string, defaultCode = readDefaultCurrency(
 
 const rateKey = 'thingary.currency.rates';
 const readRates = (): Record<string, string> => { try { const v = JSON.parse(store()?.getItem(rateKey) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } };
-/** 这个币种上次保存时用的汇率（文本），没有则为空。只在本机，方便下次预填，不进备份。 */
-export const readRate = (code: string): string => (typeof readRates()[code] === 'string' ? readRates()[code] : '');
+const rateText = (micro: string): string => decimalUnits(micro, 6).replace(/\.?0+$/, '');
+/** The rate the user saved last (or set on the 汇率 page) for a currency; empty if none. Stays on this device, outside the backup. */
+export const savedRate = (code: string): string => (typeof readRates()[code] === 'string' ? readRates()[code] : '');
+/** The rate offered as a default: the saved one, else the built-in reference (an ECB snapshot that ships with the release), else empty. */
+export const readRate = (code: string): string => savedRate(code) || (referenceRates[code] ? rateText(referenceRates[code]) : '');
+/** True while `text` is just the unchanged built-in reference, so the UI can say so. */
+export const isReferenceRate = (code: string, text: string): boolean => !savedRate(code) && !!referenceRates[code] && text.trim() === rateText(referenceRates[code]);
+export const referenceRateOf = (code: string): string => (referenceRates[code] ? rateText(referenceRates[code]) : '');
+export { referenceRatesDate };
 export function rememberRate(code: string, rate: string): void {
   if (!known(code) || !rate) return;
   try { store()?.setItem(rateKey, JSON.stringify({ ...readRates(), [code]: rate })); } catch { /* storage unavailable: nothing to remember */ }
+}
+/** Back to the built-in reference for this currency. */
+export function clearRate(code: string): void {
+  const { [code]: _gone, ...rest } = readRates();
+  try { store()?.setItem(rateKey, JSON.stringify(rest)); } catch { /* storage unavailable */ }
 }

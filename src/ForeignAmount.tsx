@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { CurrencyPicker } from './CurrencyPicker';
 import { currencyCode, currencyDecimals, decimalUnits } from './currency';
 import { money } from './asset';
-import { currencySymbol, readDefaultCurrency, readRate, rememberCurrency, rememberRate } from './currency-picker.ts';
+import { currencySymbol, isReferenceRate, readDefaultCurrency, readRate, referenceRatesDate, rememberCurrency, rememberRate } from './currency-picker.ts';
 import { blankFa, editFa, faCents, faEstimate, faFrom, faOrigin, isForeign, type FaField, type FaOrigin, type FaState } from './foreign-amount.ts';
 import { t } from './i18n.ts';
 
@@ -67,7 +67,7 @@ export function RateRow({ s, onFx, onPaid, disabled }: { s: FaState; onFx: (v: s
   return <div className="rate-row">
     <div className="rate-est"><span>{t('折合价')}</span><strong>{estimate ? t('≈ {v1}', { v1: money(estimate) }) : '—'}</strong>
       {editing ? <label className="rate-edit"><span>1 {s.code} =</span><input inputMode="decimal" autoFocus aria-label={t('汇率')} placeholder={readRate(s.code) || '7.12'} value={s.fx} onChange={e => onFx(e.target.value)} disabled={disabled}/><span>{currencySymbol('CNY')}</span></label>
-        : <small>{rate ? t('1 {code} = {rate}', { code: s.code, rate }) : t('没有汇率，填实际支付即可')} <button type="button" className="link" onClick={() => setEditing(true)} disabled={disabled}>{t('改汇率')}</button></small>}
+        : <small>{rate ? t('1 {code} = {rate}', { code: s.code, rate }) : t('没有汇率，填实际支付即可')}{isReferenceRate(s.code, rate) && <> · {t('参考汇率 {date}', { date: referenceRatesDate })}</>} <button type="button" className="link" onClick={() => setEditing(true)} disabled={disabled}>{t('改汇率')}</button></small>}
     </div>
     <label className="rate-paid"><span>{t('实际支付')} {currencySymbol('CNY')}</span><input inputMode="decimal" aria-label={t('实际支付的人民币金额')} placeholder={estimate ? decimalUnits(estimate, 2) : '0.00'} value={s.paid} onChange={e => onPaid(e.target.value)} disabled={disabled}/></label>
   </div>;

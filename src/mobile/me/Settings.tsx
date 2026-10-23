@@ -7,7 +7,7 @@ import type { SettingsPage } from './model';
 import './me.css';
 import { t } from '../../i18n.ts';
 const pages: Record<SettingsPage, ComponentType<{ page: SettingsPage }>> = {
-  modules: lazy(() => import('./settings/Modules')), appearance: lazy(() => import('./settings/Appearance')), general: lazy(() => import('./settings/General')),
+  modules: lazy(() => import('./settings/Modules')), appearance: lazy(() => import('./settings/Appearance')), general: lazy(() => import('./settings/General')), rates: lazy(() => import('./settings/Rates')),
   options: lazy(() => import('./settings/Options')), materials: lazy(() => import('./settings/Materials')),
   checkin: lazy(() => import('./settings/Checkin')), notifications: lazy(() => import('./settings/Notifications')),
   privacy: lazy(() => import('./settings/Privacy')), trash: lazy(() => import('./settings/Trash')),

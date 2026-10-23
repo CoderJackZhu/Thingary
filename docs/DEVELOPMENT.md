@@ -70,6 +70,10 @@ iOS 不提供桌面应用菜单、窗口尺寸恢复、单实例进程控制，�
 
 界面文字用 `t('简体中文原文')`（`src/i18n.ts`）：原文即 key，缺译文时显示原文；带变量写 `t('共 {n} 期', { n })`。英文译文在 `src/locales/en.ts`。`node scripts/i18n-keys.mjs` 列出全部 key（含 Rust 固定错误文字），`--check` 检查 en.ts 中过期的条目。改中文文案后须同步 en.ts 的 key。切换语言会重新载入窗口，所以 `t()` 是同步函数。读取源码做断言的测试通过 `tests/setup/unwrap-t.mjs`（`npm run test:ui` 已加载）把 `t()` 还原成原文，断言仍写中文。
 
+## 内置参考汇率
+
+`src/reference-rates.ts` 由 `node scripts/update-reference-rates.mjs` 生成（欧洲央行汇率，经 api.frankfurter.dev），发版前由维护者运行一次并提交；应用运行时不联网。挂钩币种（AED、SAR、MOP）按固定挂钩推算，欧洲央行不覆盖的币种不内置。
+
 ## 自动检查
 
 在仓库根目录执行适用检查：

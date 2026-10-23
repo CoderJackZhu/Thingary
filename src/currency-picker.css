@@ -38,3 +38,7 @@
 .rate-row .link{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-decoration:underline}
 /* iOS zooms the page into any input under 16px and does not zoom back out afterwards. */
 @media (max-width:600px),(pointer:coarse){.rate-row input,.amt-line input,.price-field input,.cp-body header input{font-size:16px}}
+.rates-editor ul{list-style:none;margin:8px 0 0;padding:0}
+.rates-editor li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.rates-editor input{width:8em;min-height:36px;text-align:right}
+.rates-editor .rate-code{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
