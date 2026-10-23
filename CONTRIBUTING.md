@@ -14,6 +14,14 @@
 
 收敛优先考虑折叠与默认关闭，再评估删除；不能隐藏需处理状态，不能改变老用户有效偏好。这只是既有能力的呈现取舍，不能以折叠替代不满足上述标准的范围收缩。关闭不删资料，已有资料必须继续可读、可完整备份和恢复。资金流动沿用现有默认值与偏好继承，不在本轮改变。
 
+## 反馈与问题
+
+- **缺陷报告**：发生了什么、复现步骤、版本与系统。只在特定状态出现时（空白资料、未知金额、读取失败等）也请写明。
+- **功能建议**：先说想解决的问题，再说方案。
+- **使用反馈**：不需要是 bug。模板会问三件事——你以前用什么？第二次盘点你回来了吗、为什么没回来？什么会让你推荐给别人？
+
+反馈里只用虚构数据，遮住真实金额和账户号，不要上传数据库、备份或截图中的真实资料。安全漏洞请按[安全政策](SECURITY.md)私下报告，不要发在公开 issue。各入口见[README 的反馈一节](README.md#反馈)。
+
 ## 开发环境
 
 需要 Apple Silicon Mac（Rust 部分链接 macOS 原生框架）。步骤见 [开发与测试](docs/DEVELOPMENT.md)。提交前请跑通：
@@ -26,6 +34,22 @@ npm run build && npm run test:ui && npm run check && npm test
 - 不要在测试里使用真实资料；样例与测试数据一律虚构。
 - 开发与测试只用开发预览身份（`local.thingary.preview`）或临时目录，**不要打开或写入正式版的资料库**（`~/Library/Application Support/local.thingary.main/`）。
 - 界面改动请复用已有的 SVG、令牌（`src/theme.css`）和组件，并附同尺寸的改前改后截图。
+
+## 自己构建安装包
+
+公开安装包由维护者制作，未签名、未公证；自己构建用于本机测试，不要当成官方发布。命令和路径以[发布流程](docs/RELEASING.md)为准。
+
+```sh
+# macOS：通用未签名 DMG（需要 x86_64-apple-darwin 目标）
+npm ci
+npm run release
+sh scripts/make-dmg.sh
+
+# Windows：在 MSVC 环境构建未签名 NSIS 安装包
+npm run release:win
+```
+
+Android 工程与构建脚本随 Android 端一起提供，步骤见[开发说明](docs/DEVELOPMENT.md)；iOS 需用 Xcode 自行构建，免费 Apple ID 的签名 7 天后过期，见 [iOS 开发](docs/DEVELOPMENT.md#ios-开发)。
 
 ## 代码约定
 

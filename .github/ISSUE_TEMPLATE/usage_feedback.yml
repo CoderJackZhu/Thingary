@@ -1,12 +1,12 @@
 name: 使用反馈
-description: 用过之后的感受，不是 bug（卡在哪、哪里看不懂、有没有用）
+description: 用过之后的感受：以前用什么、第二次盘点有没有回来、会不会推荐
 labels: [feedback]
 body:
   - type: markdown
     attributes:
       value: |
-        谢谢愿意说说使用感受。几个问题都可以简短回答，没有的写「没有」就行。
-        **请遮住或不要写真实金额、账户号、姓名；不要上传数据库或备份文件。** 遇到错误请用「缺陷报告」模板。
+        谢谢愿意说说使用感受。三个问题都可以简短回答，没有的写「没有」就行。
+        **请遮住或不要写真实金额、账户号、姓名；不要上传数据库或备份文件。** 遇到具体错误请改用「缺陷报告」模板。
   - type: dropdown
     id: system
     attributes:
@@ -16,6 +16,8 @@ body:
         - Mac（Intel）
         - Windows 11
         - Windows 10
+        - Android
+        - iOS（自行构建）
         - 其他
     validations:
       required: true
@@ -23,33 +25,36 @@ body:
     id: version
     attributes:
       label: 版本
-      description: 在「设置 › 关于与帮助」里能看到。
-      placeholder: 0.0.7
-  - type: dropdown
-    id: snapshots
+      description: 在「设置 › 关于与帮助」里能看到；自行构建的写提交号即可。
+      placeholder: 0.0.8
+  - type: textarea
+    id: previous
     attributes:
-      label: 做了几次完整盘点
+      label: 你以前用什么
+      description: 表格、记账 App、备忘录，还是第一次认真整理？哪里比物谱顺手，哪里更麻烦？
+    validations:
+      required: true
+  - type: dropdown
+    id: returned
+    attributes:
+      label: 第二次盘点你回来了吗
       options:
-        - 还没开始
-        - 1 次
-        - 2～3 次
-        - 4 次及以上
+        - 回来了，并继续盘点
+        - 回来了，但没有继续
+        - 还没有第二次盘点
+        - 第一次盘点就没完成
     validations:
       required: true
   - type: textarea
-    id: stuck
+    id: why
     attributes:
-      label: 卡在哪一步
-      description: 安装、首次打开被系统拦住、录账户、盘点要填齐、术语、看不懂结论……哪一步最想放弃？
+      label: 为什么没回来（或第二次体验如何）
+      description: 如果没回来，是什么挡住了？忘了、步骤太多、结论看不懂、换了工具……一句话也可以。
   - type: textarea
-    id: decision
+    id: recommend
     attributes:
-      label: 哪个结论改变了你的哪个决定
-      description: 例如「每月要存多少」让你调整了存款。没有也可以写「没有」，这同样有用。
-  - type: textarea
-    id: confusing
-    attributes:
-      label: 哪个词或界面让你看不懂
+      label: 什么会让你推荐给别人
+      description: 哪一点最值得告诉朋友？或者什么情况下你不会推荐？
   - type: checkboxes
     id: follow-up
     attributes:
