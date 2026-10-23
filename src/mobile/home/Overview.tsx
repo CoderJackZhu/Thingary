@@ -22,6 +22,8 @@ import type { Gate } from './read';
 import { warrantyAlert } from './model';
 import './home.css';
 import { t } from '../../i18n.ts';
+import { OverviewOrder } from './OverviewOrder';
+import type { HomeBlock } from './OverviewOrder';
 installMobileRuntime();
 
 type Loaded = { gate: Gate; review: Review; warranty: WarrantyAlert | null; wishes: WishDue[] | null; warrantyFailed: boolean; wishesFailed: boolean };
@@ -34,6 +36,7 @@ export default function Overview(_props: PageProps) {
   const modules = runtime ?? allModules, today = session.today;
   const [loaded, setLoaded] = useState<Loaded | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [hidden, setHidden] = useState(() => readHideAmounts(browserStorage()));
+  const [sorting, setSorting] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false), [demoError, setDemoError] = useState('');
   const gate = useRef(requestGate());
   const moduleKey = JSON.stringify(modules);
@@ -99,18 +102,15 @@ export default function Overview(_props: PageProps) {
   if (!loaded || !view) return <div className="m-page"><LargeTitle title={t('总览')} actions={actions}/><Loading label={t('正在读取总览…')}/></div>;
 
   const { plan, net, daily } = view;
-  return <PullToRefresh onRefresh={() => setRetry(n => n + 1)}><div className="m-page">
-    <LargeTitle title={t('总览')} actions={actions}/>
-    {loaded.gate.demo.active && <Card tone="warn" label={t('样例体验')}><div className="h-banner"><span><strong>{t('样例体验')}</strong> {t('· 虚构资料，改动不影响你的资料')}</span><Button variant="secondary" disabled={demoBusy} onClick={() => void leaveSample()}>{loaded.gate.demo.started ? t('返回我的资料') : t('开始记录我的资料')}</Button></div>{demoError && <Notice tone="danger">{demoError}</Notice>}</Card>}
-    {error && <Notice tone="danger">{t('更新失败，当前显示上次读取的结果：{error}', { error })}</Notice>}
-    {modules.wealth && (net?.state === 'known'
+  const blocks: HomeBlock[] = [
+    ...(modules.wealth ? [{ id: 'net' as const, title: t('金融净资产'), content: (net?.state === 'known'
       ? <HeroCard eyebrow={t('金融净资产')} action={t('查看财富')} title={net.net} onClick={() => openRoute(nav, 'wealth.overview')}
           subtitle={<span className={`m-hero-sub${net.changeTone ? ` m-${net.changeTone}` : ''}`}>{net.change ?? t('截至 {v1}', { v1: dayLabel(net.date, today) })}</span>}
           footnote={net.incomplete ?? t('截至 {v1}盘点', { v1: dayLabel(net.date, today) })}>
           {net.values.length > 1 && <LineChart compact height={56} hidden={hidden} series={[{ name: t('金融净资产'), values: net.values }]} labels={net.dates} summary={net.summary}/>}
         </HeroCard>
-      : <HeroCard eyebrow={t('金融净资产')} action={t('查看财富')} title={<span className="m-unknown">{t('未知')}</span>} subtitle={view.wealthError || t('还没有完整盘点，净资产不会按零计算')} onClick={() => openRoute(nav, 'wealth.overview')}/>)}
-    {plan && (plan.state === 'error'
+      : <HeroCard eyebrow={t('金融净资产')} action={t('查看财富')} title={<span className="m-unknown">{t('未知')}</span>} subtitle={view.wealthError || t('还没有完整盘点，净资产不会按零计算')} onClick={() => openRoute(nav, 'wealth.overview')}/>) }] : []),
+    ...(plan ? [{ id: 'plan' as const, title: t('规划'), content: (plan.state === 'error'
       ? <Card label={t('规划')}><ErrorState title={plan.title} message={plan.subtitle ?? undefined} onRetry={() => setRetry(n => n + 1)}/></Card>
       : <button type="button" className="m-card h-plan" onClick={() => openRoute(nav, 'plan.goal')}>
           <span className="h-plan-top"><span className="h-plan-lead"><span className="m-metric-icon m-tone-accent"><Icon name="tabTarget" size={17} strokeWidth={2}/></span><span>{plan.eyebrow}</span></span><span className="h-plan-action">{plan.state === 'setup' ? t('去设置') : t('查看规划')}<Icon name="chevronRight" size={16}/></span></span>
@@ -123,23 +123,29 @@ export default function Overview(_props: PageProps) {
           </span>}
           {plan.warn && <span className="h-plan-warn">{plan.warn}</span>}
           {plan.state === 'ready' && <span className="m-hero-foot">{t('估算结果，不是理财建议')}</span>}
-        </button>)}
-    {view.empty && <Card label={t('从这里开始')}><div className="h-start"><h2>{t('从这里开始')}</h2><p>{t('物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。')}</p>
-      <div className="h-start-actions"><Button variant="primary" onClick={() => nav.push('items.edit')}>{t('记录第一件物品')}</Button>{modules.wealth && <Button onClick={() => nav.push('wealth.accountEdit')}>{t('建立账户并盘点')}</Button>}</div></div></Card>}
-    {(daily ? <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
-      : <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={t('未知')} unknown sub={view.physicalError || t('暂时读不出来')}/>)}
-    <ListGroup title={t('待处理')} action={view.pending.length ? <span className="h-count">{t('{length} 项', { length: view.pending.length })}</span> : undefined} footer={view.failed ? t('部分来源读取失败，这里只显示已读取的部分。') : undefined}>
+        </button>) }] : []),
+    { id: 'daily', title: t('物品日均成本'), content: (daily ? <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
+      : <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={t('未知')} unknown sub={view.physicalError || t('暂时读不出来')}/>) },
+    { id: 'pending', title: t('待处理'), content: <ListGroup title={t('待处理')} action={view.pending.length ? <span className="h-count">{t('{length} 项', { length: view.pending.length })}</span> : undefined} footer={view.failed ? t('部分来源读取失败，这里只显示已读取的部分。') : undefined}>
       {view.pending.length === 0 && <ListRow icon="check" tone="positive" title={view.failed ? t('可用来源中暂无事项') : t('暂时没有需要处理的事项')}/>}
       {view.pending.map(entry => entry.action
         ? <ListRow key={entry.id} icon={entry.icon} tone={entry.tone} title={entry.title} subtitle={entry.subtitle} trailing={<Button variant="primary" onClick={() => openRoute(nav, entry.route, entry.params)}>{entry.action}</Button>}/>
         : <ListRow key={entry.id} icon={entry.icon} tone={entry.tone} title={entry.title} subtitle={entry.subtitle} onClick={() => openRoute(nav, entry.route, entry.params)}/>)}
-    </ListGroup>
-    <ListGroup title={t('近期记录')} action={<button type="button" onClick={() => nav.push('me.timeline')}>{t('查看时间轴 ›')}</button>}>
+    </ListGroup> },
+    { id: 'recent', title: t('近期记录'), content: <ListGroup title={t('近期记录')} action={<button type="button" onClick={() => nav.push('me.timeline')}>{t('查看时间轴 ›')}</button>}>
       {view.recent.length === 0 && <EmptyState icon="home" title={t('还没有带日期的记录')} message={t('新增物品、盘点或付款后会出现在这里。')}/>}
       {view.recent.map(row => {
         const props = { icon: <Icon name={recentIcon(row.kind)} size={17} strokeWidth={2}/>, tone: 'neutral' as const, title: row.title, subtitle: [row.date, row.detail].filter(Boolean).join(' · '), value: row.amount ?? undefined };
         return row.target ? <ListRow key={row.id} {...props} onClick={() => openRoute(nav, row.target!.route, row.target!.params)}/> : <ListRow key={row.id} {...props}/>;
       })}
-    </ListGroup>
+    </ListGroup> },
+  ];
+  return <PullToRefresh disabled={sorting} onRefresh={() => setRetry(n => n + 1)}><div className="m-page">
+    <LargeTitle title={t('总览')} actions={sorting ? undefined : actions}/>
+    {loaded.gate.demo.active && <Card tone="warn" label={t('样例体验')}><div className="h-banner"><span><strong>{t('样例体验')}</strong> {t('· 虚构资料，改动不影响你的资料')}</span><Button variant="secondary" disabled={demoBusy} onClick={() => void leaveSample()}>{loaded.gate.demo.started ? t('返回我的资料') : t('开始记录我的资料')}</Button></div>{demoError && <Notice tone="danger">{demoError}</Notice>}</Card>}
+    {error && <Notice tone="danger">{t('更新失败，当前显示上次读取的结果：{error}', { error })}</Notice>}
+    <OverviewOrder key={loaded.gate.counts.generation} blocks={blocks} disabled={!!session.pending} onSortingChange={setSorting}
+      pinned={view.empty ? { after: 'plan', content: <Card label={t('从这里开始')}><div className="h-start"><h2>{t('从这里开始')}</h2><p>{t('物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。')}</p>
+        <div className="h-start-actions"><Button variant="primary" onClick={() => nav.push('items.edit')}>{t('记录第一件物品')}</Button>{modules.wealth && <Button onClick={() => nav.push('wealth.accountEdit')}>{t('建立账户并盘点')}</Button>}</div></div></Card> } : undefined}/>
   </div></PullToRefresh>;
 }

@@ -9278,4 +9278,8 @@ export const en: Record<string, string> = {
   "；较新的记录不完整，仍采用这次完整盘点": "; the more recent record is incomplete, so this full check-in is still used",
   "；采用份额 {v1}%": "; using a {v1}% share",
   "＝ 净资产变化 ✓": "= Net worth change ✓",
+  "顺序未能保存，请重试。": "Couldn't save the order. Please try again.",
+  "调整总览顺序": "Reorder overview sections",
+  "{title}，第 {position} 项，可用上下方向键移动": "{title}, position {position}. Use the up and down arrow keys to move.",
+  "{title}，长按调整顺序": "{title}. Touch and hold to reorder.",
 };

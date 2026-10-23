@@ -3,6 +3,18 @@
 .h-banner .m-button{min-height:44px;padding:8px 14px;font-size:14px}
 .h-count{font-size:13px;color:var(--muted)}
 .h-asof{font-size:12px;color:var(--muted);line-height:1.5}
+.h-order{display:flex;flex-direction:column;gap:var(--m-gap);min-width:0}
+.h-order-pinned{min-width:0}
+.h-order-slot{position:relative;min-width:0;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.h-order-surface{position:relative;transform-origin:center;border-radius:var(--m-radius-card,24px)}
+.h-order-editing .h-order-slot{outline:1px dashed var(--line);outline-offset:4px;border-radius:var(--m-radius-card,24px)}
+.h-order-editing .h-order-surface{pointer-events:none}
+.h-order-editing .h-order-surface::after{content:'';position:absolute;z-index:1;right:16px;top:-5px;width:24px;height:5px;border-block:1px solid var(--muted);border-radius:1px;pointer-events:none}
+.h-order-moving{z-index:2}
+.h-order-moving .h-order-surface{box-shadow:var(--m-float);will-change:transform}
+.h-order-moving::before{content:'';position:absolute;inset:0;border-radius:var(--m-radius-card,24px);background:var(--selected);outline:2px solid var(--accent);outline-offset:3px}
+.h-sortbar.m-navbar{position:fixed;z-index:15;top:0;left:0;right:0;max-width:640px;margin:0 auto;padding:env(safe-area-inset-top,0px) max(var(--m-gutter),env(safe-area-inset-right,0px)) 0 max(var(--m-gutter),env(safe-area-inset-left,0px));min-height:calc(56px + env(safe-area-inset-top,0px));background:var(--m-glass-bar,var(--m-nav-bg));backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--line)}
+.h-sortbar>.m-navbar-button:last-child{justify-self:end}
 .h-start h2{margin:0 0 6px;font-size:17px}
 .h-start p{margin:0 0 12px;font-size:14px;color:var(--muted)}
 .h-start-actions{display:flex;flex-direction:column;gap:10px}
