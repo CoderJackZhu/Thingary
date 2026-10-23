@@ -34,8 +34,23 @@ export function takeLangReturn(): string | null {
 /** 日期、数字格式用的 locale。 */
 export const numberLocale = (): string => current === 'en' ? 'en-US' : 'zh-CN';
 
+/** English values may write `{count, plural, one {# item} other {# items}}`; Chinese keys stay unchanged. */
+function plural(text: string, params: Record<string, string | number | null | undefined>): string {
+  return text.replace(/\{(\w+),\s*plural,\s*([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g, (whole, name: string, body: string) => {
+    if (!(name in params)) return whole;
+    const n = Number(params[name]);
+    const arms: Record<string, string> = {};
+    for (const m of body.matchAll(/(\w+)\s*\{([^{}]*)\}/g)) arms[m[1]] = m[2];
+    const pick = n === 1 ? arms.one : arms.other;
+    return pick === undefined ? whole : pick.replace(/#/g, String(params[name] ?? ''));
+  });
+}
 /** `t('已选 {n} 项', { n: 3 })`。占位符 `{name}` 在原文和译文里都可用；缺参数时保留占位符。 */
+export function translate(lang: Lang, text: string, params?: Record<string, string | number | null | undefined>): string {
+  const out = tables[lang][text] ?? text;
+  if (!params) return out;
+  return plural(out, params).replace(/\{(\w+)\}/g, (whole, name: string) => name in params ? String(params[name] ?? '') : whole);
+}
 export function t(text: string, params?: Record<string, string | number | null | undefined>): string {
-  const out = tables[current][text] ?? text;
-  return params ? out.replace(/\{(\w+)\}/g, (whole, name: string) => name in params ? String(params[name] ?? '') : whole) : out;
+  return translate(current, text, params);
 }
