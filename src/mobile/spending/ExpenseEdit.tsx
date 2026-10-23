@@ -45,7 +45,7 @@ function Form({ generation, expense }: { generation: string; expense: Expense | 
     <FormGroup>
       <TextField label={t('名称')} value={f.title} onChange={v => set('title', v)} placeholder={t('例如：东京旅行')} maxLength={80} disabled={saver.busy}/>
       {!fa.foreign && <MoneyField label={t('金额')} value={f.amount_cents} onChange={v => set('amount_cents', v)} disabled={saver.busy}/>}
-      <FormRow label={t('币种')}><CurrencyUnit fa={fa} label={t('支出币种')} disabled={saver.busy}/></FormRow>
+      <FormRow label={fa.foreign ? t('金额与币种') : t('币种')}><CurrencyUnit fa={fa} label={t('支出币种')} disabled={saver.busy}/></FormRow>
       <DateField label={t('日期')} value={f.date} onChange={v => set('date', v)} disabled={saver.busy}/>
       <SelectField label={t('分类')} value={f.category} onChange={v => set('category', v)} options={expenseCategories.map(([id, label]) => ({ id, label }))} disabled={saver.busy}/>
     </FormGroup>

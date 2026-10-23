@@ -19,3 +19,6 @@
 .price-field .price-line input{flex:1;min-width:0}
 .price-rate{display:flex;gap:6px;align-items:center;margin-top:6px}
 .price-rate input{width:7em}
+.price-field{display:flex;flex-direction:column;gap:2px;min-width:0;width:100%}
+.price-field small{color:var(--muted)}
+.price-field small.error{color:var(--danger,#d33)}

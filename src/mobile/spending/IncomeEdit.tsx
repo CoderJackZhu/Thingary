@@ -46,7 +46,7 @@ function Form({ generation, income, hpfDefault }: { generation: string; income: 
       <SelectField label={t('来源分类')} value={f.category ?? 'unclassified'} onChange={v => { setProblem(''); setConfirmed(false); setF(x => changeIncomeCategory(x, v as NonNullable<IncomeFields['category']>, !income, edited)); }}
         options={Object.entries(incomeCategories).map(([id, label]) => ({ id, label }))} disabled={saver.busy}/>
       {!fa.foreign && <MoneyField label={t('税后到账')} value={f.net_cents} onChange={v => set({ net_cents: v })} hint={t('实际收到的净额；没有到账就填 0')} disabled={saver.busy}/>}
-      <FormRow label={t('币种')}><CurrencyUnit fa={fa} label={t('收入币种')} disabled={saver.busy}/></FormRow>
+      <FormRow label={fa.foreign ? t('金额与币种') : t('币种')}><CurrencyUnit fa={fa} label={t('收入币种')} disabled={saver.busy}/></FormRow>
       {(!investment || f.hpf_cents !== null) && <MoneyField label={t('公积金缴存')} value={f.hpf_cents ?? ''} onChange={v => { setEdited(true); set({ hpf_cents: v === '' ? null : v }); }} hint={!income && hpfDefault ? t('已带入最新一条的已知金额，可改；留空表示未知') : t('个人与单位合计；留空表示未知')} disabled={saver.busy}/>}
       {changed && <FormRow label={t('保留已有公积金缴存事实')}><Switch label={t('确认保留已有公积金缴存事实')} checked={confirmed} onChange={setConfirmed} disabled={saver.busy}/></FormRow>}
     </FormGroup>

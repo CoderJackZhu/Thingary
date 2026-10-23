@@ -8859,6 +8859,7 @@ export const en: Record<string, string> = {
   "金额": "Amount",
   "金额 ": "Amount ",
   "金额、周期、起止日期、备注": "Amount, period, start and end dates, notes",
+  "金额与币种": "Amount & currency",
   "金额与比例已隐藏。": "Amounts and percentages are hidden.",
   "金额占比": "Amount Share",
   "金额合计超出范围": "Total amount is out of range",

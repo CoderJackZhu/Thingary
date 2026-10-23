@@ -58,7 +58,7 @@ export type ForeignAmount = ReturnType<typeof useForeignAmount>;
 
 /** The unit button; with a foreign unit also the original amount and the hand-typed rate. */
 export function CurrencyUnit({ fa, label, disabled }: { fa: ForeignAmount; label: string; disabled?: boolean }) {
-  return <div className="field price-field"><div className="price-line"><CurrencyPicker label={label} value={currencyCode(fa.code)} disabled={disabled} onChange={fa.setCode}/></div>
+  return <div className="price-field"><div className="price-line"><CurrencyPicker label={label} value={currencyCode(fa.code)} disabled={disabled} onChange={fa.setCode}/></div>
     {fa.foreign && <><div className="price-line"><input inputMode="decimal" aria-label={t('原币金额')} placeholder="0.00" value={fa.text} onChange={e => fa.setText(e.target.value)} disabled={disabled}/><strong>{fa.code}</strong></div>
       <label className="price-rate"><span>{t('汇率：1 {code} =', { code: fa.code })}</span><input inputMode="decimal" aria-label={t('汇率')} placeholder="7.12" value={fa.fx} onChange={e => fa.setFx(e.target.value)} disabled={disabled}/><span>{t('人民币')}</span></label>
       <small>{fa.cents ? t('折合 {v1}（汇率手填，不联网）', { v1: money(fa.cents) }) : t('请填写原币金额和汇率。')}</small></>}
