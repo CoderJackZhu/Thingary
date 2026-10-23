@@ -8,7 +8,7 @@ use crate::{
 };
 use std::path::Path;
 
-pub const HEADER: [&str; 14] = [
+pub const HEADER: [&str; 17] = [
     "档案编号",
     "名称",
     "分类",
@@ -23,6 +23,9 @@ pub const HEADER: [&str; 14] = [
     "售出日期",
     "售价（元）",
     "备注",
+    "原币币种",
+    "原币金额",
+    "汇率",
 ];
 
 /// Text a spreadsheet could run as a formula gets a leading apostrophe.
@@ -41,6 +44,35 @@ fn yuan(cents: Option<i64>) -> String {
     })
 }
 
+/// Original currency, amount and rate, but only while the stored origin still
+/// explains the current CNY amount; otherwise three empty cells, never zero.
+fn origin_cells(
+    currency: Option<String>,
+    original_minor: Option<i64>,
+    fx_rate_micro: Option<i64>,
+    cents: Option<i64>,
+) -> [String; 3] {
+    let (Some(currency), Some(original_minor), Some(fx_rate_micro)) =
+        (currency, original_minor, fx_rate_micro)
+    else {
+        return Default::default();
+    };
+    let origin = crate::catalog::PriceOrigin {
+        currency,
+        original_minor: original_minor.to_string(),
+        fx_rate_micro: fx_rate_micro.to_string(),
+    };
+    let cents = cents.map(|c| c.to_string());
+    if !origin.explains(cents.as_deref()) {
+        return Default::default();
+    }
+    [
+        origin.currency.clone(),
+        crate::currency::decimal(original_minor, crate::currency::decimals(&origin.currency)),
+        crate::currency::decimal(fx_rate_micro, 6),
+    ]
+}
+
 fn field(value: &str) -> String {
     if value.contains([',', '"', '\n', '\r']) || value != value.trim() {
         format!("\"{}\"", value.replace('"', "\"\""))
@@ -56,9 +88,11 @@ impl Store {
     pub(crate) fn asset_table(&self, guarded: bool) -> Result<String> {
         let mut stmt = self.conn()?.prepare(
             "SELECT a.id,a.name,c.name,p.brand,p.model,a.price_cents,a.purchase_date,ch.name,a.lifecycle_state,s.date,s.price_cents,p.notes,
-                    CASE WHEN a.lifecycle_state='retired' THEN (SELECT e.date FROM lifecycle_events e WHERE e.asset_id=a.id ORDER BY e.sequence DESC LIMIT 1) END
+                    CASE WHEN a.lifecycle_state='retired' THEN (SELECT e.date FROM lifecycle_events e WHERE e.asset_id=a.id ORDER BY e.sequence DESC LIMIT 1) END,
+                    o.currency,o.original_minor,o.fx_rate_micro
              FROM assets a LEFT JOIN asset_profiles p ON p.asset_id=a.id LEFT JOIN categories c ON c.id=a.category_id
              LEFT JOIN channels ch ON ch.id=a.channel_id LEFT JOIN sales s ON s.asset_id=a.id AND s.revoked_at IS NULL
+             LEFT JOIN asset_price_origin o ON o.asset_id=a.id
              WHERE a.deleted_at IS NULL ORDER BY p.created_at IS NULL,p.created_at,a.id",
         )?;
         let mut out = String::from("\u{feff}");
@@ -71,13 +105,16 @@ impl Store {
                 "sold" => "已售出",
                 _ => "使用中",
             };
+            let price = r.get::<_, Option<i64>>(5)?;
+            let [currency, original, rate] =
+                origin_cells(r.get(13)?, r.get(14)?, r.get(15)?, price);
             Ok([
                 t(0)?,
                 text(&t(1)?, guarded),
                 text(&t(2)?, guarded),
                 text(&t(3)?, guarded),
                 text(&t(4)?, guarded),
-                yuan(r.get(5)?),
+                yuan(price),
                 "CNY".into(),
                 t(6)?,
                 text(&t(7)?, guarded),
@@ -86,6 +123,9 @@ impl Store {
                 t(9)?,
                 yuan(r.get(10)?),
                 text(&t(11)?, guarded),
+                currency,
+                original,
+                rate,
             ])
         })?;
         for row in rows {
@@ -198,22 +238,30 @@ impl Store {
     }
     pub(crate) fn expenses_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
-            "SELECT x.date,x.title,x.category,x.amount_cents,x.refund_cents,x.refund_date,a.name,x.notes
+            "SELECT x.date,x.title,x.category,x.amount_cents,x.refund_cents,x.refund_date,a.name,x.notes,
+                    o.currency,o.original_minor,o.fx_rate_micro
              FROM expenses x LEFT JOIN assets a ON a.id=x.asset_id
+             LEFT JOIN amount_origin o ON o.kind='expense' AND o.record_id=x.id
              WHERE x.deleted_at IS NULL ORDER BY x.date,x.id",
         )?;
         let rows = stmt
             .query_map([], |r| {
                 let category: String = r.get(2)?;
+                let amount = r.get::<_, Option<i64>>(3)?;
+                let [currency, original, rate] =
+                    origin_cells(r.get(8)?, r.get(9)?, r.get(10)?, amount);
                 Ok(vec![
                     r.get::<_, String>(0)?,
                     text(&r.get::<_, String>(1)?, guarded),
                     expense_category(&category).into(),
-                    yuan(r.get(3)?),
+                    yuan(amount),
                     yuan(r.get(4)?),
                     r.get::<_, Option<String>>(5)?.unwrap_or_default(),
                     text(&r.get::<_, Option<String>>(6)?.unwrap_or_default(), guarded),
                     text(&r.get::<_, String>(7)?, guarded),
+                    currency,
+                    original,
+                    rate,
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -226,6 +274,9 @@ impl Store {
             "退款日期",
             "关联物品",
             "备注",
+            "原币币种",
+            "原币金额",
+            "汇率",
         ];
         Ok((table(&header, &rows), rows.len() as i64))
     }
@@ -307,13 +358,19 @@ impl Store {
     }
     pub(crate) fn income_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
-            "SELECT date,net_cents,hpf_cents,notes,category,source_account_id,destination,receiving_account_id,classification_changed FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id",
+            "SELECT date,net_cents,hpf_cents,notes,category,source_account_id,destination,receiving_account_id,classification_changed,
+                    o.currency,o.original_minor,o.fx_rate_micro
+             FROM plan_income LEFT JOIN amount_origin o ON o.kind='income' AND o.record_id=plan_income.id
+             WHERE deleted_at IS NULL ORDER BY date,id",
         )?;
         let rows = stmt
             .query_map([], |r| {
+                let net = r.get::<_, Option<i64>>(1)?;
+                let [currency, original, rate] =
+                    origin_cells(r.get(9)?, r.get(10)?, r.get(11)?, net);
                 Ok(vec![
                     r.get::<_, String>(0)?,
-                    yuan(r.get(1)?),
+                    yuan(net),
                     yuan(r.get::<_, Option<i64>>(2)?),
                     text(&r.get::<_, String>(3)?, guarded),
                     r.get::<_, String>(4)?,
@@ -321,6 +378,9 @@ impl Store {
                     r.get::<_, Option<String>>(6)?.unwrap_or_default(),
                     text(&r.get::<_, Option<String>>(7)?.unwrap_or_default(), guarded),
                     r.get::<_, bool>(8)?.to_string(),
+                    currency,
+                    original,
+                    rate,
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -334,6 +394,9 @@ impl Store {
             "去向",
             "接收账户ID",
             "旧口径估计停用",
+            "原币币种",
+            "原币金额",
+            "汇率",
         ];
         Ok((table(&header, &rows), rows.len() as i64))
     }

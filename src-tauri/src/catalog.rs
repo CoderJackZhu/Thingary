@@ -87,7 +87,7 @@ impl PriceOrigin {
     /// Whether this original amount and rate account for the CNY amount that was actually paid.
     /// The paid CNY amount is the fact; the rate is derived from it with six decimals, so the
     /// conversion may differ by the rounding that rate can carry (at least one cent).
-    fn explains(&self, cents: Option<&str>) -> bool {
+    pub(crate) fn explains(&self, cents: Option<&str>) -> bool {
         let (Some(cents), Ok(converted), Ok(original)) = (
             cents.and_then(|c| c.parse::<i128>().ok()),
             self.converted(),
@@ -550,6 +550,7 @@ impl Store {
                     params![
                         input.kind.name(),
                         input.record_id,
+                        origin.currency,
                         crate::currency::integer(&origin.original_minor)
                             .map_err(|m| Error::new("PRICE_ORIGIN", m))?,
                         crate::currency::integer(&origin.fx_rate_micro)

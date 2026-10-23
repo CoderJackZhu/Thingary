@@ -246,3 +246,26 @@ fn imported_sales_keep_backup_valid_and_old_libraries_are_repaired() {
     assert_eq!(import(&mut s, csv, true).unwrap().imported, 2);
     s.backup(Some(&out.path().join("d.thingary"))).unwrap();
 }
+
+#[test]
+fn extra_original_currency_columns_do_not_block_item_import() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    // The exported item sheet carries three extra original-currency columns;
+    // import reads the columns it knows by name and ignores the rest.
+    let csv = "名称,购入价（元）,币种,原币币种,原币金额,汇率\n\
+虚构台灯,9253.30,CNY,USD,1299.00,7.123400\n\
+虚构耳机,100,CNY,,,\n";
+    let p = s.preview_csv_import(csv.as_bytes(), TODAY).unwrap();
+    assert_eq!(p.valid, 2);
+    assert!(p.invalid.is_empty(), "{:?}", p.invalid);
+    let done = import(&mut s, csv, false).unwrap();
+    assert_eq!((done.imported, done.invalid), (2, 0));
+    assert_eq!(s.count().unwrap(), 2);
+    let rows = rows(&s);
+    assert!(
+        rows.iter()
+            .any(|r| r.starts_with("虚构台灯,,,,") && r.contains("9253.30,CNY")),
+        "{rows:?}"
+    );
+}
