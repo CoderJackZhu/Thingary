@@ -22,7 +22,7 @@ pub(crate) struct Active {
 type FaultHook = Box<dyn Fn(&str) -> Result<()> + Send>;
 /// Length, modification time and platform identity of a file whose content was hashed.
 pub(crate) type FileStamp = (u64, Option<std::time::SystemTime>, FileIdentity);
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
 pub(crate) type FileIdentity = u64;
 #[cfg(windows)]
 pub(crate) type FileIdentity = (u32, u64);
@@ -45,7 +45,7 @@ pub(crate) fn uid() -> String {
 pub(crate) fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
 pub(crate) fn file_id(meta: &fs::Metadata, _path: &Path) -> Result<FileIdentity> {
     use std::os::unix::fs::MetadataExt;
     Ok(meta.ino())
