@@ -3,7 +3,7 @@ export const supportUrls = {
   project: 'https://github.com/CoderJackZhu/Thingary',
   guide: 'https://thingary.jackzhu.top/guide/',
   site: 'https://thingary.jackzhu.top/',
-  feedback: 'https://github.com/CoderJackZhu/Thingary/issues',
+  feedback: 'https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml',
   backup: 'https://thingary.jackzhu.top/guide/backup/',
   update: 'https://thingary.jackzhu.top/guide/update/',
   sources: 'https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md',

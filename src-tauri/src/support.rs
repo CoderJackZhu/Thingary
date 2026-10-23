@@ -8,7 +8,9 @@ pub fn destination(target: &str) -> Result<&'static str> {
         "project" => Ok("https://github.com/CoderJackZhu/Thingary"),
         "guide" => Ok("https://thingary.jackzhu.top/guide/"),
         "site" => Ok("https://thingary.jackzhu.top/"),
-        "feedback" => Ok("https://github.com/CoderJackZhu/Thingary/issues"),
+        "feedback" => {
+            Ok("https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml")
+        }
         "backup" => Ok("https://thingary.jackzhu.top/guide/backup/"),
         "update" => Ok("https://thingary.jackzhu.top/guide/update/"),
         "sources" => Ok("https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md"),
