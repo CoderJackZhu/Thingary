@@ -1,8 +1,7 @@
-use std::{thread, time::Duration};
+use std::{io::Read, thread, time::Duration};
 
 use quick_xml::{events::Event, Reader};
 use serde::{Deserialize, Serialize};
-use ureq::http::{header, Method, Request, Uri};
 
 use crate::domain::{Error, Result};
 
@@ -44,29 +43,29 @@ pub struct UreqWebDav {
 impl UreqWebDav {
     pub fn new(base_url: String, username: String, password: String) -> Result<Self> {
         let base_url = base_url.trim_end_matches('/').to_string();
-        let uri: Uri = base_url
-            .parse()
-            .map_err(|_| Error::new("SYNC_CONFIG", "WebDAV 地址无效"))?;
-        if !matches!(uri.scheme_str(), Some("http" | "https"))
-            || uri.authority().is_none()
-            || uri
-                .path_and_query()
-                .and_then(|value| value.query())
-                .is_some()
-            || uri
-                .authority()
-                .is_some_and(|value| value.as_str().contains('@'))
+        // ureq 3 rejects the WebDAV methods (MKCOL, PROPFIND), so this uses ureq 2.
+        let rest = base_url
+            .strip_prefix("https://")
+            .or_else(|| base_url.strip_prefix("http://"))
+            .unwrap_or("");
+        let authority = rest.split('/').next().unwrap_or("");
+        if authority.is_empty()
+            || authority.contains('@')
+            || base_url.contains('?')
+            || base_url.contains('#')
+            || base_url
+                .chars()
+                .any(|c| c.is_whitespace() || c.is_control())
         {
             return Err(Error::new("SYNC_CONFIG", "WebDAV 地址无效"));
         }
-        let config = ureq::Agent::config_builder()
-            .timeout_global(Some(Duration::from_secs(30)))
-            .timeout_connect(Some(Duration::from_secs(8)))
-            .max_redirects(0)
-            .http_status_as_error(false)
+        let agent = ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(30))
+            .timeout_connect(Duration::from_secs(8))
+            .redirects(0)
             .build();
         Ok(Self {
-            agent: config.new_agent(),
+            agent,
             base_url,
             authorization: format!("Basic {}", base64(&format!("{username}:{password}"))),
         })
@@ -74,7 +73,7 @@ impl UreqWebDav {
 
     fn request(
         &self,
-        method: Method,
+        method: &str,
         path: &str,
         body: &[u8],
         headers: &[(&str, &str)],
@@ -82,35 +81,40 @@ impl UreqWebDav {
     ) -> Result<(u16, DavResponse)> {
         let url = self.url(path)?;
         for attempt in 0..=retries {
-            let mut builder = Request::builder()
-                .method(method.clone())
-                .uri(&url)
-                .header(header::AUTHORIZATION, &self.authorization);
+            let mut request = self
+                .agent
+                .request(method, &url)
+                .set("Authorization", &self.authorization);
             for (name, value) in headers {
-                builder = builder.header(*name, *value);
+                request = request.set(name, value);
             }
-            let request = builder
-                .body(body.to_vec())
-                .map_err(|_| Error::new("SYNC_NETWORK", "无法创建 WebDAV 请求"))?;
-            match self.agent.run(request) {
-                Ok(mut response) => {
-                    let status = response.status().as_u16();
-                    let etag = response
-                        .headers()
-                        .get(header::ETAG)
-                        .and_then(|value| value.to_str().ok())
-                        .map(str::to_string);
-                    let bytes = response
-                        .body_mut()
-                        .with_config()
-                        .limit(MAX_RESPONSE_BYTES as u64)
-                        .read_to_vec()
-                        .map_err(|_| Error::new("SYNC_NETWORK", "WebDAV 响应无法读取"))?;
-                    return Ok((status, DavResponse { body: bytes, etag }));
+            let outcome = if body.is_empty() && method != "PUT" {
+                request.call()
+            } else {
+                request.send_bytes(body)
+            };
+            let response = match outcome {
+                Ok(response) => response,
+                // A non-2xx status is an answer, not a transport failure.
+                Err(ureq::Error::Status(_, response)) => response,
+                Err(_) if attempt < retries => {
+                    thread::sleep(Duration::from_millis(80));
+                    continue;
                 }
-                Err(_) if attempt < retries => thread::sleep(Duration::from_millis(80)),
                 Err(_) => return Err(Error::new("SYNC_NETWORK", "无法连接 WebDAV 服务器")),
+            };
+            let status = response.status();
+            let etag = response.header("ETag").map(str::to_string);
+            let mut bytes = Vec::new();
+            response
+                .into_reader()
+                .take(MAX_RESPONSE_BYTES as u64 + 1)
+                .read_to_end(&mut bytes)
+                .map_err(|_| Error::new("SYNC_NETWORK", "WebDAV 响应无法读取"))?;
+            if bytes.len() > MAX_RESPONSE_BYTES {
+                return Err(Error::new("SYNC_NETWORK", "WebDAV 响应过大"));
             }
+            return Ok((status, DavResponse { body: bytes, etag }));
         }
         Err(Error::new("SYNC_NETWORK", "无法连接 WebDAV 服务器"))
     }
@@ -136,7 +140,7 @@ impl UreqWebDav {
     }
 
     pub fn get_optional(&self, path: &str) -> Result<Option<DavResponse>> {
-        let (status, response) = self.request(Method::GET, path, &[], &[], 2)?;
+        let (status, response) = self.request("GET", path, &[], &[], 2)?;
         match status {
             200 => Ok(Some(response)),
             404 => Ok(None),
@@ -147,8 +151,7 @@ impl UreqWebDav {
 
 impl WebDav for UreqWebDav {
     fn mkcol(&self, path: &str) -> Result<()> {
-        let method = Method::from_bytes(b"MKCOL").expect("valid WebDAV method");
-        let (status, _) = self.request(method, path, &[], &[], 1)?;
+        let (status, _) = self.request("MKCOL", path, &[], &[], 1)?;
         match status {
             200 | 201 | 204 | 405 => Ok(()),
             _ => Err(status_error(status)),
@@ -162,7 +165,7 @@ impl WebDav for UreqWebDav {
             PutCondition::Match(etag) => headers.push(("If-Match", etag.as_str())),
             PutCondition::Missing => headers.push(("If-None-Match", "*")),
         }
-        let (status, response) = self.request(Method::PUT, path, body, &headers, 0)?;
+        let (status, response) = self.request("PUT", path, body, &headers, 0)?;
         match status {
             200 | 201 | 204 => Ok(response),
             409 | 412 => Err(Error::new(
@@ -174,7 +177,7 @@ impl WebDav for UreqWebDav {
     }
 
     fn get(&self, path: &str) -> Result<DavResponse> {
-        let (status, response) = self.request(Method::GET, path, &[], &[], 2)?;
+        let (status, response) = self.request("GET", path, &[], &[], 2)?;
         match status {
             200 => Ok(response),
             _ => Err(status_error(status)),
@@ -182,7 +185,7 @@ impl WebDav for UreqWebDav {
     }
 
     fn delete(&self, path: &str) -> Result<()> {
-        let (status, _) = self.request(Method::DELETE, path, &[], &[], 1)?;
+        let (status, _) = self.request("DELETE", path, &[], &[], 1)?;
         match status {
             200 | 202 | 204 | 404 => Ok(()),
             _ => Err(status_error(status)),
@@ -190,9 +193,8 @@ impl WebDav for UreqWebDav {
     }
 
     fn propfind(&self, path: &str, depth: u8) -> Result<PropfindResponse> {
-        let method = Method::from_bytes(b"PROPFIND").expect("valid WebDAV method");
         let depth = depth.to_string();
-        let (status, response) = self.request(method, path, &[], &[("Depth", &depth)], 2)?;
+        let (status, response) = self.request("PROPFIND", path, &[], &[("Depth", &depth)], 2)?;
         if status != 207 && status != 200 {
             return Err(status_error(status));
         }

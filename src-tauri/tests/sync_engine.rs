@@ -80,12 +80,14 @@ fn manifest_must_match_snapshot_size_and_sha256() {
 #[test]
 fn unknown_manifest_write_is_reconciled_before_any_retry() {
     let pending_manifest = manifest(8, &"a".repeat(64), 123);
-    let mut config = SyncConfig::default();
-    config.pending_push = Some(PendingPush {
-        previous_remote_version: 7,
-        manifest: pending_manifest.clone(),
-        fingerprint: "d".repeat(64),
-    });
+    let config = SyncConfig {
+        pending_push: Some(PendingPush {
+            previous_remote_version: 7,
+            manifest: pending_manifest.clone(),
+            fingerprint: "d".repeat(64),
+        }),
+        ..SyncConfig::default()
+    };
 
     assert_eq!(
         reconcile_pending(&config, Some(&pending_manifest)).unwrap(),

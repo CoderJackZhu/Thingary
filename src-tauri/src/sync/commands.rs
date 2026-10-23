@@ -163,7 +163,7 @@ pub struct PullInspection {
 #[serde(untagged)]
 pub enum ConflictResult {
     Push(PushResult),
-    Pull(PullInspection),
+    Pull(Box<PullInspection>),
 }
 
 #[tauri::command]
@@ -312,9 +312,8 @@ pub async fn sync_resolve_conflict(
     let runtime = runtime.inner().clone();
     tauri::async_runtime::spawn_blocking(move || match input.choice {
         ConflictChoice::KeepLocal => push(&worker, &runtime, true).map(ConflictResult::Push),
-        ConflictChoice::UseRemote => {
-            pull_inspect(&worker, &runtime, true).map(ConflictResult::Pull)
-        }
+        ConflictChoice::UseRemote => pull_inspect(&worker, &runtime, true)
+            .map(|inspection| ConflictResult::Pull(Box::new(inspection))),
     })
     .await
     .map_err(|_| Error::new("SYNC_TASK", "同步冲突处理未完成"))?
