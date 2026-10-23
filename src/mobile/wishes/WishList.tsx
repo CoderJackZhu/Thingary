@@ -67,7 +67,7 @@ export default function WishList(_: PageProps) {
   const filtered = isFiltered(query);
 
   return <div className="m-page">
-    <LargeTitle title={t('心愿')} segments/>
+    <LargeTitle title={t('心愿')}/>
     <Fab label={t('添加心愿')} disabled={blocked || !taxonomy.data} onClick={add}/>
     <div className="w-stack">
       <ReceiptCards ops={receipts.all} busy={receipts.busy} notice={receipts.notice} onResolve={op => void receipts.resolve(op)}/>

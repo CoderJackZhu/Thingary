@@ -85,7 +85,7 @@ export default function ItemList() {
   const open=(record:AssetRecord)=>{if(pressed.current){pressed.current=false;return;}if(selecting)select(record.asset.id);else nav.push('items.detail',{id:record.asset.id});};
   const row=(record:AssetRecord)=> <ListRow title={<>{selecting&&<span className="mi-check" aria-hidden="true">{selected.includes(record.asset.id)?'✓':'○'}</span>}{record.asset.name}{record.preferences?.pinned&&<span className="mi-pin"> {tr('· 置顶')}</span>}</>} icon={<Cover record={record} generation={page!.generation}/>} subtitle={[taxonomy?.categories.find(c=>c.id===record.classification?.category_id)?.name??tr('未分类'),record.label_name,dayLabel(record.asset.purchase_date)].filter(Boolean).join(' · ')} value={record.sale?tr('售 {v1}', { v1: moneyText(record.sale.fields.price_cents) }):unitMoneyText(record.preferences?.cost_mode==='per_use'?record.per_use_cents??null:record.costs.daily_cents)+(record.preferences?.cost_mode==='per_use'?tr('/次'):tr('/天'))} valueSub={`${stateLabel(record)} · ${moneyText(record.asset.price_cents)}`} disabled={session.navBlocked} onClick={()=>open(record)}/>;
   return <PullToRefresh onRefresh={()=>{setOffset(0);setRetry(n=>n+1);}}><div className="m-page mi-page">
-    <LargeTitle title={tr('物品')} segments/>
+    <LargeTitle title={tr('物品')}/>
     {metaError?<ErrorState title={tr('摘要或选项读取失败')} message={metaError} onRetry={()=>setRetry(n=>n+1)}/>:summary&&<Card className="mi-summary" label={tr('持有物品摘要')}>
       <span className="mi-summary-label">{tr('持有物品总价')}</span>
       <strong className={`mi-summary-total${summary.totalCents===null?' m-unknown':''}`}>{summary.totalCents===null?tr('未知'):moneyText(summary.totalCents)}</strong>

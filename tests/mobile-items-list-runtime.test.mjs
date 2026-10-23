@@ -42,7 +42,7 @@ async function listRuntime({ idsResponse, countsGeneration = () => generation } 
 test('mobile list: batch-select icon button replaces the text button, FAB replaces the title plus, both follow selection', async () => {
   const { r, toggleSelecting } = await listRuntime();
   assert.equal(r.find('LargeTitle').props.actions, undefined, 'title row has no 选择 or + button');
-  assert.equal(r.find('LargeTitle').props.segments, true);
+  assert.equal(r.find('LargeTitle').props.segments, undefined);
   assert.equal(r.find('IconButton', p => p.label === '新增物品'), undefined);
   assert.equal(button(r, '选择'), undefined);
   assert.equal(r.find('IconButton', p => p.label === '批量选择').props.pressed, false);

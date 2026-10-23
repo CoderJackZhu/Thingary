@@ -36,7 +36,7 @@ export default function ItemStats(_props: PageProps) {
   const ranked = (rows: Ranked[]) => descending ? rows : rows.slice().reverse();
   const resales = resale ? resaleDescending ? resale.rows : resale.rows.slice().reverse() : [];
   return <div className="m-page mi-stats">
-    <LargeTitle title={t('统计')} segments/>
+    <LargeTitle title={t('统计')}/>
     <SegmentedControl items={periods} label={t('统计时间段')} value={period} onChange={setPeriod}/>
     {error && !data ? <ErrorState title={t('统计读取失败')} message={error} onRetry={() => setRetry(n => n + 1)}/> : !data || !snapshot || !trend || !holding || !resale ? <Loading label={t('正在读取物品统计…')}/> : <div className={`mi-stats-body${loading ? ' mi-stats-loading' : ''}`} aria-busy={loading}>
       {error && <ErrorState title={t('统计刷新失败，以下为上一次的结果')} message={error} onRetry={() => setRetry(n => n + 1)}/>}

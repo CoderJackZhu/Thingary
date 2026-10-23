@@ -4,17 +4,21 @@ import { useModules } from '../modules-context';
 import { visibleSegments } from '../routes';
 import { Icon } from './Icon';
 import { t } from '../../i18n.ts';
-/** Large page title (32px) with optional round icon buttons or a primary button on the right. Use it first on a tab root. */
-export function LargeTitle({ title, subtitle, actions, segments }: { title: string; subtitle?: string; actions?: ReactNode; /** Show the tab's segment switch (物品 / 心愿 / 统计) compactly to the right of the title. Tab roots only. */ segments?: boolean }) {
-  return <header className="m-large-title"><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{(segments || actions) && <div className="m-large-actions">{actions}{segments && <SegmentSwitch/>}</div>}</header>;
+/**
+ * Large page title (32px) with optional round icon buttons or a primary button on the right. Use it first on a tab root.
+ * On a tab root with several segments (物品／财富／规划) the full-width segment switch sits directly under it, so the title is
+ * in the same place on every tab.
+ */
+export function LargeTitle({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+  return <><header className="m-large-title"><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{actions && <div className="m-large-actions">{actions}</div>}</header><SegmentSwitch/></>;
 }
 
-/** The tab's segment switch as a compact control for the LargeTitle row. Renders nothing off a tab root or with one segment. */
+/** The tab's segment switch, full width under the LargeTitle. Renders nothing off a tab root or with one segment. */
 export function SegmentSwitch() {
   const { state, nav } = useNavState(), { entry, isRoot } = useEntry(), { modules } = useModules();
   const items = visibleSegments(state.tab, modules);
   if (!isRoot || items.length < 2) return null;
-  return <SegmentedControl variant="compact" label={t('分段')} items={items.map(segment => ({ id: segment.route, label: segment.label }))} value={items.some(segment => segment.route === entry.route) ? entry.route : items[0].route} onChange={route => nav.setSegment(route)}/>;
+  return <div className="m-large-segments"><SegmentedControl label={t('分段')} items={items.map(segment => ({ id: segment.route, label: segment.label }))} value={items.some(segment => segment.route === entry.route) ? entry.route : items[0].route} onChange={route => nav.setSegment(route)}/></div>;
 }
 
 /** Round white 44px icon button for LargeTitle actions. `label` is its accessible name. */

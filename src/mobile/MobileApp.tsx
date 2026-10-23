@@ -4,12 +4,12 @@ import { ModulesProvider, useModules } from './modules-context';
 import { EntryProvider, NavProvider, useNavState } from './nav-context';
 import type { InitialRoute } from './nav-context';
 import { activeStack } from './nav';
-import { routeDef, routeKind, tabDef, visibleSegments, visibleTabs } from './routes';
+import { routeDef, routeKind, visibleTabs } from './routes';
 import { SessionProvider, useSession } from './session';
 import { ErrorBoundary } from './ErrorBoundary';
 import { pageFor } from './router';
 import { TabBar } from './TabBar';
-import { Loading, Notice, SegmentedControl, Sheet } from './ui';
+import { Loading, Notice, Sheet } from './ui';
 import { Button } from './ui';
 import { KeyboardBar } from './ui/KeyboardBar';
 import { privacySnapshot, subscribePrivacy } from './me/privacy-runtime';
@@ -41,7 +41,6 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
   while (base > 0 && routeKind(stack[base].route) !== 'page') base--;
   const overlays = stack.slice(base + 1), baseEntry = stack[base];
   const fullscreen = !!routeDef(baseEntry.route)?.fullscreen;
-  const segments = visibleSegments(state.tab, modules);
 
   // A tab whose module was switched off is no longer reachable: fall back to the overview.
   const tabs = visibleTabs(modules);
@@ -77,7 +76,6 @@ function Shell({ recovery }: { recovery: RefObject<HTMLElement | null> }) {
   const covered = overlays.length > 0, locked = !!session.pending;
   return <div className="m-app">
     <main id="mobile-content" className="m-main" tabIndex={-1} ref={main} inert={covered || locked} data-tab={state.tab}>
-      {baseEntry.id === stack[0].id && segments.length > 1 && !tabDef(state.tab).inlineSegments && <div className="m-segment-bar"><SegmentedControl label={t('分段')} items={segments.map(segment => ({ id: segment.route, label: segment.label }))} value={segments.some(segment => segment.route === baseEntry.route) ? baseEntry.route : segments[0].route} onChange={route => nav.setSegment(route)}/></div>}
       <Page key={baseEntry.id} stack={stack} index={base}/>
     </main>
     {overlays.map((entry, i) => {
