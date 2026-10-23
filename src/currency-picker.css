@@ -42,3 +42,10 @@
 .rates-editor li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
 .rates-editor input{width:8em;min-height:36px;text-align:right}
 .rates-editor .rate-code{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* One compact line under a foreign amount: converted value + rate on the left, paid amount on the right. */
+.rate-row{flex-wrap:nowrap;align-items:center;gap:8px}
+.rate-est{flex-direction:row;align-items:baseline;gap:8px;flex-wrap:wrap;flex:1 1 auto;min-width:0}
+.rate-est small{white-space:nowrap}
+.rate-paid{flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;text-align:right;white-space:nowrap}
+.rate-paid input{width:6.5em}
+.rate-edit input{width:6em}
