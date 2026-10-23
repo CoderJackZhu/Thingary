@@ -54,6 +54,12 @@ iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打�
 
 手机隐私运行时同步遮挡偏好并接收原生场景事件；场景失活时原生遮罩先于系统截图，前台时先恢复 DOM 锁屏再移除。图片保留原件，ImageIO 生成方向正确的缩略图。心愿保留 pick_photo 调用，在 iOS 改接 PHPicker，避免复制照片 staging 和回执逻辑。提醒复用原有日期和稳定 ID，经 UNUserNotificationCenter 按本地 09:00 排程，最多使用系统剩余的 64 条容量；超限告知待补排数量。更新查询／授权／下载在后端网络入口前禁用，前端判定位于 update-check.ts 并由 update-discovery.ts 复用。
 
+### Android 平台层
+
+Android 工程位于 `src-tauri/gen/android`，Kotlin 包由应用标识生成，`MainActivity` 继承 `TauriActivity`；平台配置 `tauri.android.conf.json` 打开 mobile.html，窗口在 `setup` 里建好后才加载页面。原生插件名为 `thingary`，Kotlin 类 `ThingaryPlugin`（当前包 `local.thingary.preview`）由 `android.rs` 的插件 `setup` 注册，包路径取 `app.config().identifier`，句柄存入托管状态；`ios_privacy_cover_set` 在 Android 经该句柄调用 `setPrivacyCover`，在主线程给窗口加上或清除 `FLAG_SECURE`，开关后截图、录屏与最近任务缩略图随之为空或恢复。`platform_capabilities` 因此报告 `background_privacy_cover` 为 true。
+
+仍未接入：系统分享面板、设备身份验证、更新检查、文件与照片选择器；这些命令在 Android 返回不支持，界面沿用既有降级。插件只改窗口标志，不写资料库、本机偏好或备份。
+
 ### 手机界面
 
 `mobile.html` → `src/mobile/main.tsx` 是独立的手机前端入口，和 `index.html` 一起由 Vite 多页面构建；iOS 宿主约定打开 `mobile.html`。手机布局只加载 `theme.css`、`mobile.css` 与 `ui/ui.css`，使用安全区和至少 44px 的触控区域，外观跟随系统明暗。业务逻辑、IPC 命令与 `src/*.ts` 数据层与桌面共用，只有界面另写；桌面入口、样式与后端保持原有行为。设计稿在 [docs/design/mobile](design/mobile/README.md)，开发约定（目录归属、路由注册、页面栈、组件、预览与截图）见 [src/mobile/README.md](../src/mobile/README.md)。
