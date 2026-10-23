@@ -1,14 +1,14 @@
 import { convertCurrency, currencyCode } from '../../currency.ts';
 import { holdingFact } from '../../holdings.ts';
 import { dayLabel } from '../format.ts';
-import { applyClosing, previewTotals, quickAvailable, snapshotEntryInput } from '../../wealth.ts';
+import { applyClosing, prefillCheckInRow, previewTotals, quickAvailable, snapshotEntryInput } from '../../wealth.ts';
 import type { Account, CheckInRow, Draft, SnapshotSave } from '../../wealth.ts';
 import { t } from '../../i18n.ts';
-/** New inventories start empty. Corrections keep every historical fact, including unchanged rows. */
+/** New inventories start with each account's earlier amount carried over (沿用); accounts without one start empty. Corrections keep every historical fact, including unchanged rows. */
 export function inventoryRows(draft: Draft): Record<string, CheckInRow> {
-  return Object.fromEntries(draft.rows.map(({ account }) => {
+  return Object.fromEntries(draft.rows.map(({ account, previous }) => {
     const e = draft.existing?.entries.find(e => e.account_id === account.id);
-    return [account.id, e ? { ...e, cents: e.amount_cents ?? '' } : { state: null, cents: '' }];
+    return [account.id, e ? { ...e, cents: e.amount_cents ?? '' } : (!draft.existing && prefillCheckInRow(account, previous)) || { state: null, cents: '' }];
   }));
 }
 export function enteredRow(account: Account, amount: string, quantity: string, price: string, rate: string): CheckInRow {

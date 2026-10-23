@@ -52,6 +52,17 @@ export function previousCheckInRow(account: Pick<Account, 'fields'>, previous: C
   } catch { return null; }
 }
 
+/**
+ * A new check-in starts with every account that has a complete earlier amount marked 沿用 (unchanged), so only accounts that moved need typing.
+ * Unlike 「与上次相同」 this keeps the earlier source date and is not a fresh entry; the history shows it as carried over.
+ */
+export function prefillCheckInRow(account: Pick<Account, 'fields'>, previous: CurrencyFact | null): CheckInRow | null {
+  if (account.fields.holding_mode) return null; // a holding's value moves with its unit price: the quantity and price are confirmed explicitly
+  const row = previousCheckInRow(account, previous);
+  return row ? { ...row, state: 'unchanged', edited: false } : null;
+}
+export const prefilledCount = (rows: Record<string, CheckInRow>): number => Object.values(rows).filter(r => r.state === 'unchanged' && !r.edited).length;
+
 /** Loaded unchanged rows keep history; explicitly reconfirmed rows carry the displayed amount. */
 export function snapshotEntryInput(accountId: string, row: CheckInRow): SnapshotSave['entries'][number] {
   if (!row.state) throw new Error(t('请先处理这个账户。'));

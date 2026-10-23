@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import './settings.css';
 import { t } from './i18n.ts';
 const categories = [
-  ['appearance', t('外观'), 'sun'], ['privacy', t('屏幕隐私'), 'circle'], ['materials', t('素材库'), 'image'], ['options', t('选项管理'), 'list'], ['modules', t('功能模块'), 'grid'],
+  ['general', t('通用'), 'list'], ['appearance', t('外观'), 'sun'], ['privacy', t('屏幕隐私'), 'circle'], ['materials', t('素材库'), 'image'], ['options', t('选项管理'), 'list'], ['modules', t('功能模块'), 'grid'],
   ['data', t('数据管理'), 'archive'], ['demo', t('样例'), 'items'], ['support', t('关于与帮助'), 'circle'],
 ] as const;
 export type SettingsCategory = typeof categories[number][0];

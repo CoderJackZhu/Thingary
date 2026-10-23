@@ -31,7 +31,7 @@ import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { Icon } from './AssetViews';
-import { quickAvailable, selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, comparisonText, enterJumpsAmount, checkInUnfilledTargets, nextUnfilledLabel, applyClosing, canCloseInCheckIn, rateText, noteSummary, snapshotEntryInput, previousCheckInRow, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
+import { prefillCheckInRow, prefilledCount, quickAvailable, selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, comparisonText, enterJumpsAmount, checkInUnfilledTargets, nextUnfilledLabel, applyClosing, canCloseInCheckIn, rateText, noteSummary, snapshotEntryInput, previousCheckInRow, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
 import type { Account, AccountFields, AccountSave, CheckInRow, Draft, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
 import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
@@ -495,7 +495,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
         fromSaved.current = !!d.existing;
         return Object.fromEntries(d.rows.map(r => {
           const saved = d.existing?.entries.find(e => e.account_id === r.account.id);
-          return [r.account.id, saved ? { state: saved.state, cents: saved.amount_cents ?? '', original_minor: saved.original_minor, fx_rate_micro: saved.fx_rate_micro, quantity_e8:saved.quantity_e8,unit_price_e6:saved.unit_price_e6 } : carry[r.account.id] ?? { state: null, cents: '' }];
+          return [r.account.id, saved ? { state: saved.state, cents: saved.amount_cents ?? '', original_minor: saved.original_minor, fx_rate_micro: saved.fx_rate_micro, quantity_e8:saved.quantity_e8,unit_price_e6:saved.unit_price_e6 } : carry[r.account.id] ?? ((!d.existing && prefillCheckInRow(r.account, r.previous)) || { state: null, cents: '' })];
         }));
       });
     }).catch(e => { if (live) setError(errorMessage(e)); });
@@ -559,6 +559,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
     {existing && draft && <div className="notice">{tt('这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。')}<DeleteButton label={tt('删除这次盘点')} disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={tt('{date} 盘点', { date })} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
     {error ? <div role="alert"><p>{tt('盘点读取失败：{error}', { error })}</p></div> : !draft ? <p role="status" className="muted">{tt('正在准备盘点…')}</p> : !all.length ? <div className="empty"><p>{tt('这一天没有需要填写余额的账户。可以添加账户，或检查已有账户的启用、停用日期。')}</p><button type="button" className="ui-btn" onClick={() => onClose(false)}>{tt('返回财富')}</button></div> : <>
       {open.some(r=>currencyCode(r.account.fields.currency)!=='CNY') && <section className="form-block"><h3>{tt('本次汇率')}</h3><p className="muted small">{tt('每单位原币兑换的人民币，只用于本次修改金额的账户；未改动的历史金额保留各自汇率。不联网取汇率。')}</p>{[...new Set(open.map(r=>currencyCode(r.account.fields.currency)).filter(c=>c!=='CNY'))].map(code=>{const suggestion=rateSuggestions(draft)[code];return <FormRow key={code} label={tt('{code} 汇率', { code })} hint={rateHint(code, suggestion, draft.date)}><span data-check-in-field={`rate:${code}`}><CurrencyInput label={tt('{code} 汇率', { code })} places={6} value={rates[code]??''} disabled={frozen} onChange={v=>changeRate(code,v)}/></span></FormRow>;})}</section>}
+      {!existing && prefilledCount(rows) > 0 && <p className="notice" role="status">{tt('{n} 个账户已按上次金额预填（沿用），没变的不用动；金额变了直接改。预填的账户在历史里会标为沿用。', { n: prefilledCount(rows) })} <button type="button" className="ui-link" disabled={frozen} onClick={() => setRows(old => Object.fromEntries(Object.entries(old).map(([id, r]) => [id, r.state === 'unchanged' && !r.edited ? { state: null, cents: '' } : r])))}>{tt('清除预填')}</button></p>}
       <table ref={table} className="ui-table check-in-table"><thead><tr><th>{tt('账户')}</th><th>{tt('上次金额')}</th><th>{tt('本次金额')}</th><th>{tt('差额')}</th></tr></thead><tbody>{all.map(({ account: a, previous }) => {
         const row = rows[a.id] ?? { state: null, cents: '' };
         if (closing.has(a.id)) return <tr key={a.id} data-state="closing" className="check-in-closing"><td><s><strong>{a.fields.name}</strong></s><small className="muted">{kindLabel(a.fields.kind)}</small></td><td>{previous ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??tt('份')):null} code={a.fields.currency} fact={previous} date={previous.date}/> : <span className="muted">{tt('无')}</span>}</td><td colSpan={2}>{tt('已注销，从 {date} 起停用；余额视为已转出，不用填。', { date })} <button type="button" className="ui-link" disabled={frozen} onClick={() => toggleClose(a.id, false)}>{tt('撤销')}</button></td></tr>;

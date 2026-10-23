@@ -11,9 +11,9 @@ import type { TimelineEvent } from '../../Timeline.tsx';
 import { t, numberLocale } from '../../i18n.ts';
 import { t as tr } from '../../i18n.ts';
 /** Settings sub-pages open as `me.settings` with `{ page }`; the title is also the back label of the next page. */
-export type SettingsPage = 'modules' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license';
+export type SettingsPage = 'modules' | 'general' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license';
 export const settingsTitles: Record<SettingsPage, string> = {
-  modules: tr('功能模块'), appearance: tr('外观'), options: tr('选项管理'), materials: tr('素材库'), checkin: tr('盘点提醒'), notifications: tr('通知'), privacy: tr('隐私'),
+  modules: tr('功能模块'), general: tr('通用'), appearance: tr('外观'), options: tr('选项管理'), materials: tr('素材库'), checkin: tr('盘点提醒'), notifications: tr('通知'), privacy: tr('隐私'),
   trash: tr('最近删除'), export: tr('导出表格'), demo: tr('样例体验'), about: tr('关于与帮助'), feedback: tr('反馈问题'), license: tr('开源许可'),
 };
 export const isSettingsPage = (value: unknown): value is SettingsPage => typeof value === 'string' && Object.hasOwn(settingsTitles, value);

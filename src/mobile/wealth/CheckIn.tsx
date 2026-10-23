@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { dayLabel, moneyText } from '../format';
 import { currencyCode, currencyDecimals, rateHint, rateSuggestions } from '../../currency';
 import { accountGroupTotals } from '../../wealth-display';
-import { canCloseInCheckIn, changeText, checkInUnfilledTargets, nextUnfilledLabel } from '../../wealth';
+import { canCloseInCheckIn, changeText, checkInUnfilledTargets, nextUnfilledLabel, prefilledCount } from '../../wealth';
 import type { CheckInRow, Draft } from '../../wealth';
 import type { AccountGroup } from '../../account-groups';
 import { useSession } from '../session';
@@ -63,6 +63,7 @@ export function Inventory({draft,groups,header,onDirty}:{draft:Draft;groups:Acco
     catch(e){writer.setError(e instanceof Error?e.message:String(e));const key=nextUnfilled();setFlag(key?.split(':')[1]??null);}
   }
   return <><NavBar/>{header}
+    {!draft.existing && prefilledCount(rows)>0 && <Notice>{tr('{n} 个账户已按上次金额预填（沿用），没变的不用动；金额变了直接改。预填的账户在历史里会标为沿用。', { n: prefilledCount(rows) })} <button type="button" className="mw-link" onClick={()=>setRows(old=>({...old,...Object.fromEntries(Object.entries(rows).filter(([,r])=>r.state==='unchanged'&&!r.edited).map(([id])=>[id,{state:null,cents:''} as CheckInRow]))}))}>{tr('清除预填')}</button></Notice>}
   <div ref={root} className="mw-inventory" onFocusCapture={e=>{focused.current=(e.target as HTMLElement).closest<HTMLElement>('[data-check-in-field]')?.dataset.checkInField??null;}}>
     {draft.existing && <Notice>{tr('正在更正 {date} 的盘点。已记录金额与历史计入范围会保留，保存后替换同一次盘点。', { date: draft.date })}</Notice>}
     <fieldset disabled={writer.frozen} style={{border:0,padding:0,margin:0,minWidth:0}}>

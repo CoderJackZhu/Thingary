@@ -97,6 +97,8 @@ import './theme.css';
 import './controls.css';
 import { SettingsView, type SettingsCategory } from './SettingsView';
 import { AppearanceSettings } from './AppearanceSettings';
+import { GeneralSettings } from './GeneralSettings';
+import { takeLangReturn } from './i18n.ts';
 import { readDefaultCurrency, readRate } from './currency-picker.ts';
 import { applyAppearance, readMode, readStyle, toggledMode, watchSystemMode, type Mode, type Style } from './appearance';
 import { t as tr } from './i18n.ts';
@@ -116,6 +118,8 @@ function TaxonomyCloseNotice({ onKeep, title = tr('分类资料尚未处理完')
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   return <dialog ref={dialog} className="editor" aria-labelledby="taxonomy-close-heading" onCancel={e => { e.preventDefault(); onKeep(); }}><h2 id="taxonomy-close-heading">{title}</h2><p>{message}</p><button autoFocus onClick={onKeep}>{actionLabel}</button></dialog>;
 }
+/** Set when the language was just switched from 设置 › 通用: return to that page after the reload. */
+const langBack = takeLangReturn();
 type WindowsExitStatus = { pending: boolean; message: string };
 function WindowsExitNotice({ status, onChoice }: { status: WindowsExitStatus; onChoice: (exit: boolean) => Promise<void> }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -134,7 +138,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
   const [receiptRecoveryVersion, setReceiptRecoveryVersion] = useState(0);
   const [demoStatus, setDemoStatus] = useState<DemoStatus>(initialDemo);
   const [featureEditing, setFeatureEditing] = useState(false), [dataBusy, setDataBusy] = useState(false), [modeBusy, setModeBusy] = useState(false);
-  const [section, setSection] = useState<Section>(() => localStorage.getItem(resetKey) ? 'settings' : initialSection(sessionStorage));
+  const [section, setSection] = useState<Section>(() => localStorage.getItem(resetKey) || langBack === 'settings:general' ? 'settings' : initialSection(sessionStorage));
   const [wishFocus, setWishFocus] = useState<Pick<WishlistQuery, 'search' | 'filter'> | null>(null);
   const [wealthReviewFocus, setWealthReviewFocus] = useState<import('./WealthPage').WealthReviewFocus | null>(null);
   const [planningTab, setPlanningTab] = useState<PlanningTab>('goals');
@@ -204,7 +208,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
   const [reviewBrowse, setReviewBrowse] = useState<{ sort?: 'impact' | 'kind'; expandedIds?: string[]; accountView?: 'active' | 'closed' | 'all' }>({});
   const [financeImportRequested, setFinanceImportRequested] = useState(false);
   const capabilities = financeCapabilities(modules);
-  const [settingsGroup, setSettingsGroup] = useState<SettingsCategory>('appearance');
+  const [settingsGroup, setSettingsGroup] = useState<SettingsCategory>(langBack === 'settings:general' ? 'general' : 'appearance');
   const [supportUpdateRequested, setSupportUpdateRequested] = useState(false);
   useEffect(() => {
     if (section !== 'settings' || settingsGroup !== 'support' || !supportUpdateRequested) return;
@@ -1167,6 +1171,7 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
       {recordTrashRecovery && !recordTrashAction && <div className="notice">{tr('有一次维护或保障删除/恢复的结果待确认。')}<button disabled={wishlistEditing} onClick={() => void openRecordTrash(recordTrashRecovery.input.kind, recordTrashRecovery.input.record_id, recordTrashRecovery.input.asset_id, recordTrashRecovery.meta.title, recordTrashRecovery.meta.assetName, recordTrashRecovery.input.generation, recordTrashRecovery.input.expected_revision, recordTrashRecovery.input.deleted, recordTrashRecovery)}>{tr('核对上次操作')}</button></div>}
       {section === 'settings' && <SettingsView group={settingsGroup} onGroup={setSettingsGroup} optionsPending={taxonomyGuard} demoPending={!!localStorage.getItem(resetKey)} busy={taxonomyGuard || dataBusy || modeBusy || featureEditing} supportBadge={<UpdateUnreadDot/>} panels={{
         privacy: <PrivacySettings/>,
+        general: <GeneralSettings/>,
         appearance: <AppearanceSettings style={style} onStyle={setStyle}/>,
         materials: settingsGroup === 'materials' ? <MaterialLibrary onBusyChange={setDataBusy} generation={page?.generation || ''} onNotice={setNotice} search={searches.materials} onSearch={v => setSearches(s => (s.materials === v ? s : { ...s, materials: v }))}/> : null,
         options: <TaxonomyManager generation={taxonomy.snapshot?.generation} snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/>,

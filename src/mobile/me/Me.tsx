@@ -72,6 +72,7 @@ export default function Me(_props: PageProps) {
     </ListGroup>
     <ListGroup title={t('设置')}>
       <ListRow icon={<MeIcon name="grid"/>} tone="accent" title={t('功能模块')} value={t('已开启 {v1} 项', { v1: enabledModuleCount(modules) })} onClick={() => go('modules')}/>
+      <ListRow icon={<MeIcon name="tag"/>} tone="accent" title={t('通用')} value={t('语言、默认币种')} onClick={() => go('general')}/>
       <ListRow icon={<MeIcon name="contrast"/>} tone="accent" title={t('外观')} value={appearanceSummary(readStyle(), readMode())} onClick={() => go('appearance')}/>
       <ListRow icon={<MeIcon name="tag"/>} tone="warn" title={t('选项管理')} value={t('分类、标签、渠道')} onClick={() => go('options')}/>
       <ListRow icon={<MeIcon name="image"/>} tone="positive" title={t('素材库')} onClick={() => go('materials')}/>

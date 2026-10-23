@@ -19,11 +19,16 @@ export function resolveLang(preference: LangPreference, systemLanguage = globalT
 let current: Lang = resolveLang(readLangPreference());
 export const currentLang = (): Lang => current;
 /** 保存并重新载入，让所有已渲染的文字换成新语言。 */
-export function setLangPreference(value: LangPreference): boolean {
-  try { globalThis.localStorage.setItem(langKey, value); } catch { return false; }
+export function setLangPreference(value: LangPreference, returnTo?: string): boolean {
+  try { globalThis.localStorage.setItem(langKey, value); if (returnTo) globalThis.sessionStorage?.setItem(returnKey, returnTo); } catch { return false; }
   current = resolveLang(value);
   globalThis.location?.reload();
   return true;
+}
+const returnKey = 'thingary.lang-return';
+/** 切换语言重新载入后，回到切换时所在的位置（如 'settings:general'）；读取后即清除。 */
+export function takeLangReturn(): string | null {
+  try { const v = globalThis.sessionStorage?.getItem(returnKey) ?? null; globalThis.sessionStorage?.removeItem(returnKey); return v; } catch { return null; }
 }
 /** 日期、数字格式用的 locale。 */
 export const numberLocale = (): string => current === 'en' ? 'en-US' : 'zh-CN';
