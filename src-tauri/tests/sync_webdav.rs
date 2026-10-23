@@ -17,7 +17,7 @@ struct DavState {
 
 struct FakeDav {
     base_url: String,
-    state: Arc<Mutex<DavState>>,
+    _state: Arc<Mutex<DavState>>,
     stop: Arc<std::sync::atomic::AtomicBool>,
     thread: Option<thread::JoinHandle<()>>,
 }
@@ -44,7 +44,7 @@ impl FakeDav {
         });
         Self {
             base_url: format!("http://{address}"),
-            state,
+            _state: state,
             stop,
             thread: Some(handle),
         }
