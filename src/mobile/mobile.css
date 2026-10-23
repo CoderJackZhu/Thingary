@@ -43,7 +43,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* Shell */
 .m-app{max-width:640px;margin:0 auto;min-height:100dvh;overflow-wrap:anywhere}
 .m-main{display:block;min-height:100dvh;padding:env(safe-area-inset-top,0px) max(var(--m-gutter),env(safe-area-inset-right,0px)) calc(var(--m-tabbar-h) + 20px) max(var(--m-gutter),env(safe-area-inset-left,0px))}
-.m-segment-bar{padding-top:12px}
 .m-page{display:flex;flex-direction:column;gap:var(--m-gap);min-height:calc(100dvh - var(--m-tabbar-h) - 20px - env(safe-area-inset-top,0px));padding-bottom:8px}
 .m-modal{position:fixed;inset:var(--m-viewport-top,0px) 0 auto;height:var(--m-viewport-height,100dvh);z-index:20;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);padding:0 max(var(--m-gutter),env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(var(--m-gutter),env(safe-area-inset-left,0px));animation:m-rise .28s ease-out}
 .m-modal .m-navbar{padding-top:env(safe-area-inset-top,0px);min-height:calc(52px + env(safe-area-inset-top,0px))}
