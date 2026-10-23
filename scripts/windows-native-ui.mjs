@@ -172,6 +172,12 @@ try {
   await cdp("Page.enable");
   await cdp("Runtime.enable");
   report.runtime = await cdp("Browser.getVersion");
+  // The installed app follows the OS language. These interaction checks use Chinese
+  // labels, so select that existing local preference only in the isolated identity.
+  await until(() => js("document.readyState==='complete' && !!window.__TAURI_INTERNALS__ && !!document.querySelector('.shell main')"), "native startup before language selection");
+  await observe("startup before acceptance language selection");
+  await js("localStorage.setItem('thingary.lang','zh-CN')");
+  await cdp("Page.reload");
   await wait("document.body.innerText.includes('物品')&&!document.body.innerText.includes('正在读取总览…')", "native startup");
   assert.ok(await js("!!window.__TAURI_INTERNALS__"));
   report.nativeWindow = native("inspect");

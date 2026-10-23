@@ -3,15 +3,16 @@
 import ts from 'typescript';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 export function collectKeys() {
   const keys = new Set();
   const walk = p => {
     for (const f of fs.readdirSync(p, { withFileTypes: true })) {
       const full = path.join(p, f.name);
       if (f.isDirectory()) walk(full);
-      else if (/\.(ts|tsx)$/.test(f.name) && !/\.test\.|\.d\.ts$/.test(f.name) && !/src\/(i18n\.ts|locales)/.test(full)) {
+      else if (/\.(ts|tsx)$/.test(f.name) && !/\.test\.|\.d\.ts$/.test(f.name) && !/src[\\/](i18n\.ts|locales)/.test(full)) {
         const sf = ts.createSourceFile(full, fs.readFileSync(full).toString(), ts.ScriptTarget.ES2022, true, f.name.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
         (function v(n) {
           if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['t', 'tr', 'tt'].includes(n.expression.text) && n.arguments[0] && ts.isStringLiteralLike(n.arguments[0])) keys.add(n.arguments[0].text);
@@ -37,7 +38,7 @@ export function collectKeys() {
   rust(path.join(root, 'src-tauri/src'));
   return [...keys].sort();
 }
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const keys = collectKeys();
   if (process.argv.includes('--check')) {
     const { en } = await import('../src/locales/en.ts');
