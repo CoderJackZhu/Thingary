@@ -177,14 +177,15 @@ try {
   report.nativeWindow = native("inspect");
   if (mode === "smoke") {
     const first = await observe("first launch");
-    if (first.text.includes("样例体验")) {
+    const sample = text => text.includes("样例体验") || text.includes("先看看样例");
+    if (sample(first.text)) {
       await shot("first-launch-sample");
       await button(first.text.includes("开始记录我的资料") ? "开始记录我的资料" : "返回我的资料");
       await wait("document.querySelector('.demo-banner strong')?.textContent==='我的资料' && !document.body.innerText.includes('样例体验')", "rendered personal library after leaving fictitious sample");
     }
     await assets();
     await wait("document.body.innerText.includes('从第一件物品开始') && document.querySelectorAll('.asset-row').length===0 && !document.body.innerText.includes('样例体验')", "fresh blank personal library");
-    if (first.text.includes("样例体验"))
+    if (sample(first.text))
       report.verified.push("first-launch fictional sample and switch to confirmed blank personal acceptance library");
     await shot("blank");
     await blur();
