@@ -3,6 +3,7 @@ import { errorMessage } from './asset';
 import { CloseButton } from './CloseButton';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow } from './FormControls';
+import { CurrencyUnit, useForeignAmount } from './ForeignAmount';
 import type { Income, IncomeFields, IncomeSave } from './plan';
 import type { Account } from './wealth';
 import { submit, Unresolved } from './wealth';
@@ -20,6 +21,7 @@ export function IncomeDialog({ income, generation, today, hpfDefault, hpfDefault
   useEffect(() => { alive.current = true; dialog.current?.showModal(); document.getElementById('income-date')?.focus(); return () => { alive.current = false; dialog.current?.close(); }; }, []);
   const set = <K extends keyof IncomeFields>(k: K, v: IncomeFields[K]) => setF(x => ({ ...x, [k]: v }));
   const frozen = busy || stuck;
+  const fa = useForeignAmount('income', income?.id ?? null, v => set('net_cents', v));
   const investment = isInvestmentIncome(f);
   const [depositConfirmed, setDepositConfirmed] = useState(false);
   const [depositEdited, setDepositEdited] = useState(false);
@@ -38,7 +40,7 @@ export function IncomeDialog({ income, generation, today, hpfDefault, hpfDefault
     if (f.net_cents === '') return stop(t('税后到账'), t('请填写税后到账金额；没有到账就填 0。'));
     const input: IncomeSave = { request_id: crypto.randomUUID(), generation, id: income?.id ?? null, expected_revision: income?.revision ?? null, fields: f };
     saving.current = true; setBusy(true); setNotice('');
-    try { const saved = await submit<Income>({ command: 'plan_income_save', input, label: t('收入 {date}', { date: f.date }) }); if (alive.current) { onSavedIncome?.(saved); onClose(true); } }
+    try { const saved = await submit<Income>({ command: 'plan_income_save', input, label: t('收入 {date}', { date: f.date }) }); if (saved?.id) await fa.persist(generation, saved.id); if (alive.current) { onSavedIncome?.(saved); onClose(true); } }
     catch (e) { if (alive.current) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); } }
     finally { saving.current = false; if (alive.current) setBusy(false); }
   }
@@ -56,7 +58,8 @@ export function IncomeDialog({ income, generation, today, hpfDefault, hpfDefault
         if (!income && !depositEdited && isInvestmentIncome(next)) next.hpf_cents = null;
         setF(next); setDepositConfirmed(false);
       }}>{Object.entries(incomeCategories).map(([key, label]) => <option key={key} value={key} disabled={!accountsEnabled && !!f.destination && !isInvestmentIncome({ category: key as NonNullable<IncomeFields['category']> })}>{label}</option>)}</select></FormRow>
-      <FormRow label={t('税后到账')} hint={t('实际收到的净额；转入本金不属于收入，账户涨跌也不记在这里')}><CentInput label={t('税后到账')} value={f.net_cents} disabled={frozen} placeholder="0.00" onChange={v => set('net_cents', v)}/></FormRow>
+      <FormRow label={t('税后到账')} hint={t('实际收到的净额；转入本金不属于收入，账户涨跌也不记在这里')}>{fa.foreign ? <span className="muted">{t('按下方币种填写')}</span> : <CentInput label={t('税后到账')} value={f.net_cents} disabled={frozen} placeholder="0.00" onChange={v => set('net_cents', v)}/>}</FormRow>
+      <FormRow label={t('币种')}><CurrencyUnit fa={fa} label={t('收入币种')} disabled={frozen}/></FormRow>
       {(!investment || f.hpf_cents !== null) && <FormRow label={t('公积金缴存')} hint={!income && hpfDefault ? t('已带入最新一条的已知金额，可改；留空表示未知，填 0 表示明确没有') : t('个人与单位合计；留空表示未知，填 0 表示明确没有')}><CentInput label={t('公积金缴存')} value={f.hpf_cents ?? ''} disabled={frozen} placeholder="0.00" onChange={v => { set('hpf_cents', v === '' ? null : v); setDepositEdited(true); setDepositConfirmed(false); }}/></FormRow>}
       {changedToInvestment && <label><input type="checkbox" checked={depositConfirmed} disabled={frozen} onChange={e => setDepositConfirmed(e.target.checked)}/>{t('确认保留已有公积金缴存事实，不因分类变化删除')}</label>}
       <details><summary>{t('关联账户（选填）')}</summary>{!accountsEnabled && <p className="muted small">{t('账户模块已关闭；保留已有引用，暂不可编辑账户关联。')}</p>}

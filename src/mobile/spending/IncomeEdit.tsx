@@ -9,6 +9,7 @@ import { useSession } from '../session';
 import { Button, DateField, DeleteSheet, FormGroup, FormRow, MoneyField, SelectField, Switch, TextAreaField } from '../ui';
 import { blankIncome, changeIncomeCategory, incomeSave, validateIncome } from './forms';
 import { dayLabel } from '../format';
+import { CurrencyUnit, useForeignAmount } from '../../ForeignAmount';
 import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
 import { t } from '../../i18n.ts';
@@ -30,11 +31,12 @@ function Form({ generation, income, hpfDefault }: { generation: string; income: 
   useDirtyGuard(useFormChanged(f));
   const [confirmed, setConfirmed] = useState(false), [edited, setEdited] = useState(false);
   const set = (patch: Partial<IncomeFields>) => { setProblem(''); setF(x => ({ ...x, ...patch })); };
+  const fa = useForeignAmount('income', income?.id ?? null, v => set({ net_cents: v }));
   const investment = isInvestmentIncome(f), changed = investment && !isInvestmentIncome(income?.fields ?? {}) && f.hpf_cents !== null;
   function save() {
     const check = validateIncome(f, { original: income?.fields ?? null, depositConfirmed: confirmed });
     if (!check.ok) { setProblem(check.message); return; }
-    void saver.run(requestId => submit({ command: 'plan_income_save', input: incomeSave(f, income, generation, requestId), label: t('收入 {date}', { date: f.date }) }), { close: true });
+    void saver.run(async requestId => { const saved = await submit<{ id: string }>({ command: 'plan_income_save', input: incomeSave(f, income, generation, requestId), label: t('收入 {date}', { date: f.date }) }); if (saved?.id) await fa.persist(generation, saved.id); return saved; }, { close: true });
   }
   const remove = () => income && void saver.run(requestId => trash('income', income.id, income.revision, generation, t('收入 {date}', { date: f.date }), requestId), { close: true });
   return <EditorFrame title={income ? t('编辑收入') : t('记一笔收入')} onSave={save} busy={saver.busy} error={problem || (asking ? '' : saver.error)}>
@@ -43,7 +45,8 @@ function Form({ generation, income, hpfDefault }: { generation: string; income: 
       <DateField label={t('到账日期')} value={f.date} max={today} onChange={v => set({ date: v })} disabled={saver.busy}/>
       <SelectField label={t('来源分类')} value={f.category ?? 'unclassified'} onChange={v => { setProblem(''); setConfirmed(false); setF(x => changeIncomeCategory(x, v as NonNullable<IncomeFields['category']>, !income, edited)); }}
         options={Object.entries(incomeCategories).map(([id, label]) => ({ id, label }))} disabled={saver.busy}/>
-      <MoneyField label={t('税后到账')} value={f.net_cents} onChange={v => set({ net_cents: v })} hint={t('实际收到的净额；没有到账就填 0')} disabled={saver.busy}/>
+      {!fa.foreign && <MoneyField label={t('税后到账')} value={f.net_cents} onChange={v => set({ net_cents: v })} hint={t('实际收到的净额；没有到账就填 0')} disabled={saver.busy}/>}
+      <FormRow label={t('币种')}><CurrencyUnit fa={fa} label={t('收入币种')} disabled={saver.busy}/></FormRow>
       {(!investment || f.hpf_cents !== null) && <MoneyField label={t('公积金缴存')} value={f.hpf_cents ?? ''} onChange={v => { setEdited(true); set({ hpf_cents: v === '' ? null : v }); }} hint={!income && hpfDefault ? t('已带入最新一条的已知金额，可改；留空表示未知') : t('个人与单位合计；留空表示未知')} disabled={saver.busy}/>}
       {changed && <FormRow label={t('保留已有公积金缴存事实')}><Switch label={t('确认保留已有公积金缴存事实')} checked={confirmed} onChange={setConfirmed} disabled={saver.busy}/></FormRow>}
     </FormGroup>

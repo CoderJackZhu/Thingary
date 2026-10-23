@@ -326,6 +326,8 @@ schema 41 重建 `fin_accounts` 和 `fin_snapshot_entries` 的 CHECK，新增 pr
 
 schema 45（`asset_price_origin.sql`）新增 `asset_price_origin`（主键 `asset_id` 引用 `assets`，`currency` 不为 CNY，`original_minor`、`fx_rate_micro` 为整数）。`set_price_origin` 在物品保存之后单独写入，并要求原币金额按汇率折算后恰等于 `assets.price_cents`；读取时折算不符的记录视为过期而不返回。清除物品（`purge`）一并删除该行。
 
+schema 46（`amount_origin.sql`）新增 `amount_origin`（主键 `kind`+`record_id`，kind 为 expense、income、wish），保存支出金额、收入税后到账或心愿预计价格的原币记录；`set_amount_origin` 与 `get_amount_origin` 按 kind 对应的人民币列校验，折算不符即视为过期。界面目前接入支出和收入，心愿预计价格只有后端。
+
 schema 43（`schema43.sql` 与 `storage::migrate_schema43`）再次重建两表：新增 receivable、vehicle 类型（车辆不强制 counted=false）；`fin_accounts` 增加 `currency`（三位大写，默认 CNY）、`purchase_cents`／`purchased_on`（仅房产与车辆）、`group_id`（引用新表 `fin_account_groups`，名称唯一，硬删除）、`holding_mode`／`holding_unit`（仅投资类）；`fin_snapshot_entries` 增加 `original_minor`／`fx_rate_micro`（外币原币金额与汇率 ×1e6，成对出现）和 `quantity_e8`／`unit_price_e6`（份额 ×1e8、单价 ×1e6，成对出现），`missing` 条目不得携带。`amount_cents` 始终是人民币整数分，所有汇总与规划只读它；新增列是录入层，旧资料迁移后取默认值，行为不变。旧表定义由空库重放迁移链到 42 得到后逐字核对，不手抄；其余步骤与 schema 41 相同，注入点为 `migration.schema43.after_copy`、`migration.schema43.after_swap` 与 `migration.before_commit`。
 
 `wealth_quick_update` 把单账户更新或转账翻译成一次盘点，再交给 `write_snapshot_tx` 写入，所以与完整盘点共用全部校验。日期不得早于最近一次未删除盘点；当天已有盘点时作为更正，只改目标账户，其他条目按原状态重新提交（`unchanged` 不带金额，沿用原记录金额）；当天没有盘点时，其他应盘账户有更早金额的记 `unchanged`，没有的记 `missing`。`expected_previous` 与当天显示的金额不符时报 `QUICK_STALE`；两条变化必须都带原金额，且按资产加、负债减计算的净资产影响为零，否则报 `QUICK_TRANSFER`。备注以“账户名：备注”追加。命令有独立请求指纹、回执和 `wealth_quick_update.before_commit` 注入点。

@@ -10,6 +10,7 @@ import { Button, DateField, DeleteSheet, FormGroup, FormRow, MoneyField, SelectF
 import { blankExpense, expenseSave, toggleRefund, validateExpense } from './forms';
 import { EditorFrame, Loaded } from './parts';
 import { trash, useRead, useSaver } from './read';
+import { CurrencyUnit, useForeignAmount } from '../../ForeignAmount';
 import { t } from '../../i18n.ts';
 /** spending.expenseEdit: record, edit or delete a standalone important expense, with an optional refund. */
 export default function ExpenseEdit({ params }: PageProps) {
@@ -28,11 +29,12 @@ function Form({ generation, expense }: { generation: string; expense: Expense | 
   useDirtyGuard(useFormChanged(f));
   const set = <K extends keyof ExpenseFields>(key: K, value: ExpenseFields[K]) => { setProblem(''); setF(x => ({ ...x, [key]: value })); };
   const refund = f.refund_date !== null;
+  const fa = useForeignAmount('expense', expense?.id ?? null, v => set('amount_cents', v));
   useEffect(() => { if (!asking) saver.setError(''); }, [asking]);
   function save() {
     const check = validateExpense(f);
     if (!check.ok) { setProblem(check.message); return; }
-    void saver.run(requestId => submit({ command: 'expense_save', input: expenseSave(f, expense, generation, requestId), label: t('支出 {v1}', { v1: f.title.trim() }) }), { close: true });
+    void saver.run(async requestId => { const saved = await submit<{ id: string }>({ command: 'expense_save', input: expenseSave(f, expense, generation, requestId), label: t('支出 {v1}', { v1: f.title.trim() }) }); if (saved?.id) await fa.persist(generation, saved.id); return saved; }, { close: true });
   }
   function remove() {
     if (!expense) return;
@@ -42,7 +44,8 @@ function Form({ generation, expense }: { generation: string; expense: Expense | 
     <p className="sp-note sp-note-pad">{t('记录没有对应物品的大额花费。买了物品请直接新增物品，购入会自动计入。')}</p>
     <FormGroup>
       <TextField label={t('名称')} value={f.title} onChange={v => set('title', v)} placeholder={t('例如：东京旅行')} maxLength={80} disabled={saver.busy}/>
-      <MoneyField label={t('金额')} value={f.amount_cents} onChange={v => set('amount_cents', v)} disabled={saver.busy}/>
+      {!fa.foreign && <MoneyField label={t('金额')} value={f.amount_cents} onChange={v => set('amount_cents', v)} disabled={saver.busy}/>}
+      <FormRow label={t('币种')}><CurrencyUnit fa={fa} label={t('支出币种')} disabled={saver.busy}/></FormRow>
       <DateField label={t('日期')} value={f.date} onChange={v => set('date', v)} disabled={saver.busy}/>
       <SelectField label={t('分类')} value={f.category} onChange={v => set('category', v)} options={expenseCategories.map(([id, label]) => ({ id, label }))} disabled={saver.busy}/>
     </FormGroup>

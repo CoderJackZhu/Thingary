@@ -12,6 +12,7 @@ import { errorMessage, money } from './asset';
 import type { Page } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Switch } from './FormControls';
+import { CurrencyUnit, useForeignAmount } from './ForeignAmount';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { categoryText, countsAsSpending, expenseCategories, expenseSourceTarget, sourceLabel, spendDisplay } from './expenses';
@@ -303,6 +304,7 @@ function ExpenseDialog({ expense, generation, today, onClose }: { expense: Expen
   }, [search]);
   const set = <K extends keyof ExpenseFields>(k: K, v: ExpenseFields[K]) => setF(x => ({ ...x, [k]: v }));
   const frozen = busy || stuck;
+  const fa = useForeignAmount('expense', expense?.id ?? null, v => set('amount_cents', v));
   async function save() {
     // Point at the field itself: the message sits below a long form.
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
@@ -311,7 +313,7 @@ function ExpenseDialog({ expense, generation, today, onClose }: { expense: Expen
     if (f.refund_date !== null && !f.refund_cents) return stop('退款金额', '请填写退款金额，或关闭退款。');
     const input: ExpenseSave = { request_id: crypto.randomUUID(), generation, id: expense?.id ?? null, expected_revision: expense?.revision ?? null, fields: { ...f, title: f.title.trim() } };
     setBusy(true); setNotice('');
-    try { await submit({ command: 'expense_save', input, label: tt('支出 {title}', { title: input.fields.title }) }); onClose(true); }
+    try { const saved = await submit<{ id: string }>({ command: 'expense_save', input, label: tt('支出 {title}', { title: input.fields.title }) }); if (saved?.id) await fa.persist(generation, saved.id); onClose(true); }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
@@ -320,7 +322,8 @@ function ExpenseDialog({ expense, generation, today, onClose }: { expense: Expen
     <section className="form-block">
       <FormRow label={tt('名称')}><input id="expense-title" aria-label={tt('支出名称')} maxLength={80} value={f.title} disabled={frozen} onChange={e => set('title', e.target.value)} placeholder={tt('例如 日本旅行')}/></FormRow>
       <FormRow label={tt('日期')}><DateInput yearIntent="past" id="expense-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>
-      <FormRow label={tt('金额')}><CentInput label={tt('支出金额')} value={f.amount_cents} disabled={frozen} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>
+      {!fa.foreign && <FormRow label={tt('金额')}><CentInput label={tt('支出金额')} value={f.amount_cents} disabled={frozen} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>}
+      <FormRow label={tt('币种')}><CurrencyUnit fa={fa} label={tt('支出币种')} disabled={frozen}/></FormRow>
       <FormRow label={tt('分类')}><select aria-label={tt('分类')} value={f.category} disabled={frozen} onChange={e => set('category', e.target.value)}>{expenseCategories.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
       <FormRow label={tt('记录退款')} hint={tt('原期仍计全额，退款计入退款日期')}><Switch label={tt('记录退款')} value={f.refund_date !== null} disabled={frozen} onChange={v => setF(x => ({ ...x, refund_cents: v ? x.refund_cents : null, refund_date: v ? today : null }))}/></FormRow>
       {f.refund_date !== null && <><FormRow label={tt('退款金额')}><CentInput label={tt('退款金额')} value={f.refund_cents ?? ''} disabled={frozen} placeholder="0.00" onChange={v => set('refund_cents', v || null)}/></FormRow>

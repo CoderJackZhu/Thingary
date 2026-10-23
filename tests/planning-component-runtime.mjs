@@ -70,6 +70,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     './planning-basic-view': { ...view, needsContribution: () => true, contributionVerdict: view.contributionVerdict, amountState: view.amountState, requirementLine: props.realSummary ? view.requirementLine : () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
     './plan-retire-calc': { retireCalcFromCapabilities: () => null, buildRetireCalc: () => null, toEvent: e => e },
   };
+  modules['./ForeignAmount'] = { useForeignAmount: () => ({ foreign: false, code: 'CNY', persist: async () => {} }), CurrencyUnit: () => null };
   Object.assign(modules, options.modules);
   function load(file) {
     const m = { exports: {} };
