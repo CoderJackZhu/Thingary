@@ -68,8 +68,8 @@ test('mobile detail photo multi-select keeps successful imports and requires ack
     return { id: 'prepared-photo', name: args.name };
   } });
   r.find('ListGroup', p => p.title === '维护记录').props.action.props.onClick(); r.render();
-  const camera = r.find('input', p => p.capture === 'environment');
-  assert.equal(camera.props.accept, 'image/*');
+  assert.equal(r.find('input', p => p.capture === 'environment'), undefined, 'the system picker already offers the camera');
+  assert.equal(r.find('input', p => p.multiple).props.accept, 'image/*');
   const file = name => ({ name, size: 2, arrayBuffer: async () => Uint8Array.from([1, 2]).buffer });
   r.find('input', p => p.multiple).props.onChange({ target: { files: [file('虚构凭证1.png'), file('虚构凭证2.png')], value: 'temporary' } });
   await r.settle();

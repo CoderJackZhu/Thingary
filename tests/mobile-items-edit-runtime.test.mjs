@@ -130,7 +130,8 @@ test('mobile edit photo multi-select keeps photos as attachments (not the cover)
   const { r, requests, session } = await editor({ invoke: async command => { if (command !== 'import_photo_bytes') return undefined; if (++uploads === 2) throw new Error('虚构图片读取失败'); return photo; } });
   field(r, '名称').props.onChange('虚构照片物品'); r.render();
   const file = name => ({ name, size: 2, arrayBuffer: async () => Uint8Array.from([1, 2]).buffer });
-  assert.equal(r.find('input', p => p.capture === 'environment').props.accept, 'image/*');
+  assert.equal(r.find('input', p => p.capture === 'environment'), undefined, 'the system picker already offers the camera');
+  assert.equal(r.find('input', p => p.multiple).props.accept, 'image/*');
   r.find('input', p => p.multiple).props.onChange({ target: { files: [file('一.png'), file('二.png')], value: 'temporary' } });
   await r.settle();
   assert.equal(uploads, 2); assert.equal(session.navBlocked, false);
@@ -156,7 +157,8 @@ test('mobile edit shows the common fields in order, notes with photos, and folds
   assert.equal(r.nodes().some(n => r.text(n) === '拍照建档' || r.text(n) === '从相册选（可多选）'), false);
   r.find('Switch', p => p.label === '已售出').props.onChange(true); r.render();
   assert.ok(r.find('MoneyField', p => p.label === '售出价格'));
-  strip.props.onAdd(); r.render();
-  assert.ok(r.find('Sheet', p => p.title === '添加图片'));
+  let clicked = 0; r.find('input', p => p.multiple).props.ref.current = { click() { clicked++; } };
+  strip.props.onAdd(); r.render(); assert.equal(clicked, 1);
+  assert.equal(r.find('Sheet', p => p.title === '添加图片'), undefined, 'one tap goes straight to the system picker');
   r.unmount();
 });

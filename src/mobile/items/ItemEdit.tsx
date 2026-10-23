@@ -17,7 +17,7 @@ import type { TaxonomySnapshot } from '../../taxonomy';
 import { useDirtyGuard, useFormChanged, useNav } from '../nav-context';
 import { useSession } from '../session';
 import type { PageProps } from '../routes';
-import { Button, DateField, ErrorState, FormGroup, FormRow, Loading, MoneyField, NavBar, Notice, SelectField, Sheet, Switch, TextField } from '../ui';
+import { Button, DateField, ErrorState, FormGroup, FormRow, Loading, MoneyField, NavBar, Notice, SelectField, Switch, TextField } from '../ui';
 import { clearIconSession, itemDraft, itemPriceOrigin, itemSaveInput, setIconSession, type ItemDraft } from './edit-model';
 import { Glyph } from './glyphs';
 import { PhotoThumbs, PhotoViewer } from './PhotoViewer';
@@ -28,8 +28,8 @@ type Catalog = TaxonomySnapshot & { generation: string };
 export default function ItemEdit({ params }: PageProps) {
   const nav = useNav(), session = useSession(), id = typeof params.id === 'string' ? params.id : null;
   const [draft, setDraft] = useState<ItemDraft | null>(null), [catalog, setCatalog] = useState<Catalog | null>(null), [labels, setLabels] = useState<Choice[]>([]);
-  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(''), [notice, setNotice] = useState(''), [photoError, setPhotoError] = useState(''), [retry, setRetry] = useState(0), [savedId, setSavedId] = useState(''), [foldOpen, setFoldOpen] = useState(false), [addSheet, setAddSheet] = useState(false), [viewing, setViewing] = useState<Photo | null>(null);
-  const [localBusy, setLocalBusy] = useState(false), lock = useRef(false), camera = useRef<HTMLInputElement>(null), album = useRef<HTMLInputElement>(null), channel = useRef(crypto.randomUUID()), submitted = useRef<string | null>(null);
+  const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(''), [notice, setNotice] = useState(''), [photoError, setPhotoError] = useState(''), [retry, setRetry] = useState(0), [savedId, setSavedId] = useState(''), [foldOpen, setFoldOpen] = useState(false), [viewing, setViewing] = useState<Photo | null>(null);
+  const [localBusy, setLocalBusy] = useState(false), lock = useRef(false), album = useRef<HTMLInputElement>(null), channel = useRef(crypto.randomUUID()), submitted = useRef<string | null>(null);
   useDirtyGuard(useFormChanged(draft));
   const contextChanged=!!catalog && !!session.data && catalog.generation!==session.data.summary.generation;
   const disabled = session.navBlocked || localBusy || contextChanged;
@@ -121,15 +121,14 @@ export default function ItemEdit({ params }: PageProps) {
     setDraft({ ...draft, options: { ...draft.options, warranty: { ...warranty, reminder: checked ? { date: warranty.end_date, notes: '' } : null } } });
     if (checked) { try { await allowReminders(); } catch (cause) { setNotice(errorMessage(cause)); } }
   }
-  function openAddPhoto() { if (disabled || !draft || draft.photos.length >= 20) return; setAddSheet(true); }
-  function pickFrom(input: React.RefObject<HTMLInputElement | null>) { setAddSheet(false); input.current?.click(); }
+  // One tap opens the system picker, which already offers 照片图库 and 拍照 (a second sheet of our own only repeated it).
+  function openAddPhoto() { if (disabled || !draft || draft.photos.length >= 20) return; album.current?.click(); }
   const p = draft?.options.preferences, coverPhoto = draft?.photos.find(photo => photo.id === draft.cover), attachments = draft?.photos.filter(photo => photo.id !== draft.cover) ?? [];
   const setOptions = (patch: Partial<ItemDraft['options']>) => setDraft(current => current && ({ ...current, options: { ...current.options, ...patch } }));
   return <div className="m-page m-item-edit">
     <NavBar title={id ? t('编辑物品') : t('新增物品')} primary={{ label: t('保存'), onClick: () => void save(), disabled: disabled || loading || !!loadError || !!photoError, busy: session.busy }}/>
     {contextChanged && <ErrorState message={t('资料库已切换，当前输入不能提交。请关闭后重新打开物品。')}/>}
     {loading ? <Loading/> : loadError ? <ErrorState message={loadError} onRetry={() => setRetry(value => value + 1)}/> : draft && catalog && p && <>
-      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={event => { void upload(event.target.files); event.target.value = ''; }}/>
       <input ref={album} type="file" accept="image/*" multiple hidden onChange={event => { void upload(event.target.files); event.target.value = ''; }}/>
       <div className="m-item-icon-slot"><button type="button" className="m-item-icon-tile" aria-label={t('更换图标')} onClick={openIcons} disabled={disabled}>{coverPhoto ? <PhotoView photo={coverPhoto} generation={catalog.generation}/> : <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt={t('默认物品图标')}/>}<span className="m-item-icon-badge" aria-hidden="true"><Glyph name="swap" size={14} strokeWidth={2.4}/></span></button></div>
       {photoError && <ErrorState title={t('图片未全部读取')} message={photoError}/>}{photoError && <Button onClick={() => setPhotoError('')}>{t('不使用未读取的图片')}</Button>}
@@ -148,7 +147,6 @@ export default function ItemEdit({ params }: PageProps) {
       <FormGroup><SelectField label={t('成本计算模式')} value={p.cost_mode} options={[{ id: 'daily', label: t('按日计算') }, { id: 'per_use', label: t('按次计算') }]} onChange={value => preferences({ cost_mode: value as AssetPreferences['cost_mode'] })} disabled={disabled}/>{p.cost_mode === 'per_use' && <TextField label={t('已使用次数')} value={String(p.use_count)} inputMode="numeric" disabled={disabled} onChange={value => { if (/^\d{0,10}$/.test(value)) preferences({ use_count: Number(value) }); }}/>}<SelectField label={t('目标设定')} value={p.goal.mode} options={[{ id: 'none', label: t('不设定') }, { id: 'cost', label: t('目标单位成本') }, { id: 'date', label: t('目标日期') }]} disabled={disabled} onChange={value => preferences({ goal: value === 'cost' ? { mode: 'cost', cents: '' } : value === 'date' ? { mode: 'date', date: '' } : { mode: 'none' } })}/>{p.goal.mode === 'cost' && <MoneyField label={t('目标单位成本')} value={p.goal.cents} onChange={cents => preferences({ goal: { mode: 'cost', cents } })} disabled={disabled}/>}{p.goal.mode === 'date' && <DateField label={t('目标日期')} value={p.goal.date} onChange={date => preferences({ goal: { mode: 'date', date } })} disabled={disabled}/>}</FormGroup>
       <details className="m-card m-item-fold" open={foldOpen} onToggle={event => setFoldOpen(event.currentTarget.open)}><summary>{t('品牌 · 型号 · 序列号')}</summary><TextField label={t('品牌')} value={draft.fields.brand} onChange={value => change('brand', value)} disabled={disabled}/><TextField label={t('型号')} value={draft.fields.model} onChange={value => change('model', value)} disabled={disabled}/><TextField label={t('序列号')} value={draft.fields.serial_number} onChange={value => change('serial_number', value)} disabled={disabled}/></details>
       <FormGroup><FormRow label={t('置顶物品')}><Switch label={t('置顶物品')} checked={p.pinned} onChange={pinned => preferences({ pinned })} disabled={disabled}/></FormRow><FormRow label={t('不计入统计')}><Switch label={t('不计入统计')} checked={Object.values(p.exclude).some(Boolean)} onChange={checked => preferences({ exclude: { total: checked, daily: checked, statistics: checked, timeline: checked } })} disabled={disabled}/></FormRow>{Object.values(p.exclude).some(Boolean) && (['total', 'daily', 'statistics', 'timeline'] as const).map((key, index) => <FormRow key={key} label={[t('不计入总金额'), t('不计入日均成本'), t('不计入统计页面'), t('不在时间轴显示')][index]}><Switch label={[t('不计入总金额'), t('不计入日均成本'), t('不计入统计页面'), t('不在时间轴显示')][index]} checked={p.exclude[key]} onChange={checked => preferences({ exclude: { ...p.exclude, [key]: checked } })} disabled={disabled}/></FormRow>)}</FormGroup>
-      {addSheet && <Sheet title={t('添加图片')} cancelLabel={t('取消')} onClose={() => setAddSheet(false)}><div className="m-item-add-sheet"><Button onClick={() => pickFrom(camera)}>{t('拍照')}</Button><Button onClick={() => pickFrom(album)}>{t('从相册选')}</Button></div></Sheet>}
       {viewing && <PhotoViewer photo={viewing} generation={catalog.generation} onClose={() => setViewing(null)} onRemove={disabled ? undefined : () => { setDraft(current => current && ({ ...current, photos: current.photos.filter(item => item.id !== viewing.id) })); setViewing(null); }}/>}
     </>}
   </div>;
