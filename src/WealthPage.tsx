@@ -108,6 +108,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const [loadedRetry, setLoadedRetry] = useState(-1);
   const [sourceSnapshot, setSourceSnapshot] = useState<string | undefined>();
   const [checkIn, setCheckIn] = useState<string | null>(null);
+  const [checkInDirty, setCheckInDirty] = useState(false);
   const [checkInPin, setCheckInPin] = useState<string | undefined>();
   const [savedSnapshot, setSavedSnapshot] = useState<Snapshot | null>(null);
   const [snapshotDetail, setSnapshotDetail] = useState<string | null>(null);
@@ -147,7 +148,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(manageGroups || !!quickAccount || goalEditing || !!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [manageGroups, quickAccount, goalEditing, editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
+  useEffect(() => { onEditingChange(manageGroups || !!quickAccount || goalEditing || !!editing || !!pending || busy || (!!checkIn && checkInDirty) || !!snapshotDetail); return () => onEditingChange(false); }, [manageGroups, quickAccount, goalEditing, editing, pending, busy, checkIn, checkInDirty, snapshotDetail, onEditingChange]);
   const sourceError = useSource({source,onSourceDone}, summary?.generation, async (target, alive) => {
     // 账户来源：按稳定 ID 打开账户资料表单；未保存的输入不写入（§6.2）。
     if (target.kind === 'account') {
@@ -188,7 +189,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     setEditing('new');
   }, [autoNew]);
   if (snapshotDetail) return <SnapshotDetail id={snapshotDetail} onCorrect={id => { const date = summary?.points.find(p => p.snapshot_id === id)?.date; setSnapshotDetail(null); if (date) { setCheckInPin(id); setCheckIn(date); } }} onClose={() => { setSnapshotDetail(null); reload(); refocusHeading(); }}/>;
-  if (checkIn) return <CheckIn accountDialog={onDone => summary && <AccountDialog quickPoints={summary.points} groups={groups} onGroupsChanged={reload} account={null} generation={summary.generation} today={today} onQuick={openQuick} onClose={saved => onDone(saved)}/>} expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={(saved, snapshot) => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('overview'); reload(); } refocusHeading(); }}/>;
+  if (checkIn) return <CheckIn accountDialog={onDone => summary && <AccountDialog quickPoints={summary.points} groups={groups} onGroupsChanged={reload} account={null} generation={summary.generation} today={today} onQuick={openQuick} onClose={saved => onDone(saved)}/>} expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onDirtyChange={setCheckInDirty} onClose={(saved, snapshot) => { setCheckInDirty(false); setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('overview'); reload(); } refocusHeading(); }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const closeAccount = (saved: boolean, createdName?: string) => {
     (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close();
@@ -462,7 +463,7 @@ function SnapshotDetail({ id, onCorrect, onClose }: { id: string; onClose: () =>
     <section className="form-block form-notes snapshot-notes"><h3>{tt('备注')}</h3>{snapshot.notes.trim() ? <p className="notes" style={{whiteSpace:'pre-wrap'}}>{snapshot.notes}</p> : <p className="muted">{tt('未填写备注')}</p>}</section>
   </section>;
 }
-function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: { accountDialog?: (onDone: (saved: boolean) => void) => ReactNode; expectedId?: string; date: string; today: string; onClose: (saved: boolean, snapshot?: Snapshot) => void }) {
+function CheckIn({ date: initial, today, onClose, expectedId, accountDialog, onDirtyChange }: { accountDialog?: (onDone: (saved: boolean) => void) => ReactNode; expectedId?: string; date: string; today: string; onClose: (saved: boolean, snapshot?: Snapshot) => void; onDirtyChange?: (dirty: boolean) => void }) {
   const [date, setDate] = useState(initial);
   // The source's stable-ID guard holds only while its own date is being viewed:
   // once the user deliberately switches dates, this is a normal check-in again.
@@ -474,9 +475,11 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
   const [switchTo, setSwitchTo] = useState<string | null>(null);
   const [rates, setRates] = useState<Record<string,string>>({});
   const [closing, setClosing] = useState<ReadonlySet<string>>(() => new Set()), [adding, setAdding] = useState(false), [reads, setReads] = useState(0);
+  const [ratesDirty, setRatesDirty] = useState(false);
   const table = useRef<HTMLTableElement>(null);
   const focusedField = useRef<string | null>(null);
   const fromSaved = useRef(false);
+  const dirty = notesDirty || ratesDirty || closing.size > 0 || Object.values(rows).some(row => row.edited);
   useEffect(() => {
     let live = true; setError(''); setDraft(null);
     invoke<Draft>('wealth_snapshot_draft', { date }).then(d => {
@@ -489,6 +492,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
       // Notes belong to the snapshot of the viewed date; a new date starts empty.
       setNotes(d.existing?.notes ?? '');
       setNotesDirty(false);
+      setRatesDirty(false);
       // Only values typed for a new check-in follow a date change. Amounts loaded
       // from a saved check-in never carry to another date unreviewed (17.4 #2).
       setRows(old => {
@@ -503,6 +507,8 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
     return () => { live = false; };
   }, [date, pin, reads]);
   useEffect(() => setClosing(new Set()), [date]);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const toggleClose = (id: string, on: boolean) => setClosing(old => { const next = new Set(old); if (on) next.add(id); else next.delete(id); return next; });
   const set = (id: string, row: Row) => {
     setRows(r => ({ ...r, [id]: { ...row, edited: true } }));
@@ -518,6 +524,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
   };
   const changeRate = (code: string, rate: string) => {
     setRates(old => ({ ...old, [code]: rate }));
+    setRatesDirty(true);
     for (const r of draft?.rows ?? []) if (currencyCode(r.account.fields.currency) === code && rows[r.account.id]?.edited && rows[r.account.id]?.state === 'entered') { const row=rows[r.account.id]; if(r.account.fields.holding_mode)setHolding(r.account.id,code,row.quantity_e8??'',row.unit_price_e6??'',rate);else setForeign(r.account.id,code,row.original_minor??'',rate); }
   };
   const all = draft?.rows ?? [], existing = draft?.existing ?? null;
