@@ -14,6 +14,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { warrantyKinds } from './warranty';
 import { t as tr } from './i18n.ts';
+import { timelineDay, timelineMonth } from './timeline-date.ts';
 export type TimelineFilter = 'all' | 'purchase' | 'maintenance' | 'warranty' | 'lifecycle' | 'wishlist' | 'expense' | 'snapshot';
 export type TimelineEvent = { id: string; kind: string; date: string | null; asset_id: string | null; wishlist_id: string | null; title: string; note: string; amount_cents: string | null; target?: SourceTarget; domain?: string; missing?: number | null };
 type TimelinePage = { generation: string; today: string; years?: number[]; dated: TimelineEvent[]; undated: TimelineEvent[] };
@@ -47,8 +48,6 @@ export function eventDetail(e: TimelineEvent) {
   const note = e.kind === 'purchase' && e.wishlist_id ? tr('来自心愿「{note}」', { note: e.note }) : e.kind.startsWith('wish_') ? '' : e.kind === 'expense' || e.kind === 'refund' ? expenseCategories.find(([k]) => k === e.note)?.[1] ?? '' : e.kind === 'payment' ? recurringCategories.find(([k]) => k === e.note)?.[1] ?? '' : e.kind === 'virtual' ? virtualKindText(e.note) : e.note;
   return [note, amount].filter(Boolean).join(' · ');
 }
-
-function month(date: string) { return tr('{v1} 年 {v2} 月', { v1: date.slice(0, 4), v2: Number(date.slice(5, 7)) }); }
 
 /** One projection for the global page and the asset detail; nothing here computes facts. */
 export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpenWish, onCorrect, selection, onOpenSource, onLoaded, onReady, hidden, search, onSearchClear }: { hidden?: ReadonlySet<string>; selection?: TimelineSelection; onOpenSource?: (target: SourceTarget) => void; onLoaded?: (years: number[]) => void; onReady?: () => void; assetId?: string; version?: unknown; filter?: TimelineFilter; onOpenAsset?: (id: string) => void; onOpenWish?: (name: string, status: string) => void; onCorrect?: (event: TimelineEvent) => void; search?: string; onSearchClear?: () => void }) {
@@ -84,13 +83,14 @@ export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpen
     const correctable = onCorrect && (e.kind === 'retire' || e.kind === 'activate');
     if (!assetId) {
       const icon = eventIcon(e.kind);
-      const body = <><span className="timeline-day">{e.date ? Number(e.date.slice(8)) : '—'}<small>{tr('日')}</small></span><span className="timeline-kind"><Icon name={icon}/></span><span className="timeline-copy"><strong>{eventLabel(e)}{e.kind!=='snapshot'&&` · ${e.title}`}</strong><small>{eventDetail(e)}</small></span>{e.amount_cents!==null&&<span className="timeline-amount">{money(e.amount_cents)}</span>}{open&&<span aria-hidden="true">›</span>}</>;
+      const day = e.date ? timelineDay(e.date) : null;
+      const body = <><span className="timeline-day">{day ? day.number : '—'}{day?.suffix && <small>{day.suffix}</small>}</span><span className="timeline-kind"><Icon name={icon}/></span><span className="timeline-copy"><strong>{eventLabel(e)}{e.kind!=='snapshot'&&` · ${e.title}`}</strong><small>{eventDetail(e)}</small></span>{e.amount_cents!==null&&<span className="timeline-amount">{money(e.amount_cents)}</span>}{open&&<span aria-hidden="true">›</span>}</>;
       return <li key={e.id} data-kind={e.kind} className="timeline-entry">{open?<button type="button" className="timeline-row" onClick={open} aria-label={tr('打开{v1}', { v1: e.kind==='snapshot'?tr('{date} 盘点', { date: e.date }):e.title })}>{body}</button>:<div className="timeline-row">{body}</div>}</li>;
     }
     return <li key={e.id} data-kind={e.kind}><div><strong>{eventLabel(e)}{!assetId && e.kind !== 'snapshot' && <> · {e.title}</>}</strong><span className="muted">{e.date ?? tr('日期待补充')}</span>{eventDetail(e) && <p className="notes">{eventDetail(e)}</p>}</div>{open && <button onClick={open} aria-label={tr('打开{v1}', { v1: e.kind === 'snapshot' ? tr('{date} 盘点', { date: e.date }) : e.title })}>{e.target && onOpenSource ? tr('查看来源') : e.asset_id ? tr('查看物品') : tr('查看心愿')}</button>}{correctable && <button onClick={() => onCorrect!(e)} aria-label={tr('更正{v1}日期 {date}', { v1: eventLabel(e), date: e.date })}>{tr('更正日期')}</button>}</li>;
   };
   const groups: [string, TimelineEvent[]][] = [];
-  for (const e of dated) { const key = assetId ? '' : month(e.date!); if (groups.at(-1)?.[0] !== key) groups.push([key, []]); groups.at(-1)![1].push(e); }
+  for (const e of dated) { const key = assetId ? '' : timelineMonth(e.date!); if (groups.at(-1)?.[0] !== key) groups.push([key, []]); groups.at(-1)![1].push(e); }
   return <div className="timeline">
     {keyword && <p className="muted small" role="status">{tr('找到 {found} 条记录', { found })}</p>}
     {groups.map(([key, list]) => <section key={key || 'events'} className={assetId?"lifecycle-history":"ui-card timeline-month-card"}>{key && <h3 className="timeline-month">{key}</h3>}<ol>{list.map(item)}</ol></section>)}

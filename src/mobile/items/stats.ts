@@ -15,6 +15,8 @@ export type Statistics = { overview: OverviewData; snapshot: StatsSnapshot; tren
 export type StatsInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 /** Display a server-provided numerator/denominator in the desktop one-decimal format. */
 export const percentage = (part: number, total: number) => total > 0 ? `${(part / total * 100).toFixed(1)}%` : t('未知');
+/** The backend returns the Chinese fallback for the uncategorized bucket; translate it like any other UI text. */
+export const categoryName = (row: { id: string | null; name: string }) => row.id === null ? t('未分类') : row.name;
 
 /** Guard commands without their own generation using bracketing reads, as a single page read. */
 export async function readStatistics(call: StatsInvoke, options: { period: StatsPeriod; granularity: Granularity; scope: HoldingScope; today: string; generation?: string }): Promise<Statistics> {
