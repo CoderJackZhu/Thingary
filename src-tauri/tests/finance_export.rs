@@ -154,9 +154,9 @@ fn expenses_export_with_refund_and_formula_looking_text_defused() {
     assert_eq!(rows, 2);
     assert_eq!(
         csv,
-        "\u{feff}日期,名称,分类,金额（元）,退款（元）,退款日期,关联物品,备注\r\n\
-         2026-09-01,虚构周末旅行,旅行,2500.00,600.00,2026-09-03,,\r\n\
-         2026-09-19,'=虚构课程,数字服务,3600.00,,,,\"含,逗号\"\r\n"
+        "\u{feff}日期,名称,分类,金额（元）,退款（元）,退款日期,关联物品,备注,原币币种,原币金额,汇率\r\n\
+         2026-09-01,虚构周末旅行,旅行,2500.00,600.00,2026-09-03,,,,,\r\n\
+         2026-09-19,'=虚构课程,数字服务,3600.00,,,,\"含,逗号\",,,\r\n"
     );
 }
 
@@ -287,7 +287,7 @@ fn all_tables_go_into_one_new_folder_and_nothing_is_overwritten() {
     let income = std::fs::read_to_string(target.join("月度收入.csv")).unwrap();
     assert_eq!(
         income,
-        "\u{feff}到账日期,税后到账（元）,公积金缴存（元）,备注,收入分类,来源账户ID,去向,接收账户ID,旧口径估计停用\r\n2026-02-15,20000.00,3000.00,'=虚构备注,unclassified,,,,false\r\n"
+        "\u{feff}到账日期,税后到账（元）,公积金缴存（元）,备注,收入分类,来源账户ID,去向,接收账户ID,旧口径估计停用,原币币种,原币金额,汇率\r\n2026-02-15,20000.00,3000.00,'=虚构备注,unclassified,,,,false,,,\r\n"
     );
     for name in ["物品.csv", "盘点记录.csv", "重要支出.csv", "周期费用.csv"] {
         assert!(target.join(name).is_file(), "{name}");
