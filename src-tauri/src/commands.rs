@@ -799,6 +799,15 @@ fn on_main<T: Send + 'static>(
             let _ = send.send(f(&dialog_app));
         })
         .map_err(|_| Error::new("PICKER", "无法打开文件面板"))?;
+    // Android has no implemented native panel yet; run the (unsupported)
+    // picker off the main thread and deliver its result instead of blocking.
+    #[cfg(target_os = "android")]
+    std::thread::Builder::new()
+        .name("thingary-android-picker".into())
+        .spawn(move || {
+            let _ = send.send(f(&dialog_app));
+        })
+        .map_err(|_| Error::new("PICKER", "无法打开文件面板"))?;
     #[cfg(desktop)]
     app.run_on_main_thread(move || {
         let _ = send.send(f(&dialog_app));
@@ -1501,6 +1510,10 @@ pub async fn open_notification_settings() -> Result<()> {
             .await
             .map_err(|_| Error::new("REMINDER", "无法打开通知设置"))?
     }
+    #[cfg(target_os = "android")]
+    {
+        Err(Error::new("UNSUPPORTED", "Android 暂不支持系统通知设置"))
+    }
 }
 #[tauri::command]
 pub async fn modules_get(
@@ -1554,9 +1567,17 @@ pub fn app_version() -> &'static str {
 
 #[tauri::command]
 pub async fn support_open(target: String) -> Result<()> {
-    tauri::async_runtime::spawn_blocking(move || crate::support::open(&target))
-        .await
-        .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
+    #[cfg(target_os = "android")]
+    {
+        let _ = target;
+        Err(Error::new("UNSUPPORTED", "Android 暂不支持打开外部链接"))
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        tauri::async_runtime::spawn_blocking(move || crate::support::open(&target))
+            .await
+            .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
+    }
 }
 
 /// The update surfaces read this state; it never touches the network.
@@ -2609,7 +2630,16 @@ pub fn ios_privacy_cover_set(enabled: bool) {
 }
 #[tauri::command]
 pub fn platform_capabilities() -> serde_json::Value {
-    serde_json::json!({"platform":std::env::consts::OS,"updates_supported":crate::update_check::supported(),"native_file_sharing":cfg!(target_os="ios"),"background_privacy_cover":cfg!(target_os="ios"),"auth_name":crate::privacy_lock::auth_name()})
+    // Android currently ships the shared UI and library only; native sharing,
+    // the privacy cover and identity verification are not wired yet.
+    #[cfg(target_os = "android")]
+    {
+        serde_json::json!({"platform":"android","updates_supported":false,"native_file_sharing":false,"background_privacy_cover":false,"auth_name":crate::privacy_lock::auth_name()})
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        serde_json::json!({"platform":std::env::consts::OS,"updates_supported":crate::update_check::supported(),"native_file_sharing":cfg!(target_os="ios"),"background_privacy_cover":cfg!(target_os="ios"),"auth_name":crate::privacy_lock::auth_name()})
+    }
 }
 #[tauri::command]
 pub async fn ios_share_file(name: String) -> Result<bool> {

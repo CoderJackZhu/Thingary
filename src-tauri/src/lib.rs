@@ -64,6 +64,8 @@ pub mod search;
 pub mod source;
 pub mod spreadsheet;
 pub mod storage;
+// The Android shell has no external-link bridge yet; commands reports it as unsupported.
+#[cfg(not(target_os = "android"))]
 mod support;
 pub mod sync;
 pub mod tag_investment;
@@ -328,6 +330,14 @@ pub fn run() {
             }
             #[cfg(mobile)]
             app.manage(commands::PageMenu {});
+            // Android starts the page as soon as its window exists, which can be before
+            // Worker::start finishes the first-run sample library; commands arriving then
+            // fail with "state not managed". The window is configured with create:false and
+            // built here, once everything above is managed.
+            #[cfg(target_os = "android")]
+            for window in app.config().app.windows.iter().filter(|w| !w.create) {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), window)?.build()?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

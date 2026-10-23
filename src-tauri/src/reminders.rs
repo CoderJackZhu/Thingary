@@ -128,6 +128,14 @@ fn native(json: &str, ask: bool) -> Result<()> {
             .ok_or_else(|| Error::new("REMINDER", "当前应用身份无法使用系统通知"))?;
         windows_native(identifier, json, ask)
     }
+    #[cfg(target_os = "android")]
+    {
+        let _ = (json, ask);
+        Err(Error::new(
+            "UNSUPPORTED",
+            "Android 通知暂不可用；提醒日期仍会保存在本机",
+        ))
+    }
 }
 #[cfg(windows)]
 static APP_IDENTIFIER: OnceLock<String> = OnceLock::new();
