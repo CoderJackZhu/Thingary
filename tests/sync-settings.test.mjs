@@ -56,7 +56,7 @@ test('a conflict offers cancel, keep local and use cloud in that order', () => {
   const labels = [view.primaryAction.label, ...view.secondaryActions.map(action => action.label)];
   assert.deepEqual(labels, ['取消', '保留本机', '采用云端']);
   assert.deepEqual(view.secondaryActions.map(action => action.destructive), [true, true]);
-  assert.match(src, /syncView\(status, error\)/);
+  assert.match(src, /syncView\(status, error, config\)/);
   assert.match(src, /syncResolveConflict\(choice\)/);
   assert.match(src, /'keep_local'/);
   assert.match(src, /'use_remote'/);
@@ -96,11 +96,14 @@ test('a result-unknown state only reconciles read-only, never retries blindly', 
   assert.doesNotMatch(src, /id: 'reconcile'[\s\S]*syncPush/);
   const reconcile = src.slice(src.indexOf('async function reconcile'), src.indexOf('async function resolve'));
   assert.match(reconcile, /refreshStatus\(\)/);
+  assert.match(reconcile, /await syncReconcile\(\)/);
+  assert.match(reconcile, /reconcileNotice\(result\)/);
+  assert.doesNotMatch(reconcile, /await syncStatus\(/);
   assert.doesNotMatch(reconcile, /syncPush|syncPullInspect|syncResolveConflict/);
 });
 
 test('sync actions are driven by the shared view model and disabled while busy', () => {
-  assert.match(src, /const view = syncView\(status, error\)/);
+  assert.match(src, /const view = syncView\(status, error, config\)/);
   assert.match(src, /const disabled = busy !== null \|\| blocked/);
   assert.match(src, /disabled=\{disabled\}/);
   assert.match(src, /if \(next\.state === 'local_ahead' \|\| next\.state === 'empty_remote'\) \{[\s\S]*syncPush\(\)/);

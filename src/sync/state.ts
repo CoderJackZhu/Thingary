@@ -3,7 +3,36 @@
 // screens only render this view model.
 import { formatBytes, formatWhen } from '../auto-backup-format.ts';
 import { t } from '../i18n.ts';
-import type { SyncRemoteStatus, SyncStatusResult } from './api.ts';
+import type { SyncPublicConfig, SyncReconcileResult, SyncRemoteStatus, SyncStatusResult } from './api.ts';
+
+/** Saved device information is available offline; never attribute a newer cloud version to it. */
+export function lastSyncInfo(config: SyncPublicConfig, status: SyncStatusResult | null) {
+  const missing = t('尚未同步');
+  const version = config.last_synced_remote_version;
+  const validVersion = version !== null && Number.isSafeInteger(version) && version > 0;
+  return {
+    time: formatWhen(config.last_synced_at) || missing,
+    version: validVersion ? String(version) : missing,
+    device: validVersion
+      ? (status?.remote?.version === version ? status.remote.deviceName : config.device_name).trim() || missing
+      : missing,
+  };
+}
+
+export function reconcileNotice(result: SyncReconcileResult): string {
+  switch (result.outcome) {
+    case 'landed':
+      return result.version !== null && result.version > 0
+        ? t('已确认上次同步成功（版本 {version}）', { version: result.version })
+        : t('已确认上次同步成功');
+    case 'not_landed':
+      return t('云端没有收到上次同步，本机更改仍在，可以重新同步');
+    case 'remote_changed':
+      return t('云端在此期间被其他设备更新，请按冲突处理');
+    case 'nothing_pending':
+      return t('已核对云端状态，未写入任何资料。');
+  }
+}
 
 export type SyncTone = 'neutral' | 'positive' | 'attention' | 'danger';
 
@@ -13,6 +42,7 @@ export type SyncActionId =
   | 'pull'
   | 'retry'
   | 'reconcile'
+  | 'check'
   | 'keep_local'
   | 'use_remote'
   | 'cancel'
@@ -96,6 +126,17 @@ function statusUnknownView(): SyncViewModel {
   };
 }
 
+function uncheckedView(): SyncViewModel {
+  return {
+    headline: t('尚未检查云端'),
+    detail: t('打开页面和保存设置不会联网。点击「检查云端」后才会读取云端状态，本机资料不会改变。'),
+    primaryAction: { id: 'check', label: t('检查云端') },
+    secondaryActions: [],
+    tone: 'neutral',
+    blocking: false,
+  };
+}
+
 function unknownResultView(): SyncViewModel {
   return {
     headline: t('上次同步结果未知'),
@@ -170,7 +211,9 @@ function failureView(status: SyncStatusResult | null, error: SyncErrorLike): Syn
 export function syncView(
   status: SyncStatusResult | null,
   error?: SyncErrorLike | null,
+  config?: SyncPublicConfig | null,
 ): SyncViewModel {
+  if (config?.has_pending_push && !error) return unknownResultView();
   if (error) {
     switch (error.code) {
       case 'SYNC_RESULT_UNKNOWN':
@@ -186,7 +229,7 @@ export function syncView(
         return failureView(status, error);
     }
   }
-  if (!status) return statusUnknownView();
+  if (!status) return config ? (config.enabled ? uncheckedView() : unconfiguredView()) : statusUnknownView();
   switch (status.state) {
     case 'unconfigured':
       return unconfiguredView();
@@ -196,7 +239,8 @@ export function syncView(
         detail: upToDateDetail(status.remote),
         // Sync is manual, so the user needs a way to look again without writing anything.
         primaryAction: {
-          id: 'reconcile',
+          // Keep the existing two-argument consumer contract; desktop supplies config.
+          id: config === undefined ? 'reconcile' : 'check',
           label: t('检查云端'),
           consequence: t('只读取云端清单并与本机比对，不上传，也不改动本机资料。'),
         },
