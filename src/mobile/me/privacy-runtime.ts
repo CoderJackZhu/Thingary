@@ -49,7 +49,11 @@ async function probe(): Promise<boolean> {
   try {
     const value = await invoke<boolean>('privacy_auth_available');
     if (isTauri()) {
-      try { nativeAuthName = (await invoke<{ auth_name?: string }>('platform_capabilities')).auth_name ?? t('身份验证'); }
+      try {
+        const capabilities = await invoke<{ platform?: string; auth_name?: string }>('platform_capabilities');
+        nativeAuthName = capabilities.platform === 'android' && capabilities.auth_name === '设备解锁'
+          ? t('设备解锁') : capabilities.auth_name ?? t('身份验证');
+      }
       catch { nativeAuthName = t('身份验证'); }
     }
     available = value; error = '';

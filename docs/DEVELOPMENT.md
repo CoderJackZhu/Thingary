@@ -153,7 +153,9 @@ adb -s "$THINGARY_ANDROID_SERIAL" exec-out screencap -p > /tmp/thingary-android-
 adb -s "$THINGARY_ANDROID_SERIAL" logcat -d -s AndroidRuntime
 ```
 
-核对首开样例、五个标签、虚构记录保存重启、正常／未知／空白／错误状态，并记录 AVD、API、WebView 和截图尺寸。启用屏幕隐私后 `FLAG_SECURE` 会使截图、录屏及最近任务缩略图受保护；验证开关前后效果时分别记录预期，不能把空白截图当作页面未加载。当前分享、文件／照片选择、身份验证和更新检查尚未接入，不把编译或截图当作它们已验。
+核对首开样例、五个标签、虚构记录保存重启、正常／未知／空白／错误状态，并记录 AVD、API、WebView 和截图尺寸。启用屏幕隐私后 `FLAG_SECURE` 会使截图、录屏及最近任务缩略图受保护；验证开关前后效果时分别记录预期，不能把空白截图当作页面未加载。当前分享、文件／照片选择和更新检查尚未接入，不把编译或截图当作它们已验。
+
+隐私锁验证使用专用预览身份和虚构资料；设备身份验证已接入，策略为 API ≥ 30 的 `BIOMETRIC_STRONG | DEVICE_CREDENTIAL`，API 29 独立兼容函数的 `setDeviceCredentialAllowed(true)`。先在独立验收模拟器执行 `adb shell locksettings set-pin 1234`，开启「设备解锁」并选择最短的 5 分钟闲置重验，离开应用至少 5 分钟后回前台，应显示锁屏；与 iOS 一致，不自动弹出系统验证，点击「解锁」后再输入正确 PIN，核对成功、取消、失败及等待 120 秒超时的现有码和消息。另在无锁屏口令时核对 `privacy_auth_available` 为 false、开启控件禁用；结束后必须执行 `adb shell locksettings clear --old 1234` 恢复无口令，并复查能力。系统 PIN 输错通常保留在系统提示内允许重试，应与应用收到终止性认证失败的情况分别记录，不能把系统内重试写成后端已返回失败。
 
 通知已接入不精确闹钟 `setAndAllowWhileIdle`、通知渠道与 Android 13 以上的 `POST_NOTIFICATIONS` 权限；计划按本地 09:00 整体替换且幂等，重启后由 `BootReceiver` 从私有偏好恢复，该偏好不进资料库、备份与导出。通知只显示固定的提醒类型与打开应用提示，不展示可能含金额的名称或自填备注。系统自动备份已对整个应用关闭，资料只通过物谱自己的备份导出离开设备；`node --test tests/android-system-backup.test.mjs` 在主机核对 Manifest 与云备份／系统换机迁移的全域排除规则。调试 APK 已构建，API 35 模拟器通知权限、拒绝、替换、幂等、到点通知、重启恢复与超容量提示尚未验证；真机省电策略与各厂商 ROM 的后台限制未验证。
 

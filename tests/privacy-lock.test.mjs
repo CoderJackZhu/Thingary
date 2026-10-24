@@ -1,12 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as jsx from 'react/jsx-runtime';
 import * as privacy from '../src/privacy-lock.ts';
+import { en } from '../src/locales/en.ts';
 const enabled = { enabled: true, idleMinutes: 5 };
 const storage = value => ({ getItem: key => value[key] ?? null, setItem: (key, v) => { value[key] = v; } });
+
+test('Android device-unlock name uses the English translation; other native names stay unchanged', async () => {
+  // Read the real t() calls without the source-reading test hook's Chinese unwrap.
+  const compile = source => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const i18nModule = { exports: {} };
+  vm.runInNewContext(compile(await readFile(new URL('../src/i18n.ts', import.meta.url), 'utf8')), {
+    module: i18nModule, exports: i18nModule.exports, require: () => ({ en }), navigator: { language: 'en-US' },
+  });
+  const code = compile(await readFile(new URL('../src/mobile/me/privacy-runtime.ts', import.meta.url), 'utf8'));
+  for (const [platform, auth_name, expected] of [
+    ['android', '设备解锁', 'Device unlock'],
+    ['ios', '设备解锁', '设备解锁'], ['macos', '设备解锁', '设备解锁'], ['windows', '设备解锁', '设备解锁'],
+    ['ios', '面容 ID', '面容 ID'], ['android', '身份验证', '身份验证'],
+    [undefined, '设备解锁', '设备解锁'], ['android', undefined, 'Authentication'],
+  ]) {
+    const runtime = { exports: {} };
+    const modules = {
+      '@tauri-apps/api/core': { isTauri: () => true, invoke: async command => command === 'platform_capabilities' ? { platform, auth_name } : command === 'privacy_auth_available' ? true : null },
+      '../../asset': { errorMessage: error => error.message }, '../../privacy-lock': privacy,
+      '../../wealth': { storedPending: () => null }, '../../i18n.ts': i18nModule.exports,
+    };
+    vm.runInNewContext(code, { module: runtime, exports: runtime.exports, require: name => { assert.ok(name in modules, name); return modules[name]; } });
+    assert.equal(await runtime.exports.probePrivacy(), true);
+    assert.equal(runtime.exports.authName(), expected, `${platform}: ${auth_name}`);
+  }
+});
 
 test('虚构偏好：缺失、损坏、不合法与不可读存储均关闭，合法值往返', () => {
   for (const value of [null, '', '{', 'null', 'true', '{}', '{"enabled":"true","idleMinutes":5}', '{"enabled":true,"idleMinutes":-1}', '{"enabled":true,"idleMinutes":10}']) assert.deepEqual(privacy.parseLockPreference(value), { enabled: false, idleMinutes: 0 });
