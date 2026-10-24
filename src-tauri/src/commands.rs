@@ -1582,19 +1582,20 @@ pub fn app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn support_open(app: tauri::AppHandle, target: String) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || crate::support::open(&app, &target))
+        .await
+        .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
+}
+
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn support_open(target: String) -> Result<()> {
-    #[cfg(target_os = "android")]
-    {
-        let _ = target;
-        Err(Error::new("UNSUPPORTED", "Android 暂不支持打开外部链接"))
-    }
-    #[cfg(not(target_os = "android"))]
-    {
-        tauri::async_runtime::spawn_blocking(move || crate::support::open(&target))
-            .await
-            .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
-    }
+    tauri::async_runtime::spawn_blocking(move || crate::support::open(&target))
+        .await
+        .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
 }
 
 /// The update surfaces read this state; it never touches the network.

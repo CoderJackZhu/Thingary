@@ -6,6 +6,8 @@ mod android_biometric;
 #[cfg(any(target_os = "android", test))]
 mod android_files;
 #[cfg(target_os = "android")]
+mod android_links;
+#[cfg(target_os = "android")]
 mod android_notifications;
 pub mod auto_backup;
 pub mod backup;
@@ -72,8 +74,6 @@ pub mod search;
 pub mod source;
 pub mod spreadsheet;
 pub mod storage;
-// The Android shell has no external-link bridge yet; commands reports it as unsupported.
-#[cfg(not(target_os = "android"))]
 mod support;
 pub mod sync;
 pub mod tag_investment;
@@ -116,7 +116,8 @@ pub fn run() {
     #[cfg(target_os = "android")]
     let builder = tauri::Builder::default()
         .plugin(android::plugin())
-        .plugin(android_files::plugin());
+        .plugin(android_files::plugin())
+        .plugin(android_links::plugin());
     #[cfg(target_os = "android")]
     let builder = builder.plugin(android_biometric::plugin());
     #[cfg(target_os = "android")]
