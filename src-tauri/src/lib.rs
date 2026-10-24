@@ -1,6 +1,8 @@
 pub mod account_groups;
 #[cfg(target_os = "android")]
 mod android;
+#[cfg(target_os = "android")]
+mod android_notifications;
 pub mod auto_backup;
 pub mod backup;
 pub mod backup_crypto;
@@ -109,6 +111,8 @@ fn windows_close_event(editing: bool, close_blocked: bool) -> Option<&'static st
 pub fn run() {
     #[cfg(target_os = "android")]
     let builder = tauri::Builder::default().plugin(android::plugin());
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(android_notifications::plugin());
     #[cfg(not(target_os = "android"))]
     let builder = tauri::Builder::default();
     let builder = builder

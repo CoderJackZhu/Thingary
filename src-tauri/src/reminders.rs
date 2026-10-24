@@ -130,11 +130,7 @@ fn native(json: &str, ask: bool) -> Result<()> {
     }
     #[cfg(target_os = "android")]
     {
-        let _ = (json, ask);
-        Err(Error::new(
-            "UNSUPPORTED",
-            "Android 通知暂不可用；提醒日期仍会保存在本机",
-        ))
+        crate::android_notifications::native(json, ask)
     }
 }
 #[cfg(windows)]

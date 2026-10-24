@@ -60,6 +60,8 @@ Android 工程位于 `src-tauri/gen/android`，Kotlin 包由应用标识生成�
 
 仍未接入：系统分享面板、设备身份验证、更新检查、文件与照片选择器；这些命令在 Android 返回不支持，界面沿用既有降级。插件只改窗口标志，不写资料库、本机偏好或备份。
 
+通知复用盘点、付款与保障到期提醒的计划 JSON、日期和稳定 ID，由 `android_notifications.rs` 注册独立的 `NotificationsPlugin`。插件创建通知渠道，Android 13 以上经 `POST_NOTIFICATIONS` 请求运行时权限；拒绝时提醒日期仍保存在资料库。`ReminderSchedule` 按计划日期的本地 09:00 使用 `AlarmManager.setAndAllowWhileIdle` 不精确闹钟，先取消旧批次再整体排程，重复排程不增加重复项；保守保留最近 64 条，超限返回待补排数量，不申请精确闹钟权限，也不保证整点送达。`BootReceiver` 在重启后从私有 SharedPreferences 恢复最后一份计划，并在应用更新、系统时间或时区变化后重排；该偏好不进资料库、备份与导出。`ReminderReceiver` 核对最新计划标识与到期时间，通知只显示固定的提醒类型与打开应用提示，不展示可能含金额的名称或自填备注；点击只打开应用，Intent 不携带资料正文。系统自动备份已对整个应用关闭，云备份与系统换机迁移规则排除全部存储域；资料只通过物谱自己的备份导出离开设备。实际验证边界见[开发说明](DEVELOPMENT.md#android-开发与模拟器)，真机省电策略与各厂商 ROM 的后台限制未验证。
+
 ### 手机界面
 
 `mobile.html` → `src/mobile/main.tsx` 是独立的手机前端入口，和 `index.html` 一起由 Vite 多页面构建；iOS 宿主约定打开 `mobile.html`。手机布局只加载 `theme.css`、`mobile.css` 与 `ui/ui.css`，使用安全区和至少 44px 的触控区域，外观跟随系统明暗。业务逻辑、IPC 命令与 `src/*.ts` 数据层与桌面共用，只有界面另写；桌面入口、样式与后端保持原有行为。设计稿在 [docs/design/mobile](design/mobile/README.md)，开发约定（目录归属、路由注册、页面栈、组件、预览与截图）见 [src/mobile/README.md](../src/mobile/README.md)。
