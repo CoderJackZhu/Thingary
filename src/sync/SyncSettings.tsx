@@ -475,7 +475,7 @@ export function SyncSettings({
     <div className="sync-head">
       <div>
         <h3 id="sync-heading">{t('同步')}</h3>
-        <p>{t('手动把加密整库快照上传到你自己的 WebDAV，或从云端拉取。')}</p>
+        <p>{t('把加密整库快照同步到你自己的 WebDAV，在多台设备间使用同一份资料。')}</p>
       </div>
     </div>
 
@@ -486,7 +486,7 @@ export function SyncSettings({
     {method === 'none' && !loadError && <p className="notice">{t('不会联网。需要在多台设备之间同步时，选择 WebDAV。')}</p>}
 
     {method === 'webdav' && <>
-    {showIntro && <p className="notice">{t('只在你点同步时联网，只连接你自己的 WebDAV，服务器只看到加密数据。')}</p>}
+    {showIntro && <p className="notice">{t('只连接你自己的 WebDAV，服务器只看到加密数据。填好并保存后即可同步。')}</p>}
 
     <div className="sync-form">
       <FormRow label={t('服务商')} hint={providerHint(provider)}>
@@ -534,7 +534,7 @@ export function SyncSettings({
 
     {history && <p className="sync-history">{t('上次同步：{time}；云端版本：{version}；设备名：{device}', history)}</p>}
 
-    {ready && <div className={`sync-state ${view.tone}`}>
+    {ready && (config?.enabled || error?.code !== 'SYNC_UNCONFIGURED') && <div className={`sync-state ${view.tone}`}>
       <h3>{view.headline}</h3>
       <p>{view.detail}</p>
       {actions.length > 0 && <div className="sync-actions">

@@ -35,3 +35,14 @@
 .m-sync-page .leave-confirm-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
 .m-sync-page .leave-confirm-actions button{min-height:var(--m-touch)}
 .m-sync-page .leave-confirm-actions button.primary{background:var(--button-bg);color:var(--button-text)}
+.m-sync-page .form-segments{position:relative;display:grid;grid-template-columns:repeat(var(--segments),minmax(0,1fr));isolation:isolate;width:100%;background:var(--soft);padding:3px;border:1px solid var(--line);border-radius:10px}
+.m-sync-page .segment-thumb{position:absolute;z-index:-1;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/var(--segments));transform:translateX(calc(var(--selected)*100%));background:var(--card);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .18s ease-out}
+.m-sync-page .form-segments button{min-height:var(--m-touch);border:0;background:transparent;border-radius:8px;color:var(--muted);font-size:15px}
+.m-sync-page .form-segments button[aria-pressed=true]{color:var(--text);font-weight:600}
+.m-sync-page .sync-settings>.form-row{display:flex;flex-direction:column;gap:6px;order:0}
+.m-sync-page .sync-extras{order:5}
+.m-sync-page .sync-revealed code{overflow-wrap:anywhere}
+.m-sync-page .sync-remember{font-size:14px}
+.m-sync-page .sync-form .sync-actions{flex-direction:row;flex-wrap:wrap}
+.m-sync-page .sync-form .sync-actions button{width:auto;flex:1 1 40%}
+.m-sync-page .sync-form .sync-actions button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);font-weight:600}

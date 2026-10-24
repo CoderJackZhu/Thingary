@@ -76,7 +76,7 @@ function screen(mode, overrides = {}, seedPreview = false) {
 }
 
 test('configured, unconfigured and pending mounts invoke only local config_get without a preview seed', async () => {
-  for (const [mode, headline] of [['synced', '尚未检查云端'], ['unconfigured', '同步未开启'], ['unknown', '上次同步结果未知']]) {
+  for (const [mode, headline] of [['synced', '尚未检查云端'], ['unconfigured', '只连接你自己的 WebDAV'], ['unknown', '上次同步结果未知']]) {
     const r = screen(mode); await r.settle();
     assert.deepEqual(r.calls.map(c => c.command), ['sync_config_get'], mode);
     if (mode === 'unconfigured') {
@@ -191,7 +191,7 @@ test('both disable handlers stop at the local command without checking the netwo
     assert.deepEqual(JSON.parse(JSON.stringify(r.calls)), [{ command: 'sync_disable', args: { input: { forgetCredentials: forget } } }]);
     assert.match(r.text(), /不会联网/);
     r.pickMethod('webdav');
-    assert.match(r.text(), /同步未开启/);
+    assert.match(r.text(), /只连接你自己的 WebDAV/);
     assert.equal(r.button('检查云端'), undefined);
     assert.ok(r.button('测试连接').props.disabled);
     assert.equal(r.nodes().find(n => n.props?.['aria-label'] === 'WebDAV 地址').props.value === '', forget);

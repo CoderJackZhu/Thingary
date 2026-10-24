@@ -37,7 +37,7 @@ export default function SyncPage() {
     return true;
   }
 
-  return <div className="m-sync-page"><SettingsShell title={t('同步')} lead={t('手动同步到你自己的 WebDAV')}>
+  return <div className="m-sync-page"><SettingsShell title={t('同步')} lead={t('同步到你自己的 WebDAV')}>
     {readError ? <ErrorState title={t('资料库读取失败')} message={readError} onRetry={load}/> : !gate ? <Loading/> : demo
       ? <Notice>{t('当前是独立样例库。切换到「我的资料」后可配置同步。')}</Notice>
       : <>

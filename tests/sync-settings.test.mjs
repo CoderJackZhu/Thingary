@@ -17,7 +17,7 @@ const remote = {
 };
 
 test('sync is off by default and the connection form is always available', () => {
-  assert.match(src, /只在你点同步时联网，只连接你自己的 WebDAV，服务器只看到加密数据。/);
+  assert.match(src, /只连接你自己的 WebDAV，服务器只看到加密数据。/);
   for (const label of ['地址', '用户名', '应用密码', '路径', '设备名']) {
     assert.ok(src.includes(`label="${label}"`), `missing form label: ${label}`);
   }
