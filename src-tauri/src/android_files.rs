@@ -226,7 +226,8 @@ mod platform {
         .map_err(|_| Error::new("SHARE", "分享结果未返回，导出文件仍保留在应用导出目录"))?
     }
 
-    /// Recovery keys are transient shares, deleted once the sheet returns.
+    /// Recovery keys are transient shares: private until the chosen app has had
+    /// time to read the granted URI, then removed.
     pub async fn share_text(app: AppHandle, name: String, text: String) -> Result<bool> {
         tauri::async_runtime::spawn_blocking(move || {
             super::filename(&name)?;
@@ -239,14 +240,46 @@ mod platform {
             // Android exposes the same sandbox through /data/user/0 and
             // /data/data. Pass the canonical path, as for retained exports.
             let directory = directory.canonicalize()?;
+            // Clear keys left by a process that ended inside the grace period.
+            if let Ok(entries) = std::fs::read_dir(&directory) {
+                for entry in entries.flatten() {
+                    let stale = entry
+                        .metadata()
+                        .and_then(|meta| meta.modified())
+                        .ok()
+                        .and_then(|modified| modified.elapsed().ok())
+                        .is_some_and(|age| age > std::time::Duration::from_secs(600));
+                    if stale {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
             let mut file = tempfile::Builder::new()
                 .prefix("thingary-share-")
                 .suffix(&format!("-{name}"))
                 .tempfile_in(&directory)?;
             file.write_all(text.as_bytes())?;
             file.as_file().sync_all()?;
-            share(&app, file.path())
-            // The owned temp file is removed after the share sheet returns.
+            let path = file
+                .into_temp_path()
+                .keep()
+                .map_err(|_| Error::new("SHARE", "恢复密钥文件尚未就绪，请重试"))?;
+            let completed = share(&app, &path)?;
+            if completed {
+                // The chooser returns when the target activity starts, which can
+                // be before that app opens the URI. Delete after a grace period
+                // rather than pulling the file out from under it.
+                let cleanup = path;
+                let _ = std::thread::Builder::new()
+                    .name("thingary-share-cleanup".into())
+                    .spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_secs(120));
+                        let _ = std::fs::remove_file(cleanup);
+                    });
+            } else {
+                let _ = std::fs::remove_file(&path);
+            }
+            Ok(completed)
         })
         .await
         .map_err(|_| Error::new("SHARE", "密钥分享结果未返回，请重试"))?

@@ -20,7 +20,9 @@ export async function pdfExportAvailable(): Promise<boolean> {
 
 async function shareNotice(name: string, share?: ShareOutcome): Promise<void> {
   if (!share || share.completed) return;
-  if (!(await pdfExportAvailable())) {
+  // A failed capability probe must not turn the already-written export into a
+  // failed backup; it also keeps the existing notice where the field is absent.
+  if ((await pdfExportAvailable().catch(() => true)) === false) {
     window.alert(t('导出文件只保存在物谱内，尚未保存到其他位置；需要保存时请重新导出并在分享面板选择保存位置'));
     return;
   }

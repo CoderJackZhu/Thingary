@@ -124,7 +124,11 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   private fun finishShare() {
-    shareReceiver?.let { activity.unregisterReceiver(it) }
+    // Always release the panel even if the activity already dropped the receiver.
+    try {
+      shareReceiver?.let { activity.unregisterReceiver(it) }
+    } catch (_: Exception) {
+    }
     shareReceiver = null
     busy.set(false)
   }
