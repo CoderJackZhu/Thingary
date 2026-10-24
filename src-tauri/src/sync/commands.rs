@@ -220,25 +220,36 @@ pub fn sync_config_set(
     runtime.save_config(config)
 }
 
+/// Connection check: reachable, authorised and writable. ETags belong to files, not to a
+/// collection listing, so support is probed with a tiny file (written, read back if the write
+/// reply carried no ETag, then removed). A PROPFIND reply says nothing about it.
+pub fn test_connection(runtime: &SyncRuntime) -> Result<ConnectionTest> {
+    let config = require_configured(runtime)?;
+    let client = client(&config)?;
+    let folder = join_path(&config.base_path, "Thingary");
+    ensure_collections(&client, &folder)?;
+    client.propfind(&folder, 0)?;
+    let probe = join_path(&folder, ".connection-probe");
+    let written = client.put(&probe, b"thingary", PutCondition::None)?;
+    let etag = written
+        .etag
+        .or_else(|| client.get(&probe).ok().and_then(|reply| reply.etag));
+    let _ = client.delete(&probe);
+    Ok(ConnectionTest {
+        ok: true,
+        supports_etag: etag.is_some(),
+        free_space: None,
+    })
+}
+
 #[tauri::command]
 pub async fn sync_test_connection(
     runtime: tauri::State<'_, Arc<SyncRuntime>>,
 ) -> Result<ConnectionTest> {
     let runtime = runtime.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let config = require_configured(&runtime)?;
-        let client = client(&config)?;
-        let probe = join_path(&config.base_path, "Thingary");
-        ensure_collections(&client, &probe)?;
-        let response = client.propfind(&probe, 0)?;
-        Ok(ConnectionTest {
-            ok: true,
-            supports_etag: response.etag.is_some(),
-            free_space: None,
-        })
-    })
-    .await
-    .map_err(|_| Error::new("SYNC_TASK", "连接测试未完成"))?
+    tauri::async_runtime::spawn_blocking(move || test_connection(&runtime))
+        .await
+        .map_err(|_| Error::new("SYNC_TASK", "连接测试未完成"))?
 }
 
 #[tauri::command]

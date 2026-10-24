@@ -21,7 +21,10 @@ use thingary_lib::{
     files::Attach,
     storage::SCHEMA_VERSION,
     sync::{
-        commands::{finalize_pending_pull, pull_inspect, push, reconcile, status, SyncRuntime},
+        commands::{
+            finalize_pending_pull, pull_inspect, push, reconcile, status, test_connection,
+            SyncRuntime,
+        },
         engine::sha256_hex,
         fingerprint::{fingerprint, Fingerprint},
         manifest::Manifest,
@@ -752,6 +755,23 @@ fn reconcile_reports_when_another_device_wrote_in_the_meantime() {
     );
     assert_eq!(server.writes(), writes, "reconcile is read-only");
     assert_eq!(status(&a.worker, &a.runtime).unwrap().state, "conflict");
+}
+
+#[test]
+fn connection_test_probes_etag_support_with_a_file_and_cleans_up() {
+    let server = FakeDav::start();
+    let a = Device::new(sync_config(&server, "虚构设备甲", true), PASSPHRASE);
+    let result = test_connection(&a.runtime).unwrap();
+    assert!(result.ok);
+    assert!(result.supports_etag, "the server returns ETags for files");
+    assert!(
+        !server
+            .file_names()
+            .iter()
+            .any(|name| name.contains(".connection-probe")),
+        "the probe file must be removed: {:?}",
+        server.file_names()
+    );
 }
 
 #[test]
