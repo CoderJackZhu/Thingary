@@ -46,16 +46,14 @@ test('虚构持仓盘点实际处理器：新盘点份额价格为空且仅参�
  const r=runtime(d=>{d.existing=null;d.rows.forEach(v=>{v.account.fields.holding_mode=true;v.account.fields.kind='fund';v.previous={amount_cents:'700',original_minor:'100',fx_rate_micro:'7000000',quantity_e8:'100000000',unit_price_e6:'1000000',date:'2026-10-01'};});});const tree=await ready(r);const inputs=nodes(tree).filter(n=>n.type==='holding-input');assert.equal(inputs.length,4);assert.ok(inputs.every(n=>n.props.value===''));assert.ok(nodes(tree).some(n=>n.props?.children?.includes?.('上次单价')));
 });
 
-test('explicit same-as-last confirmation fills zero and saves entered, rather than automatic carry',async()=>{
+test('there is no per-row same-as-last button: a new check-in prefills carried rows instead',async()=>{
  const r=runtime(d=>{d.existing=null;d.rows.forEach(v=>{v.account.fields.currency='CNY';v.previous={amount_cents:'0',date:'2026-10-01'};});});
- let tree=await ready(r);const buttons=nodes(tree).filter(n=>n.type==='button'&&n.props.children==='与上次相同');assert.equal(buttons.length,2);assert.equal(r.requests.length,0);
- for(const b of buttons)b.props.onClick();tree=r.render();assert.ok(nodes(tree).filter(n=>n.type==='cents').every(n=>n.props.value==='0'));
- const input=await save(r);assert.deepEqual(input.entries.map(e=>[e.state,e.amount_cents]),[['entered','0'],['entered','0']]);
+ const tree=await ready(r);assert.equal(nodes(tree).filter(n=>n.type==='button'&&n.props.children==='与上次相同').length,0);
 });
-test('same-as-last preserves each complete currency fact and does not copy unknown or incompatible holding inputs',async()=>{
+test('previousCheckInRow keeps each complete currency fact and does not copy unknown or incompatible holding inputs',async()=>{
  const r=runtime(d=>{d.existing=null;d.rows.forEach((v,i)=>v.previous={amount_cents:i?'800':'700',original_minor:'100',fx_rate_micro:i?'8000000':'7000000',date:'2026-10-01'});});
- let tree=await ready(r);for(const b of nodes(tree).filter(n=>n.type==='button'&&n.props.children==='与上次相同'))b.props.onClick();
- const input=await save(r);assert.deepEqual(input.entries.map(e=>[e.state,e.amount_cents,e.original_minor,e.fx_rate_micro]),[['entered','700','100','7000000'],['entered','800','100','8000000']]);
+ let tree=await ready(r);
+ const input=await save(r);assert.deepEqual(input.entries.map(e=>[e.state,e.amount_cents,e.original_minor,e.fx_rate_micro]),[['unchanged',null,'100','7000000'],['unchanged',null,'100','8000000']]);
  for(const previous of [null,{amount_cents:null},{amount_cents:'700'}, {amount_cents:'700',original_minor:'100',fx_rate_micro:'7000000',quantity_e8:'100000000',unit_price_e6:'1000000'}])assert.equal(wealth.previousCheckInRow(account('fictional'),previous),null);
  const q={amount_cents:'700',original_minor:'100',fx_rate_micro:'7000000',quantity_e8:'100000000',unit_price_e6:'1000000'};
  const holdingAccount=account('holding');holdingAccount.fields.holding_mode=true;assert.equal(wealth.previousCheckInRow(holdingAccount,q).quantity_e8,'100000000');

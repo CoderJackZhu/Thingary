@@ -8,6 +8,7 @@ type Props = {
   label?: string; value: number | null; todayYear: number; onChange: (year: number) => void;
   intent?: YearIntent; min?: number; max?: number; recorded?: readonly number[]; disabled?: boolean;
 };
+const coarsePointer = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 /** Short native menu, with a bounded-size grid for every other valid year. */
 export function YearSelect({ label = t('年份'), value, todayYear, onChange, intent = 'near', min = 1, max = 9999, recorded, disabled = false }: Props) {
   const help = useFormHint();
@@ -68,7 +69,7 @@ export function YearSelect({ label = t('年份'), value, todayYear, onChange, in
     <div className="date-calendar-actions"><button type="button" disabled={todayYear < min || todayYear > max} onClick={() => navigate(todayYear)}>{t('回到今年')}</button><button type="button" onClick={() => close(true)}>{t('取消')}</button></div>
   </div>;
   return <div className="year-select" ref={root} onKeyDown={keys}>
-    {intent === 'long' ? <button type="button" className="year-select-trigger" ref={el => { trigger.current = el; }} aria-label={t('选择{label}', { label })} aria-describedby={help} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? panelId : undefined} disabled={disabled} onMouseDown={e => e.preventDefault()} onClick={show}>{value === null ? t('选择年份') : t('{value} 年', { value })} <span aria-hidden="true">▾</span></button>
+    {intent === 'long' || coarsePointer() ? <button type="button" className="year-select-trigger" ref={el => { trigger.current = el; }} aria-label={t('选择{label}', { label })} aria-describedby={help} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? panelId : undefined} disabled={disabled} onMouseDown={e => e.preventDefault()} onClick={show}>{value === null ? t('选择年份') : t('{value} 年', { value })} <span aria-hidden="true">▾</span></button>
       : <select aria-label={label} aria-describedby={help} ref={el => { trigger.current = el; }} value={value ?? ''} disabled={disabled} onChange={e => e.target.value === 'other' ? show() : pick(Number(e.target.value))}>
         <option value="" disabled>{t('选择年份')}</option>{years.map(year => <option key={year} value={year}>{t('{year} 年', { year })}</option>)}<option value="other">{t('其他年份…')}</option>
       </select>}

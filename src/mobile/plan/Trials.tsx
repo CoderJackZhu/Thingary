@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { MonthInput } from "../../DateInput";
 import type {
   BasicCapabilities,
   PlanningSources,
@@ -61,13 +62,7 @@ function MonthField({
 }) {
   return (
     <FormRow label={label} stacked>
-      <input
-        className="m-input"
-        aria-label={label}
-        type="month"
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value || null)}
-      />
+      <span className="m-date"><MonthInput label={label} value={value ?? ""} allowClear onChange={(v) => onChange(v || null)}/></span>
     </FormRow>
   );
 }

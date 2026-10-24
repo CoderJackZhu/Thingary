@@ -24,6 +24,7 @@ function runtime(kind = 'DateInput', initial = '', extra = {}) {
     if (name === './YearSelect') return {YearSelect: props => jsx('select', {'aria-label':'年份', ...props})};
     if (name === './form-hint') return {useFormHint: help => help, useFormLabel: label => label};
     if (name === './date-input.css') return {};
+    if (name === './i18n.ts') return {t: (text, params) => text.replace(/\{(\w+)\}/g, (_, k) => params?.[k] ?? ''), currentLang: () => 'zh-CN'};
     throw new Error(name);
   }};
   vm.runInNewContext(compiled, context);
