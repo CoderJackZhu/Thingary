@@ -14,7 +14,7 @@
 
 ▶ [53-second film](https://thingary.jackzhu.top/#film) (Chinese captions): monthly check-ins, net-worth changes, belongings, and how saving a little more moves your retirement date.
 
-Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts accounts, belongings, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally and needs no account; optional manual WebDAV sync to your own server is available for encrypted snapshots, and you do not have to log every transaction.
+Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts accounts, belongings, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally and needs no account; starting with the 0.1.0 candidate, optional manual WebDAV sync to your own server is available for encrypted snapshots, and you do not have to log every transaction.
 
 The interface is currently **Simplified Chinese only**. Account types are designed around mainland China (housing provident fund, individual pension accounts, mortgages), and amounts are recorded in Chinese yuan (CNY).
 
