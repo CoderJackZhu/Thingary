@@ -257,7 +257,7 @@ macOS 使用系统 ImageIO；Windows 用受限 Rust 解码，只接受 JPEG／PN
 
 ### 加密、恢复与上限
 
-`engine.rs` 用 age scrypt 口令加密完整备份归档，与普通加密备份的 X25519 恢复密钥分开。口令不落盘，内存会话从解锁起 10 分钟有效，读取不延长期限。WebDAV 使用 `ureq` 2.12（TLS），`webdav.rs` 注明选择 2 的原因是 ureq 3 拒绝 MKCOL／PROPFIND；阻塞网络由命令的 `spawn_blocking` 执行。客户端禁止重定向，只连接配置地址，错误信息不带凭据；用户应配置 HTTPS。
+`engine.rs` 用 age scrypt 口令加密完整备份归档，与普通加密备份的 X25519 恢复密钥分开。口令会话在内存中从解锁起 10 分钟有效，读取不延长期限；用户选择「记住口令」时另存于私有 `sync.json`（与应用密码同级，Debug 与公开视图一律隐去），取用顺序为会话再到记住值。前端 `src/sync/auto.ts` 在启动、前后台切换时只读检查，仅在本机快进且口令已记住时上传，从不自动拉取替换。WebDAV 使用 `ureq` 2.12（TLS），`webdav.rs` 注明选择 2 的原因是 ureq 3 拒绝 MKCOL／PROPFIND；阻塞网络由命令的 `spawn_blocking` 执行。客户端禁止重定向，只连接配置地址，错误信息不带凭据；用户应配置 HTTPS。
 
 拉取先校验密文与 manifest，完整解密后交给 `Worker::backup_inspect_begin`，返回现有检查 token 与摘要。桌面复用 `restore_backup_session`、`backup_session_result` 的确认／回执流程；`finalize_pending_pull` 在确认恢复成功后登记同步基线。原资料保护、稳定 ID、原图、回执和数据集切换均沿用[备份恢复管线](#备份恢复与迁移)，不另造合并或恢复协议。
 

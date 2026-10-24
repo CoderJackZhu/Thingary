@@ -129,9 +129,9 @@ function statusUnknownView(): SyncViewModel {
 function uncheckedView(): SyncViewModel {
   return {
     headline: t('尚未检查云端'),
-    detail: t('打开页面和保存设置不会联网。点击「检查云端」后才会读取云端状态，本机资料不会改变。'),
-    primaryAction: { id: 'check', label: t('检查云端') },
-    secondaryActions: [],
+    detail: t('打开页面和保存设置不会联网。点「立即同步」才会联网：先比对云端，需要替换本机资料时会先让你确认。'),
+    primaryAction: { id: 'sync', label: t('立即同步') },
+    secondaryActions: [{ id: 'check', label: t('只检查云端'), consequence: t('只读取云端清单并与本机比对，不上传，也不改动本机资料。') }],
     tone: 'neutral',
     blocking: false,
   };

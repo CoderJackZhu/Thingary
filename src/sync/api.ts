@@ -24,6 +24,8 @@ export type SyncPublicConfig = {
   last_synced_remote_version: number | null;
   last_synced_at: string | null;
   has_pending_push: boolean;
+  has_remembered_passphrase: boolean;
+  auto_check: boolean;
 };
 
 /** `sync_config_set` input; camelCase per `#[serde(rename_all = "camelCase")]`. */
@@ -131,8 +133,11 @@ export const syncStatus = (input: SyncStatusInput = {}): Promise<SyncStatusResul
   invoke('sync_status', input.passphrase ? { input } : {});
 
 /** Establishes the 10-minute in-memory passphrase session. */
-export const syncUnlock = (passphrase: string): Promise<void> =>
-  invoke('sync_unlock', { input: { passphrase } });
+export const syncUnlock = (passphrase: string, remember = false): Promise<void> =>
+  invoke('sync_unlock', { input: { passphrase, remember } });
+export const syncPassphraseReveal = (): Promise<string> => invoke('sync_passphrase_reveal');
+export const syncForgetPassphrase = (): Promise<void> => invoke('sync_forget_passphrase');
+export const syncSetAutoCheck = (enabled: boolean): Promise<void> => invoke('sync_set_auto_check', { enabled });
 
 /** Read-only: settles this device's unconfirmed push (landed / not landed / remote changed). */
 export const syncReconcile = (): Promise<SyncReconcileResult> => invoke('sync_reconcile');

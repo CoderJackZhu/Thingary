@@ -78,6 +78,14 @@ impl SyncRuntime {
     pub fn unlock(&self, passphrase: &str) -> Result<()> {
         self.passphrase.unlock(passphrase.to_string())
     }
+
+    /// The session passphrase, or the one this device was asked to remember.
+    fn passphrase(&self) -> Result<String> {
+        match self.passphrase.get() {
+            Ok(value) => Ok(value),
+            Err(error) => self.config()?.remembered_passphrase.ok_or(error),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -99,6 +107,8 @@ pub struct DisableInput {
 #[derive(Debug, Deserialize)]
 pub struct UnlockInput {
     pub passphrase: String,
+    #[serde(default)]
+    pub remember: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -273,7 +283,41 @@ pub fn sync_disable(
 
 #[tauri::command]
 pub fn sync_unlock(input: UnlockInput, runtime: tauri::State<'_, Arc<SyncRuntime>>) -> Result<()> {
-    runtime.passphrase.unlock(input.passphrase)
+    runtime.passphrase.unlock(input.passphrase.clone())?;
+    let mut config = runtime.config()?;
+    let next = input.remember.then_some(input.passphrase);
+    if config.remembered_passphrase != next {
+        config.remembered_passphrase = next;
+        runtime.save_config(config)?;
+    }
+    Ok(())
+}
+
+/// Shows the passphrase this device remembers (or the unlocked session one) so it can be
+/// written down or typed on another device.
+#[tauri::command]
+pub fn sync_passphrase_reveal(runtime: tauri::State<'_, Arc<SyncRuntime>>) -> Result<String> {
+    runtime.passphrase()
+}
+
+#[tauri::command]
+pub fn sync_forget_passphrase(runtime: tauri::State<'_, Arc<SyncRuntime>>) -> Result<()> {
+    let mut config = runtime.config()?;
+    runtime.passphrase.clear();
+    if config.remembered_passphrase.take().is_some() {
+        runtime.save_config(config)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn sync_set_auto_check(
+    enabled: bool,
+    runtime: tauri::State<'_, Arc<SyncRuntime>>,
+) -> Result<()> {
+    let mut config = runtime.config()?;
+    config.auto_check = enabled;
+    runtime.save_config(config)
 }
 
 #[tauri::command]
@@ -465,7 +509,7 @@ pub fn push(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PushR
         }
     }
 
-    let passphrase = runtime.passphrase.get()?;
+    let passphrase = runtime.passphrase()?;
     let library_id = match config.library_id.clone() {
         Some(library_id) => library_id,
         None if remote.is_none() => {
@@ -663,7 +707,7 @@ pub fn pull_inspect(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Resu
     let root = library_root(&config.base_path, &library_id);
     let encrypted = client.get(&join_path(&root, &remote.snapshot))?.body;
     verify_snapshot(&remote, &encrypted)?;
-    let plaintext = decrypt_snapshot(&encrypted, &runtime.passphrase.get()?)?;
+    let plaintext = decrypt_snapshot(&encrypted, &runtime.passphrase()?)?;
     fs::create_dir_all(&runtime.staging)
         .map_err(|_| Error::new("SYNC_STAGING", "无法准备同步暂存目录"))?;
     let mut archive = tempfile::NamedTempFile::new_in(&runtime.staging)

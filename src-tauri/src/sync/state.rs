@@ -37,6 +37,12 @@ pub struct SyncConfig {
     pub last_synced_fingerprint: Option<String>,
     pub last_synced_at: Option<String>,
     pub pending_push: Option<PendingPush>,
+    /// Kept next to the application password (same private file) so a person is not asked for
+    /// the passphrase on every sync; the server still only ever sees encrypted data.
+    pub remembered_passphrase: Option<String>,
+    /// Look at the cloud when the app opens or changes foreground (read-only; uploads plain
+    /// fast-forwards when the passphrase is remembered; never replaces local data by itself).
+    pub auto_check: bool,
 }
 
 impl Default for SyncConfig {
@@ -54,6 +60,8 @@ impl Default for SyncConfig {
             last_synced_fingerprint: None,
             last_synced_at: None,
             pending_push: None,
+            remembered_passphrase: None,
+            auto_check: true,
         }
     }
 }
@@ -76,6 +84,11 @@ impl std::fmt::Debug for SyncConfig {
             )
             .field("last_synced_at", &self.last_synced_at)
             .field("pending_push", &self.pending_push)
+            .field(
+                "remembered_passphrase",
+                &self.remembered_passphrase.as_ref().map(|_| "<redacted>"),
+            )
+            .field("auto_check", &self.auto_check)
             .finish()
     }
 }
@@ -92,6 +105,8 @@ pub struct PublicConfig {
     pub last_synced_remote_version: Option<u64>,
     pub last_synced_at: Option<String>,
     pub has_pending_push: bool,
+    pub has_remembered_passphrase: bool,
+    pub auto_check: bool,
 }
 
 impl SyncConfig {
@@ -107,6 +122,8 @@ impl SyncConfig {
             last_synced_remote_version: self.last_synced_remote_version,
             last_synced_at: self.last_synced_at.clone(),
             has_pending_push: self.pending_push.is_some(),
+            has_remembered_passphrase: self.remembered_passphrase.is_some(),
+            auto_check: self.auto_check,
         }
     }
 }

@@ -104,6 +104,9 @@ export function createSyncPreview(mode: string | null) {
   let lastSyncedAt: string | null = enabled ? when(90) : null;
   let pending = selected.startsWith('unknown');
   let unlocked = selected !== 'locked';
+  let remembered = false;
+  let autoCheck = true;
+  let rememberedValue = '';
   let remoteDeviceName = '虚构平板';
   let remoteCreatedAt = when(numericMode ? 12 : 90);
 
@@ -150,6 +153,8 @@ export function createSyncPreview(mode: string | null) {
     last_synced_remote_version: lastSyncedVersion,
     last_synced_at: lastSyncedAt,
     has_pending_push: pending,
+    has_remembered_passphrase: remembered,
+    auto_check: autoCheck,
   });
 
   const inspection = (): SyncPullInspection => {
@@ -246,8 +251,19 @@ export function createSyncPreview(mode: string | null) {
         if (selected === 'locked' && input.passphrase !== 'preview-pass')
           throw { code: 'SYNC_PASSPHRASE', message: tr('同步口令不正确') };
         unlocked = true;
+        remembered = !!(args.input as { remember?: boolean }).remember;
+        rememberedValue = remembered ? (input.passphrase as string) : '';
         return null;
       }
+      case 'sync_passphrase_reveal':
+        if (!rememberedValue) throw { code: 'SYNC_LOCKED', message: tr('请先解锁同步口令') };
+        return rememberedValue;
+      case 'sync_forget_passphrase':
+        remembered = false; rememberedValue = ''; unlocked = false;
+        return null;
+      case 'sync_set_auto_check':
+        autoCheck = !!args.enabled;
+        return null;
       case 'sync_push': {
         if (!enabled) throw unconfiguredError;
         if (!unlocked) throw { code: 'SYNC_LOCKED', message: tr('请输入同步口令。口令只保留在本次运行的内存中，10 分钟后自动失效。') };

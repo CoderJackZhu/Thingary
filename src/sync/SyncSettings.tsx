@@ -7,12 +7,15 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from '../asset';
 import { formatBytes } from '../auto-backup-format.ts';
-import { FormRow, Segments } from '../FormControls';
+import { FormRow, Segments, Switch } from '../FormControls';
 import { t } from '../i18n.ts';
 import {
   syncConfigGet,
   syncConfigSet,
   syncDisable,
+  syncForgetPassphrase,
+  syncPassphraseReveal,
+  syncSetAutoCheck,
   syncPullInspect,
   syncPush,
   syncReconcile,
@@ -35,6 +38,31 @@ type FormState = {
   basePath: string;
   deviceName: string;
 };
+
+const PROVIDERS = [
+  { id: 'jianguoyun', url: 'https://dav.jianguoyun.com/dav/' },
+  { id: 'nextcloud', url: 'https://你的域名/remote.php/dav/files/你的用户名/' },
+  { id: 'synology', url: 'https://你的域名:5006/' },
+] as const;
+
+function providerLabel(id: string) {
+  switch (id) {
+    case 'jianguoyun': return t('坚果云');
+    case 'nextcloud': return 'Nextcloud';
+    case 'synology': return t('群晖');
+    default: return t('其他');
+  }
+}
+
+function providerHint(id: string | null) {
+  switch (id) {
+    case 'jianguoyun': return t('在坚果云网页「账户信息 › 安全选项 › 第三方应用管理」添加应用，把生成的密码填到下面；用户名是你的坚果云邮箱。');
+    case 'nextcloud': return t('把地址里的域名和用户名换成你自己的；密码请在「设置 › 安全」里创建应用密码。');
+    case 'synology': return t('在群晖套件中心安装并启用 WebDAV Server，地址用 HTTPS 的 5006 端口。');
+    case 'other': return t('填写你的 WebDAV 地址（需要 https）、用户名和应用密码。');
+    default: return t('选一个会自动填好地址；其他服务选「其他」后自己填。');
+  }
+}
 
 const emptyForm: FormState = {
   baseUrl: '',
@@ -84,6 +112,8 @@ export function SyncSettings({
   const [passError, setPassError] = useState('');
   const [disableOpen, setDisableOpen] = useState(false);
   const [disableError, setDisableError] = useState('');
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const [provider, setProvider] = useState<string | null>(null);
   const [method, setMethod] = useState<'none' | 'webdav'>('none');
   const pendingPush = useRef(false);
   const alive = useRef(true), lock = useRef(false), pendingSync = useRef(false);
@@ -326,15 +356,16 @@ export function SyncSettings({
     }
   }
 
-  async function unlock(passphrase: string) {
+  async function unlock(passphrase: string, remember: boolean) {
     if (busy) return;
     const continueSync = pendingSync.current;
     setBusy('sync'); setPassError('');
     let unlocked = false;
     try {
-      await syncUnlock(passphrase);
+      await syncUnlock(passphrase, remember);
       if (!alive.current) return;
       unlocked = true;
+      setConfig(await syncConfigGet());
       setPassOpen(false); pendingSync.current = false;
       if (continueSync) await syncSteps(); else await refreshStatus();
     } catch (e) {
@@ -359,7 +390,7 @@ export function SyncSettings({
       if (!alive.current) return;
       const disabledConfig: SyncPublicConfig = {
         ...config, enabled: false, has_pending_push: false,
-        ...(forgetCredentials ? { base_url: '', username: '', base_path: '', has_password: false, last_synced_at: null, last_synced_remote_version: null } : {}),
+        ...(forgetCredentials ? { base_url: '', username: '', base_path: '', has_password: false, has_remembered_passphrase: false, auto_check: false, last_synced_at: null, last_synced_remote_version: null } : {}),
       };
       setConfig(disabledConfig); setForm(formFromConfig(disabledConfig));
       setStatus(null); setError({ code: 'SYNC_UNCONFIGURED', message: '' }); setMethod('none');
@@ -372,6 +403,23 @@ export function SyncSettings({
       lock.current = false;
       if (alive.current) setBusy(null);
     }
+  }
+
+  async function revealPassphrase() {
+    if (revealed !== null) { setRevealed(null); return; }
+    try { setRevealed(await syncPassphraseReveal()); } catch (e) { setActionError(errorMessage(e)); }
+  }
+
+  async function forgetPassphrase() {
+    try {
+      await syncForgetPassphrase(); setRevealed(null);
+      setConfig(await syncConfigGet());
+      setNotice(t('已不再记住口令，下次同步需要重新输入。'));
+    } catch (e) { setActionError(errorMessage(e)); }
+  }
+
+  async function toggleAutoCheck(value: boolean) {
+    try { await syncSetAutoCheck(value); setConfig(await syncConfigGet()); } catch (e) { setActionError(errorMessage(e)); }
   }
 
   function act(action: SyncAction) {
@@ -441,6 +489,12 @@ export function SyncSettings({
     {showIntro && <p className="notice">{t('只在你点同步时联网，只连接你自己的 WebDAV，服务器只看到加密数据。')}</p>}
 
     <div className="sync-form">
+      <FormRow label={t('服务商')} hint={providerHint(provider)}>
+        <div className="sync-actions">
+          {PROVIDERS.map(p => <button key={p.id} type="button" aria-pressed={provider === p.id} disabled={configDisabled} onClick={() => { setProvider(p.id); setForm(previous => ({ ...previous, baseUrl: p.url })); }}>{providerLabel(p.id)}</button>)}
+          <button type="button" aria-pressed={provider === 'other'} disabled={configDisabled} onClick={() => setProvider('other')}>{providerLabel('other')}</button>
+        </div>
+      </FormRow>
       <FormRow label={t('地址')} hint={t('WebDAV 地址，包含协议；例如坚果云、Nextcloud 或群晖。')}>
         <input ref={urlInput} type="url" spellCheck={false} autoComplete="off" aria-label={t('WebDAV 地址')} placeholder="https://dav.example.com/…" value={form.baseUrl} disabled={configDisabled} onChange={setField('baseUrl')}/>
       </FormRow>
@@ -463,6 +517,20 @@ export function SyncSettings({
       <button type="button" className="primary" disabled={configDisabled || !form.baseUrl.trim() || !form.username.trim() || !form.deviceName.trim() || (!form.password && !config?.has_password)} onClick={() => void saveConfig()}>{busy === 'config' ? t('正在保存…') : t('保存')}</button>
       {config?.enabled && <button type="button" disabled={configDisabled || blocked} onClick={() => { setDisableError(''); setDisableOpen(true); }}>{t('停用同步')}</button>}
     </div>
+
+    {config?.enabled && <div className="sync-form sync-extras">
+      <FormRow label={t('同步口令')} hint={config.has_remembered_passphrase ? t('已记住在这台设备；换新设备时需要它。') : t('未记住：每次同步都要输入。')}>
+        <div className="sync-actions">
+          {config.has_remembered_passphrase && <button type="button" disabled={busy !== null} onClick={() => void revealPassphrase()}>{revealed === null ? t('查看口令') : t('隐藏口令')}</button>}
+          {config.has_remembered_passphrase && <button type="button" disabled={busy !== null} onClick={() => void forgetPassphrase()}>{t('不再记住')}</button>}
+          {!config.has_remembered_passphrase && <button type="button" disabled={busy !== null} onClick={() => openPassphrase('unlock')}>{t('输入并记住口令')}</button>}
+        </div>
+      </FormRow>
+      {revealed !== null && <p className="notice sync-revealed" role="status">{t('同步口令：')}<code>{revealed}</code></p>}
+      <FormRow label={t('打开物谱时检查云端')} hint={t('只读取云端有没有新版本并提示你，不会自动上传或替换。')}>
+        <Switch label={t('打开物谱时检查云端')} value={config.auto_check} disabled={busy !== null} onChange={value => void toggleAutoCheck(value)}/>
+      </FormRow>
+    </div>}
 
     {history && <p className="sync-history">{t('上次同步：{time}；云端版本：{version}；设备名：{device}', history)}</p>}
 
@@ -495,7 +563,7 @@ export function SyncSettings({
       busy={busy === 'sync'}
       error={passError}
       onCancel={() => { setPassOpen(false); setPassError(''); pendingSync.current = false; }}
-      onSubmit={passphrase => void unlock(passphrase)}
+      onSubmit={(passphrase, remember) => void unlock(passphrase, remember)}
     />}
     {disableOpen && <DisableSyncDialog busy={busy === 'disable'} error={disableError} onCancel={() => setDisableOpen(false)} onDisable={forget => void disableSync(forget)}/>}
   </div>;
@@ -516,10 +584,11 @@ function DisableSyncDialog({ busy, error, onCancel, onDisable }: { busy: boolean
   </dialog>;
 }
 
-function PassphraseDialog({ firstTime, busy, error, onCancel, onSubmit }: { firstTime: boolean; busy: boolean; error: string; onCancel: () => void; onSubmit: (passphrase: string) => void }) {
+function PassphraseDialog({ firstTime, busy, error, onCancel, onSubmit }: { firstTime: boolean; busy: boolean; error: string; onCancel: () => void; onSubmit: (passphrase: string, remember: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [passphrase, setPassphrase] = useState('');
   const [again, setAgain] = useState('');
+  const [remember, setRemember] = useState(true);
   useEffect(() => { const opened = dialog.current; opened?.showModal(); return () => opened?.close(); }, []);
   const mismatch = firstTime && again.length > 0 && passphrase !== again;
   const incomplete = !passphrase || (firstTime && passphrase !== again);
@@ -528,13 +597,16 @@ function PassphraseDialog({ firstTime, busy, error, onCancel, onSubmit }: { firs
     <p className="muted">{firstTime
       ? t('第一次上传会创建同步口令，请输入两次。口令只在本次运行的内存中保留，不会保存到磁盘。')
       : t('口令只用于本次同步，保留在内存中，10 分钟后自动失效。')}</p>
-    <p className="notice">{t('忘记口令后云端副本无法恢复，本机资料不受影响。')}</p>
+    <p className="notice">{firstTime
+      ? t('请把口令记在密码本里：换新设备时需要同样的口令才能取回云端资料。忘记口令后云端副本无法恢复，本机资料不受影响。')
+      : t('忘记口令后云端副本无法恢复，本机资料不受影响。')}</p>
     <label className="field"><span>{t('同步口令')}</span><input type="password" autoComplete="off" spellCheck={false} aria-label={t('同步口令')} value={passphrase} disabled={busy} onChange={event => setPassphrase(event.target.value)}/></label>
     {firstTime && <label className="field"><span>{t('再次输入同步口令')}</span><input type="password" autoComplete="off" spellCheck={false} aria-label={t('再次输入同步口令')} value={again} disabled={busy} onChange={event => setAgain(event.target.value)}/></label>}
+    <label className="sync-remember"><input type="checkbox" checked={remember} disabled={busy} onChange={event => setRemember(event.target.checked)}/> {t('在这台设备记住口令，之后不用再输入')}</label>
     {(mismatch || error) && <p className="notice error" role="alert">{mismatch ? t('两次输入的口令不一致。') : error}</p>}
     <div className="leave-confirm-actions">
       <button type="button" disabled={busy} onClick={onCancel}>{t('取消')}</button>
-      <button type="button" className="primary" disabled={busy || incomplete} onClick={() => onSubmit(passphrase)}>{firstTime ? t('设置口令并同步') : t('解锁并同步')}</button>
+      <button type="button" className="primary" disabled={busy || incomplete} onClick={() => onSubmit(passphrase, remember)}>{firstTime ? t('设置口令并同步') : t('解锁并同步')}</button>
     </div>
   </dialog>;
 }

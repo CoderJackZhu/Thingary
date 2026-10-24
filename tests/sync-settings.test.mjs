@@ -64,7 +64,7 @@ test('a conflict offers cancel, keep local and use cloud in that order', () => {
 
 test('the passphrase dialog asks twice on first setup and states the forgotten-passphrase consequence', () => {
   assert.match(src, /<dialog/);
-  assert.match(src, /syncUnlock\(passphrase\)/);
+  assert.match(src, /syncUnlock\(passphrase, remember\)/);
   assert.match(src, /忘记口令后云端副本无法恢复，本机资料不受影响。/);
   assert.match(src, /再次输入同步口令/);
   assert.match(src, /firstTime/);

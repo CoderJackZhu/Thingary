@@ -844,3 +844,32 @@ fn errors_and_public_state_never_reveal_password_or_passphrase() {
         assert!(!visible.contains(secret));
     }
 }
+
+#[test]
+fn a_remembered_passphrase_syncs_without_unlocking_and_stays_out_of_public_state() {
+    let server = FakeDav::start();
+    let mut config = sync_config(&server, "虚构设备甲", true);
+    config.remembered_passphrase = Some(PASSPHRASE.into());
+    let a = Device::new(config, "无关-虚构-口令");
+    seed_library(&a.worker, "虚构相机");
+
+    // A fresh runtime has no unlocked session; the remembered passphrase is used instead.
+    let fresh =
+        Arc::new(SyncRuntime::new(a.config_root.clone(), a._temp.path().join("staging2")).unwrap());
+    assert_eq!(push(&a.worker, &fresh, false).unwrap().version, 1);
+
+    let loaded = ConfigStore::new(a.config_root.clone()).load().unwrap();
+    assert!(loaded.public_view().has_remembered_passphrase);
+    assert!(!serde_json::to_string(&loaded.public_view())
+        .unwrap()
+        .contains(PASSPHRASE));
+    assert!(!format!("{loaded:?}").contains(PASSPHRASE));
+
+    // A second device with the same remembered passphrase can read it back.
+    let mut other = sync_config(&server, "虚构设备乙", true);
+    other.remembered_passphrase = Some(PASSPHRASE.into());
+    let b = Device::new(other, "无关-虚构-口令");
+    let fresh_b =
+        Arc::new(SyncRuntime::new(b.config_root.clone(), b._temp.path().join("staging2")).unwrap());
+    assert!(pull_inspect(&b.worker, &fresh_b, false).is_ok());
+}

@@ -224,8 +224,8 @@ test('configured but unchecked is neutral, while an outstanding push remains rea
   const view = syncView(null, null, config);
   assert.equal(view.headline, '尚未检查云端');
   assert.equal(view.tone, 'neutral');
-  assert.deepEqual(actionIds(view), ['check']);
-  assert.equal(view.primaryAction.label, '检查云端');
+  assert.deepEqual(actionIds(view), ['sync', 'check']);
+  assert.equal(view.primaryAction.label, '立即同步');
   assert.equal(syncView(status('up_to_date'), null, config).primaryAction.id, 'check');
   assert.match(view.detail, /打开页面和保存设置不会联网/);
   assert.equal(syncView(null, null, { ...config, enabled: false }).headline, '同步未开启');

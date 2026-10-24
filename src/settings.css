@@ -33,3 +33,5 @@
 .sync-disable-actions{display:grid;gap:8px;margin-top:16px}
 .sync-disable-actions button{white-space:normal}
 @media(max-width:520px){.sync-form .form-row{grid-template-columns:minmax(0,1fr);gap:6px}.sync-form .form-row-control{justify-content:flex-start}}
+
+.sync-line.attention .link-button{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-align:left}.sync-remember{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px}.sync-revealed code{user-select:all;font-size:13px}

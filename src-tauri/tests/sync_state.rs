@@ -121,6 +121,8 @@ fn sync_json_keeps_secrets_private_and_persists_unknown_push_evidence() {
             manifest: pending_manifest,
             fingerprint: "c".repeat(64),
         }),
+        remembered_passphrase: Some("fictional-passphrase".into()),
+        auto_check: true,
     };
     store.save(&config).unwrap();
 

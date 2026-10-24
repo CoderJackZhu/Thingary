@@ -86,8 +86,8 @@ test('configured, unconfigured and pending mounts invoke only local config_get w
     }
     assert.ok(r.text().includes(headline), mode);
     if (mode === 'synced') {
-      assert.ok(r.button('检查云端'));
-      assert.equal(r.button('立即同步'), undefined);
+      assert.ok(r.button('只检查云端'));
+      assert.ok(r.button('立即同步'));
       assert.match(r.text(), /云端版本：7；设备名：虚构 MacBook/);
     }
     r.unmount();
@@ -109,7 +109,7 @@ test('saving settings reads only local config after config_set and discards cach
     assert.deepEqual(r.calls.map(c => c.command), ['sync_config_set', 'sync_config_get'], mode);
     assert.match(r.text(), /尚未检查云端/);
     assert.doesNotMatch(r.text(), /已是最新/);
-    assert.equal(r.button('立即同步'), undefined);
+    assert.ok(r.button('立即同步'));
     r.unmount();
   }
 });
@@ -117,7 +117,7 @@ test('saving settings reads only local config after config_set and discards cach
 test('only a manual check invokes sync_status, while preview seeds do not invoke network commands', async () => {
   const r = screen('synced'); await r.settle();
   r.calls.length = 0;
-  r.button('检查云端').props.onClick(); await r.settle();
+  r.button('只检查云端').props.onClick(); await r.settle();
   assert.deepEqual(r.calls.map(c => c.command), ['sync_status', 'sync_config_get']);
   assert.match(r.text(), /已是最新/);
   r.unmount();
@@ -174,7 +174,7 @@ test('failed reconciliation retains unknown protection and can retry only the re
 
 test('unknown push errors immediately block a fresh transfer', async () => {
   const r = screen('local_ahead', { sync_push: async () => { throw { code: 'SYNC_RESULT_UNKNOWN', message: '虚构未知结果' }; } });
-  await r.settle(); r.button('检查云端').props.onClick(); await r.settle();
+  await r.settle();
   r.button('立即同步').props.onClick(); await r.settle();
   assert.match(r.text(), /上次同步结果未知/);
   assert.equal(r.button('立即同步'), undefined);
@@ -213,7 +213,7 @@ test('disable failure keeps the dialog and current settings available for correc
 
 test('schema incompatibility exposes only the upgrade action and last-sync info tolerates missing status', async () => {
   const r = screen('schema_newer'); await r.settle();
-  r.button('检查云端').props.onClick(); await r.settle();
+  r.button('立即同步').props.onClick(); await r.settle();
   assert.ok(r.button('查看更新'));
   for (const label of ['立即同步', '检查云端资料', '保留本机', '采用云端']) assert.equal(r.button(label), undefined);
   assert.match(r.text(), /上次同步：.*云端版本：7；设备名：虚构 MacBook/);
@@ -222,12 +222,11 @@ test('schema incompatibility exposes only the upgrade action and last-sync info 
 
 test('the locked scene keeps a wrong passphrase dialog open and syncs after a valid passphrase', async () => {
   const r = screen('locked'); await r.settle();
-  r.button('检查云端').props.onClick(); await r.settle();
   r.button('立即同步').props.onClick(); await r.settle();
   assert.ok(r.dialog('PassphraseDialog'));
-  r.dialog('PassphraseDialog').props.onSubmit('wrong'); await r.settle();
+  r.dialog('PassphraseDialog').props.onSubmit('wrong', false); await r.settle();
   assert.equal(r.dialog('PassphraseDialog').props.error, '同步口令不正确');
-  r.dialog('PassphraseDialog').props.onSubmit('preview-pass'); await r.settle();
+  r.dialog('PassphraseDialog').props.onSubmit('preview-pass', false); await r.settle();
   assert.equal(r.dialog('PassphraseDialog'), undefined);
   assert.match(r.text(), /已是最新/);
   assert.match(r.text(), /云端版本：8/);
