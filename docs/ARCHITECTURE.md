@@ -245,7 +245,7 @@ macOS 使用系统 ImageIO；Windows 用受限 Rust 解码，只接受 JPEG／PN
 
 推送先读取清单及 ETag，生成完整备份并加密，上传快照后 GET 回读校验长度与 SHA-256；持久保存待核对证据，再最后写清单。有 ETag 使用 `If-Match`，首次无清单使用 `If-None-Match: *`；已有清单但无 ETag 时重读比较后写入，仍无法防止最后一次读写间的竞争，界面连接测试会提示。成功后才推进本机同步基线，并尽力修剪到最近 5 份快照；修剪失败不影响已成功的推送，不作永久历史或严格数量承诺。
 
-清单写入应答丢失时保留 `pending_push`（原版本、候选清单、内容指纹）。`sync_reconcile` 对远端只读：相同候选清单返回 `landed` 并推进本机基线；仍为原版本或原本为空且仍为空返回 `not_landed`；其他变化返回 `remote_changed`；无待核对项为 `nothing_pending`。`not_landed`／`remote_changed` 清除本机待核对项，之后由用户重新判断方向；不在核对时 PUT 或恢复。`sync_status` 只判断方向，不清除该项。当前 `SyncSettings.reconcile` 仍只调用 `sync_status`，新增命令及类型已就绪，界面接线仍待完成。
+清单写入应答丢失时保留 `pending_push`（原版本、候选清单、内容指纹）。`sync_reconcile` 对远端只读：相同候选清单返回 `landed` 并推进本机基线；仍为原版本或原本为空且仍为空返回 `not_landed`；其他变化返回 `remote_changed`；无待核对项为 `nothing_pending`。`not_landed`／`remote_changed` 清除本机待核对项，之后由用户重新判断方向；不在核对时 PUT 或恢复。`sync_status` 只判断方向，不清除该项。界面的「核对云端状态」调用 `sync_reconcile`，按返回结果提示后再刷新状态；打开页面和保存配置不调用任何联网命令，只有用户点击「检查云端」「立即同步」等操作才联网。
 
 ### 加密、恢复与上限
 
