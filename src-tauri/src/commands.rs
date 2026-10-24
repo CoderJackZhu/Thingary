@@ -1512,7 +1512,9 @@ pub async fn open_notification_settings() -> Result<()> {
     }
     #[cfg(target_os = "android")]
     {
-        Err(Error::new("UNSUPPORTED", "Android 暂不支持系统通知设置"))
+        tauri::async_runtime::spawn_blocking(crate::android_notifications::open_settings)
+            .await
+            .map_err(|_| Error::new("REMINDER", "无法打开通知设置"))?
     }
 }
 #[tauri::command]
