@@ -236,6 +236,9 @@ mod platform {
             let (_, cache) = app_dirs(&app)?;
             let directory = cache.join("share");
             std::fs::create_dir_all(&directory)?;
+            // Android exposes the same sandbox through /data/user/0 and
+            // /data/data. Pass the canonical path, as for retained exports.
+            let directory = directory.canonicalize()?;
             let mut file = tempfile::Builder::new()
                 .prefix("thingary-share-")
                 .suffix(&format!("-{name}"))
