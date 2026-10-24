@@ -9417,4 +9417,6 @@ export const en: Record<string, string> = {
   "手动同步到你自己的 WebDAV": "Manually sync with your own WebDAV",
   "当前是独立样例库。切换到「我的资料」后可配置同步。": "This is the separate sample library. Switch to your own data to set up sync.",
   "请先处理正在编辑或待核对的内容，再进行同步。": "Finish editing or checking pending results before syncing.",
+  "设备解锁": "Device unlock",
+  "这台设备没有设置锁屏口令或生物识别": "This device has no screen lock or biometrics set up",
 };
