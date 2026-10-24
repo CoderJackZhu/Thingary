@@ -36,3 +36,4 @@
 
 .sync-line.attention .link-button{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-align:left}.sync-remember{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px}.sync-revealed code{user-select:all;font-size:13px}
 .sync-form .sync-actions button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+.sync-compare{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}.sync-compare caption{text-align:left;color:var(--muted);padding-bottom:6px}.sync-compare th,.sync-compare td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--line)}.sync-compare th[scope=row]{text-align:left;font-weight:400}.sync-compare tr.differs td{font-weight:600;color:var(--accent)}

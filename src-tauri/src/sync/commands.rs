@@ -373,6 +373,19 @@ pub async fn sync_pull_inspect(
         .map_err(|_| Error::new("SYNC_TASK", "同步拉取未完成"))?
 }
 
+/// Read-only look at the cloud copy for the conflict screen; nothing is restored.
+#[tauri::command]
+pub async fn sync_compare_remote(
+    worker: tauri::State<'_, Worker>,
+    runtime: tauri::State<'_, Arc<SyncRuntime>>,
+) -> Result<PullInspection> {
+    let worker = worker.inner().clone();
+    let runtime = runtime.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || pull_inspect(&worker, &runtime, true))
+        .await
+        .map_err(|_| Error::new("SYNC_TASK", "同步对比未完成"))?
+}
+
 #[tauri::command]
 pub async fn sync_resolve_conflict(
     input: ConflictInput,

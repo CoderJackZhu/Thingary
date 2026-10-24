@@ -54,8 +54,8 @@ test('a conflict offers cancel, keep local and use cloud in that order', () => {
     remote,
   });
   const labels = [view.primaryAction.label, ...view.secondaryActions.map(action => action.label)];
-  assert.deepEqual(labels, ['取消', '保留本机', '采用云端']);
-  assert.deepEqual(view.secondaryActions.map(action => action.destructive), [true, true]);
+  assert.deepEqual(labels, ['取消', '对比两边内容', '保留本机', '采用云端']);
+  assert.deepEqual(view.secondaryActions.map(action => action.destructive), [undefined, true, true]);
   assert.match(src, /syncView\(status, error, config\)/);
   assert.match(src, /syncResolveConflict\(choice\)/);
   assert.match(src, /'keep_local'/);

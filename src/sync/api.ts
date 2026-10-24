@@ -144,6 +144,7 @@ export const syncReconcile = (): Promise<SyncReconcileResult> => invoke('sync_re
 
 export const syncPush = (): Promise<SyncPushResult> => invoke('sync_push');
 
+export const syncCompareRemote = (): Promise<SyncPullInspection> => invoke('sync_compare_remote');
 export const syncPullInspect = (): Promise<SyncPullInspection> =>
   invoke('sync_pull_inspect');
 

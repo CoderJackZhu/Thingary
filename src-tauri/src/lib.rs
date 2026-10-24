@@ -573,6 +573,7 @@ pub fn run() {
             sync::commands::sync_set_auto_check,
             sync::commands::sync_push,
             sync::commands::sync_pull_inspect,
+            sync::commands::sync_compare_remote,
             sync::commands::sync_reconcile,
             sync::commands::sync_resolve_conflict
         ]);

@@ -10,6 +10,7 @@ import { formatBytes } from '../auto-backup-format.ts';
 import { FormRow, Segments, Switch } from '../FormControls';
 import { t } from '../i18n.ts';
 import {
+  syncCompareRemote,
   syncConfigGet,
   syncConfigSet,
   syncDisable,
@@ -112,6 +113,7 @@ export function SyncSettings({
   const [passError, setPassError] = useState('');
   const [disableOpen, setDisableOpen] = useState(false);
   const [disableError, setDisableError] = useState('');
+  const [compare, setCompare] = useState<{ remote: SyncPullInspection } | null>(null);
   const [revealed, setRevealed] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
   const [method, setMethod] = useState<'none' | 'webdav'>('none');
@@ -338,6 +340,25 @@ export function SyncSettings({
     }
   }
 
+  /** Shows how many records each side holds; restores nothing. */
+  async function compareSides() {
+    if (busy || lock.current) return;
+    lock.current = true; setBusy('sync'); setActionError('');
+    try {
+      const remote = await syncCompareRemote();
+      if (alive.current) setCompare({ remote });
+    } catch (e) {
+      if (alive.current) {
+        const failure = asSyncError(e);
+        if (failure.code === 'SYNC_LOCKED' || failure.code === 'SYNC_PASSPHRASE') { setError(failure); openPassphrase('unlock'); }
+        else setActionError(failure.message ?? '');
+      }
+    } finally {
+      lock.current = false;
+      if (alive.current) setBusy(null);
+    }
+  }
+
   /** Cancel keeps the conflict as it is; only the local view is refreshed. */
   async function cancelConflict() {
     if (busy) return;
@@ -443,6 +464,9 @@ export function SyncSettings({
         break;
       case 'upgrade':
         void checkUpdates();
+        break;
+      case 'compare':
+        void compareSides();
         break;
       case 'cancel':
         void cancelConflict();
@@ -553,6 +577,8 @@ export function SyncSettings({
 
     </>}
 
+    {compare && status?.state === 'conflict' && <CompareTable local={status.local.table_counts} remote={compare.remote}/>}
+
     {loadError && <p className="notice error" role="alert">{t('同步设置读取失败：{loadError}', { loadError })}</p>}
     {actionError && <p className="notice error" role="alert">{actionError}</p>}
     {error?.message && <p className="notice error" role="alert">{error.message}</p>}
@@ -609,4 +635,26 @@ function PassphraseDialog({ firstTime, busy, error, onCancel, onSubmit }: { firs
       <button type="button" className="primary" disabled={busy || incomplete} onClick={() => onSubmit(passphrase, remember)}>{firstTime ? t('设置口令并同步') : t('解锁并同步')}</button>
     </div>
   </dialog>;
+}
+
+// `table` is the local SQLite table counted by the fingerprint; `field` the same thing in the cloud summary.
+const COMPARE_ROWS: { table: string; field: string; label: () => string }[] = [
+  { table: 'assets', field: 'assets', label: () => t('物品') },
+  { table: 'wishlist_items', field: 'wishes', label: () => t('心愿') },
+  { table: 'fin_accounts', field: 'accounts', label: () => t('账户') },
+  { table: 'fin_snapshots', field: 'snapshots', label: () => t('盘点') },
+  { table: 'expenses', field: 'expenses', label: () => t('支出') },
+  { table: 'recurring_plans', field: 'plans', label: () => t('周期计划') },
+];
+
+function CompareTable({ local, remote }: { local: Record<string, number>; remote: SyncPullInspection }) {
+  const counts = (remote.summary ?? {}) as unknown as Record<string, number>;
+  return <table className="sync-compare">
+    <caption>{t('云端由「{device}」更新于 {time}', { device: remote.device_name, time: remote.created_at.slice(0, 16).replace('T', ' ') })}</caption>
+    <thead><tr><th/><th>{t('本机')}</th><th>{t('云端')}</th></tr></thead>
+    <tbody>{COMPARE_ROWS.map(row => {
+      const mine = local[row.table] ?? 0, theirs = counts[row.field] ?? 0;
+      return <tr key={row.table} className={mine === theirs ? undefined : 'differs'}><th scope="row">{row.label()}</th><td>{mine}</td><td>{theirs}</td></tr>;
+    })}</tbody>
+  </table>;
 }

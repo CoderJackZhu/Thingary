@@ -41,14 +41,14 @@ const SCHEMA = 46;
 const SNAPSHOT_BYTES = 4_800_000;
 const tableCounts: Record<string, number> = {
   assets: 9,
-  wishes: 2,
+  wishlist_items: 2,
   maintenances: 3,
   warranties: 4,
-  accounts: 2,
-  snapshots: 6,
+  fin_accounts: 2,
+  fin_snapshots: 6,
   expenses: 5,
-  plans: 2,
-  payments: 12,
+  recurring_plans: 2,
+  plan_payments: 12,
   virtual_assets: 3,
   files: 11,
 };
@@ -310,6 +310,9 @@ export function createSyncPreview(mode: string | null) {
           };
         return inspection();
       }
+      case 'sync_compare_remote':
+        if (!enabled) throw unconfiguredError;
+        return inspection();
       case 'sync_resolve_conflict': {
         if (!enabled) throw unconfiguredError;
         if (state() !== 'conflict')

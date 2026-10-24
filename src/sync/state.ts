@@ -47,7 +47,8 @@ export type SyncActionId =
   | 'use_remote'
   | 'cancel'
   | 'unlock'
-  | 'upgrade';
+  | 'upgrade'
+  | 'compare';
 
 export type SyncAction = {
   id: SyncActionId;
@@ -298,6 +299,11 @@ export function syncView(
           consequence: t('不做任何改动，保持冲突状态。'),
         },
         secondaryActions: [
+          {
+            id: 'compare',
+            label: t('对比两边内容'),
+            consequence: t('只读取并显示两边各有多少条记录，不改动任何资料。'),
+          },
           {
             id: 'keep_local',
             label: t('保留本机'),

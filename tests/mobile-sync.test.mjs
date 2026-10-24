@@ -88,9 +88,9 @@ test('conflict defaults to cancel before both destructive buttons with explicit 
   const view = syncView(state);
   assert.equal(view.primaryAction.id, 'cancel');
   assert.equal(view.primaryAction.destructive, undefined);
-  assert.deepEqual(view.secondaryActions.map(a => [a.id, a.destructive]), [['keep_local', true], ['use_remote', true]]);
-  assert.match(view.secondaryActions[0].consequence, /覆盖云端/);
-  assert.match(view.secondaryActions[1].consequence, /保护副本/);
+  assert.deepEqual(view.secondaryActions.map(a => [a.id, a.destructive]), [['compare', undefined], ['keep_local', true], ['use_remote', true]]);
+  assert.match(view.secondaryActions[1].consequence, /覆盖云端/);
+  assert.match(view.secondaryActions[2].consequence, /保护副本/);
   assert.match(shared, /\.\.\.\(view\.primaryAction \? \[view\.primaryAction\] : \[\]\), \.\.\.view\.secondaryActions/);
   assert.match(shared, /action\.destructive \? 'danger'/);
   assert.doesNotMatch(page + shared, /autoFocus/);

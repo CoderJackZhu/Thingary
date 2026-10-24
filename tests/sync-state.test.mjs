@@ -58,6 +58,7 @@ test('conflict defaults to cancel; both overwrite actions are destructive and ex
   assert.deepEqual(
     view.secondaryActions.map(action => [action.id, action.label, action.consequence, action.destructive]),
     [
+      ['compare', '对比两边内容', '只读取并显示两边各有多少条记录，不改动任何资料。', undefined],
       ['keep_local', '保留本机', '用本机资料覆盖云端；旧云端快照仍保留。', true],
       ['use_remote', '采用云端', '用云端快照覆盖本机；本机资料会先保存一份保护副本。', true],
     ],
