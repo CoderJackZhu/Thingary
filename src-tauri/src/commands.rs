@@ -799,8 +799,8 @@ fn on_main<T: Send + 'static>(
             let _ = send.send(f(&dialog_app));
         })
         .map_err(|_| Error::new("PICKER", "无法打开文件面板"))?;
-    // Android has no implemented native panel yet; run the (unsupported)
-    // picker off the main thread and deliver its result instead of blocking.
+    // Android pickers block on the system Activity result; run them off the
+    // main thread and deliver the result instead of blocking the UI.
     #[cfg(target_os = "android")]
     std::thread::Builder::new()
         .name("thingary-android-picker".into())
@@ -822,6 +822,8 @@ pub struct BackupDone {
     pub folder: String,
     #[cfg(target_os = "ios")]
     pub share: crate::ios_exports::ShareOutcome,
+    #[cfg(target_os = "android")]
+    pub share: crate::android_files::ShareOutcome,
 }
 
 /// Cancelling the save panel returns `None` and starts no task (AC34).
@@ -862,6 +864,9 @@ pub async fn create_backup(
     let receive = on_main(&app, move |app| {
         crate::native_images::pick_save(app, "保存完整备份", "保存备份", &suggested, extension)
     })?;
+    // Android shares the published export after writing it; iOS does the same.
+    #[cfg(target_os = "android")]
+    let share_app = app.clone();
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -877,8 +882,10 @@ pub async fn create_backup(
         let name = w.create_backup_file_task(path.clone(), force_plaintext, task_id)?;
         #[cfg(target_os = "ios")]
         let share = crate::ios_exports::share_published(&path);
+        #[cfg(target_os = "android")]
+        let share = crate::android_files::share_published(&share_app, &path);
         Ok(Some(BackupDone {
-            #[cfg(target_os = "ios")]
+            #[cfg(any(target_os = "ios", target_os = "android"))]
             share,
             name: name.unwrap_or_default(),
             folder,
@@ -920,6 +927,8 @@ pub async fn inspect_backup(
         else {
             return Ok(None);
         };
+        #[cfg(target_os = "android")]
+        let _staged_backup = crate::android_files::StagedBackupCleanup::new(&path);
         let started = w.backup_inspect_begin_task(path.clone(), task_id)?;
         Ok(Some(Inspected {
             name: started.name,
@@ -1260,6 +1269,8 @@ pub struct SheetCount {
 pub struct WorkbookDone {
     #[cfg(target_os = "ios")]
     pub share: crate::ios_exports::ShareOutcome,
+    #[cfg(target_os = "android")]
+    pub share: crate::android_files::ShareOutcome,
     pub path: String,
     pub files: Vec<SheetCount>,
 }
@@ -1381,6 +1392,8 @@ pub async fn export_workbook(
     let receive = on_main(&app, move |app| {
         crate::native_images::pick_save(app, "导出资料表格", "导出", &suggested, "xlsx")
     })?;
+    #[cfg(target_os = "android")]
+    let share_app = app.clone();
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -1393,8 +1406,10 @@ pub async fn export_workbook(
         let files = w.call_personal(move |s| s.export_workbook(&target))?;
         #[cfg(target_os = "ios")]
         let share = crate::ios_exports::share_published(&path);
+        #[cfg(target_os = "android")]
+        let share = crate::android_files::share_published(&share_app, &path);
         Ok(Some(WorkbookDone {
-            #[cfg(target_os = "ios")]
+            #[cfg(any(target_os = "ios", target_os = "android"))]
             share,
             path: path.display().to_string(),
             files: files
@@ -2637,17 +2652,18 @@ pub fn ios_privacy_cover_set(enabled: bool) {
 }
 #[tauri::command]
 pub fn platform_capabilities() -> serde_json::Value {
-    // Android cannot share files or verify identity natively yet; the privacy
-    // cover is wired through the `thingary` plugin (FLAG_SECURE).
+    // Android shares files through the `thingaryFiles` plugin and the system
+    // sheet; PDF rendering is still iOS-only, so its entry stays hidden.
     #[cfg(target_os = "android")]
     {
-        serde_json::json!({"platform":"android","updates_supported":false,"native_file_sharing":false,"background_privacy_cover":true,"auth_name":crate::privacy_lock::auth_name()})
+        serde_json::json!({"platform":"android","updates_supported":false,"native_file_sharing":true,"background_privacy_cover":true,"auth_name":crate::privacy_lock::auth_name(),"pdf_export":false})
     }
     #[cfg(not(target_os = "android"))]
     {
         serde_json::json!({"platform":std::env::consts::OS,"updates_supported":crate::update_check::supported(),"native_file_sharing":cfg!(target_os="ios"),"background_privacy_cover":cfg!(target_os="ios"),"auth_name":crate::privacy_lock::auth_name()})
     }
 }
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn ios_share_file(name: String) -> Result<bool> {
     #[cfg(target_os = "ios")]
@@ -2660,6 +2676,7 @@ pub async fn ios_share_file(name: String) -> Result<bool> {
         Err(Error::new("UNSUPPORTED", "系统分享面板仅在 iOS 使用"))
     }
 }
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn ios_share_text(name: String, text: String) -> Result<bool> {
     #[cfg(target_os = "ios")]
@@ -2671,6 +2688,16 @@ pub async fn ios_share_text(name: String, text: String) -> Result<bool> {
         let _ = (name, text);
         Err(Error::new("UNSUPPORTED", "系统分享面板仅在 iOS 使用"))
     }
+}
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn ios_share_file(app: tauri::AppHandle, name: String) -> Result<bool> {
+    crate::android_files::share_file(app, name).await
+}
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn ios_share_text(app: tauri::AppHandle, name: String, text: String) -> Result<bool> {
+    crate::android_files::share_text(app, name, text).await
 }
 #[tauri::command]
 pub async fn ios_export_pdf(name: String, html: String) -> Result<serde_json::Value> {
