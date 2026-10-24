@@ -3,6 +3,8 @@ pub mod account_groups;
 mod android;
 #[cfg(target_os = "android")]
 mod android_biometric;
+#[cfg(any(target_os = "android", test))]
+mod android_files;
 #[cfg(target_os = "android")]
 mod android_notifications;
 pub mod auto_backup;
@@ -112,7 +114,9 @@ fn windows_close_event(editing: bool, close_blocked: bool) -> Option<&'static st
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "android")]
-    let builder = tauri::Builder::default().plugin(android::plugin());
+    let builder = tauri::Builder::default()
+        .plugin(android::plugin())
+        .plugin(android_files::plugin());
     #[cfg(target_os = "android")]
     let builder = builder.plugin(android_biometric::plugin());
     #[cfg(target_os = "android")]

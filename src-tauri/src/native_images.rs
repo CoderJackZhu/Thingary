@@ -315,11 +315,8 @@ pub(crate) fn pick_save(
     }
     #[cfg(target_os = "android")]
     {
-        let _ = (app, title, prompt, suggested, extension);
-        Err(Error::new(
-            "UNSUPPORTED",
-            "Android 暂不支持系统文件保存面板",
-        ))
+        let _ = (title, prompt);
+        crate::android_files::save_path(app, suggested, extension).map(Some)
     }
     #[cfg(desktop)]
     {
@@ -334,11 +331,7 @@ pub(crate) fn pick_backup_open(app: &tauri::AppHandle) -> Result<Option<std::pat
     }
     #[cfg(target_os = "android")]
     {
-        let _ = app;
-        Err(Error::new(
-            "UNSUPPORTED",
-            "Android 暂不支持系统文件选择面板",
-        ))
+        crate::android_files::pick_backup(app)
     }
     #[cfg(desktop)]
     {
