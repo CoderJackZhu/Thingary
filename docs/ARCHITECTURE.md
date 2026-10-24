@@ -60,6 +60,8 @@ Android 工程位于 `src-tauri/gen/android`，Kotlin 包由应用标识生成�
 
 仍未接入：系统分享面板、设备身份验证、更新检查、文件与照片选择器；这些命令在 Android 返回不支持，界面沿用既有降级。插件只改窗口标志，不写资料库、本机偏好或备份。
 
+隐私锁的设备身份验证现已由独立的 `android_biometric.rs`／`BiometricPlugin.kt` 接入，设备身份验证以本段为准：API ≥ 30 的能力检查与系统提示均使用 `BIOMETRIC_STRONG | DEVICE_CREDENTIAL`；API 29 的提示由独立兼容函数调用 `setDeviceCredentialAllowed(true)`，能力检查采用与旧提示一致的 `BIOMETRIC_WEAK | DEVICE_CREDENTIAL`，避免 API 29 不支持强生物识别与设备口令组合的限制。命令名与返回结构不变，不可用返回 `AUTH_UNAVAILABLE`，取消、认证失败、锁定与超时沿用 `AUTH_FAILED` 及现有 iOS 消息；120 秒到期先使会话失效再取消系统提示，迟到回调不能解锁。名称为「设备解锁」；未设置设备锁屏或生物识别时能力为 false，界面禁用开启。回前台按既有闲置时长检查锁定，只显示解锁按钮，不自动弹出系统验证，与 iOS 一致；用户点击「解锁」后调用系统验证。默认只在启动时验证，最短闲置重验选项为 5 分钟；编辑、保存与待核对结果继续延后锁定。这只是屏幕保护，不加密资料库。
+
 ### 手机界面
 
 `mobile.html` → `src/mobile/main.tsx` 是独立的手机前端入口，和 `index.html` 一起由 Vite 多页面构建；iOS 宿主约定打开 `mobile.html`。手机布局只加载 `theme.css`、`mobile.css` 与 `ui/ui.css`，使用安全区和至少 44px 的触控区域，外观跟随系统明暗。业务逻辑、IPC 命令与 `src/*.ts` 数据层与桌面共用，只有界面另写；桌面入口、样式与后端保持原有行为。设计稿在 [docs/design/mobile](design/mobile/README.md)，开发约定（目录归属、路由注册、页面栈、组件、预览与截图）见 [src/mobile/README.md](../src/mobile/README.md)。

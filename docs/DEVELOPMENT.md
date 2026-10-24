@@ -155,6 +155,8 @@ adb -s "$THINGARY_ANDROID_SERIAL" logcat -d -s AndroidRuntime
 
 核对首开样例、五个标签、虚构记录保存重启、正常／未知／空白／错误状态，并记录 AVD、API、WebView 和截图尺寸。启用屏幕隐私后 `FLAG_SECURE` 会使截图、录屏及最近任务缩略图受保护；验证开关前后效果时分别记录预期，不能把空白截图当作页面未加载。当前分享、文件／照片选择、身份验证和更新检查尚未接入，不把编译或截图当作它们已验。
 
+隐私锁验证使用专用预览身份和虚构资料；设备身份验证已接入，策略为 API ≥ 30 的 `BIOMETRIC_STRONG | DEVICE_CREDENTIAL`，API 29 独立兼容函数的 `setDeviceCredentialAllowed(true)`。先在独立验收模拟器执行 `adb shell locksettings set-pin 1234`，开启「设备解锁」并选择最短的 5 分钟闲置重验，离开应用至少 5 分钟后回前台，应显示锁屏；与 iOS 一致，不自动弹出系统验证，点击「解锁」后再输入正确 PIN，核对成功、取消、失败及等待 120 秒超时的现有码和消息。另在无锁屏口令时核对 `privacy_auth_available` 为 false、开启控件禁用；结束后必须执行 `adb shell locksettings clear --old 1234` 恢复无口令，并复查能力。系统 PIN 输错通常保留在系统提示内允许重试，应与应用收到终止性认证失败的情况分别记录，不能把系统内重试写成后端已返回失败。
+
 ### 工程维护的两个边界
 
 - `tauri.android.conf.json` 的窗口必须保持 `create: false`；`lib.rs` 在 `setup` 完成 Worker、同步运行时等状态托管后创建窗口。提前加载页面会使首启 IPC 遇到 `state not managed`。
