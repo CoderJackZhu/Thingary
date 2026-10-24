@@ -8,9 +8,12 @@ import { handle } from '../preview-ipc';
 import { routeDef, tabs } from './routes';
 import type { Params, RouteName, TabId } from './routes';
 import { t } from '../i18n.ts';
+import { createSyncPreview } from '../sync/preview';
 const params = new URLSearchParams(location.search);
+const syncPreview = createSyncPreview(params.get('sync'));
 let lostReply = false, failedLookup = false;
 mockIPC(async (command, args) => {
+  if (command.startsWith('sync_')) return syncPreview.command(command, args as Record<string, unknown>);
   const state = params.get('mobile-state');
   if (state === 'save-error' && (command === 'wealth_quick_update' || command === 'wealth_account_save')) throw { code: 'PREVIEW_ERROR', message: t('虚构保存失败，请核对输入后重试。') };
   if (state === 'unknown' && command === 'wealth_request_result' && lostReply && !failedLookup) { failedLookup = true; throw new Error(t('虚构回执暂不可用。')); }
@@ -22,8 +25,9 @@ const { startMobile } = await import('./start');
 if (params.has('route') && params.get('route')!.startsWith('dev.')) (await import('./gallery')).registerGalleryRoutes();
 const theme = params.get('theme');
 const tab = tabs.find(item => item.id === params.get('tab'))?.id as TabId | undefined;
-const route = params.get('route');
+const route = params.get('route') ?? (params.has('sync') ? 'me.settings' : null);
 const routeParams: Params = {};
+if (params.has('sync') && !params.has('route')) routeParams.page = 'sync';
 params.forEach((value, key) => { if (key.startsWith('param.')) routeParams[key.slice(6)] = value; });
 startMobile({ tab, route: route && routeDef(route) ? route as RouteName : undefined, params: routeParams });
 if (theme === 'light' || theme === 'dark') document.documentElement.dataset.mode = theme;

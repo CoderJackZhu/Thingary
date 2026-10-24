@@ -23,6 +23,7 @@ import { browserStorage } from './shared';
 import Security from './Security';
 import './me.css';
 import { t } from '../../i18n.ts';
+import { syncRestoreCandidate } from './settings/sync-candidate';
 type Task = { kind: 'idle' } | { kind: 'running'; label: string } | { kind: 'done'; text: string } | { kind: 'error'; text: string };
 const localKeys = (): string[] => { const keys: string[] = []; try { for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key) keys.push(key); } } catch { /* storage unavailable: nothing to clear */ } return keys; };
 
@@ -35,6 +36,11 @@ export default function Data({ params }: PageProps) {
   const [auto, setAuto] = useState<AutoBackupStatus | null>(null), [autoError, setAutoError] = useState(''), [autoBusy, setAutoBusy] = useState(false);
   const restoreLock = useRef(false), candidateRef = useRef<Inspected | null>(null);
   candidateRef.current = candidate;
+  // A sync pull is already inspected; hand its session to this page's unchanged restore flow.
+  useEffect(() => {
+    const found = syncRestoreCandidate(params.syncCandidate);
+    if (found) { candidateRef.current = found; setCandidate(found); }
+  }, []);
   const focus = typeof params.focus === 'string' ? params.focus : '';
 
   const load = useCallback(() => {
@@ -164,6 +170,7 @@ export default function Data({ params }: PageProps) {
       <Security demo={demo} blocked={busy || restoreUnknown || blocked || !!candidate} onStatusChange={setSecurity} onBusyChange={setSecurityBusy}/>
 
       <ListGroup title={t('更多')}>
+        <ListRow icon="refresh" tone="accent" title={t('同步')} subtitle={t('手动同步到你自己的 WebDAV')} disabled={locked} onClick={() => nav.push('me.settings', { page: 'sync' }, { title: settingsTitles.sync })}/>
         <ListRow icon="trash" tone="danger" title={t('最近删除')} subtitle={t('找回误删的物品、心愿、记录与账户')} disabled={locked && !demo && (busy || restoreUnknown)} onClick={() => nav.push('me.settings', { page: 'trash' }, { title: settingsTitles.trash })}/>
         <ListRow icon={<MeIcon name="table"/>} tone="positive" title={t('导出表格')} subtitle={t('一份 Excel 工作簿，不能用于恢复')} onClick={() => nav.push('me.settings', { page: 'export' }, { title: settingsTitles.export })}/>
         <ListRow icon={<MeIcon name="sparkles"/>} tone="accent" title={t('样例体验')} onClick={() => nav.push('me.settings', { page: 'demo' }, { title: settingsTitles.demo })}/>

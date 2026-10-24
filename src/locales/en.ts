@@ -9414,4 +9414,7 @@ export const en: Record<string, string> = {
   "同步口令不正确": "Incorrect sync passphrase",
   "尚未检查云端": "Cloud not checked yet",
   "打开页面和保存设置不会联网。点击「检查云端」后才会读取云端状态，本机资料不会改变。": "Opening this page and saving settings stay offline. Choose “Check the cloud” to read its status; local data is unchanged.",
+  "手动同步到你自己的 WebDAV": "Manually sync with your own WebDAV",
+  "当前是独立样例库。切换到「我的资料」后可配置同步。": "This is the separate sample library. Switch to your own data to set up sync.",
+  "请先处理正在编辑或待核对的内容，再进行同步。": "Finish editing or checking pending results before syncing.",
 };
