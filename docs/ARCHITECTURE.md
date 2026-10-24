@@ -58,7 +58,11 @@ iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打�
 
 Android 工程位于 `src-tauri/gen/android`，Kotlin 包由应用标识生成，`MainActivity` 继承 `TauriActivity`；平台配置 `tauri.android.conf.json` 打开 mobile.html，窗口在 `setup` 里建好后才加载页面。原生插件名为 `thingary`，Kotlin 类 `ThingaryPlugin`（当前包 `local.thingary.preview`）由 `android.rs` 的插件 `setup` 注册，包路径取 `app.config().identifier`，句柄存入托管状态；`ios_privacy_cover_set` 在 Android 经该句柄调用 `setPrivacyCover`，在主线程给窗口加上或清除 `FLAG_SECURE`，开关后截图、录屏与最近任务缩略图随之为空或恢复。`platform_capabilities` 因此报告 `background_privacy_cover` 为 true。
 
-仍未接入：系统分享面板、设备身份验证、更新检查、文件与照片选择器；这些命令在 Android 返回不支持，界面沿用既有降级。插件只改窗口标志，不写资料库、本机偏好或备份。
+仍未接入：设备身份验证、更新检查、照片选择器；这些命令在 Android 返回不支持，界面沿用既有降级。插件只改窗口标志，不写资料库、本机偏好或备份。
+
+文件进出由独立的 `android_files.rs`／`FilesPlugin`（`thingaryFiles`）处理。完整备份与工作簿先写入应用专属 `files/exports/`，再用 `ACTION_SEND`、FileProvider 与临时读取授权打开系统分享面板；取消分享保留成品。分享只接受普通文件名和目录内的普通文件，拒绝路径穿越及符号链接。系统回调只能确认取消或交接，不能证明接收应用已经保存文件。手机目前没有已导出文件的重新分享入口，取消提示要求需要保存时重新导出并选择分享目标。
+
+恢复沿用 `inspect_backup` → 确认 → `restore_backup_session`／`backup_session_result`；`ACTION_OPEN_DOCUMENT` 选中的内容先在后台复制到每次选择独立的私有 staging。复制同时检查提供者声明大小与实际读取字节，上限取 `backup::MAX_ARCHIVE_FILE + backup_crypto::MAX_CIPHER_OVERHEAD`；`.part` 仅在复制和同步成功后改名，失败清理副本。检查取得自己的冻结副本后，无论检查成功或失败都清理该次选择的 staging。Android 能力报告 `native_file_sharing: true`、`pdf_export: false`；`ios_export_pdf` 继续返回 `UNSUPPORTED`，报告仅在 `pdf_export === false` 时隐藏导出按钮，保留复制摘要。真机与第三方文件提供者行为未验证。
 
 ### 手机界面
 

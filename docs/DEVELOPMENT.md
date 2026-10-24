@@ -414,3 +414,15 @@ pwsh -NoProfile -File scripts/windows-native-acceptance.ps1 -Identity local.thin
 正式候选包由维护者在 Mac 运行 `npm run release`、Windows 运行 `npm run release:win`；版本、签名、公证、支持平台和公开附件按[发布流程](RELEASING.md)核验，不由源码检查推定。
 
 源码与现行文档只在本仓库维护。修改行为同步 PRODUCT_RULES，修改操作同步 USER_GUIDE，修改实现取舍同步 ARCHITECTURE；设计状态由 INDEX 导向唯一规格。外部贡献者无需访问私有过程记录即可构建、测试或理解约束。
+
+## Android 文件进出验证
+
+使用调试身份 `local.thingary.preview` 和虚构资料；不得打开正式资料库。模拟器只有一台，先以 `mkdir /tmp/thingary-emulator.lock` 独占，用完释放；启动必须带 `-no-window`。构建使用 `npm run android:build -- --debug --target aarch64`，APK 位于 `src-tauri/gen/android/app/build/outputs/apk/universal/debug/`。编译通过不能代替以下设备验证：
+
+1. 在手机数据管理导出完整备份和工作簿，确认系统分享面板弹出；取消后用调试身份的 `adb shell run-as local.thingary.preview ls files/exports` 核对文件仍在。应用没有重新分享记录入口；需要保存到其他位置时重新导出并选择分享目标。
+2. 把虚构备份以 `adb push <虚构备份> /sdcard/Download/fiction.thingary` 放入 Downloads，从应用的选择备份按钮打开系统文档选择器，走检查、明确确认替换、恢复和结果核对；比较恢复后的虚构记录，并确认 `cache/backup-staging/` 没有遗留选择副本。取消选择应保持当前资料不变。
+3. 选择非备份文件，确认显示不能恢复的原因、当前资料不变且 staging 清理；调用 `ios_share_file` 传入 `../escape.thingary`，应以 `EXPORT_NAME` 拒绝。普通目录和符号链接也必须被拒绝。
+4. 用隔离测试提供者覆盖声明大小超限、未声明大小但实际读取超限、读取失败与恰好上限；失败后核对 `.part` 和目标副本均不存在。生产复制上限沿用备份上限，不能为验收降低普通应用的上限或加入故障注入入口。
+5. 核对 `platform_capabilities` 的 `native_file_sharing: true`、`pdf_export: false`；当前报告隐藏导出入口并保留复制摘要。对照缺少 `pdf_export` 字段时仍显示导出的组件测试，见 `tests/mobile-report-export.test.mjs`。
+
+保留 `adb exec-out screencap -p` 截图、原生命令结果和虚构资料核对摘要于私有验收记录。真机、第三方文件提供者及分享目标的实际保存行为未验证；系统交接回调不能证明对方已经保存文件。
