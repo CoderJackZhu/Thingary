@@ -56,7 +56,7 @@ test('English formats full card amounts, compact chart ticks and calendar dates'
   assert.equal(en.sentence, 'A Dec 25, 2025 / B Jan 5');
   assert.deepEqual(en.fields, ['2025-12-25', 'Unknown']);
   assert.equal(en.calendar, 'Dec 2025');
-  assert.deepEqual(en.headings, ['1/2046', 'Hope to 2046-01 Retirement']);
+  assert.deepEqual(en.headings, ['1/2046', 'Aiming for 2046-01 retirement']);
   assert.deepEqual(en.benefits, ['Example · Benefits Expired · 2026-11-01', 'Example · Benefits Expiring Soon · 2026-11-01']);
   assert.deepEqual(en.progress, ['Compared with the last check-in (2026-09-24): Monthly savings needed decreased by ¥1,000, Available funds increased by ¥1,000.', 'Compared with the last check-in (2026-09-24): Monthly savings needed increased by ¥1,000, Available funds decreased by ¥1,000.']);
   assert.deepEqual(en.timeline, ['This Month spending ¥100', 'That month’s spending ¥100']);

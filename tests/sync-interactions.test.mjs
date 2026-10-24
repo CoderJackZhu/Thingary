@@ -43,7 +43,7 @@ function screen(mode, overrides = {}, seedPreview = false) {
   const deps = {
     react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx }, '@tauri-apps/api/core': { invoke },
     '../asset': { errorMessage: e => e.message || String(e) },
-    '../auto-backup-format.ts': { formatBytes: String }, '../FormControls': { FormRow: 'FormRow' },
+    '../auto-backup-format.ts': { formatBytes: String }, '../FormControls': { FormRow: 'FormRow', Segments: function Segments() {} },
     './api': api, './state': model,
     './preview-state': { getSyncSettingsPreview: () => seedPreview ? preview.initialView() : null },
   };
@@ -68,16 +68,22 @@ function screen(mode, overrides = {}, seedPreview = false) {
     : node && typeof node === 'object' ? text(node.props?.children)
       : node == null || typeof node === 'boolean' ? '' : String(node);
   const button = label => nodes().find(node => node.type === 'button' && text(node) === label);
+  const pickMethod = value => { nodes().find(n => n.type?.name === 'Segments').props.onChange(value); render(); };
   const dialog = name => nodes().find(node => node.type?.name === name);
   const settle = async () => { await new Promise(setImmediate); render(); };
   render();
-  return { calls, nodes, button, dialog, settle, render, preview, text: () => text(tree), unmount: () => cleanup.forEach(fn => fn?.()) };
+  return { calls, nodes, button, dialog, pickMethod, settle, render, preview, text: () => text(tree), unmount: () => cleanup.forEach(fn => fn?.()) };
 }
 
 test('configured, unconfigured and pending mounts invoke only local config_get without a preview seed', async () => {
   for (const [mode, headline] of [['synced', '尚未检查云端'], ['unconfigured', '同步未开启'], ['unknown', '上次同步结果未知']]) {
     const r = screen(mode); await r.settle();
     assert.deepEqual(r.calls.map(c => c.command), ['sync_config_get'], mode);
+    if (mode === 'unconfigured') {
+      assert.equal(r.nodes().find(n => n.props?.['aria-label'] === 'WebDAV 地址'), undefined);
+      assert.ok(r.text().includes('不会联网'));
+      r.pickMethod('webdav');
+    }
     assert.ok(r.text().includes(headline), mode);
     if (mode === 'synced') {
       assert.ok(r.button('检查云端'));
@@ -92,6 +98,7 @@ test('saving settings reads only local config after config_set and discards cach
   for (const mode of ['synced', 'unconfigured']) {
     const r = screen(mode, {}, true); await r.settle();
     if (mode === 'unconfigured') {
+      r.pickMethod('webdav');
       for (const [label, value] of [['WebDAV 地址', 'https://dav.example.com/fictional'], ['WebDAV 用户名', 'fictional'], ['WebDAV 应用密码', 'fictional-password'], ['同步设备名', '虚构电脑']]) {
         r.nodes().find(n => n.props?.['aria-label'] === label).props.onChange({ target: { value } });
       }
@@ -182,6 +189,8 @@ test('both disable handlers stop at the local command without checking the netwo
     r.calls.length = 0;
     r.dialog('DisableSyncDialog').props.onDisable(forget); await r.settle();
     assert.deepEqual(JSON.parse(JSON.stringify(r.calls)), [{ command: 'sync_disable', args: { input: { forgetCredentials: forget } } }]);
+    assert.match(r.text(), /不会联网/);
+    r.pickMethod('webdav');
     assert.match(r.text(), /同步未开启/);
     assert.equal(r.button('检查云端'), undefined);
     assert.ok(r.button('测试连接').props.disabled);
@@ -222,5 +231,13 @@ test('the locked scene keeps a wrong passphrase dialog open and syncs after a va
   assert.equal(r.dialog('PassphraseDialog'), undefined);
   assert.match(r.text(), /已是最新/);
   assert.match(r.text(), /云端版本：8/);
+  r.unmount();
+});
+
+test('choosing 不同步 while sync is on asks to disable instead of silently hiding the settings', async () => {
+  const r = screen('synced'); await r.settle();
+  r.pickMethod('none');
+  assert.ok(r.dialog('DisableSyncDialog'));
+  assert.ok(r.nodes().find(n => n.props?.['aria-label'] === 'WebDAV 地址'));
   r.unmount();
 });

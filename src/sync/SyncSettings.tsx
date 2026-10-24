@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from '../asset';
 import { formatBytes } from '../auto-backup-format.ts';
-import { FormRow } from '../FormControls';
+import { FormRow, Segments } from '../FormControls';
 import { t } from '../i18n.ts';
 import {
   syncConfigGet,
@@ -84,6 +84,7 @@ export function SyncSettings({
   const [passError, setPassError] = useState('');
   const [disableOpen, setDisableOpen] = useState(false);
   const [disableError, setDisableError] = useState('');
+  const [method, setMethod] = useState<'none' | 'webdav'>('none');
   const pendingPush = useRef(false);
   const alive = useRef(true), lock = useRef(false), pendingSync = useRef(false);
   const urlInput = useRef<HTMLInputElement | null>(null);
@@ -100,6 +101,7 @@ export function SyncSettings({
         const loaded = await syncConfigGet();
         if (cancelled) return;
         setConfig(loaded); setForm(formFromConfig(loaded));
+        if (loaded.enabled || loaded.base_url || loaded.has_pending_push) setMethod('webdav');
         pendingPush.current = loaded.has_pending_push;
         if (loaded.has_pending_push || !loaded.enabled) {
           setError({ code: loaded.has_pending_push ? 'SYNC_RESULT_UNKNOWN' : 'SYNC_UNCONFIGURED', message: '' });
@@ -360,7 +362,7 @@ export function SyncSettings({
         ...(forgetCredentials ? { base_url: '', username: '', base_path: '', has_password: false, last_synced_at: null, last_synced_remote_version: null } : {}),
       };
       setConfig(disabledConfig); setForm(formFromConfig(disabledConfig));
-      setStatus(null); setError({ code: 'SYNC_UNCONFIGURED', message: '' });
+      setStatus(null); setError({ code: 'SYNC_UNCONFIGURED', message: '' }); setMethod('none');
       setNotice(t('同步已停用，不会删除云端数据。')); setActionError('');
       setPassOpen(false); setDisableOpen(false);
       pendingSync.current = false;
@@ -406,6 +408,11 @@ export function SyncSettings({
     }
   }
 
+  function pickMethod(next: 'none' | 'webdav') {
+    if (next === 'none' && config?.enabled) { setDisableError(''); setDisableOpen(true); return; }
+    setMethod(next);
+  }
+
   const view = syncView(status, error, config);
   const actions = [...(view.primaryAction ? [view.primaryAction] : []), ...view.secondaryActions];
   // Twice only when there is no cloud copy yet and this device never pushed.
@@ -424,6 +431,13 @@ export function SyncSettings({
       </div>
     </div>
 
+    <FormRow label={t('同步方式')} hint={t('默认不同步，资料只在本机。')}>
+      <Segments label={t('同步方式')} value={method} disabled={busy !== null || pendingPush.current} onChange={pickMethod} options={[{ value: 'none', label: t('不同步') }, { value: 'webdav', label: 'WebDAV' }]}/>
+    </FormRow>
+
+    {method === 'none' && !loadError && <p className="notice">{t('不会联网。需要在多台设备之间同步时，选择 WebDAV。')}</p>}
+
+    {method === 'webdav' && <>
     {showIntro && <p className="notice">{t('只在你点同步时联网，只连接你自己的 WebDAV，服务器只看到加密数据。')}</p>}
 
     <div className="sync-form">
@@ -468,6 +482,8 @@ export function SyncSettings({
         {actions.filter(action => action.consequence).map(action => <li key={action.id}><strong>{action.label}</strong>：{action.consequence}</li>)}
       </ul>}
     </div>}
+
+    </>}
 
     {loadError && <p className="notice error" role="alert">{t('同步设置读取失败：{loadError}', { loadError })}</p>}
     {actionError && <p className="notice error" role="alert">{actionError}</p>}
