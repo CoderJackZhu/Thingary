@@ -4,9 +4,11 @@
 
 ## 当前范围
 
-源码版本为 **0.0.8 候选**，目标 Windows 10 1809+／Windows 11 x64。公开版 0.0.7 已同时提供 Mac 与 Windows（schema 42）；当前候选的数据库为 schema 44（外币、持仓、账户分组、固定资产购入价及订阅重开）。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
+源码版本为 **0.1.0 候选**，目标 Windows 10 1809+／Windows 11 x64。公开版 0.0.7 已同时提供 Mac 与 Windows（schema 42）；当前候选的数据库为 schema 44（外币、持仓、账户分组、固定资产购入价及订阅重开）。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
 
 检查结果统一维护在[开发说明](DEVELOPMENT.md#windows-validation)。源码接入与 Mac 自动检查不代表 Windows 原生运行、可见通知、人工安装与文件对话框、微软拼音、讲述人、Windows 10 或真实 x64 通过；每次按实际结果登记，不从脚本存在推定完成。下述真实 x64 已验结论各限原受测包和指定路径，当前候选新增或修改的界面仍须按对应源码另行复验。
+
+对外支持文案以当前实测为准：**Windows 11 x64 已测；Windows 10 1809+ 是目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟。** README、QUICKSTART、USER_GUIDE 与发布说明必须保持一致，不能把目标范围写成已验。
 
 自动工程检查使用 GitHub `macos-latest`／`windows-latest`；NSIS release 构建使用 `windows-latest` x64，已安装隔离包验收使用标准托管 `windows-11-arm`，x64 程序经 Windows 模拟运行。运行器系统与模拟架构必须写入结果，不能冒充真实 x64 设备、性能测试或所有 Windows 版本的验收。[运行器官方范围](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)可能调整，每次以实际任务环境为准。
 

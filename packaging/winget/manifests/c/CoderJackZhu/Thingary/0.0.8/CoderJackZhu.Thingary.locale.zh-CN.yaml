@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+
+PackageIdentifier: CoderJackZhu.Thingary
+PackageVersion: 0.0.8
+PackageLocale: zh-CN
+Publisher: Jack Zhu
+PublisherUrl: https://github.com/CoderJackZhu
+PublisherSupportUrl: https://github.com/CoderJackZhu/Thingary/issues
+PrivacyUrl: https://thingary.jackzhu.top/privacy/
+Author: Jack Zhu
+PackageName: 物谱
+PackageUrl: https://thingary.jackzhu.top/
+License: AGPL-3.0-or-later
+LicenseUrl: https://github.com/CoderJackZhu/Thingary/blob/main/LICENSE
+Copyright: Copyright © 2026 Jack Zhu
+ShortDescription: 每月盘一次家底，算清还要上几年班。
+Description: |-
+  物谱是本地优先的个人资产盘点与财务独立测算工具。每月或每季对照各平台录入一次余额和欠款，查看净资产变化，并按自己的条件估算每月要存多少、什么时候可以不靠工资。支持账户与盘点、目标与测算、收支记录、财务复盘和可选的物品档案；金额未知保持未知，不当作零。无需账号，资料保存在本机。界面目前只有简体中文。
+Moniker: thingary
+Tags:
+- personal-finance
+- net-worth
+- financial-independence
+- fire
+- budgeting
+- privacy
+- local-first
+- tauri
+ReleaseNotesUrl: https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0

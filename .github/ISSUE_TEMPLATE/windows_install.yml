@@ -1,0 +1,95 @@
+name: Windows 安装问题
+description: 安装、SmartScreen、WebView2、启动或卸载失败
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先用[Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)对照一遍；能解决就不必开 issue。
+        **请遮住真实金额、账户号、姓名；不要上传数据库、备份文件或安装包本身。** 只描述现象和错误文字即可。
+  - type: dropdown
+    id: stage
+    attributes:
+      label: 卡在哪一步
+      options:
+        - 下载或核对 SHA-256
+        - 运行安装包 / 安装向导
+        - SmartScreen 或智能应用控制
+        - WebView2 安装
+        - 首次启动 / 白屏 / 闪退
+        - 使用中崩溃或卡住
+        - 卸载或重装
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 物谱版本
+      description: 「设置 › 关于与帮助」里可以看到；安装失败时写安装包文件名里的版本。
+      placeholder: 例如 0.0.8
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows 版本与架构
+      description: 运行 `winver`，或看「设置 › 系统 › 关于」。请写明 x64 还是 ARM64。
+      placeholder: 例如 Windows 11 24H2 x64；Windows 10 22H2 x64
+    validations:
+      required: true
+  - type: input
+    id: webview2
+    attributes:
+      label: WebView2 版本
+      description: 在「设置 › 应用 › 已安装的应用」（Windows 10 为「应用和功能」）中搜索 WebView2；看不到就写“未安装/不确定”。
+      placeholder: 例如 140.0.3485.42
+  - type: input
+    id: installer
+    attributes:
+      label: 安装包文件名与 SHA-256
+      description: 从 Release 下载的文件名；SHA-256 可用 `Get-FileHash .\文件名 -Algorithm SHA256` 得到。不要上传安装包。
+      placeholder: Thingary_0.0.8_x64-setup.exe / <SHA-256>
+  - type: dropdown
+    id: security
+    attributes:
+      label: 系统安全提示
+      options:
+        - 没有出现提示
+        - SmartScreen 出现，已选择「仍要运行」
+        - SmartScreen 出现，但没有「仍要运行」
+        - 智能应用控制直接拦截
+        - 杀毒软件或公司设备策略拦截
+        - 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: 完整错误文字或现象
+      description: 把系统提示、安装器错误或应用崩溃时的文字原样贴出来；有截图请遮住真实资料。
+      placeholder: 例如“Windows 已保护你的电脑…”，或双击后没有任何反应
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 从下载开始，按顺序写你做了什么；如果换一台电脑或换一个安装包就正常，也请写明。
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已核对安装包来自本仓库 Release 或 Gitee 镜像，并比较过 SHA-256
+        - label: 我已看过 Windows 安装排查，仍无法解决
+        - label: 我没有在这里写真实金额、账户号，也没有上传数据库、备份或安装包
+          required: true
+  - type: checkboxes
+    id: follow-up
+    attributes:
+      label: 可以追问吗
+      options:
+        - label: 我愿意在这个 issue 下补充系统信息和日志

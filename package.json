@@ -3,7 +3,7 @@
   "private": true,
   "description": "物谱 Thingary：物品档案与净资产盘点，本地优先的桌面应用",
   "license": "AGPL-3.0-or-later",
-  "version": "0.0.8",
+  "version": "0.1.0",
   "type": "module",
   "engines": {
     "node": ">=22.18"

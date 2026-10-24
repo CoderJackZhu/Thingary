@@ -46,11 +46,12 @@ Tested on Apple Silicon with macOS 27. macOS 14 and Intel are covered by build a
 
 ### Windows
 
-Download [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary_0.0.8_x64-setup.exe) (Windows 10 1809+ / Windows 11, x64).
+Download [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary_0.0.8_x64-setup.exe). **Windows 11 x64 is tested; Windows 10 1809+ is the target range but has not been hardware-tested.** Only an x64 installer is provided; ARM64 devices (such as Snapdragon X) run the x64 app through system emulation, which is not the same as a native ARM build.
 
-1. Run the installer; it installs for the current user only. If WebView2 is missing, the installer downloads it.
-2. The installer is **unsigned**. SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install).
+1. Run the installer; it installs for the current user only and usually needs no administrator rights. If WebView2 is missing, the installer downloads and installs it; the first install needs internet access.
+2. The installer is **unsigned**. SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install). Do not disable system-wide protection for this.
 3. Check the download: in PowerShell run `Get-FileHash .\Thingary_0.0.8_x64-setup.exe -Algorithm SHA256` and compare it with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/SHA256SUMS.txt) in the release.
+4. If installation or launch fails, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install) and keep the app version, Windows version, WebView2 version and exact error text.
 
 ### Android (in development, no installer yet)
 
@@ -79,7 +80,7 @@ After your first entries, make a full backup under **Settings › Data managemen
 - **No market data or trading.** There are no live prices, return tracking, automatic payments, or AI; investment returns and exchange rates are entered by hand. There is no daily transaction ledger.
 - **Desktop source includes optional manual WebDAV snapshot sync.** It is off by default and connects to your own server. Snapshots are encrypted; manifest metadata, including device names, is plaintext. There is no automatic sync, Thingary account system, or collaboration. The mobile app has a sync page too; native device verification is still pending. See the [sync guide (Chinese)](docs/USER_GUIDE.md#sync); released packages follow their release notes.
 - **Builds are unsigned and not notarized.** The project does not currently pay for an Apple Developer account or a Windows code-signing certificate; releases rely on ad-hoc signing and checksums. Signing and notarization may be reconsidered if usage grows. See the [development guide](docs/DEVELOPMENT.md) to build your own.
-- **Simplified Chinese interface only.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 10 1809+ / 11 x64 (unsigned); Android in development, iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
+- **Simplified Chinese interface only.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); Android in development, iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
 
 ## Privacy
 
@@ -90,6 +91,7 @@ The main database and photos are **not encrypted**. Backup encryption is optiona
 ## Feedback
 
 - [Bug report](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml): what happened, how to reproduce it, version and system.
+- [Windows install issue](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml): install, SmartScreen, WebView2, launch or uninstall failures (form in Chinese).
 - [Feature request](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml): describe the problem first, then the idea.
 - [Usage feedback](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml): three questions — what did you use before, did you come back for a second check-in (and if not, why), and what would make you recommend it?
 
