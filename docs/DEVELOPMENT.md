@@ -131,6 +131,20 @@ rg --files --no-ignore src-tauri/gen/android/app/build/outputs/apk | rg '\.apk$'
 
 只选择本次 debug APK；不要合并正式发布配置或使用 `local.thingary.main`。已有生成工程无需重复 `android init`；确需重新生成时先保留改动并核对差异。
 
+### 发布签名（Android）
+
+正式 APK 的签名只从环境变量读取，仓库内不保存密钥、路径或口令：`THINGARY_ANDROID_KEYSTORE`（keystore 文件绝对路径）、`THINGARY_ANDROID_KEYSTORE_PASSWORD`、`THINGARY_ANDROID_KEY_ALIAS`、`THINGARY_ANDROID_KEY_PASSWORD`。四项齐全且文件存在时，Gradle 的 release 构建自动使用该签名；任一缺失或文件不存在时构建仍然成功，产物为不带签名的 `*-unsigned.apk`，并打印一条只列变量名的警告。debug 构建不受影响。
+
+正式发布用的 keystore 由维护者在仓库外创建并离线备份，口令使用占位符替换：
+
+```sh
+keytool -genkeypair -v -keystore /path/outside/repo/thingary-release.jks \
+  -alias <别名> -keyalg RSA -keysize 2048 -validity 10000 \
+  -storepass '<store 口令>' -keypass '<key 口令>' -dname "CN=<名称>"
+```
+
+keystore 一旦丢失，已安装的应用无法再原地升级：签名不符只能卸载重装，卸载会一并删除资料。因此必须与口令分开保管并多处备份；任何情况下都不要把 keystore、口令或包含它们的备份提交到仓库、日志或 CI artifact。[发布草稿工作流](../.github/workflows/release-draft.yml) 使用的仓库 secrets `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` 会还原到 runner 临时目录并映射为上述四个变量。
+
 ### 独立创建 AVD、安装与截图
 
 APK 构建的 `--ci` 跳过交互，不负责创建验收用 AVD。先在 Android Studio 的 Device Manager 手动创建并命名一个专用模拟器，明确系统镜像、屏幕和架构，避免依赖 CLI 自动选择设备。Apple Silicon 选 ARM64 镜像，与上面的 aarch64 APK 匹配；x86_64 模拟器需另装 `x86_64-linux-android` 目标并用 `--target x86_64` 构建。系统镜像的 API 不低于 `minSdk`，不要求等于 `compileSdk`。创建方法见 [Android 官方 AVD 说明](https://developer.android.com/studio/run/managing-avds)。
