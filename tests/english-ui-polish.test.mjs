@@ -28,7 +28,7 @@ function display(lang) {
       sentence: f.localizeDates('A 2025-12-25 / B 2026-01-05', today),
       fields: [f.dateText('2025-12-25'), f.dateText(null)],
       calendar: calendarMonthLabel('2025-12'),
-      headings: [t('{v1} 年 {v2} 月',{v1:2046,v2:1}), t('希望 {retirementText} 退休',{retirementText:'2046-01'})],
+      headings: [t('{v1} 年 {v2} 月',{v1:2046,v2:1}), t('希望 {retirementText}{v2}',{retirementText:'2046-01',v2:t(' 退休')})],
       benefits: ['expired','expiring'].map(status => attention({wealth:ok({points:[]}),recurring:ok({due:[],upcoming:[]}),virtual_assets:ok({items:[{id:'test',fields:{name:'Example'},status,valid_until:'2026-11-01'}]})})[0].details[0]),
       progress: [goalProgressChange(point('500000','100000'), point('400000','200000'), f.moneyText), goalProgressChange(point('400000','200000'), point('500000','100000'), f.moneyText)],
       timeline: ['2026-10','2026-09'].map(key => monthSpendingText({key,spendingCents:'10000',unknownCount:0}, '2026-10')),
@@ -56,15 +56,15 @@ test('English formats full card amounts, compact chart ticks and calendar dates'
   assert.equal(en.sentence, 'A Dec 25, 2025 / B Jan 5');
   assert.deepEqual(en.fields, ['2025-12-25', 'Unknown']);
   assert.equal(en.calendar, 'Dec 2025');
-  assert.deepEqual(en.headings, ['1/2046', 'Plan to retire in 2046-01']);
+  assert.deepEqual(en.headings, ['1/2046', 'Hope to 2046-01 Retirement']);
   assert.deepEqual(en.benefits, ['Example · Benefits Expired · 2026-11-01', 'Example · Benefits Expiring Soon · 2026-11-01']);
   assert.deepEqual(en.progress, ['Compared with the last check-in (2026-09-24): Monthly savings needed decreased by ¥1,000, Available funds increased by ¥1,000.', 'Compared with the last check-in (2026-09-24): Monthly savings needed increased by ¥1,000, Available funds decreased by ¥1,000.']);
   assert.deepEqual(en.timeline, ['This Month spending ¥100', 'That month’s spending ¥100']);
   assert.deepEqual(en.conditions, ['Retirement budget ¥4,000/month · Available funds ¥100,000 · Save ¥5,000 per month', 'Retirement budget Unknown · Available funds Pending confirmation · Save Pending confirmation per month']);
-  assert.deepEqual(en.extra, ['3 months', 'All · Items: 4', 'Entries: 1', 'Entries: 1', 'Unknown prices (excluded): 1', 'Accounts missing: 1', 'Subscriptions: 1 · monthly average ¥120']);
+  assert.deepEqual(en.extra, ['3 months', 'All · Items: 4', '1 entry', '1 entry', '1 item with unknown price, excluded', 'Accounts missing: 1', '1 subscription · monthly average ¥120']);
   assert.deepEqual(en.money, ['Unknown', '¥0', '¥1,234,567.89', '¥11.00', 'Unknown']);
   assert.deepEqual(en.labels, ['Financial Net Worth', 'View Wealth', 'Retirement Planning', 'View Planning']);
-  assert.deepEqual(en.notices, [1, 2].flatMap(n => [`Accounts missing: ${n}`, `date · Accounts missing: ${n}`, `Warranty expiring within 30 days: ${n}`, `Virtual assets expired or expiring soon: ${n}`, `Purchase amount · Unknown prices: ${n}`]));
+  assert.deepEqual(en.notices, [1, 2].flatMap(n => [`Accounts missing: ${n}`, `date · Accounts missing: ${n}`, `Warranty expiring within 30 days: ${n}`, `Virtual assets expired or expiring soon: ${n}`, `Purchase amount · ${n} ${n === 1 ? 'item' : 'items'} unknown`]));
 });
 
 test('Chinese card, chart, date, unknown and notice output is fixed verbatim', () => {

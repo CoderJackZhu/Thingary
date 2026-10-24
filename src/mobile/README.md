@@ -44,7 +44,7 @@ const reveal = useReveal();           // 上层页面关闭后变化；放进 ef
 - 每个标签有独立的栈，切换标签保留；其他标签的页面卸载，页面内存状态不保留，滚动位置保留。刷新后回到标签根页。
 - 浏览器后退键和 iOS 边缘返回弹出一页（`history.ts`）。
 - 保存结果未确定时（`session.pending`）所有切页、后退都暂停，沿用 `storedPending` / `resolvePending`；核对卡由 `MobileApp` 统一显示。保存请使用 `src/wealth.ts` 的 `submit`，用 `useSession()` 的 `setBusy` / `refreshPending` 配合。普通表单关闭不存草稿。
-- 页面根元素用 `<div className="m-page">`。栈内页面首行放 `<NavBar/>`，标签根页首行放 `<LargeTitle/>`（分段控件由外壳绘制）。模态页：`<NavBar title primary={{label:'保存', onClick}}/>`（左上「取消」自动）。弹窗页只放内容，标题与「完成」由外壳提供。
+- 页面根元素用 `<div className="m-page">`。栈内页面首行放 `<NavBar/>`，标签根页首行放 `<LargeTitle/>`（有多个分段时，`LargeTitle` 在标题下方绘制全宽分段开关）。模态页：`<NavBar title primary={{label:'保存', onClick}}/>`（左上「取消」自动）。弹窗页只放内容，标题与「完成」由外壳提供。
 - `ErrorBoundary` 包住每一页；页面应自己处理读取失败（`ErrorState`）、空白（`EmptyState`）、未知（`UnknownState` 或 `unknown` 值）。未知不等于零，金额用整数分字符串。
 
 ## 组件（`import { … } from '../ui'`）

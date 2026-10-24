@@ -19,6 +19,7 @@ function runtime({item, panelInitial, read = async () => null, load = async () =
     crypto:{randomUUID:()=> 'test-request'},localStorage:{removeItem(){}},validateWishlist:()=>({}),inputMoney:()=>null,
     invoke:async(command,args)=>{if(command==='read_asset')return read(args.id);if(command==='save_wish_plan'){request=args.input;return {id:'saved'};}throw new Error(command);},
     loadAssetCandidates:async(...args)=>{calls.push(args);return load(...args);}, assetStateLabel:v=>v,errorMessage:String,
+    useForeignAmount:()=>({foreign:false,code:'CNY',persist:async()=>{}}), AmountEntry:({children})=>children, estimatedPriceText:v=>v,
     CloseButton(){}, DefaultAssetIcon(){}, PhotoView(){}, FormRow(){}, Switch(){}, ChoiceField(){}, AddImageButton(){}, DateInput(){}, ReminderPermissionHelp(){}, DeleteButton(){},IconPicker(){},
   };
   const initial={generation:'test-generation',item,fields:{name:'Fictional wish',estimated_price:'',external_link:'',notes:'',target_date:''},cover:null,photos:[],preferences:{},pending:null};
@@ -107,7 +108,7 @@ test('ordinary edit from the real panel preserves purged replacement history',as
   let edit;function find(n){if(ts.isJsxAttribute(n)&&n.name.text==='onEdit')edit=n.initializer.expression;ts.forEachChild(n,find);}find(panelSource);
   assert.ok(edit);
   const script=ts.transpileModule(`module.exports=${edit.getText(panelSource)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
-  let panelInitial;const context={module:{exports:{}},page:{generation:'test-generation'},defaultWishPreferences:()=>({}),persistSubmission(){},wishlistDraftKey:'test',setDetail(){},setEditor:d=>{panelInitial=d;}};
+  let panelInitial;const context={module:{exports:{}},page:{generation:'test-generation'},defaultWishPreferences:()=>({}),persistSubmission(){},wishlistDraftKey:'test',estimatedPriceText:c=>c==null?'':String(Number(c)/100),setDetail(){},setEditor:d=>{panelInitial=d;}};
   vm.runInNewContext(script,context);
   const item={id:'wish',revision:2,replacement_asset:null,replacement_asset_name:'虚构失效旧物',fields:{name:'Fictional wish',estimated_price_cents:null,target_date:null,external_link:'',notes:'原理由'},cover:null};
   context.module.exports(item);

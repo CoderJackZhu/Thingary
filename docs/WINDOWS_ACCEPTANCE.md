@@ -4,7 +4,7 @@
 
 ## 当前范围
 
-源码版本为 **0.1.0 候选**，目标 Windows 10 1809+／Windows 11 x64。公开版 0.0.7 已同时提供 Mac 与 Windows（schema 42）；当前候选的数据库为 schema 44（外币、持仓、账户分组、固定资产购入价及订阅重开）。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
+源码版本为 **0.1.0 候选**，目标 Windows 10 1809+／Windows 11 x64。公开版 0.0.7 已同时提供 Mac 与 Windows（schema 42）；当前候选的数据库为 schema 46（外币、持仓、账户分组、固定资产购入价及订阅重开）。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
 
 检查结果统一维护在[开发说明](DEVELOPMENT.md#windows-validation)。源码接入与 Mac 自动检查不代表 Windows 原生运行、可见通知、人工安装与文件对话框、微软拼音、讲述人、Windows 10 或真实 x64 通过；每次按实际结果登记，不从脚本存在推定完成。下述真实 x64 已验结论各限原受测包和指定路径，当前候选新增或修改的界面仍须按对应源码另行复验。
 
@@ -40,6 +40,8 @@ pwsh -NoProfile -File scripts/windows-native-acceptance.ps1
 脚本先安装隔离包再检查已安装窗口；生成 `.local/windows-native-acceptance/summary.json`、分项结果、日志与截图。输出目录必须全新，可用 `-ArtifactRoot` 指定新目录；可用 `-FixtureArchive` 指定另一平台生成的虚构完整备份。脚本失败时保留失败证据，不把 `status=failed` 的附件当已验包。静默流程覆盖默认安装与卸载，不能证明交互勾选框、SmartScreen 或手工原生选择器已经通过。
 
 脚本检查保存／取消／重启、第二次启动不产生重复主实例、恢复夹具界面、实际通知排队／移除与系统历史送达、默认卸载每个数据文件散列不变及重装。恢复夹具的表计数与图片散列和 UI 可见内容分别核对；生成截图不等于人工视觉复核通过。
+
+窗口辅助进程通过 Node 的 `windowsHide: true` 启动 `pwsh`，只隐藏辅助控制台，应用窗口仍可见。这样使 PowerShell 跳过任务栏 JumpList 的 COM 初始化，避开 Windows ARM 运行器上已报告的 [CLR 启动崩溃](https://github.com/dotnet/runtime/issues/131636)。若出现 `Internal CLR error. (0x80131506)`，先检查 `ui-<模式>-<标签>.json` 的失败命令及调用栈：`pwsh ... -WindowOnly inspect/resize` 与 `Microsoft.PowerShell.TaskbarJumpList.CreateElevatedEntry` 指向辅助进程，不应直接判为应用崩溃。可在已启动的隔离验收实例上重复原失败命令排查；该故障可能偶发，单次通过不证明修复。原始日志、失败 JSON 与异常后的 CDP 观察／截图均保留；辅助命令非零退出仍使整轮失败，不自动重跑或忽略错误。
 
 自动截图的窗口尺寸检查还受系统「显示缩放」和「辅助功能 → 文本大小」共同影响；执行前分别记录两项，不把显示缩放 100% 推定为文本大小 100%。当前固定尺寸 fixture 在两项均为 100% 时已通过真实 x64 检查；其他组合出现尺寸等待超时，应保留失败结果，不能用单独重跑 fixture 的成功覆盖整轮失败。产品在其他缩放下的交互仍按 N8 另验。
 

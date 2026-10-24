@@ -1,8 +1,10 @@
 use thingary_lib::{
-    catalog::{AssetRecord, Details, SaveAsset},
+    catalog::{
+        AmountKind, AmountOriginSave, AssetRecord, Details, PriceOrigin, PriceOriginSave, SaveAsset,
+    },
     csv_export::HEADER,
     domain::Save,
-    lifecycle, sales,
+    expenses, lifecycle, plan_income, sales,
     storage::Store,
     taxonomy::Classification,
     trash::TrashChange,
@@ -48,8 +50,44 @@ fn details(brand: &str, model: &str, notes: &str) -> Details {
         notes: notes.into(),
     }
 }
+fn origin(code: &str, minor: &str, rate: &str) -> PriceOrigin {
+    PriceOrigin {
+        currency: code.into(),
+        original_minor: minor.into(),
+        fx_rate_micro: rate.into(),
+    }
+}
+fn reprice(s: &mut Store, a: &AssetRecord, price: &str) -> AssetRecord {
+    s.save_asset(
+        &SaveAsset {
+            options: None,
+            base: Save {
+                request_id: id(),
+                generation: s.generation(),
+                asset_id: Some(a.asset.id.clone()),
+                expected_revision: Some(a.asset.revision),
+                name: a.asset.name.clone(),
+                price_cents: Some(price.into()),
+                purchase_date: a.asset.purchase_date.clone(),
+            },
+            details: a.details.clone(),
+            photos: None,
+            classification: None,
+        },
+        TODAY,
+    )
+    .unwrap()
+}
 
 /// Independent RFC 4180 reader: quoted fields, doubled quotes, embedded CR/LF.
+fn origin_at(row: &[String], start: usize) -> (&str, &str, &str) {
+    (
+        row[start].as_str(),
+        row[start + 1].as_str(),
+        row[start + 2].as_str(),
+    )
+}
+
 fn parse(csv: &str) -> Vec<Vec<String>> {
     let (mut rows, mut row, mut cell, mut quoted) = (Vec::new(), Vec::new(), String::new(), false);
     let mut chars = csv.chars().peekable();
@@ -184,7 +222,7 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
         5,
         "4 undeleted assets incl. sold and retired; deleted excluded"
     );
-    assert!(rows.iter().all(|r| r.len() == 14));
+    assert!(rows.iter().all(|r| r.len() == 17));
     let by_id = |id: &str| rows.iter().find(|r| r[0] == id).unwrap().clone();
 
     let ra = by_id(&a.asset.id);
@@ -279,4 +317,214 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
         .len(),
         5
     );
+}
+
+#[test]
+fn foreign_origins_export_only_while_they_explain_the_cny_amount() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+
+    let usd = add(
+        &mut s,
+        "虚构美元相机",
+        Some("925330"),
+        Some("2026-09-01"),
+        Details::default(),
+        None,
+    );
+    s.set_price_origin(&PriceOriginSave {
+        generation: s.generation(),
+        asset_id: usd.asset.id.clone(),
+        origin: Some(origin("USD", "129900", "7123400")),
+    })
+    .unwrap();
+    // 150,000 JPY at 0.0471 CNY is 7,065.00 CNY; whole units, no decimals.
+    let jpy = add(
+        &mut s,
+        "虚构日元镜头",
+        Some("706500"),
+        Some("2026-09-01"),
+        Details::default(),
+        None,
+    );
+    s.set_price_origin(&PriceOriginSave {
+        generation: s.generation(),
+        asset_id: jpy.asset.id.clone(),
+        origin: Some(origin("JPY", "150000", "47100")),
+    })
+    .unwrap();
+    add(
+        &mut s,
+        "虚构人民币物品",
+        Some("10000"),
+        Some("2026-09-01"),
+        Details::default(),
+        None,
+    );
+    let stale = add(
+        &mut s,
+        "虚构过期物品",
+        Some("925330"),
+        Some("2026-09-01"),
+        Details::default(),
+        None,
+    );
+    s.set_price_origin(&PriceOriginSave {
+        generation: s.generation(),
+        asset_id: stale.asset.id.clone(),
+        origin: Some(origin("USD", "129900", "7123400")),
+    })
+    .unwrap();
+    // Re-pricing elsewhere leaves the stored origin, but it no longer explains the price.
+    reprice(&mut s, &stale, "900000");
+
+    let expense = s
+        .expense_save(
+            &expenses::Save {
+                request_id: id(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: expenses::Fields {
+                    title: "虚构机票".into(),
+                    date: "2026-09-02".into(),
+                    amount_cents: "106851".into(),
+                    category: "travel".into(),
+                    notes: String::new(),
+                    refund_cents: None,
+                    refund_date: None,
+                    asset_id: None,
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    s.set_amount_origin(&AmountOriginSave {
+        generation: s.generation(),
+        kind: AmountKind::Expense,
+        record_id: expense.id,
+        origin: Some(origin("USD", "15000", "7123400")),
+    })
+    .unwrap();
+    s.expense_save(
+        &expenses::Save {
+            request_id: id(),
+            generation: s.generation(),
+            id: None,
+            expected_revision: None,
+            fields: expenses::Fields {
+                title: "虚构人民币支出".into(),
+                date: "2026-09-03".into(),
+                amount_cents: "5000".into(),
+                category: "other".into(),
+                notes: String::new(),
+                refund_cents: None,
+                refund_date: None,
+                asset_id: None,
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+
+    let income = s
+        .plan_income_save(
+            &plan_income::Save {
+                request_id: id(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: plan_income::Fields {
+                    date: "2026-09-04".into(),
+                    net_cents: "712340".into(),
+                    ..Default::default()
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    s.set_amount_origin(&AmountOriginSave {
+        generation: s.generation(),
+        kind: AmountKind::Income,
+        record_id: income.id,
+        origin: Some(origin("USD", "100000", "7123400")),
+    })
+    .unwrap();
+    s.plan_income_save(
+        &plan_income::Save {
+            request_id: id(),
+            generation: s.generation(),
+            id: None,
+            expected_revision: None,
+            fields: plan_income::Fields {
+                date: "2026-09-05".into(),
+                net_cents: "4200".into(),
+                ..Default::default()
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+
+    let folder = root.path().join("导出");
+    s.export_all_csv(&folder).unwrap();
+    let sheet = |name: &str| {
+        parse(
+            std::fs::read_to_string(folder.join(name))
+                .unwrap()
+                .trim_start_matches('\u{feff}'),
+        )
+    };
+    let rows = sheet("物品.csv");
+    assert_eq!(
+        (
+            rows[0][14].as_str(),
+            rows[0][15].as_str(),
+            rows[0][16].as_str()
+        ),
+        (HEADER[14], HEADER[15], HEADER[16])
+    );
+    let item = |name: &str| rows.iter().find(|r| r[1] == name).unwrap();
+    assert_eq!(
+        origin_at(item("虚构美元相机"), 14),
+        ("USD", "1299.00", "7.123400")
+    );
+    assert_eq!(
+        origin_at(item("虚构日元镜头"), 14),
+        ("JPY", "150000", "0.047100")
+    );
+    assert_eq!(origin_at(item("虚构人民币物品"), 14), ("", "", ""));
+    assert_eq!(origin_at(item("虚构过期物品"), 14), ("", "", ""));
+
+    let expenses = sheet("重要支出.csv");
+    assert_eq!(
+        (
+            expenses[0][8].as_str(),
+            expenses[0][9].as_str(),
+            expenses[0][10].as_str()
+        ),
+        ("原币币种", "原币金额", "汇率")
+    );
+    let expense_row = |name: &str| expenses.iter().find(|r| r[1] == name).unwrap();
+    assert_eq!(
+        origin_at(expense_row("虚构机票"), 8),
+        ("USD", "150.00", "7.123400")
+    );
+    assert_eq!(origin_at(expense_row("虚构人民币支出"), 8), ("", "", ""));
+
+    let incomes = sheet("月度收入.csv");
+    assert_eq!(
+        (
+            incomes[0][9].as_str(),
+            incomes[0][10].as_str(),
+            incomes[0][11].as_str()
+        ),
+        ("原币币种", "原币金额", "汇率")
+    );
+    let income_row = |date: &str| incomes.iter().find(|r| r[0] == date).unwrap();
+    assert_eq!(
+        origin_at(income_row("2026-09-04"), 9),
+        ("USD", "1000.00", "7.123400")
+    );
+    assert_eq!(origin_at(income_row("2026-09-05"), 9), ("", "", ""));
 }

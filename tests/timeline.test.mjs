@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { timelineDay, timelineMonth } from '../src/timeline-date.ts';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+
+test('timeline group headings and day labels are language-aware', () => {
+  assert.equal(timelineMonth('2026-10-23', 'zh-CN'), '2026 年 10 月');
+  assert.deepEqual(timelineDay('2026-10-23', 'zh-CN'), { number: '23', suffix: '日' });
+  assert.equal(timelineMonth('2026-10-23', 'en-US'), 'October 2026');
+  assert.deepEqual(timelineDay('2026-10-23', 'en-US'), { number: '23', suffix: '' });
+});
 
 test('asset detail and global page read the same backend timeline projection', () => {
   const views = read('../src/AssetViews.tsx');

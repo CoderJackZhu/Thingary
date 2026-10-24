@@ -750,7 +750,10 @@ fn unpack_with_cancel(path: &Path, dir: &Path, cancel: &Cancellation) -> Result<
         &manifest_bytes.ok_or_else(|| Error::new("MANIFEST", "备份缺少清单"))?,
     )?;
     if manifest.format != 1 || !(1..=SCHEMA_VERSION as u32).contains(&manifest.schema) {
-        return Err(Error::new("BACKUP_VERSION", "备份版本暂不支持"));
+        return Err(Error::new(
+            "BACKUP_VERSION",
+            "这个备份来自更新版本的物谱，请先把应用升级到最新版本再恢复。",
+        ));
     }
     observed.remove("manifest.json");
     if manifest.entries.len() != observed.len() || !manifest.entries.contains_key("data.sqlite") {

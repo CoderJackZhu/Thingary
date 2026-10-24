@@ -6,6 +6,7 @@
 .m-large-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 0 2px}
 .m-large-title h1{margin:0;font:700 30px/1.2 var(--head);letter-spacing:-.02em}
 .m-large-title p{margin:2px 0 0;font-size:13px;font-weight:500;color:var(--muted)}
+.m-large-segments{padding:8px 0 4px}
 .m-large-actions{display:flex;gap:10px;flex-shrink:0;align-items:center}
 .m-icon-button{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:var(--card);box-shadow:var(--card-shadow);color:var(--text);display:inline-flex;align-items:center;justify-content:center}
 .m-icon-button[aria-pressed=true]{background:var(--selected);color:var(--accent)}
