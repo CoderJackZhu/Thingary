@@ -98,13 +98,75 @@ iOS 不提供桌面应用菜单、窗口尺寸恢复、单实例进程控制，�
 
 开发验收必须使用虚构资料。分别记录实际机型、运行时、账户／未知和正常盘点／规划计算、照片与缩略图、备份桌面往返、分享完成与取消、通知权限、前后台遮罩。标准 iPhone 为主，另验 SE 和 Pro Max；模拟器截图不代表真机拍照、Face ID、隔空投送或 iCloud 已验。原生功能需在真实 Tauri WKWebView 中验证，浏览器演示不能替代。交付前同时运行本页四项检查和 macOS 开发预览，不能把编译成功写成全部原生验收成功。
 
+<a id="android"></a>
+
+## Android 开发与模拟器
+
+Android 与 iOS 共用 `mobile.html` 和 Rust 业务层。工程在 `src-tauri/gen/android/`，平台配置为 `src-tauri/tauri.android.conf.json`，开发应用标识 `local.thingary.preview`。当前 Gradle 配置的 `compileSdk`／`targetSdk` 为 37、`minSdk` 为 29；这是编译／目标／最低系统要求，不代表所有对应系统都已验收。Android 原生能力边界见[架构说明](ARCHITECTURE.md#android-平台层)。
+
+### 工具与构建
+
+准备 Node.js 22.18+、Rust、Android Studio 或 SDK Command-line Tools，以及 **JDK 17**、**NDK 27.2.12479018**。安装 `platform-tools`、构建工具，以及 Gradle 要求的 `platforms;android-N`；缺少的平台 Gradle 会自动下载，需事先接受许可。`N` 以当前 Gradle 工程为准。SDK Manager 同时安装 Command-line Tools；模拟器另需 Android Emulator 和与宿主架构匹配的系统镜像。参考 [Tauri 前置环境](https://v2.tauri.app/start/prerequisites/)与 [Android SDK 自动下载说明](https://developer.android.com/studio/intro/update#AutoDownload)。
+
+以下以 macOS、SDK 默认目录为例；其他系统改用本机实际安装路径。不要直接假定 Android Studio 捆绑的 JBR 就是 JDK 17。
+
+```sh
+export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+java -version
+sdkmanager --licenses
+sdkmanager --install "platform-tools" "ndk;27.2.12479018"
+rustup target add aarch64-linux-android
+npm ci
+npm run ios:tauri -- android build --apk --debug --target aarch64 --ci
+```
+
+`ios:tauri` 虽以 iOS 命名，实际固定调用 Tauri CLI 2.12.3，也可运行 Android 子命令；Gradle 的 Rust 构建任务调用本地 `npm run tauri`，两者版本应一致。CLI 自动合并 Android 平台配置。首次执行 `ios:tauri` 可能需要下载 CLI，Gradle／Rust 也可能下载依赖；构建成功不代表安装、首开或原生能力通过。查找输出：
+
+```sh
+rg --files --no-ignore src-tauri/gen/android/app/build/outputs/apk | rg '\.apk$'
+```
+
+只选择本次 debug APK；不要合并正式发布配置或使用 `local.thingary.main`。已有生成工程无需重复 `android init`；确需重新生成时先保留改动并核对差异。
+
+### 独立创建 AVD、安装与截图
+
+APK 构建的 `--ci` 跳过交互，不负责创建验收用 AVD。先在 Android Studio 的 Device Manager 手动创建并命名一个专用模拟器，明确系统镜像、屏幕和架构，避免依赖 CLI 自动选择设备。Apple Silicon 选 ARM64 镜像，与上面的 aarch64 APK 匹配；x86_64 模拟器需另装 `x86_64-linux-android` 目标并用 `--target x86_64` 构建。系统镜像的 API 不低于 `minSdk`，不要求等于 `compileSdk`。创建方法见 [Android 官方 AVD 说明](https://developer.android.com/studio/run/managing-avds)。
+
+```sh
+emulator -list-avds
+emulator -avd ThingaryPreview
+```
+
+`ThingaryPreview` 是示例 AVD 名称，换成刚创建的名字。另开终端，按 `adb devices` 输出填写设备序号，并把构建输出中的实际 APK 绝对路径填入变量。以下步骤会安装应用，仅在维护者批准安装后的独立验收环境执行；所有记录、图片、服务器和凭据均用虚构或专用测试资料。
+
+```sh
+adb devices
+export THINGARY_ANDROID_SERIAL="emulator-5554"
+export THINGARY_ANDROID_APK="/absolute/path/to/debug.apk"
+adb -s "$THINGARY_ANDROID_SERIAL" wait-for-device
+adb -s "$THINGARY_ANDROID_SERIAL" install -r "$THINGARY_ANDROID_APK"
+adb -s "$THINGARY_ANDROID_SERIAL" shell monkey -p local.thingary.preview -c android.intent.category.LAUNCHER 1
+adb -s "$THINGARY_ANDROID_SERIAL" exec-out screencap -p > /tmp/thingary-android-preview.png
+adb -s "$THINGARY_ANDROID_SERIAL" logcat -d -s AndroidRuntime
+```
+
+核对首开样例、五个标签、虚构记录保存重启、正常／未知／空白／错误状态，并记录 AVD、API、WebView 和截图尺寸。启用屏幕隐私后 `FLAG_SECURE` 会使截图、录屏及最近任务缩略图受保护；验证开关前后效果时分别记录预期，不能把空白截图当作页面未加载。当前分享、文件／照片选择、身份验证和更新检查尚未接入，不把编译或截图当作它们已验。
+
+### 工程维护的两个边界
+
+- `tauri.android.conf.json` 的窗口必须保持 `create: false`；`lib.rs` 在 `setup` 完成 Worker、同步运行时等状态托管后创建窗口。提前加载页面会使首启 IPC 遇到 `state not managed`。
+- 根目录忽略 `src-tauri/gen/`。首次新增生成源文件要逐项 `git add -f <具体文件>`，只纳入 Kotlin、Gradle 配置／wrapper、Manifest、必要资源等构建输入；不强加整个 gen 目录，不提交 `local.properties`、个人 SDK 路径、缓存、构建输出、APK 或凭据，也不修改根 `.gitignore`。
+
 ## 多语言
 
 界面文字用 `t('简体中文原文')`（`src/i18n.ts`）：原文即 key，缺译文时显示原文；带变量写 `t('共 {n} 期', { n })`。英文译文在 `src/locales/en.ts`。`node scripts/i18n-keys.mjs` 列出全部 key（含 Rust 固定错误文字），`--check` 检查 en.ts 中过期的条目。改中文文案后须同步 en.ts 的 key。切换语言会重新载入窗口，所以 `t()` 是同步函数。读取源码做断言的测试通过 `tests/setup/unwrap-t.mjs`（`npm run test:ui` 已加载）把 `t()` 还原成原文，断言仍写中文。
 
 ## 内置参考汇率
 
-`src/reference-rates.ts` 由 `node scripts/update-reference-rates.mjs` 生成（欧洲央行汇率，经 api.frankfurter.dev），发版前由维护者运行一次并提交；应用运行时不联网。挂钩币种（AED、SAR、MOP）按固定挂钩推算，欧洲央行不覆盖的币种不内置。
+`src/reference-rates.ts` 由 `node scripts/update-reference-rates.mjs` 生成（欧洲央行汇率，经 api.frankfurter.dev），发版前由维护者运行一次并提交；应用运行时读取内置汇率不联网。挂钩币种（AED、SAR、MOP）按固定挂钩推算，欧洲央行不覆盖的币种不内置。
 
 ## 自动检查
 
@@ -130,6 +192,21 @@ npm test
 故障注入 feature 只用于测试，不进入普通应用。检查结果按本次实际执行登记；测试文件存在、历史通过或源码提交不代表当前工作树已通过。文案／样式核对受影响页面与断点；表单验证保存、取消、未知与失败；计算运行对应数值和调用链回归。纯文档检查链接、锚点、术语和离线交付依赖。
 
 规划核心的 ABI 所有权测试同时在原生测试进程和 WASM 中验证。地址使用指针宽度的 `usize`（wasm32 下仍为 32 位），不能把 64 位测试宿主的地址截断为 `u32`；原生测试断言分配地址完整保留，WASM 对照检查实际导出接口及所有权行为。修改核心后需重新生成随源码保存的 WASM，并运行 `check:engine-source` 和 `test:engine-parity`。
+
+<a id="sync-tests"></a>
+
+### 同步测试
+
+同步测试只使用临时虚构资料与进程内假 WebDAV（本机回环地址），不连接真实网盘、不打开正式资料库：
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --test sync_state --test sync_fingerprint --test sync_engine --test sync_webdav --test sync_e2e
+node --import ./tests/setup/unwrap-t.mjs --test tests/sync-state.test.mjs tests/sync-settings.test.mjs
+```
+
+`sync_webdav` 的假服务器覆盖 MKCOL／PROPFIND／PUT／GET／DELETE、条件写入和错误脱敏；`sync_state` 覆盖方向判断、配置和口令期限；`sync_fingerprint` 覆盖内容指纹；`sync_engine` 覆盖错误口令、篡改／截断、大小／散列不符和待核对推送。`sync_e2e` 通过两个独立临时身份覆盖首次推拉、连续版本、冲突两种选择、原资料保护、全表计数与托管文件 SHA-256、远端 schema 较新拦截、清单应答丢失、未配置零连接及秘密不落盘。三个 `reconcile_*` 用例分别验证 `landed`／`not_landed`／`remote_changed`，并断言核对没有远端写入。
+
+上述命令也包含在相关全套检查中；测试存在不代表本工作树本次已通过。当前桌面“核对”处理器只调用 `sync_status`，未消费新增 `sync_reconcile`；手机界面没有同步入口。实际坚果云／Nextcloud、无 ETag 的并发、移动端往返、Windows 权限及大库性能需独立验收，不能用假服务器测试替代。现行限制见[同步架构](ARCHITECTURE.md#sync)。
 
 <a id="v124-validation"></a>
 
