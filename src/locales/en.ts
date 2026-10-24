@@ -9394,4 +9394,7 @@ export const en: Record<string, string> = {
   "解锁并同步": "Unlock and sync",
   "云端快照（{device}）": "Cloud snapshot ({device})",
   "云端同步快照": "Cloud sync snapshot",
+  "手动同步到你自己的 WebDAV": "Manually sync with your own WebDAV",
+  "当前是独立样例库。切换到「我的资料」后可配置同步。": "This is the separate sample library. Switch to your own data to set up sync.",
+  "请先处理正在编辑或待核对的内容，再进行同步。": "Finish editing or checking pending results before syncing.",
 };
