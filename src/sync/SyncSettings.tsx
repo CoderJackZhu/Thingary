@@ -12,8 +12,10 @@ import { t } from '../i18n.ts';
 import {
   syncConfigGet,
   syncConfigSet,
+  syncDisable,
   syncPullInspect,
   syncPush,
+  syncReconcile,
   syncResolveConflict,
   syncStatus,
   syncTestConnection,
@@ -23,7 +25,8 @@ import {
   type SyncPullInspection,
   type SyncStatusResult,
 } from './api';
-import { syncView, type SyncAction, type SyncErrorLike } from './state';
+import { lastSyncInfo, reconcileNotice, syncView, type SyncAction, type SyncErrorLike } from './state';
+import { getSyncSettingsPreview } from './preview-state';
 
 type FormState = {
   baseUrl: string;
@@ -74,11 +77,14 @@ export function SyncSettings({
   const [status, setStatus] = useState<SyncStatusResult | null>(null);
   const [error, setError] = useState<SyncErrorLike | null>(null);
   const [loadError, setLoadError] = useState('');
-  const [busy, setBusy] = useState<'config' | 'test' | 'sync' | null>(null);
+  const [busy, setBusy] = useState<'config' | 'test' | 'sync' | 'disable' | null>(null);
   const [notice, setNotice] = useState('');
   const [actionError, setActionError] = useState('');
   const [passOpen, setPassOpen] = useState(false);
   const [passError, setPassError] = useState('');
+  const [disableOpen, setDisableOpen] = useState(false);
+  const [disableError, setDisableError] = useState('');
+  const pendingPush = useRef(false);
   const alive = useRef(true), lock = useRef(false), pendingSync = useRef(false);
   const urlInput = useRef<HTMLInputElement | null>(null);
 
@@ -90,21 +96,22 @@ export function SyncSettings({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let loaded: SyncPublicConfig | null = null;
       try {
-        loaded = await syncConfigGet();
-        if (!cancelled) { setConfig(loaded); setForm(formFromConfig(loaded)); }
+        const loaded = await syncConfigGet();
+        if (cancelled) return;
+        setConfig(loaded); setForm(formFromConfig(loaded));
+        pendingPush.current = loaded.has_pending_push;
+        if (loaded.has_pending_push || !loaded.enabled) {
+          setError({ code: loaded.has_pending_push ? 'SYNC_RESULT_UNKNOWN' : 'SYNC_UNCONFIGURED', message: '' });
+        } else {
+          // Fictional preview states are supplied synchronously by the
+          // development-only bootstrap, never by a sync_status invocation.
+          const preview = getSyncSettingsPreview();
+          if (preview) { setStatus(preview.status); setError(preview.error); }
+        }
       } catch (e) {
         if (!cancelled) setLoadError(errorMessage(e));
       }
-      try {
-        const next = await syncStatus();
-        if (!cancelled) { setStatus(next); setError(null); }
-      } catch (e) {
-        if (!cancelled) setError(asSyncError(e));
-      }
-      // A push whose manifest reply was lost must be reconciled, not retried.
-      if (!cancelled && loaded?.has_pending_push) setError({ code: 'SYNC_RESULT_UNKNOWN', message: '' });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -123,16 +130,25 @@ export function SyncSettings({
   async function refreshStatus(): Promise<SyncStatusResult | null> {
     try {
       const next = await syncStatus();
-      if (alive.current) { setStatus(next); setError(null); }
+      const latestConfig = await syncConfigGet();
+      if (alive.current) {
+        pendingPush.current = latestConfig.has_pending_push;
+        setStatus(next); setConfig(latestConfig);
+        setError(latestConfig.has_pending_push ? { code: 'SYNC_RESULT_UNKNOWN', message: '' } : null);
+      }
       return next;
     } catch (e) {
-      if (alive.current) setError(asSyncError(e));
+      if (alive.current) {
+        const failure = asSyncError(e);
+        if (failure.code === 'SYNC_RESULT_UNKNOWN') pendingPush.current = true;
+        setError(failure);
+      }
       return null;
     }
   }
 
   async function saveConfig() {
-    if (busy) return;
+    if (busy || pendingPush.current || !config) return;
     setBusy('config'); setActionError(''); setNotice('');
     try {
       const input: SyncConfigInput = {
@@ -143,13 +159,15 @@ export function SyncSettings({
       };
       if (form.password) input.password = form.password;
       await syncConfigSet(input);
+      if (!alive.current) return;
+      setStatus(null); setError(null);
       const next = await syncConfigGet();
       if (!alive.current) return;
       setConfig(next);
       setForm(formFromConfig(next));
       setNotice(t('同步设置已保存。'));
-      setError(null);
-      await refreshStatus();
+      pendingPush.current = next.has_pending_push;
+      setError(next.has_pending_push ? { code: 'SYNC_RESULT_UNKNOWN', message: '' } : null);
     } catch (e) {
       if (alive.current) setActionError(errorMessage(e));
     } finally {
@@ -158,7 +176,7 @@ export function SyncSettings({
   }
 
   async function testConnection() {
-    if (busy) return;
+    if (busy || pendingPush.current) return;
     if (!config?.enabled || dirty) { setActionError(t('请先保存设置，再测试连接。')); return; }
     setBusy('test'); setActionError(''); setNotice('');
     try {
@@ -209,13 +227,14 @@ export function SyncSettings({
   }
 
   async function runSync() {
-    if (busy || lock.current || blocked) return;
+    if (busy || lock.current || blocked || pendingPush.current || !config?.enabled) return;
     lock.current = true; setBusy('sync'); setError(null); setActionError(''); setNotice('');
     try {
       await syncSteps();
     } catch (e) {
       if (alive.current) {
         const failure = asSyncError(e);
+        if (failure.code === 'SYNC_RESULT_UNKNOWN') pendingPush.current = true;
         setError(failure);
         if (failure.code === 'SYNC_LOCKED' || failure.code === 'SYNC_PASSPHRASE') openPassphrase('sync');
       }
@@ -225,12 +244,33 @@ export function SyncSettings({
     }
   }
 
+  async function checkCloud() {
+    if (busy || lock.current || blocked || pendingPush.current || !config?.enabled) return;
+    lock.current = true; setBusy('sync'); setActionError(''); setNotice('');
+    try { await refreshStatus(); }
+    finally {
+      lock.current = false;
+      if (alive.current) setBusy(null);
+    }
+  }
+
   async function reconcile() {
-    if (busy || lock.current) return;
-    lock.current = true; setBusy('sync'); setError(null); setActionError(''); setNotice('');
+    if (busy || lock.current || blocked || !config?.enabled) return;
+    lock.current = true; setBusy('sync'); setActionError(''); setNotice('');
     try {
-      const next = await refreshStatus();
-      if (alive.current && next) setNotice(t('已核对云端状态，未写入任何资料。'));
+      const result = await syncReconcile();
+      if (!alive.current) return;
+      pendingPush.current = false;
+      setError(null);
+      setNotice(reconcileNotice(result));
+      await refreshStatus();
+    } catch (e) {
+      if (alive.current) {
+        if (pendingPush.current) {
+          setError({ code: 'SYNC_RESULT_UNKNOWN', message: '' });
+          setActionError(errorMessage(e));
+        } else setError(asSyncError(e));
+      }
     } finally {
       lock.current = false;
       if (alive.current) setBusy(null);
@@ -238,7 +278,7 @@ export function SyncSettings({
   }
 
   async function resolve(choice: 'keep_local' | 'use_remote') {
-    if (busy || lock.current || blocked) return;
+    if (busy || lock.current || blocked || pendingPush.current || !config?.enabled) return;
     lock.current = true; setBusy('sync'); setError(null); setActionError(''); setNotice('');
     try {
       const result = await syncResolveConflict(choice);
@@ -255,7 +295,11 @@ export function SyncSettings({
         await refreshStatus();
       }
     } catch (e) {
-      if (alive.current) setError(asSyncError(e));
+      if (alive.current) {
+        const failure = asSyncError(e);
+        if (failure.code === 'SYNC_RESULT_UNKNOWN') pendingPush.current = true;
+        setError(failure);
+      }
     } finally {
       lock.current = false;
       if (alive.current) setBusy(null);
@@ -284,14 +328,46 @@ export function SyncSettings({
     if (busy) return;
     const continueSync = pendingSync.current;
     setBusy('sync'); setPassError('');
+    let unlocked = false;
     try {
       await syncUnlock(passphrase);
       if (!alive.current) return;
+      unlocked = true;
       setPassOpen(false); pendingSync.current = false;
       if (continueSync) await syncSteps(); else await refreshStatus();
     } catch (e) {
-      if (alive.current) setPassError(errorMessage(e));
+      if (alive.current) {
+        if (!unlocked) setPassError(errorMessage(e));
+        else {
+          const failure = asSyncError(e);
+          if (failure.code === 'SYNC_RESULT_UNKNOWN') pendingPush.current = true;
+          setError(failure);
+        }
+      }
     } finally {
+      if (alive.current) setBusy(null);
+    }
+  }
+
+  async function disableSync(forgetCredentials: boolean) {
+    if (busy || lock.current || blocked || pendingPush.current || !config?.enabled) return;
+    lock.current = true; setBusy('disable'); setDisableError('');
+    try {
+      await syncDisable(forgetCredentials);
+      if (!alive.current) return;
+      const disabledConfig: SyncPublicConfig = {
+        ...config, enabled: false, has_pending_push: false,
+        ...(forgetCredentials ? { base_url: '', username: '', base_path: '', has_password: false, last_synced_at: null, last_synced_remote_version: null } : {}),
+      };
+      setConfig(disabledConfig); setForm(formFromConfig(disabledConfig));
+      setStatus(null); setError({ code: 'SYNC_UNCONFIGURED', message: '' });
+      setNotice(t('同步已停用，不会删除云端数据。')); setActionError('');
+      setPassOpen(false); setDisableOpen(false);
+      pendingSync.current = false;
+    } catch (e) {
+      if (alive.current) setDisableError(errorMessage(e));
+    } finally {
+      lock.current = false;
       if (alive.current) setBusy(null);
     }
   }
@@ -305,6 +381,9 @@ export function SyncSettings({
         break;
       case 'reconcile':
         void reconcile();
+        break;
+      case 'check':
+        void checkCloud();
         break;
       case 'unlock':
         openPassphrase('unlock');
@@ -327,11 +406,13 @@ export function SyncSettings({
     }
   }
 
-  const view = syncView(status, error);
+  const view = syncView(status, error, config);
   const actions = [...(view.primaryAction ? [view.primaryAction] : []), ...view.secondaryActions];
   // Twice only when there is no cloud copy yet and this device never pushed.
   const firstTime = !!status && !status.remote && config?.last_synced_remote_version == null;
   const disabled = busy !== null || blocked;
+  const configDisabled = busy !== null || pendingPush.current || config === null;
+  const history = config?.enabled ? lastSyncInfo(config, status) : null;
   const showIntro = !config?.enabled || status?.state === 'unconfigured' || error?.code === 'SYNC_UNCONFIGURED';
   const ready = config !== null || status !== null || error !== null || loadError !== '';
 
@@ -347,26 +428,29 @@ export function SyncSettings({
 
     <div className="sync-form">
       <FormRow label={t('地址')} hint={t('WebDAV 地址，包含协议；例如坚果云、Nextcloud 或群晖。')}>
-        <input ref={urlInput} type="url" spellCheck={false} autoComplete="off" aria-label={t('WebDAV 地址')} placeholder="https://dav.example.com/…" value={form.baseUrl} disabled={busy !== null} onChange={setField('baseUrl')}/>
+        <input ref={urlInput} type="url" spellCheck={false} autoComplete="off" aria-label={t('WebDAV 地址')} placeholder="https://dav.example.com/…" value={form.baseUrl} disabled={configDisabled} onChange={setField('baseUrl')}/>
       </FormRow>
       <FormRow label={t('用户名')}>
-        <input spellCheck={false} autoComplete="username" aria-label={t('WebDAV 用户名')} value={form.username} disabled={busy !== null} onChange={setField('username')}/>
+        <input spellCheck={false} autoComplete="username" aria-label={t('WebDAV 用户名')} value={form.username} disabled={configDisabled} onChange={setField('username')}/>
       </FormRow>
       <FormRow label={t('应用密码')} hint={t('优先使用 WebDAV 应用密码，不要填登录密码。保存后不会再次显示。')}>
-        <input type="password" autoComplete="off" spellCheck={false} aria-label={t('WebDAV 应用密码')} placeholder={config?.has_password ? t('已保存') : t('请输入应用密码')} value={form.password} disabled={busy !== null} onChange={setField('password')}/>
+        <input type="password" autoComplete="off" spellCheck={false} aria-label={t('WebDAV 应用密码')} placeholder={config?.has_password ? t('已保存') : t('请输入应用密码')} value={form.password} disabled={configDisabled} onChange={setField('password')}/>
       </FormRow>
       <FormRow label={t('路径')} hint={t('远端基础路径，留空表示 WebDAV 根目录。')}>
-        <input spellCheck={false} autoComplete="off" aria-label={t('WebDAV 路径')} placeholder={t('留空为根目录')} value={form.basePath} disabled={busy !== null} onChange={setField('basePath')}/>
+        <input spellCheck={false} autoComplete="off" aria-label={t('WebDAV 路径')} placeholder={t('留空为根目录')} value={form.basePath} disabled={configDisabled} onChange={setField('basePath')}/>
       </FormRow>
       <FormRow label={t('设备名')} hint={t('用来在云端区分这台设备。')}>
-        <input spellCheck={false} autoComplete="off" aria-label={t('同步设备名')} placeholder={t('例如：我的 MacBook')} value={form.deviceName} disabled={busy !== null} onChange={setField('deviceName')}/>
+        <input spellCheck={false} autoComplete="off" aria-label={t('同步设备名')} placeholder={t('例如：我的 MacBook')} value={form.deviceName} disabled={configDisabled} onChange={setField('deviceName')}/>
       </FormRow>
     </div>
 
     <div className="sync-actions sync-config-actions">
-      <button type="button" disabled={busy !== null || !config?.enabled || dirty} onClick={() => void testConnection()}>{busy === 'test' ? t('正在测试连接…') : t('测试连接')}</button>
-      <button type="button" className="primary" disabled={busy !== null || !form.baseUrl.trim() || !form.username.trim() || !form.deviceName.trim() || (!form.password && !config?.has_password)} onClick={() => void saveConfig()}>{busy === 'config' ? t('正在保存…') : t('保存')}</button>
+      <button type="button" disabled={configDisabled || !config?.enabled || dirty} onClick={() => void testConnection()}>{busy === 'test' ? t('正在测试连接…') : t('测试连接')}</button>
+      <button type="button" className="primary" disabled={configDisabled || !form.baseUrl.trim() || !form.username.trim() || !form.deviceName.trim() || (!form.password && !config?.has_password)} onClick={() => void saveConfig()}>{busy === 'config' ? t('正在保存…') : t('保存')}</button>
+      {config?.enabled && <button type="button" disabled={configDisabled || blocked} onClick={() => { setDisableError(''); setDisableOpen(true); }}>{t('停用同步')}</button>}
     </div>
+
+    {history && <p className="sync-history">{t('上次同步：{time}；云端版本：{version}；设备名：{device}', history)}</p>}
 
     {ready && <div className={`sync-state ${view.tone}`}>
       <h3>{view.headline}</h3>
@@ -397,7 +481,23 @@ export function SyncSettings({
       onCancel={() => { setPassOpen(false); setPassError(''); pendingSync.current = false; }}
       onSubmit={passphrase => void unlock(passphrase)}
     />}
+    {disableOpen && <DisableSyncDialog busy={busy === 'disable'} error={disableError} onCancel={() => setDisableOpen(false)} onDisable={forget => void disableSync(forget)}/>}
   </div>;
+}
+
+function DisableSyncDialog({ busy, error, onCancel, onDisable }: { busy: boolean; error: string; onCancel: () => void; onDisable: (forget: boolean) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => { const opened = dialog.current; opened?.showModal(); return () => opened?.close(); }, []);
+  return <dialog ref={dialog} className="editor leave-confirm sync-disable" aria-labelledby="sync-disable-title" onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}>
+    <h2 id="sync-disable-title">{t('停用同步')}</h2>
+    <p className="muted">{t('停用后不再连接 WebDAV，不会删除云端数据，也不会改动本机资料。请选择是否保留连接信息。')}</p>
+    {error && <p className="notice error" role="alert">{error}</p>}
+    <div className="sync-disable-actions">
+      <button type="button" disabled={busy} onClick={onCancel}>{t('取消')}</button>
+      <button type="button" disabled={busy} onClick={() => onDisable(false)}>{t('停用并保留已保存的连接信息')}</button>
+      <button type="button" className="danger" disabled={busy} onClick={() => onDisable(true)}>{t('停用并清除连接信息和密码')}</button>
+    </div>
+  </dialog>;
 }
 
 function PassphraseDialog({ firstTime, busy, error, onCancel, onSubmit }: { firstTime: boolean; busy: boolean; error: string; onCancel: () => void; onSubmit: (passphrase: string) => void }) {

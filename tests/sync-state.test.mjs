@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { syncView } from '../src/sync/state.ts';
+import { lastSyncInfo, reconcileNotice, syncView } from '../src/sync/state.ts';
 import { createSyncPreview, SYNC_PREVIEW_MODES } from '../src/sync/preview.ts';
 
 const remote = (over = {}) => ({
@@ -47,7 +47,7 @@ test('every sync state has a headline, readable detail and a tone', () => {
   assert.equal(syncView(status('conflict')).blocking, true);
   assert.equal(syncView(status('up_to_date')).blocking, false);
   const idle = syncView(status('up_to_date')).primaryAction;
-  assert.deepEqual([idle.id, idle.label, idle.destructive], ['reconcile', '检查云端', undefined], 'up to date still offers a read-only re-check');
+  assert.deepEqual([idle.id, idle.label, idle.destructive], ['reconcile', '检查云端', undefined], 'existing consumers retain their read-only action contract');
   assert.equal(syncView(status('local_ahead')).blocking, false);
 });
 
@@ -83,6 +83,7 @@ test('a newer remote schema asks for an upgrade instead of transfer', () => {
   assert.match(view.detail, /升级应用/);
   assert.match(view.detail, /本机资料不受影响/);
   assert.equal(view.blocking, true);
+  assert.deepEqual(actionIds(view), ['upgrade']);
 });
 
 test('a push failure stays retryable and says the local library is unchanged', () => {
@@ -139,11 +140,21 @@ test('each preview mode reports the matching status', async () => {
     remote_ahead: 'remote_ahead',
     conflict: 'conflict',
     push_error: 'local_ahead',
-    unknown: 'local_ahead',
+    unknown: 'conflict',
+    unknown_not_landed: 'local_ahead',
+    unknown_remote_changed: 'conflict',
+    unknown_error: 'conflict',
+    locked: 'local_ahead',
+    schema_newer: null,
+    unchecked: 'up_to_date',
   };
   assert.deepEqual(Object.keys(expected), [...SYNC_PREVIEW_MODES]);
   for (const [mode, state] of Object.entries(expected)) {
     const preview = createSyncPreview(mode);
+    if (mode === 'schema_newer') {
+      await assert.rejects(() => preview.command('sync_status'), error => error.code === 'SYNC_SCHEMA_NEWER');
+      continue;
+    }
     const result = await preview.command('sync_status', {});
     assert.equal(result.state, state, mode);
     const config = await preview.command('sync_config_get', {});
@@ -157,6 +168,84 @@ test('each preview mode reports the matching status', async () => {
       assert.equal(result.local.schema, 46);
       assert.ok(result.remote, mode);
     }
+  }
+});
+
+test('reconciliation settles all four outcomes without uploading a new cloud version', async () => {
+  for (const [mode, outcome, nextState] of [
+    ['unknown', 'landed', 'up_to_date'],
+    ['unknown_not_landed', 'not_landed', 'local_ahead'],
+    ['unknown_remote_changed', 'remote_changed', 'conflict'],
+    ['synced', 'nothing_pending', 'up_to_date'],
+  ]) {
+    const preview = createSyncPreview(mode);
+    const before = await preview.command('sync_status');
+    const result = await preview.command('sync_reconcile');
+    assert.equal(result.outcome, outcome);
+    assert.ok(reconcileNotice(result).length > 0);
+    assert.equal((await preview.command('sync_config_get')).has_pending_push, false);
+    const after = await preview.command('sync_status');
+    assert.equal(after.state, nextState);
+    assert.equal(after.remote.version, before.remote.version, 'read-only reconciliation never increments the cloud version');
+  }
+  assert.equal(reconcileNotice({ outcome: 'landed', version: 8 }), '已确认上次同步成功（版本 8）');
+  assert.match(reconcileNotice({ outcome: 'not_landed', version: null }), /本机更改仍在，可以重新同步/);
+  assert.match(reconcileNotice({ outcome: 'remote_changed', version: 9 }), /请按冲突处理/);
+  const failed = createSyncPreview('unknown_error');
+  await assert.rejects(() => failed.command('sync_reconcile'), error => error.code === 'SYNC_NETWORK');
+  assert.equal((await failed.command('sync_config_get')).has_pending_push, true);
+});
+
+test('locked preview refuses a wrong passphrase and accepts preview-pass', async () => {
+  const preview = createSyncPreview('locked');
+  await assert.rejects(() => preview.command('sync_push'), error => error.code === 'SYNC_LOCKED');
+  await assert.rejects(() => preview.command('sync_unlock', { input: { passphrase: 'wrong' } }), error => error.code === 'SYNC_PASSPHRASE');
+  await assert.rejects(() => preview.command('sync_push'), error => error.code === 'SYNC_LOCKED');
+  await preview.command('sync_unlock', { input: { passphrase: 'preview-pass' } });
+  assert.deepEqual(await preview.command('sync_push'), { version: 8 });
+});
+
+test('last sync info uses the saved baseline and never invents a device or zero version', async () => {
+  const preview = createSyncPreview('synced');
+  const config = await preview.command('sync_config_get');
+  const current = await preview.command('sync_status');
+  const info = lastSyncInfo(config, current);
+  assert.ok(info.time.length > 0);
+  assert.equal(info.version, '7');
+  assert.equal(info.device, '虚构平板');
+  assert.equal(lastSyncInfo(config, null).device, '虚构 MacBook', 'offline uses the locally configured device name');
+  assert.equal(lastSyncInfo(config, { ...current, remote: remote({ version: 8, deviceName: '新设备' }) }).device, '虚构 MacBook', 'never attributes a newer cloud version to the saved baseline');
+  assert.deepEqual(lastSyncInfo({ ...config, last_synced_at: null, last_synced_remote_version: null }, null), { time: '尚未同步', version: '尚未同步', device: '尚未同步' });
+  assert.deepEqual(lastSyncInfo({ ...config, last_synced_at: 'invalid', last_synced_remote_version: 0 }, current), { time: '尚未同步', version: '尚未同步', device: '尚未同步' });
+});
+
+test('configured but unchecked is neutral, while an outstanding push remains read-only', async () => {
+  const config = await createSyncPreview('synced').command('sync_config_get');
+  const view = syncView(null, null, config);
+  assert.equal(view.headline, '尚未检查云端');
+  assert.equal(view.tone, 'neutral');
+  assert.deepEqual(actionIds(view), ['check']);
+  assert.equal(view.primaryAction.label, '检查云端');
+  assert.equal(syncView(status('up_to_date'), null, config).primaryAction.id, 'check');
+  assert.match(view.detail, /打开页面和保存设置不会联网/);
+  assert.equal(syncView(null, null, { ...config, enabled: false }).headline, '同步未开启');
+  assert.deepEqual(actionIds(syncView(null, null, { ...config, has_pending_push: true })), ['reconcile']);
+});
+
+test('disable can retain or forget credentials and returns an unconfigured preview', async () => {
+  for (const forgetCredentials of [false, true]) {
+    const preview = createSyncPreview('synced');
+    const before = await preview.command('sync_config_get');
+    await preview.command('sync_disable', { input: { forgetCredentials } });
+    const config = await preview.command('sync_config_get');
+    assert.equal(config.enabled, false);
+    assert.equal(config.has_password, !forgetCredentials);
+    assert.equal(config.base_url, forgetCredentials ? '' : before.base_url);
+    assert.equal(config.device_name, before.device_name);
+    const after = await preview.command('sync_status');
+    assert.equal(after.state, 'unconfigured');
+    assert.equal(after.remote, null);
+    await assert.rejects(() => preview.command('sync_test_connection'), error => error.code === 'SYNC_UNCONFIGURED');
   }
 });
 
@@ -248,6 +337,7 @@ test('the command wrappers keep the Rust field names, not the design draft', () 
     'sync_status',
     'sync_unlock',
     'sync_push',
+    'sync_reconcile',
     'sync_pull_inspect',
     'sync_resolve_conflict',
   ]) {

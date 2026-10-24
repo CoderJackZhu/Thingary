@@ -29,4 +29,7 @@
 .sync-consequences strong{font-weight:500;color:var(--text)}
 .sync-passphrase .field{margin-top:12px}
 .sync-passphrase .notice{margin:12px 0 0;font-size:12px;line-height:1.55}
+.sync-history{margin:12px 0 0;font-size:12px;line-height:1.55;color:var(--muted)}
+.sync-disable-actions{display:grid;gap:8px;margin-top:16px}
+.sync-disable-actions button{white-space:normal}
 @media(max-width:520px){.sync-form .form-row{grid-template-columns:minmax(0,1fr);gap:6px}.sync-form .form-row-control{justify-content:flex-start}}

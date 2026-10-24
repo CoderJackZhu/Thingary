@@ -29,6 +29,7 @@ import type { AccountAvailability, Review, Read } from './review';
 import type { ExpenseView } from './expenses';
 import type { SourceTarget } from './source';
 import { createSyncPreview } from './sync/preview';
+import { registerSyncSettingsPreview } from './sync/preview-state';
 import { t as tr } from './i18n.ts';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_count:0,upcoming_count:0,expired_count:0,pending_count:0} as const;
@@ -78,6 +79,7 @@ const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 // ?sync=unconfigured|synced|local_ahead|remote_ahead|conflict|push_error|unknown
 const syncPreview = createSyncPreview(params.get('sync'));
+registerSyncSettingsPreview(syncPreview.initialView);
 let previewStarted = params.get('started') !== 'first-use';
 
 if (params.get('state') === 'empty') records = [];

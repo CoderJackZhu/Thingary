@@ -1,8 +1,9 @@
 // Browser-preview stand-in for the sync commands. Fictional and in-memory only:
 // no WebDAV, no passphrase and no file is ever created. The desktop/mobile
 // previews pick a scenario with ?sync=unconfigured|synced|local_ahead|
-// remote_ahead|conflict|push_error|unknown (see src/preview-ipc.ts).
+// remote_ahead|conflict|push_error|unknown|locked|schema_newer.
 import { t as tr } from '../i18n.ts';
+import type { SyncSettingsPreview } from './preview-state.ts';
 import type {
   SyncBackupSummary,
   SyncPublicConfig,
@@ -21,6 +22,12 @@ export const SYNC_PREVIEW_MODES = [
   'conflict',
   'push_error',
   'unknown',
+  'unknown_not_landed',
+  'unknown_remote_changed',
+  'unknown_error',
+  'locked',
+  'schema_newer',
+  'unchecked',
 ] as const;
 
 export type SyncPreviewMode = (typeof SYNC_PREVIEW_MODES)[number];
@@ -89,20 +96,25 @@ export function createSyncPreview(mode: string | null) {
   let deviceName = '虚构 MacBook';
   let hasPassword = enabled;
   let localEmpty = !enabled;
-  let localChanged = ['local_ahead', 'conflict', 'push_error', 'unknown'].includes(selected);
+  let localChanged = ['local_ahead', 'conflict', 'push_error', 'locked'].includes(selected) || selected.startsWith('unknown');
   let remoteVersion: number | null = enabled ? (numericMode ? 8 : 7) : null;
+  if (selected === 'unknown' || selected === 'unknown_error') remoteVersion = 8;
+  if (selected === 'unknown_remote_changed') remoteVersion = 9;
   let lastSyncedVersion: number | null = enabled ? 7 : null;
   let lastSyncedAt: string | null = enabled ? when(90) : null;
-  let pending = selected === 'unknown';
+  let pending = selected.startsWith('unknown');
+  let unlocked = selected !== 'locked';
+  let remoteDeviceName = '虚构平板';
+  let remoteCreatedAt = when(numericMode ? 12 : 90);
 
   const remoteStatus = (): SyncRemoteStatus | null =>
     remoteVersion === null
       ? null
       : {
           version: remoteVersion,
-          deviceName: '虚构平板',
-          createdAt: when(numericMode ? 12 : 90),
-          schemaVersion: SCHEMA,
+          deviceName: remoteDeviceName,
+          createdAt: remoteCreatedAt,
+          schemaVersion: selected === 'schema_newer' ? SCHEMA + 1 : SCHEMA,
           snapshotBytes: SNAPSHOT_BYTES,
           slowSyncWarning: false,
         };
@@ -124,7 +136,7 @@ export function createSyncPreview(mode: string | null) {
       empty: localEmpty,
       table_counts: localEmpty ? {} : { ...tableCounts },
     },
-    remote: remoteStatus(),
+    remote: enabled ? remoteStatus() : null,
   });
 
   const config = (): SyncPublicConfig => ({
@@ -157,6 +169,8 @@ export function createSyncPreview(mode: string | null) {
     remoteVersion = (remoteVersion ?? 0) + 1;
     lastSyncedVersion = remoteVersion;
     lastSyncedAt = new Date().toISOString();
+    remoteDeviceName = deviceName;
+    remoteCreatedAt = lastSyncedAt;
     localChanged = false;
     localEmpty = false;
     pending = false;
@@ -210,33 +224,39 @@ export function createSyncPreview(mode: string | null) {
         const input = (args.input ?? {}) as { forgetCredentials?: boolean };
         enabled = false;
         pending = false;
+        unlocked = false;
         if (input.forgetCredentials) {
           baseUrl = '';
           username = '';
           basePath = '';
           hasPassword = false;
-          remoteVersion = null;
           lastSyncedVersion = null;
           lastSyncedAt = null;
         }
         return null;
       }
       case 'sync_status':
+        if (enabled && selected === 'schema_newer')
+          throw { code: 'SYNC_SCHEMA_NEWER', message: tr('云端资料由较新版本的物谱创建。请先升级应用再同步；本机资料不受影响。') };
         return status();
       case 'sync_unlock': {
         const input = (args.input ?? {}) as { passphrase?: string };
         if (!(input.passphrase ?? '').trim())
           throw { code: 'SYNC_PASSPHRASE', message: tr('同步口令不能为空') };
+        if (selected === 'locked' && input.passphrase !== 'preview-pass')
+          throw { code: 'SYNC_PASSPHRASE', message: tr('同步口令不正确') };
+        unlocked = true;
         return null;
       }
       case 'sync_push': {
         if (!enabled) throw unconfiguredError;
+        if (!unlocked) throw { code: 'SYNC_LOCKED', message: tr('请输入同步口令。口令只保留在本次运行的内存中，10 分钟后自动失效。') };
         if (selected === 'push_error')
           throw {
             code: 'SYNC_NETWORK',
             message: tr('虚构 WebDAV 连接失败，请检查地址与应用密码。'),
           };
-        if (selected === 'unknown')
+        if (pending)
           throw {
             code: 'SYNC_RESULT_UNKNOWN',
             message: tr('虚构模拟：远端可能已经接收同步清单；下次同步会先核对结果。'),
@@ -251,10 +271,17 @@ export function createSyncPreview(mode: string | null) {
       case 'sync_reconcile': {
         if (!enabled) throw unconfiguredError;
         if (!pending) return { outcome: 'nothing_pending', version: null };
-        // The mock treats the unconfirmed push as having landed.
+        if (selected === 'unknown_error')
+          throw { code: 'SYNC_NETWORK', message: tr('虚构 WebDAV 连接失败，请检查地址与应用密码。') };
         pending = false;
-        const version = commitPush().version;
-        return { outcome: 'landed', version };
+        if (selected === 'unknown_not_landed') return { outcome: 'not_landed', version: null };
+        if (selected === 'unknown_remote_changed') return { outcome: 'remote_changed', version: remoteVersion };
+        // The cloud already received version 8 before this page opened.
+        // Reconciliation only settles this device's baseline, never the cloud.
+        lastSyncedVersion = remoteVersion;
+        lastSyncedAt = new Date().toISOString();
+        localChanged = false;
+        return { outcome: 'landed', version: remoteVersion };
       }
       case 'sync_pull_inspect': {
         if (!enabled) throw unconfiguredError;
@@ -281,5 +308,8 @@ export function createSyncPreview(mode: string | null) {
     }
   };
 
-  return { mode: selected, command };
+  const initialView = (): SyncSettingsPreview | null => selected === 'unchecked' ? null : selected === 'schema_newer'
+    ? { status: null, error: { code: 'SYNC_SCHEMA_NEWER', message: tr('云端资料由较新版本的物谱创建。请先升级应用再同步；本机资料不受影响。') } }
+    : { status: status(), error: null };
+  return { mode: selected, command, initialView };
 }
