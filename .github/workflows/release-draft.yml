@@ -255,7 +255,7 @@ jobs:
           node scripts/generate-winget-manifest.mjs \
             --version "$version" \
             --installer "$installer" \
-            --release-date "$(git log -1 --format=%cs)" \
+            --release-date "$(date -u +%F)" \
             --output .local/winget-manifests
       - name: Save winget manifests
         uses: actions/upload-artifact@v4
@@ -263,6 +263,7 @@ jobs:
           name: winget-manifests
           path: .local/winget-manifests/**
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 30
       - name: Save the NSIS installer and checksum
         uses: actions/upload-artifact@v4
