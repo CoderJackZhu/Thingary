@@ -14,6 +14,35 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Release signing is configured only from the environment used by the release
+// workflow (see .github/workflows/release-draft.yml). No key material, path or
+// password is stored in this repository. Values are never logged.
+val releaseSigningVariableNames = listOf(
+    "THINGARY_ANDROID_KEYSTORE",
+    "THINGARY_ANDROID_KEYSTORE_PASSWORD",
+    "THINGARY_ANDROID_KEY_ALIAS",
+    "THINGARY_ANDROID_KEY_PASSWORD",
+)
+val releaseSigningValues = releaseSigningVariableNames.associateWith { System.getenv(it) }
+val missingReleaseSigningVariableNames = releaseSigningVariableNames
+    .filter { releaseSigningValues[it].isNullOrBlank() }
+val releaseKeystore = releaseSigningValues["THINGARY_ANDROID_KEYSTORE"]
+    ?.takeIf { it.isNotBlank() }
+    ?.let { file(it) }
+val releaseKeystoreExists = releaseKeystore?.exists() == true
+val releaseSigningConfigured = missingReleaseSigningVariableNames.isEmpty() && releaseKeystoreExists
+if (!releaseSigningConfigured) {
+    val missing = missingReleaseSigningVariableNames.toMutableList()
+    // Name the path variable too when it is set but points at no keystore.
+    if (releaseSigningValues["THINGARY_ANDROID_KEYSTORE"]?.isNotBlank() == true && !releaseKeystoreExists) {
+        missing.add("THINGARY_ANDROID_KEYSTORE (file not found)")
+    }
+    logger.warn(
+        "Thingary: release signing is not configured; the release APK will be unsigned. " +
+            "Missing or invalid: ${missing.joinToString()}."
+    )
+}
+
 android {
     compileSdk = 37
     namespace = "local.thingary.preview"
@@ -24,6 +53,16 @@ android {
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = releaseSigningValues["THINGARY_ANDROID_KEYSTORE_PASSWORD"]
+                keyAlias = releaseSigningValues["THINGARY_ANDROID_KEY_ALIAS"]
+                keyPassword = releaseSigningValues["THINGARY_ANDROID_KEY_PASSWORD"]
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -39,6 +78,9 @@ android {
             }
         }
         getByName("release") {
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                enable = true
             }
