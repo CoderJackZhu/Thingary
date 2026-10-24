@@ -92,9 +92,9 @@ export function conditionSummary(
   const r = saved.profile.retire,
     saving = r.basic?.contribution.monthly_cents ?? null;
   return [
-    tr('退休预算 {v1}', { v1: r.spend_cents === null ? "未知" : `${forecastMoneyText(r.spend_cents)}/月` }),
-    tr('可用资金 {v1}', { v1: caps.funds.status === "ready" ? forecastMoneyText(caps.funds.value.available_cents) : "待确认" }),
-    tr('每月存 {v1}', { v1: saving === null ? "待确认" : forecastMoneyText(saving) }),
+    tr('退休预算 {v1}', { v1: r.spend_cents === null ? tr('未知') : tr('{v1}/月', { v1: forecastMoneyText(r.spend_cents) }) }),
+    tr('可用资金 {v1}', { v1: caps.funds.status === "ready" ? forecastMoneyText(caps.funds.value.available_cents) : tr('待确认') }),
+    tr('每月存 {v1}', { v1: saving === null ? tr('待确认') : forecastMoneyText(saving) }),
   ].join(" · ");
 }
 

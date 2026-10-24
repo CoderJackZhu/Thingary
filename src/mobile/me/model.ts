@@ -67,7 +67,7 @@ export function groupByMonth(events: TimelineEvent[], today?: string): MonthGrou
 }
 export const monthSpendingText = (group: MonthGroup, current: string): string => {
   const unknown = group.unknownCount ? tr('（{unknownCount} 笔金额未知）', { unknownCount: group.unknownCount }) : '';
-  return tr('{v1}支出 {v2}{unknown}', { v1: group.key === current ? '本月' : '当月', v2: moneyText(group.spendingCents), unknown });
+  return tr('{v1}支出 {v2}{unknown}', { v1: group.key === current ? tr('本月') : tr('当月'), v2: moneyText(group.spendingCents), unknown });
 };
 export const monthsPerStep = 3;
 

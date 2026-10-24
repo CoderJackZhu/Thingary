@@ -14,6 +14,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { warrantyKinds } from './warranty';
 import { t as tr } from './i18n.ts';
+import { calendarMonthLabel } from './format-date.ts';
 export type TimelineFilter = 'all' | 'purchase' | 'maintenance' | 'warranty' | 'lifecycle' | 'wishlist' | 'expense' | 'snapshot';
 export type TimelineEvent = { id: string; kind: string; date: string | null; asset_id: string | null; wishlist_id: string | null; title: string; note: string; amount_cents: string | null; target?: SourceTarget; domain?: string; missing?: number | null };
 type TimelinePage = { generation: string; today: string; years?: number[]; dated: TimelineEvent[]; undated: TimelineEvent[] };
@@ -48,7 +49,7 @@ export function eventDetail(e: TimelineEvent) {
   return [note, amount].filter(Boolean).join(' · ');
 }
 
-function month(date: string) { return tr('{v1} 年 {v2} 月', { v1: date.slice(0, 4), v2: Number(date.slice(5, 7)) }); }
+function month(date: string) { return calendarMonthLabel(date); }
 
 /** One projection for the global page and the asset detail; nothing here computes facts. */
 export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpenWish, onCorrect, selection, onOpenSource, onLoaded, onReady, hidden, search, onSearchClear }: { hidden?: ReadonlySet<string>; selection?: TimelineSelection; onOpenSource?: (target: SourceTarget) => void; onLoaded?: (years: number[]) => void; onReady?: () => void; assetId?: string; version?: unknown; filter?: TimelineFilter; onOpenAsset?: (id: string) => void; onOpenWish?: (name: string, status: string) => void; onCorrect?: (event: TimelineEvent) => void; search?: string; onSearchClear?: () => void }) {

@@ -36,7 +36,7 @@ export default function VirtualHome(_: PageProps) {
         <ChipRow label={t('状态')} items={virtualFilterChips.map(([id, label]) => ({ id, label }))} value={filter} onChange={id => setFilter(id as VirtualFilter)}/>
         <SearchField subject={t('虚拟资产')} value={keyword} onChange={setKeyword}/>
         {!shown.length ? <EmptyState icon="wallet" title={t('当前条件下没有记录')} action={<Button onClick={() => { setSegment('all'); setFilter('all'); setKeyword(''); }}>{t('清除筛选')}</Button>}/>
-          : <ListGroup title={`${virtualSegments.find(s => s.id === segment)!.label} · ${shown.length} 项`} footer={t('累计费用标明估算；金额未知不按 0 计。')}>
+          : <ListGroup title={t('{label} · {length} 项', { label: virtualSegments.find(s => s.id === segment)!.label, length: shown.length })} footer={t('累计费用标明估算；金额未知不按 0 计。')}>
             {shown.map(v => { const line = virtualLine(v, today); return <ListRow key={v.id} onClick={() => nav.push('spending.virtualDetail', { id: v.id })}
               title={<span className="sp-title">{v.fields.name}<Tag tone="accent">{line.typeLabel}</Tag></span>}
               subtitle={<span className="sp-lines"><span>{line.detail}</span><span>{line.status}{line.flag && <> · <Tag tone={line.flag.tone}>{line.flag.text}</Tag></>}</span></span>}
