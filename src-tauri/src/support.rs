@@ -19,6 +19,15 @@ pub fn destination(target: &str) -> Result<&'static str> {
     }
 }
 
+/// Android needs the `AppHandle` for the native bridge, so the Android
+/// command passes it in; every URL still comes from `destination`.
+#[cfg(target_os = "android")]
+pub fn open(app: &tauri::AppHandle, target: &str) -> Result<()> {
+    let url = destination(target)?;
+    crate::android_links::open_url(app, url)
+}
+
+#[cfg(not(target_os = "android"))]
 pub fn open(target: &str) -> Result<()> {
     if cfg!(target_os = "ios") && target == "update" {
         return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
@@ -55,6 +64,12 @@ pub fn open(target: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejects_unknown_targets() {
+        assert!(destination("unknown").is_err());
+        assert!(destination("author-other").is_err());
+    }
 
     #[test]
     fn rejects_urls_paths_and_unrecognised_targets_before_opening() {

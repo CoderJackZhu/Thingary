@@ -1,6 +1,8 @@
 pub mod account_groups;
 #[cfg(target_os = "android")]
 mod android;
+#[cfg(target_os = "android")]
+mod android_links;
 pub mod auto_backup;
 pub mod backup;
 pub mod backup_crypto;
@@ -66,8 +68,6 @@ pub mod search;
 pub mod source;
 pub mod spreadsheet;
 pub mod storage;
-// The Android shell has no external-link bridge yet; commands reports it as unsupported.
-#[cfg(not(target_os = "android"))]
 mod support;
 pub mod sync;
 pub mod tag_investment;
@@ -108,7 +108,9 @@ fn windows_close_event(editing: bool, close_blocked: bool) -> Option<&'static st
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "android")]
-    let builder = tauri::Builder::default().plugin(android::plugin());
+    let builder = tauri::Builder::default()
+        .plugin(android::plugin())
+        .plugin(android_links::plugin());
     #[cfg(not(target_os = "android"))]
     let builder = tauri::Builder::default();
     let builder = builder
