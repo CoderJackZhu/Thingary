@@ -1,16 +1,12 @@
 // Pure helpers for LineChart: axis ticks and labels, monotone cubic paths, scrub hit-testing. Money is integer cents.
 import { dualLineAxis } from '../../dual-line-chart.ts';
-import { t as tr } from '../../i18n.ts';
+import { compactAxisYuan } from '../../format-compact.ts';
 type Num = number | null;
 export type Pt = { x: number; y: number };
 
 /** 纵轴刻度：整万显示「12万」，不足一万的显示元，亿以上「1.2亿」；负数用「−」。 */
 export function axisLabel(cents: number): string {
-  const yuan = Math.abs(cents) / 100, sign = cents < 0 ? '−' : '';
-  const trim = (n: number) => String(Math.round(n * 10) / 10);
-  if (yuan >= 1e8) return tr('{sign}{v2}亿', { sign, v2: trim(yuan / 1e8) });
-  if (yuan >= 1e4) return tr('{sign}{v2}万', { sign, v2: trim(yuan / 1e4) });
-  return `${sign}${Math.round(yuan)}`;
+  return compactAxisYuan(cents);
 }
 
 /** Fit all known values of the visible series; at most 4 grid lines (every other tick when the nice step gives 5). */

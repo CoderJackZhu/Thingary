@@ -68,7 +68,7 @@ export function GoalOverview({ saved, caps, today, cards, accountFunds, purchase
   else nextCard = null;
   const headline = r.mode === 'fire' && projection
     ? predictedRetire !== null ? t('预计 {v1} 退休', { v1: predictedMonth(predictedRetire) }) : t('按当前假设，{v1} 前尚未达成', { v1: capMonth ?? '规划终点' })
-    : time.target_month === null ? t('先设置退休时间') : t('希望 {retirementText}{v2}', { retirementText, v2: retirementAge === null ? ' 退休' : '' });
+    : time.target_month === null ? t('先设置退休时间') : retirementAge === null ? t('希望 {retirementText} 退休', { retirementText }) : t('希望 {retirementText}{v2}', { retirementText, v2: '' });
   const predictionLines: { label: string; text: string }[] = [];
   if (pred && plan && projection && outcome) {
     if (pred.source === 'temporary') predictionLines.push({ label: t('数据来源'), text: t('临时试算，未保存') });

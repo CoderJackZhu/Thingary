@@ -55,8 +55,8 @@ const diff = (a: string | null, b: string | null): number | null => a === null |
 export function goalProgressChange(previous: GoalProgressEntry, latest: GoalProgressEntry, money: (cents: string) => string): string {
   const parts: string[] = [];
   const need = diff(previous.point.required_monthly_cents, latest.point.required_monthly_cents);
-  if (need !== null && need !== 0) parts.push(t('需要每月存{v1} {v2}', { v1: need < 0 ? '少了' : '多了', v2: money(String(Math.abs(need))) }));
+  if (need !== null && need !== 0) parts.push(need < 0 ? t('需要每月存少了 {v1}', { v1: money(String(Math.abs(need))) }) : t('需要每月存多了 {v1}', { v1: money(String(need)) }));
   const funds = diff(previous.point.available_cents, latest.point.available_cents);
-  if (funds !== null && funds !== 0) parts.push(t('可用资金{v1} {v2}', { v1: funds > 0 ? '增加' : '减少', v2: money(String(Math.abs(funds))) }));
-  return parts.length ? t('较上次盘点（{date}）：{v2}。', { date: previous.date, v2: parts.join('，') }) : t('较上次盘点（{date}）没有可比的变化。', { date: previous.date });
+  if (funds !== null && funds !== 0) parts.push(funds > 0 ? t('可用资金增加 {v1}', { v1: money(String(funds)) }) : t('可用资金减少 {v1}', { v1: money(String(Math.abs(funds))) }));
+  return parts.length ? t('较上次盘点（{date}）：{v2}。', { date: previous.date, v2: parts.join(t('，')) }) : t('较上次盘点（{date}）没有可比的变化。', { date: previous.date });
 }
