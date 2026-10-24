@@ -18,8 +18,13 @@ export async function pdfExportAvailable(): Promise<boolean> {
   return (await platform).pdf_export !== false;
 }
 
-function shareNotice(name: string, share?: ShareOutcome): void {
-  if (share && !share.completed) window.alert(t('已生成并保留「{name}」，可在“文件”App 的物谱目录找到。{v2}', { name, v2: share.error || '已取消分享，尚未保存到其他位置。' }));
+async function shareNotice(name: string, share?: ShareOutcome): Promise<void> {
+  if (!share || share.completed) return;
+  if (!(await pdfExportAvailable())) {
+    window.alert(t('导出文件只保存在物谱内，尚未保存到其他位置；需要保存时请重新导出并在分享面板选择保存位置'));
+    return;
+  }
+  window.alert(t('已生成并保留「{name}」，可在“文件”App 的物谱目录找到。{v2}', { name, v2: share.error || '已取消分享，尚未保存到其他位置。' }));
 }
 
 export type BackupDone = { name: string; folder: string };
@@ -33,7 +38,7 @@ export type WorkbookDone = { path: string; files: { name: string; rows: number }
  */
 export async function shareBackup(forcePlaintext: boolean, taskId: string): Promise<BackupDone | null> {
   const done = await invoke<(BackupDone & { share?: ShareOutcome }) | null>('create_backup', { forcePlaintext, taskId });
-  if (done) shareNotice(done.name, done.share);
+  if (done) await shareNotice(done.name, done.share);
   return done;
 }
 /** 选择备份文件 (.thingary / .thingary.age) and open an inspection session. `null` when the person cancels. */
@@ -43,7 +48,7 @@ export function pickBackupFile(taskId: string): Promise<Inspected | null> {
 /** 导出表格: one .xlsx workbook through the same hand-off as the backup. */
 export async function shareWorkbook(): Promise<WorkbookDone | null> {
   const done = await invoke<(WorkbookDone & { share?: ShareOutcome }) | null>('export_workbook');
-  if (done) shareNotice(done.path.split('/').pop() || t('表格'), done.share);
+  if (done) await shareNotice(done.path.split('/').pop() || t('表格'), done.share);
   return done;
 }
 
