@@ -16,6 +16,16 @@ let lastRun = 0;
 const listeners = new Set<() => void>();
 const set = (next: AutoSyncState) => { state = next; listeners.forEach(listener => listener()); };
 
+const phaseOf = (state: string): AutoSyncPhase => state === 'up_to_date' ? 'synced'
+  : state === 'remote_ahead' ? 'remote_ahead'
+  : state === 'conflict' ? 'conflict'
+  : state === 'local_ahead' || state === 'empty_remote' ? 'local_ahead' : 'idle';
+
+/** Lets the settings screen keep the sidebar status in step with what it just did. */
+export function reportSync(enabled: boolean, state: string | null): void {
+  set(!enabled ? { phase: 'off', at: null } : state ? { phase: phaseOf(state), at: Date.now() } : { phase: 'idle', at: state === null ? null : Date.now() });
+}
+
 /** Runs one cycle; safe to call often, it never overlaps itself. */
 export async function runAutoSync(force = false): Promise<void> {
   if (running || (!force && Date.now() - lastRun < RECHECK_MS)) return;
@@ -29,11 +39,7 @@ export async function runAutoSync(force = false): Promise<void> {
       await syncPush();
       status = await syncStatus();
     }
-    const phase: AutoSyncPhase = status.state === 'up_to_date' ? 'synced'
-      : status.state === 'remote_ahead' ? 'remote_ahead'
-      : status.state === 'conflict' ? 'conflict'
-      : status.state === 'local_ahead' || status.state === 'empty_remote' ? 'local_ahead' : 'idle';
-    set({ phase, at: Date.now() });
+    set({ phase: phaseOf(status.state), at: Date.now() });
   } catch {
     set({ phase: 'error', at: state.at });
   } finally {

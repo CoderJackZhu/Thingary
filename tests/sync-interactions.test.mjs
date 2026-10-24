@@ -43,8 +43,8 @@ function screen(mode, overrides = {}, seedPreview = false) {
   const deps = {
     react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx }, '@tauri-apps/api/core': { invoke },
     '../asset': { errorMessage: e => e.message || String(e) },
-    '../auto-backup-format.ts': { formatBytes: String }, '../FormControls': { FormRow: 'FormRow', Segments: function Segments() {} },
-    './api': api, './state': model,
+    '../auto-backup-format.ts': { formatBytes: String, formatWhen: String }, '../FormControls': { FormRow: 'FormRow', Segments: function Segments() {} },
+    './api': api, './state': model, './auto': { reportSync() {} },
     './preview-state': { getSyncSettingsPreview: () => seedPreview ? preview.initialView() : null },
   };
   vm.runInNewContext(code, { exports, t, require: id => {

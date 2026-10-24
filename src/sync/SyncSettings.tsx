@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from '../asset';
-import { formatBytes } from '../auto-backup-format.ts';
+import { formatBytes, formatWhen } from '../auto-backup-format.ts';
 import { FormRow, Segments, Switch } from '../FormControls';
 import { t } from '../i18n.ts';
 import {
@@ -29,6 +29,7 @@ import {
   type SyncPullInspection,
   type SyncStatusResult,
 } from './api';
+import { reportSync } from './auto';
 import { lastSyncInfo, reconcileNotice, syncView, type SyncAction, type SyncErrorLike } from './state';
 import { getSyncSettingsPreview } from './preview-state';
 
@@ -167,7 +168,7 @@ export function SyncSettings({
       const latestConfig = await syncConfigGet();
       if (alive.current) {
         pendingPush.current = latestConfig.has_pending_push;
-        setStatus(next); setConfig(latestConfig);
+        setStatus(next); setConfig(latestConfig); reportSync(latestConfig.enabled, next.state);
         setError(latestConfig.has_pending_push ? { code: 'SYNC_RESULT_UNKNOWN', message: '' } : null);
       }
       return next;
@@ -199,6 +200,7 @@ export function SyncSettings({
       if (!alive.current) return;
       setConfig(next);
       setForm(formFromConfig(next));
+      reportSync(next.enabled, null);
       setNotice(t('同步设置已保存。'));
       pendingPush.current = next.has_pending_push;
       setError(next.has_pending_push ? { code: 'SYNC_RESULT_UNKNOWN', message: '' } : null);
@@ -413,7 +415,7 @@ export function SyncSettings({
         ...config, enabled: false, has_pending_push: false,
         ...(forgetCredentials ? { base_url: '', username: '', base_path: '', has_password: false, has_remembered_passphrase: false, auto_check: false, last_synced_at: null, last_synced_remote_version: null } : {}),
       };
-      setConfig(disabledConfig); setForm(formFromConfig(disabledConfig));
+      setConfig(disabledConfig); setForm(formFromConfig(disabledConfig)); reportSync(false, null);
       setStatus(null); setError({ code: 'SYNC_UNCONFIGURED', message: '' }); setMethod('none');
       setNotice(t('同步已停用，不会删除云端数据。')); setActionError('');
       setPassOpen(false); setDisableOpen(false);
@@ -650,7 +652,7 @@ const COMPARE_ROWS: { table: string; field: string; label: () => string }[] = [
 function CompareTable({ local, remote }: { local: Record<string, number>; remote: SyncPullInspection }) {
   const counts = (remote.summary ?? {}) as unknown as Record<string, number>;
   return <table className="sync-compare">
-    <caption>{t('云端由「{device}」更新于 {time}', { device: remote.device_name, time: remote.created_at.slice(0, 16).replace('T', ' ') })}</caption>
+    <caption>{t('云端由「{device}」更新于 {time}', { device: remote.device_name, time: formatWhen(remote.created_at) })}</caption>
     <thead><tr><th/><th>{t('本机')}</th><th>{t('云端')}</th></tr></thead>
     <tbody>{COMPARE_ROWS.map(row => {
       const mine = local[row.table] ?? 0, theirs = counts[row.field] ?? 0;
