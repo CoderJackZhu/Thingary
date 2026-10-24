@@ -92,6 +92,7 @@ iPhone 版目前没有上架 App Store，也不提供公开安装包。有 Xcode
 - [缺陷报告](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml)：发生了什么、怎么复现、版本与系统。
 - [Windows 安装问题](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml)：安装、SmartScreen、WebView2、启动或卸载失败。
 - [功能建议](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml)：先说想解决的问题，再说方案。
+- [邮件反馈](mailto:feedback@jackzhu.top)：不想开 GitHub 账号时，可以直接发邮件到 `feedback@jackzhu.top`。
 - [使用反馈](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml)：问三件事——你以前用什么？第二次盘点你回来了吗，为什么没回来？什么会让你推荐给别人？
 
 请只用虚构数据复现，遮住真实金额和账户号，不要上传数据库或备份文件。安全问题请按[安全政策](SECURITY.md)私下报告。

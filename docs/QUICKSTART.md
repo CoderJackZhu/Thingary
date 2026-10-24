@@ -57,4 +57,4 @@
 - **加密范围**：只加密导出的备份文件；主资料库、图片和恢复前保护副本未加密。
 - **不做**：日常流水记账、行情交易、自动付款、账号或托管云同步、自动同步。桌面版 0.1.0 候选可选 WebDAV 手动同步（Beta），默认关闭，只在你点同步时连接你自己的服务器并上传加密整库快照；当前公开的 0.0.8 没有此入口。详见[WebDAV 同步](USER_GUIDE.md#sync)。
 
-用过之后想说说感受（卡在哪、哪里看不懂、有没有用），填[使用反馈](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml)；遇到错误请提[缺陷报告](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml)。请遮住真实资料，不要上传数据库或备份。
+用过之后想说说感受（卡在哪、哪里看不懂、有没有用），填[使用反馈](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml)；遇到错误请提[缺陷报告](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml)。不想开 GitHub 账号也可以发邮件到 `feedback@jackzhu.top`。请遮住真实资料，不要上传数据库或备份。

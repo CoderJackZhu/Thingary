@@ -94,6 +94,7 @@ The main database and photos are **not encrypted**. Backup encryption is optiona
 - [Bug report](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml): what happened, how to reproduce it, version and system.
 - [Windows install issue](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml): install, SmartScreen, WebView2, launch or uninstall failures (form in Chinese).
 - [Feature request](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml): describe the problem first, then the idea.
+- [Email feedback](mailto:feedback@jackzhu.top): if you prefer not to open a GitHub account, write to `feedback@jackzhu.top`.
 - [Usage feedback](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml): three questions — what did you use before, did you come back for a second check-in (and if not, why), and what would make you recommend it?
 
 Please reproduce with fictional data only, hide real amounts and account numbers, and never upload a database or backup file. Report security issues privately as described in the [security policy](SECURITY.md).

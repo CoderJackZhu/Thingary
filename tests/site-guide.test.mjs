@@ -29,7 +29,7 @@ test('built website has local working links, images, fragments and all canonical
       assert.equal(new Set(ids).size,ids.length,`duplicate IDs in ${file}`);
       for(const match of html.matchAll(/\b(?:href|src|srcset)="([^"]+)"/g)) {
         const url = match[1];
-        if (/^https:\/\//.test(url)) continue;
+        if (/^[a-z][a-z0-9+.-]*:/.test(url)) continue;
         assert.ok(!/^\/\//.test(url), `external dependency ${url}`);
         const [path,hash] = url.split('#');
         let target = resolve(dirname(file),decodeURIComponent(path || 'index.html'));
