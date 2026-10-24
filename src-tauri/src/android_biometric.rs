@@ -29,15 +29,14 @@ struct Authentication {
     status: String,
 }
 
-pub fn available() -> bool {
+/// `None` means the bridge itself failed, which must not be reported as "no
+/// device lock": the caller keeps the library locked instead of guessing.
+pub fn available() -> Option<bool> {
     PLUGIN
-        .get()
-        .and_then(|plugin| {
-            plugin
-                .run_mobile_plugin::<Availability>("available", json!({}))
-                .ok()
-        })
-        .is_some_and(|result| result.available)
+        .get()?
+        .run_mobile_plugin::<Availability>("available", json!({}))
+        .ok()
+        .map(|result| result.available)
 }
 
 pub fn authenticate() -> Result<()> {

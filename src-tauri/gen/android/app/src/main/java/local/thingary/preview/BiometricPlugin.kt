@@ -118,9 +118,10 @@ class BiometricPlugin(private val activity: Activity) : Plugin(activity) {
             finish(session, "success")
           }
 
-          override fun onAuthenticationFailed() {
-            finish(session, "failed", cancel = true)
-          }
+          // Non-terminal: the system prompt stays open for another attempt (or the
+          // device credential), so one unrecognized biometric must not end the
+          // session. iOS keeps the system prompt open in the same situation.
+          override fun onAuthenticationFailed() {}
 
           override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
             val status = when (errorCode) {

@@ -58,9 +58,9 @@ iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打�
 
 Android 工程位于 `src-tauri/gen/android`，Kotlin 包由应用标识生成，`MainActivity` 继承 `TauriActivity`；平台配置 `tauri.android.conf.json` 打开 mobile.html，窗口在 `setup` 里建好后才加载页面。原生插件名为 `thingary`，Kotlin 类 `ThingaryPlugin`（当前包 `local.thingary.preview`）由 `android.rs` 的插件 `setup` 注册，包路径取 `app.config().identifier`，句柄存入托管状态；`ios_privacy_cover_set` 在 Android 经该句柄调用 `setPrivacyCover`，在主线程给窗口加上或清除 `FLAG_SECURE`，开关后截图、录屏与最近任务缩略图随之为空或恢复。`platform_capabilities` 因此报告 `background_privacy_cover` 为 true。
 
-仍未接入：系统分享面板、设备身份验证、更新检查、文件与照片选择器；这些命令在 Android 返回不支持，界面沿用既有降级。插件只改窗口标志，不写资料库、本机偏好或备份。
+仍未接入：系统分享面板、更新检查、文件与照片选择器；这些命令在 Android 返回不支持，界面沿用既有降级。`thingary` 插件只改窗口标志，不写资料库、本机偏好或备份。
 
-隐私锁的设备身份验证现已由独立的 `android_biometric.rs`／`BiometricPlugin.kt` 接入，设备身份验证以本段为准：API ≥ 30 的能力检查与系统提示均使用 `BIOMETRIC_STRONG | DEVICE_CREDENTIAL`；API 29 的提示由独立兼容函数调用 `setDeviceCredentialAllowed(true)`，能力检查采用与旧提示一致的 `BIOMETRIC_WEAK | DEVICE_CREDENTIAL`，避免 API 29 不支持强生物识别与设备口令组合的限制。命令名与返回结构不变，不可用返回 `AUTH_UNAVAILABLE`，取消、认证失败、锁定与超时沿用 `AUTH_FAILED` 及现有 iOS 消息；120 秒到期先使会话失效再取消系统提示，迟到回调不能解锁。名称为「设备解锁」；未设置设备锁屏或生物识别时能力为 false，界面禁用开启。回前台按既有闲置时长检查锁定，只显示解锁按钮，不自动弹出系统验证，与 iOS 一致；用户点击「解锁」后调用系统验证。默认只在启动时验证，最短闲置重验选项为 5 分钟；编辑、保存与待核对结果继续延后锁定。这只是屏幕保护，不加密资料库。
+隐私锁的设备身份验证现已由独立的 `android_biometric.rs`／`BiometricPlugin.kt` 接入，设备身份验证以本段为准：API ≥ 30 的能力检查与系统提示均使用 `BIOMETRIC_STRONG | DEVICE_CREDENTIAL`；API 29 的提示由独立兼容函数调用 `setDeviceCredentialAllowed(true)`，能力检查采用与旧提示一致的 `BIOMETRIC_WEAK | DEVICE_CREDENTIAL`，避免 API 29 不支持强生物识别与设备口令组合的限制。命令名与返回结构不变，不可用返回 `AUTH_UNAVAILABLE`，取消、锁定与超时沿用 `AUTH_FAILED` 及现有 iOS 消息；未识别的生物识别与 iOS 一样留在系统提示内重试，不单独结束会话；120 秒到期先使会话失效再取消系统提示，迟到回调不能解锁；本机桥接失败按错误上报，不当成「没有设置锁屏」放行。名称为「设备解锁」；未设置设备锁屏或生物识别时能力为 false，界面禁用开启。回前台按既有闲置时长检查锁定，只显示解锁按钮，不自动弹出系统验证，与 iOS 一致；用户点击「解锁」后调用系统验证。默认只在启动时验证，最短闲置重验选项为 5 分钟；编辑、保存与待核对结果继续延后锁定。这只是屏幕保护，不加密资料库。
 
 ### 手机界面
 

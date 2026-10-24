@@ -52,7 +52,7 @@ fn unavailable() -> Error {
 fn available() -> bool {
     #[cfg(target_os = "android")]
     {
-        crate::android_biometric::available()
+        crate::android_biometric::available().unwrap_or(false)
     }
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
@@ -103,9 +103,23 @@ fn authenticate() -> Result<()> {
 
 #[tauri::command]
 pub async fn privacy_auth_available() -> Result<bool> {
-    tauri::async_runtime::spawn_blocking(available)
+    #[cfg(target_os = "android")]
+    {
+        // A broken bridge is an error, not "this device has no screen lock": the
+        // frontend disables the lock when the answer is a definite false.
+        tauri::async_runtime::spawn_blocking(|| {
+            crate::android_biometric::available()
+                .ok_or_else(|| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))
+        })
         .await
-        .map_err(|_| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))
+        .map_err(|_| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))?
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        tauri::async_runtime::spawn_blocking(available)
+            .await
+            .map_err(|_| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))
+    }
 }
 
 #[tauri::command]
