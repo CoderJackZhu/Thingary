@@ -14,7 +14,7 @@
 
 ▶ [53-second film](https://thingary.jackzhu.top/#film) (Chinese captions): monthly check-ins, net-worth changes, belongings, and how saving a little more moves your retirement date.
 
-Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts accounts, belongings, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally, needs no account, and does not ask you to log every transaction.
+Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts accounts, belongings, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally and needs no account; optional manual WebDAV sync to your own server is available for encrypted snapshots, and you do not have to log every transaction.
 
 The interface is currently **Simplified Chinese only**. Account types are designed around mainland China (housing provident fund, individual pension accounts, mortgages), and amounts are recorded in Chinese yuan (CNY).
 
@@ -26,6 +26,7 @@ The interface is currently **Simplified Chinese only**. Account types are design
 | **Goals and planning** | Estimate required monthly savings and a possible financial-independence date; compare a large purchase, a break from work, or a job change. |
 | **Review and plans** | Income and major expenses, period review, savings goals, recurring costs, and large planned payments. Unknown values stay unknown, never zero. |
 | **Belongings (optional)** | Prices, photos, repairs, and warranties, with history kept after sale or retirement, plus daily ownership cost. |
+| **WebDAV sync (Beta, desktop)** | Off by default. Manually upload or pull an encrypted full-library snapshot to your own WebDAV server under Settings › Data management. No automatic merge, no account, no hosted service. |
 | **Data protection** | Full and automatic backups, recently deleted records, and optional backup encryption with a recovery key you keep. |
 
 Built for occasional check-ins. No daily transaction ledger, market-data feed, trading, or automatic payments.
@@ -78,13 +79,13 @@ After your first entries, make a full backup under **Settings › Data managemen
 ## Known limitations
 
 - **No market data or trading.** There are no live prices, return tracking, automatic payments, or AI; investment returns and exchange rates are entered by hand. There is no daily transaction ledger.
-- **Cross-device sync is not available yet.** The plan is an optional, manually triggered sync to your own WebDAV server, off by default, storing only encrypted snapshots — no automatic sync, accounts, or collaboration. Until it ships and is verified, each device keeps its own library.
+- **WebDAV sync is a beta and currently desktop-only.** It is off by default. The app connects only when you configure your own WebDAV server under **Settings › Data management** and press sync; the server stores an encrypted full-library snapshot. Sync never merges automatically; on a conflict you choose whether to keep the local or cloud copy. There is no account system, hosted service, or collaboration. The phone interface has no sync entry yet; move data between phone and computer with a full backup. See [WebDAV sync (Chinese)](https://thingary.jackzhu.top/guide/#sync).
 - **Builds are unsigned and not notarized.** The project does not currently pay for an Apple Developer account or a Windows code-signing certificate; releases rely on ad-hoc signing and checksums. Signing and notarization may be reconsidered if usage grows. See the [development guide](docs/DEVELOPMENT.md) to build your own.
 - **Simplified Chinese interface only.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); Android in development, iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
 
 ## Privacy
 
-Your records stay on your computer. There is no account and no login, and normal use works offline. The app reads the public release lists on Gitee and GitHub only when you click **Check for updates**, or after you enable startup checks; it sends no records, device, or usage information (like any website visit, the request carries standard network information and an app-version User-Agent). The iOS version does not check for updates.
+Your records stay on your computer by default. There is no account and no login. The app makes network requests only when you configure and trigger optional WebDAV sync, or when you check for updates. WebDAV sync connects only to your own server and encrypts the snapshot before upload; the server can still see file sizes, times, and ordinary network information, but not plaintext records. The WebDAV address, username, and app password are stored in the local sync settings file (unencrypted, with current-user permissions), never in the library, backup, or export. The app password is not shown again after saving; use an app-specific password. Update checks read only the public release lists on Gitee and GitHub and send no records, device, or usage information (like any website visit, the request carries standard network information and an app-version User-Agent). The iOS version does not check for updates.
 
 The main database and photos are **not encrypted**. Backup encryption is optional, and the recovery key is yours to keep; losing it means the backup cannot be restored. Automatic backups share the same disk as the main data, so keep a separate off-device copy. Read [privacy and data safety (Chinese)](https://thingary.jackzhu.top/guide/#privacy).
 

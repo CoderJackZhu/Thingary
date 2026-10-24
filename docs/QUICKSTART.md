@@ -55,6 +55,6 @@
 - **平台**：Mac 在 Apple Silicon、macOS 27 验证；Intel 与 macOS 14 尚未实机验证。Windows 11 x64 已实测；Windows 10 1809+ 是目标范围但尚未实机验证。安装包未签名，首次运行可能出现 SmartScreen 提示（点「更多信息 › 仍要运行」）；若 Windows 11 开启了「智能应用控制」，未签名安装包可能被直接拦截且没有放行按钮，请见[Windows 安装](USER_GUIDE.md#windows-install)。当前仅提供 x64 安装包，ARM64 设备通过系统模拟运行 x64 应用，不等同于原生 ARM 版。
 - **未完整验证**：Mac 的通知送达、VoiceOver 与完整键盘路径、系统显示缩放；Windows 的无 WebView2 机器、Windows 10、多屏与完整键盘／讲述人／输入法矩阵。旧候选已验单屏 100%／125%／150% 及指定输入法、讲述人路径，详见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)；本轮新界面仍需 Windows 复验。
 - **加密范围**：只加密导出的备份文件；主资料库、图片和恢复前保护副本未加密。
-- **不做**：日常流水记账、行情交易、自动付款、跨设备同步。
+- **不做**：日常流水记账、行情交易、自动付款、账号或托管云同步、自动同步。桌面版可选 WebDAV 手动同步（Beta），默认关闭，只在你点同步时连接你自己的服务器并上传加密整库快照；详见[WebDAV 同步](USER_GUIDE.md#sync)。
 
 用过之后想说说感受（卡在哪、哪里看不懂、有没有用），填[使用反馈](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml)；遇到错误请提[缺陷报告](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml)。请遮住真实资料，不要上传数据库或备份。
