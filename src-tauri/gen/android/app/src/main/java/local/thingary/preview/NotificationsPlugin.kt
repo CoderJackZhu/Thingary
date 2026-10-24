@@ -191,10 +191,17 @@ internal object ReminderSchedule {
     val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
     val click = PendingIntent.getActivity(context, 0, launch,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    // Names and free-form notes can themselves contain amounts. Never copy
+    // either into system notification surfaces, including an unlocked shade.
+    val title = listOf("盘点提醒 · 还没盘点", "盘点提醒", "保障到期提醒",
+      "心愿到期提醒", "订阅续期提醒", "订阅备款提醒").firstOrNull {
+      plan.title == it || plan.title.startsWith("$it · ")
+    } ?: "物谱提醒"
+    val body = "有一项提醒到期，请打开物谱查看详情。"
     val notification = android.app.Notification.Builder(context, CHANNEL)
       .setSmallIcon(android.R.drawable.ic_popup_reminder)
-      .setContentTitle(plan.title).setContentText(plan.body)
-      .setStyle(android.app.Notification.BigTextStyle().bigText(plan.body))
+      .setContentTitle(title).setContentText(body)
+      .setStyle(android.app.Notification.BigTextStyle().bigText(body))
       .setVisibility(android.app.Notification.VISIBILITY_PRIVATE)
       .setContentIntent(click).setAutoCancel(true).build()
     context.getSystemService(NotificationManager::class.java).notify(id, 0, notification)

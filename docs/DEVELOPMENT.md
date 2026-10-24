@@ -155,7 +155,7 @@ adb -s "$THINGARY_ANDROID_SERIAL" logcat -d -s AndroidRuntime
 
 核对首开样例、五个标签、虚构记录保存重启、正常／未知／空白／错误状态，并记录 AVD、API、WebView 和截图尺寸。启用屏幕隐私后 `FLAG_SECURE` 会使截图、录屏及最近任务缩略图受保护；验证开关前后效果时分别记录预期，不能把空白截图当作页面未加载。当前分享、文件／照片选择、身份验证和更新检查尚未接入，不把编译或截图当作它们已验。
 
-通知已接入不精确闹钟 `setAndAllowWhileIdle`、通知渠道与 Android 13 以上的 `POST_NOTIFICATIONS` 权限；计划按本地 09:00 整体替换且幂等，重启后由 `BootReceiver` 从私有偏好恢复，该偏好不进资料库、备份与导出。通知沿用现有文案，不自动拼入金额。系统自动备份已对整个应用关闭，资料只通过物谱自己的备份导出离开设备；`node --test tests/android-system-backup.test.mjs` 在主机核对 Manifest 与云备份／系统换机迁移的全域排除规则。调试 APK 已构建，API 35 模拟器通知权限、拒绝、替换、幂等、到点通知、重启恢复与超容量提示尚未验证；真机省电策略与各厂商 ROM 的后台限制未验证。
+通知已接入不精确闹钟 `setAndAllowWhileIdle`、通知渠道与 Android 13 以上的 `POST_NOTIFICATIONS` 权限；计划按本地 09:00 整体替换且幂等，重启后由 `BootReceiver` 从私有偏好恢复，该偏好不进资料库、备份与导出。通知只显示固定的提醒类型与打开应用提示，不展示可能含金额的名称或自填备注。系统自动备份已对整个应用关闭，资料只通过物谱自己的备份导出离开设备；`node --test tests/android-system-backup.test.mjs` 在主机核对 Manifest 与云备份／系统换机迁移的全域排除规则。调试 APK 已构建，API 35 模拟器通知权限、拒绝、替换、幂等、到点通知、重启恢复与超容量提示尚未验证；真机省电策略与各厂商 ROM 的后台限制未验证。
 
 ### 工程维护的两个边界
 
