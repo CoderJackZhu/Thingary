@@ -249,9 +249,6 @@ fn set_private_permissions(_path: &Path) -> Result<()> {
 }
 
 fn sync_parent(path: &Path) -> Result<()> {
-    let directory =
-        fs::File::open(path).map_err(|_| Error::new("SYNC_CONFIG", "无法完成同步设置保存"))?;
-    directory
-        .sync_all()
-        .map_err(|_| Error::new("SYNC_CONFIG", "无法完成同步设置保存"))
+    // Windows cannot open a directory with File::open, so this goes through the shared helper.
+    crate::storage::sync_dir(path).map_err(|_| Error::new("SYNC_CONFIG", "无法完成同步设置保存"))
 }
