@@ -53,6 +53,12 @@ Download [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thinga
 3. Check the download: in PowerShell run `Get-FileHash .\Thingary_0.0.8_x64-setup.exe -Algorithm SHA256` and compare it with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/SHA256SUMS.txt) in the release.
 4. If installation or launch fails, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install) and keep the app version, Windows version, WebView2 version and exact error text.
 
+### Windows code signing
+
+The Windows installer is currently **unsigned**. We are preparing an application to SignPath Foundation for free code signing: the project has emailed SignPath, but no formal application has been submitted yet. While unsigned, SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install). Do not disable system-wide protection for this.
+
+If signing is approved and enabled, the release notes for that version are the source of truth; this page will not call an installer signed before it is. See the [Windows code signing policy (Chinese)](docs/CODE_SIGNING.md) for scope, approval, privacy, and application status.
+
 ### Android (in development, no installer yet)
 
 The Android version is still in development; there is no APK in Releases yet, so do not install copies from third-party mirrors. Once published, the release will include `Thingary-<version>-android.apk`, with its checksum in the release's `SHA256SUMS.txt`:
@@ -79,7 +85,7 @@ After your first entries, make a full backup under **Settings › Data managemen
 
 - **No market data or trading.** There are no live prices, return tracking, automatic payments, or AI; investment returns and exchange rates are entered by hand. There is no daily transaction ledger.
 - **Desktop source includes optional manual WebDAV snapshot sync.** It is off by default and connects to your own server. Snapshots are encrypted; manifest metadata, including device names, is plaintext. There is no automatic sync, Thingary account system, or collaboration. The mobile app has a sync page too; native device verification is still pending. See the [sync guide (Chinese)](docs/USER_GUIDE.md#sync); released packages follow their release notes.
-- **Builds are unsigned and not notarized.** The project does not currently pay for an Apple Developer account or a Windows code-signing certificate; releases rely on ad-hoc signing and checksums. Signing and notarization may be reconsidered if usage grows. See the [development guide](docs/DEVELOPMENT.md) to build your own.
+- **Builds are unsigned and not notarized.** The Mac build is ad-hoc signed without a Developer ID or Apple notarization; the free Windows code-signing application is still in progress, so current Windows installers are unsigned. Releases include checksums. See the [development guide](docs/DEVELOPMENT.md) to build your own.
 - **Simplified Chinese interface only.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); Android in development, iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
 
 ## Privacy

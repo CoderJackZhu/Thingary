@@ -1,10 +1,10 @@
 # Windows 代码签名接入（SignPath）
 
-本文只覆盖 Windows 的 Authenticode 签名；macOS 的 Developer ID 与公证是另一条路线，见[发布流程](RELEASING.md)。
+本文只覆盖 Windows 的 Authenticode 签名；macOS 的 Developer ID 与公证是另一条路线，见[发布流程](RELEASING.md)。公开的签名政策、审批与申请检查表见 [Windows 代码签名政策](CODE_SIGNING.md)。
 
 ## 当前状态
 
-- 已向 SignPath Foundation 提交申请，截至 2026-10-24 尚未收到回复。
+- 已向 SignPath Foundation 发邮件询问免费签名，截至 2026-10-25 尚无回应，尚未在正式申请页提交。
 - 公开 Windows 包仍是**未签名** NSIS；SmartScreen 可能提示，智能应用控制可能直接拦截。
 - 仓库已准备好签名状态元数据与验签脚本，但**没有**接入真实签名服务，也没有保存任何证书或令牌。
 - SignPath 是否批准不阻塞发布；未签名路线可以继续。批准后再加签名步骤，不重做打包流程。

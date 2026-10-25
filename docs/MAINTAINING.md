@@ -15,7 +15,7 @@
 | 环境、命令、预览和验证方法 | DEVELOPMENT |
 | 贡献规则与提交要求 | CONTRIBUTING；AGENTS 引用这些规则 |
 | 版本迭代、冻结、验收、打包与发布放行 | RELEASING |
-| Windows 代码签名接入、验签与回退 | SIGNING |
+| Windows 代码签名政策、接入、验签与回退 | CODE_SIGNING、SIGNING |
 | 直接内置的第三方内容及许可告知 | SOURCE_NOTICES；锁定依赖由第三方清单与随包告知脚本维护 |
 | 用户可感知的版本变化 | CHANGELOG 与对应 Release 说明 |
 | 讨论草稿、执行流水、复盘、每版放行单及验收证据 | 私有过程记录，引用公开提交号与发布流程，不另维护通用规则 |

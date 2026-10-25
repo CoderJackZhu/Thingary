@@ -28,6 +28,7 @@
 | [文档维护](MAINTAINING.md) | 唯一权威入口与变更同步职责 |
 | [发布流程](RELEASING.md#release-lifecycle) | 版本迭代、冻结、验收、文档截图、平台放行与发布回查；含打包步骤；iOS 上架准备见[iOS 小节](RELEASING.md#ios)与[App Store 文案草稿](releases/app-store-listing.md) |
 | [Windows 验收清单](WINDOWS_ACCEPTANCE.md) | 隔离安装、资料往返、通知、交互与候选包验收边界 |
+| [Windows 代码签名政策](CODE_SIGNING.md) | 申请状态、签名范围、审批人、隐私与检查表 |
 | [Windows 签名接入](SIGNING.md) | SignPath 状态、签名顺序、验签配置与回退方案 |
 | [截图清单](images/README.md) | 虚构截图来源、尺寸、基线与复现 |
 | [安全政策](../SECURITY.md) · [品牌使用](brand/README.md) | 漏洞与名称图标边界 |
