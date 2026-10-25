@@ -26,7 +26,7 @@
 | [开发与测试](DEVELOPMENT.md) | 环境、预览、检查入口与当前验证边界；[同步测试](DEVELOPMENT.md#sync-tests)、[Android 构建与模拟器](DEVELOPMENT.md#android) |
 | [架构说明](ARCHITECTURE.md) | 分层、存储、来源、请求与恢复约束；[WebDAV 同步](ARCHITECTURE.md#sync) |
 | [文档维护](MAINTAINING.md) | 唯一权威入口与变更同步职责 |
-| [发布流程](RELEASING.md#release-lifecycle) | 版本迭代、冻结、验收、文档截图、平台放行与发布回查；含打包步骤与 [Microsoft Store MSIX](RELEASING.md#microsoft-store)；iOS 上架准备见[iOS 小节](RELEASING.md#ios)、[App Store 文案草稿](releases/app-store-listing.md)与[审核风险评估](releases/app-store-review-notes.md) |
+| [发布流程](RELEASING.md#release-lifecycle) | 版本迭代、冻结、验收、文档截图、平台放行与发布回查；含打包步骤与 [Microsoft Store MSIX](RELEASING.md#microsoft-store)（[Microsoft Store 上架文案](releases/microsoft-store-listing.md)、[商店提交清单](releases/store-submission-checklist.md)）；iOS 上架准备见[iOS 小节](RELEASING.md#ios)、[App Store 文案草稿](releases/app-store-listing.md)与[审核风险评估](releases/app-store-review-notes.md) |
 | [Windows 验收清单](WINDOWS_ACCEPTANCE.md) | 隔离安装、资料往返、通知、交互与候选包验收边界；含 [MSIX 真机清单](WINDOWS_ACCEPTANCE.md#msix-microsoft-store) |
 | [Windows 代码签名政策](CODE_SIGNING.md) | 申请状态、签名范围、审批人、隐私与检查表 |
 | [Windows 签名接入](SIGNING.md) | SignPath 状态、签名顺序、验签配置与回退方案 |
