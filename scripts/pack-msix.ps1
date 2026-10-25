@@ -93,14 +93,14 @@ $storeId = '9N0Z2JF21D6D'
 $minimumWindows = [version]'10.0.22000.0'
 
 $identity = Resolve-Setting -Explicit $IdentityName -Variable 'PARTNER_CENTER_IDENTITY_NAME' -Default $defaultIdentity -Label 'the package identity name'
-$publisher = Resolve-Setting -Explicit $Publisher -Variable 'PARTNER_CENTER_PUBLISHER' -Default $defaultPublisher -Label 'the package publisher'
+$publisherSetting = Resolve-Setting -Explicit $Publisher -Variable 'PARTNER_CENTER_PUBLISHER' -Default $defaultPublisher -Label 'the package publisher'
 $publisherDisplay = Resolve-Setting -Explicit $PublisherDisplayName -Variable 'PARTNER_CENTER_PUBLISHER_DISPLAY_NAME' -Default $defaultPublisherDisplay -Label 'the publisher display name'
 
 if ($identity.Value -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*$') {
   throw "Invalid package identity name: '$($identity.Value)'. Use the exact Partner Center identity."
 }
-if ($publisher.Value -notmatch '^CN=[^,]+$') {
-  throw "Invalid publisher: '$($publisher.Value)'. Expected a single CN=<value> string from Partner Center."
+if ($publisherSetting.Value -notmatch '^CN=[^,]+$') {
+  throw "Invalid publisher: '$($publisherSetting.Value)'. Expected a single CN=<value> string from Partner Center."
 }
 if ([string]::IsNullOrWhiteSpace($publisherDisplay.Value)) {
   throw 'The publisher display name must not be empty.'
@@ -227,7 +227,7 @@ $manifestText = [System.IO.File]::ReadAllText($templatePath)
 $manifestText = $manifestText.Replace('__IDENTITY_NAME__', $identity.Value)
 # Replace the longer publisher token first: __PUBLISHER__ is a prefix of it.
 $manifestText = $manifestText.Replace('__PUBLISHER_DISPLAY_NAME__', $publisherDisplay.Value)
-$manifestText = $manifestText.Replace('__PUBLISHER__', $publisher.Value)
+$manifestText = $manifestText.Replace('__PUBLISHER__', $publisherSetting.Value)
 $manifestText = $manifestText.Replace('__VERSION__', $msixVersion)
 $manifestText = $manifestText.Replace('__ARCHITECTURE__', 'x64')
 if ($manifestText -match '__[A-Z0-9_]+__') {
@@ -240,7 +240,7 @@ $manifestPath = Join-Path $stage 'AppxManifest.xml'
 $identityNode = $manifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Identity']")
 if ($null -eq $identityNode) { throw 'The manifest has no Identity element.' }
 if ($identityNode.GetAttribute('Name') -ne $identity.Value) { throw 'Identity Name substitution failed.' }
-if ($identityNode.GetAttribute('Publisher') -ne $publisher.Value) { throw 'Publisher substitution failed.' }
+if ($identityNode.GetAttribute('Publisher') -ne $publisherSetting.Value) { throw 'Publisher substitution failed.' }
 if ($identityNode.GetAttribute('Version') -ne $msixVersion) { throw 'Version substitution failed.' }
 if ($identityNode.GetAttribute('ProcessorArchitecture') -ne 'x64') { throw 'ProcessorArchitecture must be x64.' }
 $deviceFamily = $manifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Dependencies']/*[local-name()='TargetDeviceFamily']")
@@ -335,7 +335,7 @@ if ($stagedIndex.Count -gt 0) {
 $packedIdentity = $packedManifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Identity']")
 if ($null -eq $packedIdentity) { throw 'The packed manifest has no Identity element.' }
 if ($packedIdentity.GetAttribute('Name') -ne $identity.Value) { throw 'The packed Identity Name differs from the staged manifest.' }
-if ($packedIdentity.GetAttribute('Publisher') -ne $publisher.Value) { throw 'The packed Publisher differs from the staged manifest.' }
+if ($packedIdentity.GetAttribute('Publisher') -ne $publisherSetting.Value) { throw 'The packed Publisher differs from the staged manifest.' }
 if ($packedIdentity.GetAttribute('Version') -ne $msixVersion) { throw 'The packed Version differs from the staged manifest.' }
 if ($packedIdentity.GetAttribute('ProcessorArchitecture') -ne 'x64') { throw 'The packed ProcessorArchitecture must be x64.' }
 
@@ -357,7 +357,7 @@ if ($dataFiles) {
 $sha = (Get-FileHash -LiteralPath $msixPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $packageFamilyName = $null
 $familyNote = $null
-if ($identity.Value -eq $defaultIdentity -and $publisher.Value -eq $defaultPublisher) {
+if ($identity.Value -eq $defaultIdentity -and $publisherSetting.Value -eq $defaultPublisher) {
   $packageFamilyName = $expectedFamilyName
 } else {
   $familyNote = 'Identity override in use; the family name in the docs belongs to the reserved product.'
@@ -370,8 +370,8 @@ $summary = [ordered]@{
   byte_size = (Get-Item -LiteralPath $msixPath).Length
   identity_name = $identity.Value
   identity_source = $identity.Source
-  publisher = $publisher.Value
-  publisher_source = $publisher.Source
+  publisher = $publisherSetting.Value
+  publisher_source = $publisherSetting.Source
   publisher_display_name = $publisherDisplay.Value
   version = $msixVersion
   architecture = 'x64'
@@ -395,6 +395,6 @@ Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $output 'AppxManife
 
 Write-Host "MSIX OK: $msixPath"
 Write-Host "SHA-256: $sha"
-Write-Host "Identity: $($identity.Value) / $($publisher.Value)"
+Write-Host "Identity: $($identity.Value) / $($publisherSetting.Value)"
 Write-Host "Version: $msixVersion  Windows: $minimumVersion+"
 if ($packageFamilyName) { Write-Host "Package family name: $packageFamilyName" }
