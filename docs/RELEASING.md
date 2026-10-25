@@ -183,9 +183,9 @@ SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，�
 
 ## iOS（App Store）
 
-先 TestFlight 内部测试，再准备海外区上架；**未经 Jack 明确授权，不提交 App Store 审核**。商店文案见 [App Store 上架文案](releases/app-store-listing.md)，隐私页在官网 `/privacy/`。
+先 TestFlight 内部测试，再准备海外区上架；**未经 Jack 明确授权，不提交 App Store 审核**。商店文案见 [App Store 上架文案](releases/app-store-listing.md)，审核风险与备注草稿见 [App Store 审核风险评估](releases/app-store-review-notes.md)，隐私页在官网 `/privacy/`。
 
-2026-10-21 已定：使用 Jack 朋友的 Apple 开发者个人账号；Bundle ID 为 `local.thingary.main`；名称「物谱」，被占用时用「物谱 Thingary」；仅 iPhone、竖屏、免费；不在中国大陆销售（尚未备案）。账号密码、证书、描述文件和团队配置只保存在本机，不提交仓库。App Store Connect 可以创建 App 记录、上传构建和开启内部测试，提交审核仍需 Jack 单独放行。
+2026-10-21 已定：使用 Jack 朋友的 Apple 开发者个人账号；Bundle ID 为 `local.thingary.main`；名称「物谱」，被占用时用「物谱 Thingary」；仅 iPhone、竖屏、免费；不在中国大陆销售（尚未备案）。账号密码、证书、描述文件和团队配置只保存在本机，不提交仓库。**App 记录必须在 App Store Connect 网页创建**（据目前了解，公开 API 不能创建应用记录）；API 密钥可以上传构建和开启内部测试，提交审核仍需 Jack 单独放行。以朋友账号发布时，App Store 上显示的开发者是他们（或其法律实体），不是 Jack。
 
 ### 当前工程状态
 
@@ -193,7 +193,10 @@ SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，�
 - 隐私清单 `thingary_iOS/PrivacyInfo.xcprivacy` 由 `thingary_iOS` 目录源自动加入 Copy Bundle Resources；每次重建工程和打包后仍需检查目标资源与包内文件。`Externals` 仅通过 `libapp.a` 链接，不作为目录源，避免 XcodeGen 把编译产物静态库误复制进 App 资源。
 - Release 链接另需 rustup 的 `llvm-tools` 组件：Xcode 27 的 SwiftPM 在 Release 配置下把 Tauri Swift 包的 `@_cdecl` 导出编译为局部符号，`swift-rs` 用 `llvm-objcopy` 恢复为全局符号；缺少时 Rust 静态库链接会报 `_log_stdout`、`_on_webview_created`、`_run_plugin_command` 未定义。原因与复现见[开发与测试](DEVELOPMENT.md#ios-开发)。
 - `TARGETED_DEVICE_FAMILY = 1`，不包含 iPad；`project.yml` 与 `thingary_iOS/Info.plist` 已移除 iPad 方向，iPhone 竖屏与 `src-tauri/Info.ios.plist` 一致。
-- 工程使用 `CODE_SIGN_STYLE = Automatic`，不固定 Team。`ExportOptions.plist` 的 method 仍是 `debugging`；商店上传使用 CLI 的 `--export-method app-store-connect` 或 Xcode Organizer。
+- 工程使用 `CODE_SIGN_STYLE = Automatic`，不固定 Team。发布用的 `ExportOptions.appstore.plist`（method 为 `app-store-connect`；原来调试用的 `ExportOptions.plist` 不动）；团队 ID 由脚本从环境变量 `APPLE_TEAM_ID` 临时注入，不写进仓库。
+- `scripts/ios-archive.sh` 负责可重复的商店归档：读取 `tauri.appstore.conf.json`，生成 Xcode 工程，`xcodebuild archive`（自动签名＋`-allowProvisioningUpdates`），核对归档身份／版本／`PrivacyInfo.xcprivacy`，再用 `xcodebuild -exportArchive` 导出 `.ipa`。可选 `IOS_BUILD_NUMBER` 临时改写并恢复源 `Info.plist`。API 密钥认证使用 `ASC_KEY_ID`、`ASC_ISSUER_ID`、`ASC_KEY_PATH`；三项缺一即明确失败，也可全部不设以使用本机 Xcode 账号。
+- `scripts/ios-upload.sh` 只在上传阶段使用：默认 dry-run，校验 IPA 身份、版本、构建号和隐私清单后打印命令；只有显式 `--really-upload` 才调用 `xcrun altool --upload-app`。脚本不提交审核，也不读取密钥内容。
+- 归档脚本只向 `src-tauri/target/ios/` 写归档和导出产物；上传脚本只在临时目录解包检查。两者都不含任何真实 Team ID、Key ID、Issuer ID 或密钥值。签名归档、上传和 TestFlight 验证完成前，不得把产物写成已发布。
 
 ### 1. 版本号
 
@@ -222,6 +225,26 @@ npm run ios:tauri -- ios build --config src-tauri/tauri.appstore.conf.json --exp
 ```
 
 每次上传加上维护者选定的 `--build-number <递增值>`。完成包核查后，在 `src-tauri/gen/apple` 重新运行 `xcodegen generate`，并核对 `git diff`，恢复可提交工程的默认预览身份；CLI 会按本次配置改写生成工程，不能把商店身份和本机签名配置误提交为开发默认值。
+
+也可以直接用仓库脚本完成同样的归档和导出（推荐，输出在 `src-tauri/target/ios/`）：
+
+```sh
+APPLE_TEAM_ID=<10 位 Team ID> IOS_BUILD_NUMBER=<递增值> bash scripts/ios-archive.sh
+# 使用 App Store Connect API 密钥时（三项齐全；不设置则用本机 Xcode 账号）：
+APPLE_TEAM_ID=<Team ID> IOS_BUILD_NUMBER=<递增值> \
+  ASC_KEY_ID=<Key ID> ASC_ISSUER_ID=<Issuer ID> ASC_KEY_PATH=<AuthKey_xxx.p8> \
+  bash scripts/ios-archive.sh
+```
+
+脚本会临时注入商店身份和 `ExportOptions.plist` 的 Team ID，核对归档与 IPA 的 Bundle ID、版本、构建号和隐私清单；`IOS_BUILD_NUMBER` 只临时改写源 `Info.plist`，结束时恢复。上传先 dry-run：
+
+```sh
+ASC_KEY_ID=<Key ID> ASC_ISSUER_ID=<Issuer ID> ASC_KEY_PATH=<AuthKey_xxx.p8> \
+  bash scripts/ios-upload.sh src-tauri/target/ios/export/物谱.ipa
+# 维护者确认后：在命令末尾加 --really-upload（本流程不自动执行）
+```
+
+不要把真实 Team ID、Key ID、Issuer ID 或 `.p8` 内容写进文档、提交或日志。
 
 Tauri 通过 [JSON Merge Patch](https://v2.tauri.app/develop/configuration-files/#extending-the-configuration) 合并配置；归档后检查 Bundle ID、名称、版本、构建号、设备族和隐私清单。不启动商店身份来做开发验收，不打开正式资料库。Release 不启用 `fault-injection`。
 
@@ -268,15 +291,22 @@ Release 二进制的隐私核对（`nm`／`strings`／`otool`／dSYM 符号化�
 
 尚未安装或启动商店身份。签名前仍需生成并核对隐私报告。
 
-### 3. 签名与账号
+### 3. 签名、账号与 App 记录
 
 Jack 将开发者账号加入 Xcode，或在本机登录朋友账号。选择对应 Team，Automatic signing 已在工程配置；通过本机环境变量 `APPLE_DEVELOPMENT_TEAM` 传入 Team ID。个人账号中被邀请的 App Store Connect 用户能否操作证书／描述文件需以账号实际权限为准，不能仅凭能登录 Connect 推定可签名。
+
+Bundle ID 与 App 记录按以下顺序在网页完成，不能靠公开 API 代替：
+
+1. **注册 Bundle ID**：用账号持有人登录 Apple Developer → Certificates, Identifiers & Profiles → Identifiers → `+` → App IDs → App，显式填写 `local.thingary.main`。只在需要时添加能力；当前工程没有额外 entitlements。
+2. **创建 App 记录**：App Store Connect → Apps → `+` → New App，平台选 iOS，名称「物谱」（占用则「物谱 Thingary」），主要语言简体中文，SKU 由维护者自定，Bundle ID 选上一步注册的值。应用记录、协议、税务和银行信息都在朋友的账号下；公开 API 不能创建 App 记录。
+3. **确认账号权限**：Jack 需要足够的 App Manager／Developer 角色来上传构建和操作 TestFlight；证书、描述文件、协议与审核邮件归账号持有人。不要让模型或仓库保存账号密码、证书私钥、`.p8` 内容或签名口令。
+4. **书面同意**：取得朋友同意用其账号发布「物谱」的书面记录；App Store 显示的开发者是他们（或其法律实体），不是 Jack。审核联系邮箱、协议更新和账号安全事件也由账号持有人处理。
 
 尚未获得 Team 时，继续无签名构建和截图；签名归档、App 记录创建、上传与 TestFlight 状态保持待办，不填写假团队号，不把无签名归档当作发行包。
 
 ### 4. TestFlight 内测与真机记录
 
-签名 Archive 后在 Organizer 选 Distribute App › App Store Connect › Upload。构建处理完成并完成出口合规问卷后，加入 TestFlight 内部测试组；不发起外部 Beta Review 或 App Store 审核。操作参考 [TestFlight 概览](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)。
+签名 Archive 后在 Organizer 选 Distribute App › App Store Connect › Upload，或用 `scripts/ios-upload.sh` 先 dry-run 再由维护者显式上传。构建处理完成并完成出口合规问卷后，先加入 TestFlight 内部测试组：内部测试只面向账号团队成员（最多 100 人），通常不需要 Beta App Review；确认构建可用后再申请外部测试。外部测试（最多 10,000 人）需要 Beta App Review，审核通过前不要把它当作已公开测试。不发起 App Store 审核。操作参考 [TestFlight 概览](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)。
 
 在 Jack 的 iPhone 上安装 TestFlight 包，用「先看看样例」或独立的虚构资料验收。未获准访问正式资料库；若手机已有正式资料，先由 Jack 确认隔离方案再安装。逐项记录构建号、iPhone／iOS 版本、操作、结果和截图（证据存仓库外）：
 
@@ -300,7 +330,7 @@ Jack 将开发者账号加入 Xcode，或在本机登录朋友账号。选择对
 | App 隐私标签 | 建议选「不收集数据」，依据见下文隐私清单核对；官方说明 [App 隐私详情](https://developer.apple.com/app-store/app-privacy-details/)（未逐页核对） |
 | 年龄分级 | 建议答案见上架文案，问卷定义见 [年龄分级值与定义](https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions) |
 | 截图 | 规格见 [截图规格](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)：该页写明 6.1 寸一组（1179×2556 或 1206×2622）至少一张为必填，6.9／6.7 寸一组缺失时由其他尺寸缩放；清单见上架文案 |
-| 出口合规 | 首次上传如实回答并截图交 Jack 确认；暂不写入豁免键 |
+| 出口合规 | 首次上传如实回答并截图交 Jack 确认；当前不写 `ITSAppUsesNonExemptEncryption`，按下文出口合规说明准备 |
 | 中国大陆 | 已定不上架；在「价格与销售范围」取消勾选并留存结果 |
 
 #### 隐私清单核对（PrivacyInfo.xcprivacy）
@@ -319,21 +349,28 @@ Jack 将开发者账号加入 Xcode，或在本机登录朋友账号。选择对
 
 数据收集：`NSPrivacyTracking=false`，`NSPrivacyTrackingDomains` 与 `NSPrivacyCollectedDataTypes` 为空。依据（iOS 构建）：
 
-- `src-tauri/src/update_check.rs`：`supported()` 在 iOS 返回 false，`check()` 在发请求前返回「iOS 更新由 App Store 管理」；网络请求只通过系统 `curl` 子进程（`fetch`），iOS 无此二进制，且更新模块被禁用。
-- `src-tauri/src/support.rs`：只有固定链接，`open` 在 iOS 经 `UIApplication openURL` 交给系统浏览器，且拒绝 `update`；应用自身不发请求。心愿的「相关链接」是 `WishDetail.tsx` 中用户自己填写的 `<a target="_blank">`，点击后的行为（WKWebView 是否转交 Safari）**未在设备上验证**。
-- `src-tauri/Cargo.toml` 无 `reqwest`／`hyper`／`ureq` 等 HTTP 客户端；`src/` 前端无 `fetch`／`XMLHttpRequest`／`WebSocket`（`src/` 中仅有 `invoke` 到本机 IPC）；`tauri.conf.json` 的 CSP 为 `default-src 'self'; … connect-src ipc: http://ipc.localhost`，WebView 不能连外网。
+- 没有账号体系，开发者不运营接收用户资料的服务器，也没有广告、统计或第三方分析 SDK。
+- `src-tauri/src/update_check.rs`：`supported()` 在 iOS 返回 false，`check()` 在发请求前返回「iOS 更新由 App Store 管理」；iOS 不检查更新。
+- `src-tauri/src/support.rs`：只有固定链接，`open` 在 iOS 经 `UIApplication openURL` 交给系统浏览器，且拒绝 `update`；应用自身不发起支持页请求。心愿的「相关链接」是 `WishDetail.tsx` 中用户自己填写的 `<a target="_blank">`，点击后的行为（WKWebView 是否转交 Safari）**未在设备上验证**。
 - PDF 导出的 WKWebView 为无脚本、无网络、非持久（`native/ios_pdf.m`，CSP `default-src 'none'`）。
 - 开发时的 `devUrl` 与 `--host` 仅用于 `ios dev`，Release 归档不使用。
+- **可选 WebDAV 同步**：默认关闭，只有用户配置服务器并主动开启后才连接用户自己的服务器；开发者不接收快照，也不提供账号或共享服务。快照加密，设备名等清单元数据为明文。手机端同步页仍属实验性，真实云盘与真机验证未完成；不能把源码存在同步路径写成该平台已完整验证。网络传输本身不属于 required-reason API，不因此新增隐私清单类别。
 
-此外，`UIFileSharingEnabled` 与 `LSSupportsOpeningDocumentsInPlace` 为 true，使用户能在「文件」App 中看到 Documents（备份在此）；这是有意的，但会让 App 容器的 Documents 对用户可见，审核备注里说明。
+App 隐私标签拟选「不收集数据」，依据是开发者不接收数据；提交前仍需按 Apple 的定义核对用户自备服务器传输是否被视为收集。不要沿用旧版「iOS 版不联网」的绝对表述。
 
 #### Info.plist 与设备族
 
-权限说明保留中文：相机拍摄物品照片、相册选图、面容 ID 验证机主身份。通知使用系统授权，无对应 Info.plist 用途键。仅 iPhone、仅竖屏；不再要求 iPad 方向或截图。`UIRequiredDeviceCapabilities` 保持 `arm64`、`metal`。
+权限说明保留中文：相机拍摄物品照片、相册选图、面容 ID 验证机主身份、局域网连接用户自备的 WebDAV 服务器。通知使用系统授权，无对应 Info.plist 用途键。仅 iPhone、仅竖屏；不再要求 iPad 方向或截图。`UIRequiredDeviceCapabilities` 保持 `arm64`、`metal`。最低系统为 iOS 16.0（`project.yml` 的 `deploymentTarget`），提交前按实际支持范围复核。`UIFileSharingEnabled` 与 `LSSupportsOpeningDocumentsInPlace` 为 true，使用户能在「文件」App 中看到／恢复 Documents 里的备份；这是有意的，但会让 App 容器的 Documents 对用户可见，审核备注里说明。
 
 #### 出口合规（首次上传后由 Jack 确认答案）
 
-iOS 版不联网；Rust `age` 库只加密用户自己的备份文件，使用公开的 X25519、ChaCha20-Poly1305，属于应用内实现，不是只调用 Apple 的系统加密。首次上传后在 App Store Connect 按实际问题如实回答，把**问题、选项和答案截图贴进 PR**，交 Jack 确认后再决定是否写入 `ITSAppUsesNonExemptEncryption`。当前不写该键，也不预先声明豁免；尚未上传时不能编造问卷或回答结果。
+应用默认离线，但可选的 WebDAV 同步会连接用户自备服务器；不能写成“iOS 版不联网”。Rust `age` 库用公开的 X25519、ChaCha20-Poly1305 与 scrypt 保护用户自己的备份和同步快照，属于应用内实现，不是只调用 Apple 的系统加密；传输层由用户配置的 WebDAV 服务器与系统网络提供，建议只使用 HTTPS。
+
+建议按以下事实回答，最终由维护者／合规确认：
+
+- “是否使用加密”：**是**。仅用于保护用户自己的资料、用户创建的备份，以及用户自选服务器之间的传输；不提供 VPN、不提供第三方保密通信服务。
+- 是否属于豁免：**不能仅因为使用标准算法就选豁免**。按当前应用内 age 实现，更稳妥的初步判断是按“使用非豁免加密”准备，按 App Store Connect 实际问卷提交自分类报告或其他要求的文档。若合规确认符合豁免条件，才可把 `ITSAppUsesNonExemptEncryption` 设为 `false`；确认前不要写成豁免，也不要编造文档编号。
+- 首次上传在 App Store Connect 按实际问题如实回答，把**问题、选项和答案截图贴进 PR**，交 Jack 确认后再决定是否写入 `ITSAppUsesNonExemptEncryption`。当前不写该键。
 
 参考 [出口合规概览](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance)和[判定与上传加密文档](https://developer.apple.com/help/app-store-connect/manage-app-information/determine-and-upload-app-encryption-documentation)。若实际问卷要求补充文档，按平台流程处理。
 
@@ -344,15 +381,16 @@ iOS 版不联网；Rust `age` 库只加密用户自己的备份文件，使用�
 ### 6. 提交审核前检查清单
 
 - [x] 已确定标识、名称、免费、海外区（排除中国大陆）、朋友的个人账号、仅 iPhone；出口合规先逐次回答，Jack 确认后再固化键
-- [ ] 已取得 Team 权限、创建 App 记录，并在 App Store Connect 实际完成价格与销售范围设置
+- [ ] 已取得 Team 权限、在 Apple Developer 注册 Bundle ID、在 App Store Connect 网页创建 App 记录，并实际完成价格与销售范围设置
 - [ ] 版本号与构建号已同步（`project.yml`、`Info.plist`、`Info.ios.plist` 与 §1 的版本文件），构建号递增
 - [x] 本轮 `npm run build`、`npm run test:ui`（1630 项）、`npm run check`、`npm test`、`npm run ios:check` 全部通过；后续上传前重新执行
 - [ ] Release 构建不含 `fault-injection`、验收身份或开发 `devUrl`
+- [ ] `scripts/ios-archive.sh` 在真实 Team 下完成归档并导出 `.ipa`；归档身份、构建号、隐私清单和 `ExportOptions.plist` 已核对
 - [ ] Archive 包含 `PrivacyInfo.xcprivacy`，隐私报告与二进制符号核对完毕，无 ITMS-91053 邮件遗漏项
-- [ ] 虚构资料走完 TestFlight 验收；真机拍照、面容 ID、通知实际送达、备份分享与恢复、断网使用各有记录；未验项如实登记
+- [ ] 虚构资料走完 TestFlight 内测；真机拍照、面容 ID、通知实际送达、备份分享与恢复、断网使用各有记录；未验项如实登记
 - [ ] 隐私政策页已部署并可未登录访问，内容与应用实际一致；官网首页页脚有入口
-- [ ] App 隐私标签、年龄分级、出口合规问卷、截图（各尺寸）、描述、关键词、支持网址已填并复核；文案没有同步、联网行情、AI 等未实现功能
-- [ ] 审核备注说明：无需登录、样例入口、相机／面容 ID／通知用途、`UIFileSharingEnabled` 的原因
+- [ ] App 隐私标签、年龄分级、出口合规问卷、截图（各尺寸）、描述、关键词、支持网址已填并复核；文案说明可选 WebDAV 默认关闭，没有把同步写成已稳定或把应用写成从不联网，也没有联网行情、AI 等未实现功能
+- [ ] 审核备注说明：无需登录、样例入口、相机／相册／面容 ID／通知用途、局域网 WebDAV 用途、`UIFileSharingEnabled` 的原因；见[审核风险评估](releases/app-store-review-notes.md)
 - [ ] 使用指南已有「iPhone 版」说明（已改为 TestFlight 阶段表述）；上架后把使用指南、官网首页与 README 里的「即将推出／TestFlight 测试中」改为 App Store 链接，`docs/INDEX.md` 与 README 状态一致
 - [ ] 未经维护者授权不点「提交以供审核」；提交与发布均由维护者执行
 

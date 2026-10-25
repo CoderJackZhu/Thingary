@@ -43,6 +43,7 @@ targets:
         NSCameraUsageDescription: 用于拍摄物品照片并保存到本机物品档案。
         NSPhotoLibraryUsageDescription: 用于选择物品照片并保存到本机物品档案。
         NSFaceIDUsageDescription: 用于验证设备机主身份，解锁物谱中的本机资料；生物识别信息不会进入物谱。
+        NSLocalNetworkUsageDescription: 用于连接你自行配置的局域网 WebDAV 服务器并同步加密快照。
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
           UISceneConfigurations:
