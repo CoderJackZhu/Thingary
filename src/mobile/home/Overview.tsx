@@ -122,7 +122,6 @@ export default function Overview(_props: PageProps) {
             {plan.progress.gap && <span className="h-bar-gap">{plan.progress.gap}</span>}
           </span>}
           {plan.warn && <span className="h-plan-warn">{plan.warn}</span>}
-          {plan.state === 'ready' && <span className="m-hero-foot">{t('估算结果，不是理财建议')}</span>}
         </button>) }] : []),
     { id: 'daily', title: t('物品日均成本'), content: (daily ? <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
       : <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={t('未知')} unknown sub={view.physicalError || t('暂时读不出来')}/>) },

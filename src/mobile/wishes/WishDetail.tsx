@@ -127,7 +127,7 @@ export default function WishDetail({ params }: PageProps) {
 
       {legacy && <Card tone="warn" className="w-notice-card" label={t('历史待核实')}><p>{item.legacy_generated_asset ? t('旧版因攒钱达标标为已实现，购入情况尚未确认。') : t('旧版已实现记录缺少购入确认来源，请核实。')}{t('不急着处理，它的金额不计入考虑中合计。')}</p></Card>}
 
-      {plan && <Card tone="warn" className="w-impact" label={t('对规划的影响')}><h3>{t('对规划的影响')}</h3><p role="note">{plan.text}</p>{planNotes(plan.annotations).map(text => <small key={text}>{text}</small>)}<small>{t('估算结果，不是理财建议。')}</small></Card>}
+      {plan && <Card tone="warn" className="w-impact" label={t('对规划的影响')}><h3>{t('对规划的影响')}</h3><p role="note">{plan.text}</p>{planNotes(plan.annotations).map(text => <small key={text}>{text}</small>)}</Card>}
 
       {item.fields.notes && <Card className="w-block"><h3>{t('想买的理由与顾虑')}</h3><p className="w-text">{item.fields.notes}</p></Card>}
       {item.decision_state === 'dropped' && item.decision_note && <Card className="w-block"><h3>{t('为什么不买')}</h3><p className="w-text">{item.decision_note}</p></Card>}

@@ -1584,16 +1584,22 @@ pub fn app_version() -> &'static str {
 
 #[cfg(target_os = "android")]
 #[tauri::command]
-pub async fn support_open(app: tauri::AppHandle, target: String) -> Result<()> {
-    tauri::async_runtime::spawn_blocking(move || crate::support::open(&app, &target))
-        .await
-        .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
+pub async fn support_open(
+    app: tauri::AppHandle,
+    target: String,
+    body: Option<String>,
+) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::support::open(&app, &target, body.as_deref())
+    })
+    .await
+    .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
 }
 
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
-pub async fn support_open(target: String) -> Result<()> {
-    tauri::async_runtime::spawn_blocking(move || crate::support::open(&target))
+pub async fn support_open(target: String, body: Option<String>) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || crate::support::open(&target, body.as_deref()))
         .await
         .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
 }
