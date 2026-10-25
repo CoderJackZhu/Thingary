@@ -2,11 +2,11 @@
 
 本文是申请 SignPath Foundation 免费 Windows 代码签名的公开政策与准备清单。签名接入的技术步骤、验签脚本和回退方案见 [SIGNING.md](SIGNING.md)；版本冻结与发布放行见 [RELEASING.md](RELEASING.md#release-lifecycle)。
 
-**当前状态：申请准备中，尚未获得签名，也尚未在正式申请页提交。** 本文不表示签名已经生效；已发布安装包是否签名，以对应版本的 Release 说明和实际验签结果为准。
+**当前状态：已于 2026-10-25 在 SignPath Foundation 官网提交申请，等待审核；尚未获得签名。** 本文不表示签名已经生效；已发布安装包是否签名，以对应版本的 Release 说明和实际验签结果为准。
 
 ## 当前状态
 
-- 维护者已向 SignPath Foundation 发邮件询问免费签名，截至 2026-10-25 尚无回应；尚未在正式申请页提交。
+- 维护者已向 SignPath Foundation 发邮件询问，并于 2026-10-25 在官网提交了正式申请，等待审核；尚未获得签名。
 - 本仓库当前公开的 Windows x64 NSIS 安装包仍是**未签名**包，SmartScreen 或 Windows 11 智能应用控制可能提示或拦截。
 - 仓库没有保存任何签名证书、PFX、私钥、密码或 SignPath API token。
 - 未获批准不阻塞现有发布；启用签名后按 [RELEASING.md](RELEASING.md#release-lifecycle) 重新验包并更新说明。
@@ -116,7 +116,7 @@ Free code signing provided by SignPath.io, certificate by SignPath Foundation.
 | 可下载的已发布版本 | v0.0.8 Release 提供 Windows x64 安装包与 `SHA256SUMS.txt` | 符合 |
 | 自动化构建 | GitHub Actions 构建，但签名步骤尚未接入 | 部分符合；见上文“需要改的自动化构建位置” |
 | 项目主页政策链接 | README 已链接本文；官网首页页脚暂无 | 部分符合；网站页脚待维护者决定是否补 |
-| SignPath 正式申请 | 已发邮件询问，尚未在正式申请页提交 | 待维护者提交 |
+| SignPath 正式申请 | 2026-10-25 已在官网提交 | 等待审核；收到回复后按下文改构建流程 |
 | 签名审批人名单 | 未指定 | 待维护者填写 |
 | SignPath 组织／项目／策略／产物配置 | 未配置 | 待维护者填写 |
 | 仓库内签名密钥／证书／token | 无 | 符合；以后只放 Actions secrets |

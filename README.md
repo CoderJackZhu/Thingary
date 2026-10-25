@@ -53,7 +53,7 @@
 
 ### Windows 代码签名
 
-目前 Windows 安装包**未签名**，正在准备 SignPath Foundation 的免费代码签名申请（已发邮件询问，尚未在正式申请页提交）。未签名时 SmartScreen 可能提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」；Windows 11 开启「智能应用控制」时可能没有放行按钮，处理办法见 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)。不要为此关闭整机的系统保护。
+目前 Windows 安装包**未签名**，已向 SignPath Foundation 提交免费代码签名申请，等待审核（2026-10-25 提交）。未签名时 SmartScreen 可能提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」；Windows 11 开启「智能应用控制」时可能没有放行按钮，处理办法见 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)。不要为此关闭整机的系统保护。
 
 签名获批并启用后，以对应版本的 Release 说明为准；启用前不会把安装包写成已签名。签名范围、审批、隐私和申请进度见 [Windows 代码签名政策](docs/CODE_SIGNING.md)。
 

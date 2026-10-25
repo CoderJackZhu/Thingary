@@ -102,3 +102,21 @@ fn unknown_manifest_write_is_reconciled_before_any_retry() {
         PendingResolution::Conflict
     );
 }
+
+#[test]
+fn snapshots_from_a_faster_device_open_and_an_excessive_cost_is_not_a_wrong_passphrase() {
+    use thingary_lib::sync::engine::{decrypt_with_limit, encrypt_with_work_factor};
+    // Written with a higher cost than this device would pick on its own.
+    let heavy = encrypt_with_work_factor(b"fictional", "口令", 14).unwrap();
+    assert_eq!(decrypt_snapshot(&heavy, "口令").unwrap(), b"fictional");
+    // A limit below the written cost is reported as such, not as a wrong passphrase.
+    assert_eq!(
+        decrypt_with_limit(&heavy, "口令", 10).unwrap_err().code,
+        "SYNC_CIPHERTEXT"
+    );
+    // A genuinely wrong passphrase is still a passphrase error.
+    assert_eq!(
+        decrypt_with_limit(&heavy, "错误", 20).unwrap_err().code,
+        "SYNC_PASSPHRASE"
+    );
+}

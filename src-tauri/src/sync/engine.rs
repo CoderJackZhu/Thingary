@@ -101,8 +101,29 @@ pub fn verify_snapshot(manifest: &Manifest, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
+/// scrypt cost for sync snapshots, fixed (2^18, about 256 MiB and a second or so) instead of the
+/// device-tuned default: a fast phone would otherwise pick a cost that a slower computer
+/// refuses to open, which used to surface as a misleading "wrong passphrase".
+// The test-only fault-injection feature uses a cheap cost so the suites stay fast.
+const SYNC_WORK_FACTOR: u8 = if cfg!(feature = "fault-injection") {
+    12
+} else {
+    18
+};
+/// Highest cost accepted when opening a snapshot (also covers snapshots written by builds that
+/// tuned the cost to the device).
+const SYNC_MAX_WORK_FACTOR: u8 = 20;
+
 pub fn encrypt_snapshot(plaintext: &[u8], passphrase: &str) -> Result<Vec<u8>> {
-    let encryptor = age::Encryptor::with_user_passphrase(SecretString::from(passphrase));
+    encrypt_with_work_factor(plaintext, passphrase, SYNC_WORK_FACTOR)
+}
+
+pub fn encrypt_with_work_factor(plaintext: &[u8], passphrase: &str, log_n: u8) -> Result<Vec<u8>> {
+    let mut recipient = age::scrypt::Recipient::new(SecretString::from(passphrase));
+    recipient.set_work_factor(log_n);
+    let encryptor =
+        age::Encryptor::with_recipients(std::iter::once(&recipient as &dyn age::Recipient))
+            .map_err(|_| Error::new("SYNC_CIPHERTEXT", "无法加密同步快照"))?;
     let mut encrypted = Vec::new();
     let mut writer = encryptor
         .wrap_output(&mut encrypted)
@@ -115,12 +136,23 @@ pub fn encrypt_snapshot(plaintext: &[u8], passphrase: &str) -> Result<Vec<u8>> {
 }
 
 pub fn decrypt_snapshot(ciphertext: &[u8], passphrase: &str) -> Result<Vec<u8>> {
+    decrypt_with_limit(ciphertext, passphrase, SYNC_MAX_WORK_FACTOR)
+}
+
+pub fn decrypt_with_limit(ciphertext: &[u8], passphrase: &str, max_log_n: u8) -> Result<Vec<u8>> {
     let decryptor = age::Decryptor::new(ciphertext)
         .map_err(|_| Error::new("SYNC_CIPHERTEXT", "同步快照密文无效"))?;
-    let identity = age::scrypt::Identity::new(SecretString::from(passphrase));
+    let mut identity = age::scrypt::Identity::new(SecretString::from(passphrase));
+    identity.set_max_work_factor(max_log_n);
     let mut reader = decryptor
         .decrypt(std::iter::once(&identity as &dyn age::Identity))
-        .map_err(|_| Error::new("SYNC_PASSPHRASE", "同步口令不正确"))?;
+        .map_err(|error| match error {
+            age::DecryptError::ExcessiveWork { .. } => Error::new(
+                "SYNC_CIPHERTEXT",
+                "此同步快照的加密强度超出本设备可处理的范围，请升级应用，或在写入它的设备上重新同步",
+            ),
+            _ => Error::new("SYNC_PASSPHRASE", "同步口令不正确"),
+        })?;
     let mut plaintext = Vec::new();
     reader
         .read_to_end(&mut plaintext)
