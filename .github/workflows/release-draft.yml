@@ -159,6 +159,9 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Build the signed release APK
         if: steps.ready.outputs.ready == 'true'
+        env:
+          THINGARY_ANDROID_APPLICATION_ID: local.thingary.main
+          THINGARY_ANDROID_APP_LABEL: 物谱
         run: npm run android:build
       - name: Collect the APK and its checksum
         if: steps.ready.outputs.ready == 'true'

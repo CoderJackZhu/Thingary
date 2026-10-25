@@ -161,6 +161,8 @@ SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，�
 
 每次发布在 `docs/releases/v<版本>.md` 维护正文，现有示例为[0.0.2 发布说明](releases/v0.0.2.md)。先推送最终源代码提交，在该提交创建 `v<版本>` 标签和 **draft Release**，上传该次已授权的 Mac DMG／Windows NSIS 安装包与各自 SHA256SUMS；公开测试版设置 Pre-release（即使版本号不带 beta 后缀），README 直接链接对应版本，不能依赖只返回正式版的 latest 入口。不要移动已经发布的标签或覆盖现有附件。自动生成的 Source code 归档应对应这个标签，保留锁文件、构建脚本、文档和依赖源码获取入口。
 
+**每次发布的 Release 正文必须包含 Windows 签名声明**（SignPath Foundation 的申请表要求下载页写明使用它签名，下载页就是 GitHub Releases）。申请尚未通过时写：`Windows installer code signing: free code signing provided by SignPath.io, certificate by SignPath Foundation (application in progress; until approved the installer is unsigned).`；获批并验签通过后改为 `Free code signing provided by SignPath.io, certificate by SignPath Foundation.`，两种情形都不要写没有发生的事。`docs/releases/v<版本>.md` 的 Windows 一节已带这句，新建版本说明时照抄；公开前再核对一次 Release 页面确有这一句。
+
 草稿不等于已公开。发布前核对源代码、完整许可材料和支持边界，确保 [Private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository) 可用。取得本次发布授权后发布草稿，以未登录方式检查说明、附件和下载入口；不要把仅本机安装或只有源码附件写成“普通用户可下载”。把最终源码 SHA、标签、附件散列和验证边界登记到私有笔记。
 
 公开仓库保留历史，移出 main 的文件仍可从历史查看。发布从公开源码标签构建，不从私有笔记仓库打包；编号重排也必须以同版本源码重新构建，不能只改附件名；版本变化不重置资料身份、schema 或备份格式。已撤下的包、元数据和对应源码私有保全，不宣称能收回他人已下载的副本。
