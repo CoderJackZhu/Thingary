@@ -9374,7 +9374,7 @@ export const en: Record<string, string> = {
   "{v1} 分钟前": "{v1} min ago",
   "刚刚": "just now",
   "已不再记住口令，下次同步需要重新输入。": "The passphrase is no longer remembered; you will be asked for it on the next sync.",
-  "只读取云端有没有新版本并提示你，不会自动上传或替换。": "Only looks for a newer cloud version and tells you; never uploads or replaces anything by itself.",
+  "打开或前后台切换时核对云端；本机有改动且已记住口令时会自动上传加密快照，但不会自动替换本机资料。": "Checks the cloud when the app opens or changes between foreground and background; if this device has changes and the passphrase is remembered it uploads an encrypted snapshot automatically, but it never replaces data on this device.",
   "打开物谱时检查云端": "Check the cloud when Thingary opens",
   "同步口令：": "Sync passphrase: ",
   "输入并记住口令": "Enter and remember passphrase",

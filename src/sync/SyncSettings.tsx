@@ -553,7 +553,7 @@ export function SyncSettings({
         </div>
       </FormRow>
       {revealed !== null && <p className="notice sync-revealed" role="status">{t('同步口令：')}<code>{revealed}</code></p>}
-      <FormRow label={t('打开物谱时检查云端')} hint={t('只读取云端有没有新版本并提示你，不会自动上传或替换。')}>
+      <FormRow label={t('打开物谱时检查云端')} hint={t('打开或前后台切换时核对云端；本机有改动且已记住口令时会自动上传加密快照，但不会自动替换本机资料。')}>
         <Switch label={t('打开物谱时检查云端')} value={config.auto_check} disabled={busy !== null} onChange={value => void toggleAutoCheck(value)}/>
       </FormRow>
     </div>}

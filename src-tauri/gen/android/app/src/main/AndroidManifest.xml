@@ -17,7 +17,7 @@
         android:theme="@style/Theme.thingary"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|fontScale|density|layoutDirection"
             android:launchMode="singleTask"
             android:label="${appLabel}"
             android:name=".MainActivity"

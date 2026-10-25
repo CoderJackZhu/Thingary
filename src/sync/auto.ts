@@ -36,8 +36,13 @@ export async function runAutoSync(force = false): Promise<void> {
     set({ phase: 'syncing', at: state.at });
     let status = await syncStatus();
     if (status.state === 'local_ahead' && config.has_remembered_passphrase) {
-      await syncPush();
-      status = await syncStatus();
+      // The person may have switched the check off, stopped remembering the passphrase or
+      // disabled sync while the status request was in flight: look again before uploading.
+      const latest = await syncConfigGet();
+      if (latest.enabled && latest.auto_check && latest.has_remembered_passphrase && !latest.has_pending_push) {
+        await syncPush();
+        status = await syncStatus();
+      }
     }
     set({ phase: phaseOf(status.state), at: Date.now() });
   } catch {

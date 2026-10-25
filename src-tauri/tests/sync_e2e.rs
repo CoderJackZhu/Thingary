@@ -873,3 +873,33 @@ fn a_remembered_passphrase_syncs_without_unlocking_and_stays_out_of_public_state
         Arc::new(SyncRuntime::new(b.config_root.clone(), b._temp.path().join("staging2")).unwrap());
     assert!(pull_inspect(&b.worker, &fresh_b, false).is_ok());
 }
+
+#[test]
+fn a_damaged_settings_file_does_not_stop_the_app_and_is_set_aside() {
+    let temp = tempfile::tempdir().unwrap();
+    let config_root = temp.path().join("config");
+    fs::create_dir_all(&config_root).unwrap();
+    fs::write(config_root.join("sync.json"), b"{").unwrap();
+    let runtime = SyncRuntime::new(config_root.clone(), temp.path().join("staging")).unwrap();
+    drop(runtime);
+    assert!(!config_root.join("sync.json").exists());
+    assert!(config_root.join("sync.json.unreadable").exists());
+    // And a fresh start afterwards is a normal, switched-off configuration.
+    let config = ConfigStore::new(config_root).load().unwrap();
+    assert!(!config.enabled);
+}
+
+#[test]
+fn keep_this_device_works_on_a_new_device_that_has_not_synced_before() {
+    let server = FakeDav::start();
+    let a = Device::new(sync_config(&server, "虚构设备甲", true), PASSPHRASE);
+    seed_library(&a.worker, "虚构相机");
+    assert_eq!(push(&a.worker, &a.runtime, false).unwrap().version, 1);
+
+    // A second device with its own records and no baseline sees a conflict...
+    let b = Device::new(sync_config(&server, "虚构设备乙", true), PASSPHRASE);
+    seed_library(&b.worker, "虚构耳机");
+    assert_eq!(status(&b.worker, &b.runtime).unwrap().state, "conflict");
+    // ...and choosing "keep this device" overwrites the one cloud library instead of failing.
+    assert_eq!(push(&b.worker, &b.runtime, true).unwrap().version, 2);
+}

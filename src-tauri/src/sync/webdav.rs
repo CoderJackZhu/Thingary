@@ -44,6 +44,7 @@ impl UreqWebDav {
     pub fn new(base_url: String, username: String, password: String) -> Result<Self> {
         let base_url = base_url.trim_end_matches('/').to_string();
         // ureq 3 rejects the WebDAV methods (MKCOL, PROPFIND), so this uses ureq 2.
+        let plain_http = base_url.starts_with("http://");
         let rest = base_url
             .strip_prefix("https://")
             .or_else(|| base_url.strip_prefix("http://"))
@@ -58,6 +59,14 @@ impl UreqWebDav {
                 .any(|c| c.is_whitespace() || c.is_control())
         {
             return Err(Error::new("SYNC_CONFIG", "WebDAV 地址无效"));
+        }
+        // The application password travels in a Basic header, so plain http is only for this
+        // computer or the local network (a NAS at home), never for a server on the internet.
+        if plain_http && !plain_http_allowed(authority) {
+            return Err(Error::new(
+                "SYNC_CONFIG",
+                "WebDAV 地址需要使用 https；只有本机或局域网地址可以用 http",
+            ));
         }
         let agent = ureq::AgentBuilder::new()
             .timeout(Duration::from_secs(30))
@@ -268,4 +277,77 @@ fn base64(value: &str) -> String {
         });
     }
     output
+}
+
+/// True for hosts where sending credentials over plain http stays on this machine or the local
+/// network: loopback, private IPv4 ranges, link-local, `.local`-style names and bare host names.
+fn plain_http_allowed(authority: &str) -> bool {
+    let host = if let Some(inner) = authority.strip_prefix('[') {
+        inner.split(']').next().unwrap_or("")
+    } else {
+        authority
+            .rsplit_once(':')
+            .map_or(authority, |(host, port)| {
+                if port.chars().all(|c| c.is_ascii_digit()) {
+                    host
+                } else {
+                    authority
+                }
+            })
+    }
+    .to_ascii_lowercase();
+    if host.is_empty() {
+        return false;
+    }
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        return match ip {
+            std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
+            std::net::IpAddr::V6(v6) => {
+                let first = v6.segments()[0];
+                v6.is_loopback() || (first & 0xfe00) == 0xfc00 || (first & 0xffc0) == 0xfe80
+            }
+        };
+    }
+    host == "localhost"
+        || !host.contains('.')
+        || ["local", "lan", "home.arpa", "internal"]
+            .iter()
+            .any(|suffix| host.ends_with(&format!(".{suffix}")))
+}
+
+#[cfg(test)]
+mod http_policy_tests {
+    use super::plain_http_allowed;
+
+    #[test]
+    fn plain_http_is_limited_to_this_machine_and_the_local_network() {
+        for ok in [
+            "127.0.0.1:8765",
+            "localhost",
+            "[::1]:8080",
+            "10.0.2.2:8765",
+            "192.168.1.20",
+            "172.16.0.5",
+            "172.31.255.1",
+            "169.254.1.1",
+            "nas",
+            "mynas.local",
+            "box.home.arpa:5005",
+            "[fd00::1]",
+            "[fe80::1]:80",
+        ] {
+            assert!(plain_http_allowed(ok), "{ok} should be allowed");
+        }
+        for bad in [
+            "dav.example.com",
+            "8.8.8.8",
+            "172.32.0.1",
+            "11.0.0.1",
+            "[2001:db8::1]",
+            "evil.example.com:8080",
+            "dav.jianguoyun.com",
+        ] {
+            assert!(!plain_http_allowed(bad), "{bad} should be refused");
+        }
+    }
 }

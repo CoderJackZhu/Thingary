@@ -39,3 +39,17 @@ test('auto sync never pulls and does nothing when off or when a push result is u
     assert.deepEqual(r.calls, []);
   }
 });
+
+test('auto sync re-reads the settings before uploading and skips when they changed meanwhile', async () => {
+  const calls = [];
+  let reads = 0;
+  const api = {
+    syncConfigGet: async () => (++reads === 1 ? base : { ...base, auto_check: false }),
+    syncStatus: async () => { calls.push('status'); return { state: 'local_ahead' }; },
+    syncPush: async () => { calls.push('push'); return { version: 2 }; },
+  };
+  const exports = {};
+  vm.runInNewContext(compile('../src/sync/auto.ts'), { exports, Date, Set, require: id => id === './api' ? api : { useEffect() {}, useSyncExternalStore() {} } });
+  await exports.runAutoSync(true);
+  assert.deepEqual(calls, ['status']);
+});

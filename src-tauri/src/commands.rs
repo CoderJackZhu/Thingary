@@ -985,11 +985,19 @@ pub async fn cancel_backup_session(token: String, worker: tauri::State<'_, Worke
 pub async fn restore_backup_session(
     token: String,
     worker: tauri::State<'_, Worker>,
+    sync: tauri::State<'_, std::sync::Arc<crate::sync::commands::SyncRuntime>>,
 ) -> Result<String> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.backup_session_restore(token))
-        .await
-        .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
+    let sync = sync.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let generation = w.backup_session_restore(token)?;
+        // If this restore came from a cloud snapshot, record the synced baseline now, before any
+        // new edit can be mistaken for part of it. Best effort: the next status check retries.
+        let _ = crate::sync::commands::finalize_pending_pull(&w, &sync);
+        Ok(generation)
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
 }
 
 /// Reads only the original controlled restore session; never repeats replacement.
@@ -997,11 +1005,19 @@ pub async fn restore_backup_session(
 pub async fn backup_session_result(
     token: String,
     worker: tauri::State<'_, Worker>,
+    sync: tauri::State<'_, std::sync::Arc<crate::sync::commands::SyncRuntime>>,
 ) -> Result<Option<String>> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.backup_session_result(token))
-        .await
-        .map_err(|_| Error::new("WORKER", "恢复结果仍无法确认，请保留原会话"))?
+    let sync = sync.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = w.backup_session_result(token)?;
+        if result.is_some() {
+            let _ = crate::sync::commands::finalize_pending_pull(&w, &sync);
+        }
+        Ok(result)
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "恢复结果仍无法确认，请保留原会话"))?
 }
 
 /// Backup-security policy for the settings page; readable in sample mode too.

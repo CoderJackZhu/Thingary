@@ -41,18 +41,31 @@ pub struct SyncRuntime {
     passphrase: PassphraseSession,
     staging: PathBuf,
     pending_pull: Mutex<Option<PendingPull>>,
+    /// Serialises every transfer (status, push, pull, reconcile) so an automatic cycle and a
+    /// manual action can never overlap and write the same snapshot name or manifest.
+    transfer: Mutex<()>,
 }
 
 impl SyncRuntime {
     pub fn new(config_root: PathBuf, staging: PathBuf) -> Result<Self> {
         let config_store = ConfigStore::new(config_root);
-        let config = config_store.load()?;
+        // A damaged settings file must never stop the whole app from starting: set it aside
+        // (so nothing is lost for inspection) and start with sync switched off.
+        let config = match config_store.load() {
+            Ok(config) => config,
+            Err(_) => {
+                let path = config_store.path();
+                let _ = fs::rename(&path, path.with_extension("json.unreadable"));
+                SyncConfig::default()
+            }
+        };
         Ok(Self {
             config_store,
             config: Mutex::new(config),
             passphrase: PassphraseSession::default(),
             staging,
             pending_pull: Mutex::new(None),
+            transfer: Mutex::new(()),
         })
     }
 
@@ -63,14 +76,38 @@ impl SyncRuntime {
             .map_err(|_| Error::new("SYNC_STATE", "同步状态暂不可用"))
     }
 
-    fn save_config(&self, next: SyncConfig) -> Result<()> {
-        self.config_store.save(&next)?;
-        let mut config = self
+    /// Reads, changes and writes the settings while holding the settings lock, so a change made
+    /// meanwhile (disable, forgetting the passphrase, a new address) is never overwritten by
+    /// an older copy.
+    fn update_config(&self, change: impl FnOnce(&mut SyncConfig) -> Result<()>) -> Result<()> {
+        let mut guard = self
             .config
             .lock()
             .map_err(|_| Error::new("SYNC_STATE", "同步状态暂不可用"))?;
-        *config = next;
+        let mut next = guard.clone();
+        change(&mut next)?;
+        self.config_store.save(&next)?;
+        *guard = next;
         Ok(())
+    }
+
+    /// Records only what a finished transfer learned (cloud library, baseline, pending push);
+    /// every other setting keeps its current value, including `enabled` and the secrets.
+    fn save_progress(&self, from: &SyncConfig) -> Result<()> {
+        self.update_config(|current| {
+            current.library_id = from.library_id.clone();
+            current.last_synced_remote_version = from.last_synced_remote_version;
+            current.last_synced_fingerprint = from.last_synced_fingerprint.clone();
+            current.last_synced_at = from.last_synced_at.clone();
+            current.pending_push = from.pending_push.clone();
+            Ok(())
+        })
+    }
+
+    fn guard(&self) -> Result<std::sync::MutexGuard<'_, ()>> {
+        self.transfer
+            .lock()
+            .map_err(|_| Error::new("SYNC_STATE", "同步状态暂不可用"))
     }
 
     /// Establishes the in-memory passphrase session, the same step performed by
@@ -203,31 +240,33 @@ pub fn sync_config_set(
     let password_for_validation = input.password.clone().unwrap_or_default();
     UreqWebDav::new(base_url.clone(), username.clone(), password_for_validation)?;
 
-    let mut config = runtime.config()?;
-    let endpoint_changed =
-        config.base_url != base_url || config.username != username || config.base_path != base_path;
-    config.enabled = true;
-    config.base_url = base_url;
-    config.username = username;
-    config.base_path = base_path;
-    config.device_name = device_name;
-    if let Some(password) = input.password {
-        if password.is_empty() {
-            return Err(Error::new("SYNC_CONFIG", "应用密码不能为空"));
+    runtime.update_config(|config| {
+        let endpoint_changed = config.base_url != base_url
+            || config.username != username
+            || config.base_path != base_path;
+        config.enabled = true;
+        config.base_url = base_url;
+        config.username = username;
+        config.base_path = base_path;
+        config.device_name = device_name;
+        if let Some(password) = input.password {
+            if password.is_empty() {
+                return Err(Error::new("SYNC_CONFIG", "应用密码不能为空"));
+            }
+            config.password = password;
         }
-        config.password = password;
-    }
-    if config.password.is_empty() {
-        return Err(Error::new("SYNC_CONFIG", "请填写 WebDAV 应用密码"));
-    }
-    if endpoint_changed {
-        config.library_id = None;
-        config.last_synced_remote_version = None;
-        config.last_synced_fingerprint = None;
-        config.last_synced_at = None;
-        config.pending_push = None;
-    }
-    runtime.save_config(config)
+        if config.password.is_empty() {
+            return Err(Error::new("SYNC_CONFIG", "请填写 WebDAV 应用密码"));
+        }
+        if endpoint_changed {
+            config.library_id = None;
+            config.last_synced_remote_version = None;
+            config.last_synced_fingerprint = None;
+            config.last_synced_at = None;
+            config.pending_push = None;
+        }
+        Ok(())
+    })
 }
 
 /// Connection check: reachable, authorised and writable. ETags belong to files, not to a
@@ -257,9 +296,12 @@ pub async fn sync_test_connection(
     runtime: tauri::State<'_, Arc<SyncRuntime>>,
 ) -> Result<ConnectionTest> {
     let runtime = runtime.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || test_connection(&runtime))
-        .await
-        .map_err(|_| Error::new("SYNC_TASK", "连接测试未完成"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = runtime.guard()?;
+        test_connection(&runtime)
+    })
+    .await
+    .map_err(|_| Error::new("SYNC_TASK", "连接测试未完成"))?
 }
 
 #[tauri::command]
@@ -267,30 +309,29 @@ pub fn sync_disable(
     input: DisableInput,
     runtime: tauri::State<'_, Arc<SyncRuntime>>,
 ) -> Result<()> {
-    let mut config = runtime.config()?;
-    config.enabled = false;
-    config.pending_push = None;
-    if input.forget_credentials {
-        let device_id = config.device_id.clone();
-        let device_name = config.device_name.clone();
-        config = SyncConfig::default();
-        config.device_id = device_id;
-        config.device_name = device_name;
-    }
     runtime.passphrase.clear();
-    runtime.save_config(config)
+    runtime.update_config(|config| {
+        config.enabled = false;
+        config.pending_push = None;
+        if input.forget_credentials {
+            let device_id = config.device_id.clone();
+            let device_name = config.device_name.clone();
+            *config = SyncConfig::default();
+            config.device_id = device_id;
+            config.device_name = device_name;
+        }
+        Ok(())
+    })
 }
 
 #[tauri::command]
 pub fn sync_unlock(input: UnlockInput, runtime: tauri::State<'_, Arc<SyncRuntime>>) -> Result<()> {
     runtime.passphrase.unlock(input.passphrase.clone())?;
-    let mut config = runtime.config()?;
     let next = input.remember.then_some(input.passphrase);
-    if config.remembered_passphrase != next {
+    runtime.update_config(|config| {
         config.remembered_passphrase = next;
-        runtime.save_config(config)?;
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 /// Shows the passphrase this device remembers (or the unlocked session one) so it can be
@@ -302,12 +343,11 @@ pub fn sync_passphrase_reveal(runtime: tauri::State<'_, Arc<SyncRuntime>>) -> Re
 
 #[tauri::command]
 pub fn sync_forget_passphrase(runtime: tauri::State<'_, Arc<SyncRuntime>>) -> Result<()> {
-    let mut config = runtime.config()?;
     runtime.passphrase.clear();
-    if config.remembered_passphrase.take().is_some() {
-        runtime.save_config(config)?;
-    }
-    Ok(())
+    runtime.update_config(|config| {
+        config.remembered_passphrase = None;
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -315,9 +355,10 @@ pub fn sync_set_auto_check(
     enabled: bool,
     runtime: tauri::State<'_, Arc<SyncRuntime>>,
 ) -> Result<()> {
-    let mut config = runtime.config()?;
-    config.auto_check = enabled;
-    runtime.save_config(config)
+    runtime.update_config(|config| {
+        config.auto_check = enabled;
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -332,6 +373,7 @@ pub async fn sync_status(
         if let Some(passphrase) = input.and_then(|value| value.passphrase) {
             runtime.passphrase.unlock(passphrase)?;
         }
+        let _guard = runtime.guard()?;
         finalize_pending_pull(&worker, &runtime)?;
         status(&worker, &runtime)
     })
@@ -346,9 +388,12 @@ pub async fn sync_push(
 ) -> Result<PushResult> {
     let worker = worker.inner().clone();
     let runtime = runtime.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || push(&worker, &runtime, false))
-        .await
-        .map_err(|_| Error::new("SYNC_TASK", "同步推送未完成"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = runtime.guard()?;
+        push(&worker, &runtime, false)
+    })
+    .await
+    .map_err(|_| Error::new("SYNC_TASK", "同步推送未完成"))?
 }
 
 #[tauri::command]
@@ -356,9 +401,12 @@ pub async fn sync_reconcile(
     runtime: tauri::State<'_, Arc<SyncRuntime>>,
 ) -> Result<ReconcileResult> {
     let runtime = runtime.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || reconcile(&runtime))
-        .await
-        .map_err(|_| Error::new("SYNC_TASK", "同步核对未完成"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = runtime.guard()?;
+        reconcile(&runtime)
+    })
+    .await
+    .map_err(|_| Error::new("SYNC_TASK", "同步核对未完成"))?
 }
 
 #[tauri::command]
@@ -368,9 +416,12 @@ pub async fn sync_pull_inspect(
 ) -> Result<PullInspection> {
     let worker = worker.inner().clone();
     let runtime = runtime.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || pull_inspect(&worker, &runtime, false))
-        .await
-        .map_err(|_| Error::new("SYNC_TASK", "同步拉取未完成"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = runtime.guard()?;
+        pull_inspect(&worker, &runtime, false)
+    })
+    .await
+    .map_err(|_| Error::new("SYNC_TASK", "同步拉取未完成"))?
 }
 
 /// Read-only look at the cloud copy for the conflict screen; nothing is restored.
@@ -381,9 +432,12 @@ pub async fn sync_compare_remote(
 ) -> Result<PullInspection> {
     let worker = worker.inner().clone();
     let runtime = runtime.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || pull_inspect(&worker, &runtime, true))
-        .await
-        .map_err(|_| Error::new("SYNC_TASK", "同步对比未完成"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = runtime.guard()?;
+        pull_inspect(&worker, &runtime, true)
+    })
+    .await
+    .map_err(|_| Error::new("SYNC_TASK", "同步对比未完成"))?
 }
 
 #[tauri::command]
@@ -394,10 +448,13 @@ pub async fn sync_resolve_conflict(
 ) -> Result<ConflictResult> {
     let worker = worker.inner().clone();
     let runtime = runtime.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || match input.choice {
-        ConflictChoice::KeepLocal => push(&worker, &runtime, true).map(ConflictResult::Push),
-        ConflictChoice::UseRemote => pull_inspect(&worker, &runtime, true)
-            .map(|inspection| ConflictResult::Pull(Box::new(inspection))),
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = runtime.guard()?;
+        match input.choice {
+            ConflictChoice::KeepLocal => push(&worker, &runtime, true).map(ConflictResult::Push),
+            ConflictChoice::UseRemote => pull_inspect(&worker, &runtime, true)
+                .map(|inspection| ConflictResult::Pull(Box::new(inspection))),
+        }
     })
     .await
     .map_err(|_| Error::new("SYNC_TASK", "同步冲突处理未完成"))?
@@ -530,6 +587,16 @@ pub fn push(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PushR
             config.library_id = Some(library_id.clone());
             library_id
         }
+        // Only the conflict screen forces a push: "keep this device" means overwriting the
+        // one cloud library that was found, so bind to it instead of refusing.
+        None if force => {
+            let library_id = remote
+                .as_ref()
+                .map(|manifest| manifest.library_id.clone())
+                .ok_or_else(|| Error::new("SYNC_LIBRARY", "无法确定远端同步资料库"))?;
+            config.library_id = Some(library_id.clone());
+            library_id
+        }
         None => return Err(Error::new("SYNC_LIBRARY", "无法确定远端同步资料库")),
     };
     let remote_root = library_root(&config.base_path, &library_id);
@@ -551,10 +618,12 @@ pub fn push(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PushR
     let ciphertext = encrypt_snapshot(&plaintext, &passphrase)?;
     let version = remote.as_ref().map_or(1, |manifest| manifest.version + 1);
     let created_at = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    // The random tail makes a name collision impossible even for two pushes in the same second.
     let snapshot_name = format!(
-        "{}-{}.thingary.age",
+        "{}-{}-{}.thingary.age",
         Utc::now().format("%Y%m%dT%H%M%SZ"),
-        device_short(&config.device_id)
+        device_short(&config.device_id),
+        &Uuid::new_v4().simple().to_string()[..6]
     );
     let snapshot_relative = format!("snapshots/{snapshot_name}");
     let snapshot_path = join_path(&remote_root, &snapshot_relative);
@@ -580,7 +649,7 @@ pub fn push(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PushR
         manifest: manifest.clone(),
         fingerprint: measured.digest.clone(),
     });
-    runtime.save_config(config.clone())?;
+    runtime.save_progress(&config)?;
 
     let condition = manifest_condition(&client, &remote_root, remote.as_ref(), etag.as_deref())?;
     let manifest_path = join_path(&remote_root, "manifest.json");
@@ -588,7 +657,7 @@ pub fn push(worker: &Worker, runtime: &SyncRuntime, force: bool) -> Result<PushR
         Ok(_) => {}
         Err(error) if error.code == "SYNC_PRECONDITION" => {
             config.pending_push = None;
-            runtime.save_config(config)?;
+            runtime.save_progress(&config)?;
             return Err(error);
         }
         Err(_) => match fetch_manifest(&client, &remote_root)? {
@@ -628,7 +697,7 @@ fn retry_pending_manifest(
         Ok(_) => commit_push(runtime, config, &pending.manifest, &pending.fingerprint)?,
         Err(error) if error.code == "SYNC_PRECONDITION" => {
             config.pending_push = None;
-            runtime.save_config(config)?;
+            runtime.save_progress(&config)?;
             return Err(error);
         }
         Err(_) => {
@@ -683,7 +752,7 @@ pub fn reconcile(runtime: &SyncRuntime) -> Result<ReconcileResult> {
         }
         resolution => {
             config.pending_push = None;
-            runtime.save_config(config)?;
+            runtime.save_progress(&config)?;
             Ok(ReconcileResult {
                 outcome: if matches!(resolution, PendingResolution::Retryable) {
                     "not_landed"
@@ -760,11 +829,19 @@ pub fn finalize_pending_pull(worker: &Worker, runtime: &SyncRuntime) -> Result<(
     let Some(pending) = pending else {
         return Ok(());
     };
-    if worker
-        .backup_session_result(pending.token.clone())?
-        .is_none()
-    {
-        return Ok(());
+    match worker.backup_session_result(pending.token.clone()) {
+        Ok(Some(_)) => {}
+        Ok(None) => return Ok(()),
+        // The person cancelled the confirmation: the checked session is gone, so the
+        // remembered pull has nothing left to finish and must not block later checks.
+        Err(error) if error.code == "SESSION" => {
+            *runtime
+                .pending_pull
+                .lock()
+                .map_err(|_| Error::new("SYNC_STATE", "同步状态暂不可用"))? = None;
+            return Ok(());
+        }
+        Err(error) => return Err(error),
     }
     let measured = local_fingerprint(worker)?;
     let mut config = runtime.config()?;
@@ -773,7 +850,7 @@ pub fn finalize_pending_pull(worker: &Worker, runtime: &SyncRuntime) -> Result<(
     config.last_synced_fingerprint = Some(measured.digest);
     config.last_synced_at = Some(Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
     config.pending_push = None;
-    runtime.save_config(config)?;
+    runtime.save_progress(&config)?;
     *runtime
         .pending_pull
         .lock()
@@ -900,7 +977,7 @@ fn commit_push(
     config.last_synced_fingerprint = Some(fingerprint.to_string());
     config.last_synced_at = Some(Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
     config.pending_push = None;
-    runtime.save_config(config)
+    runtime.save_progress(&config)
 }
 
 fn remote_status(manifest: &Manifest) -> RemoteStatus {
@@ -926,27 +1003,32 @@ fn ensure_collections(client: &UreqWebDav, path: &str) -> Result<()> {
     Ok(())
 }
 
+/// Which snapshot names to delete so at most `keep` remain. The current snapshot is never a
+/// candidate, so the result is finite even when other devices have future-dated names.
+fn prune_victims(mut names: Vec<String>, current: &str, keep: usize) -> Vec<String> {
+    names.sort();
+    names.dedup();
+    let excess = names.len().saturating_sub(keep);
+    names
+        .into_iter()
+        .filter(|name| !current.ends_with(name.as_str()))
+        .take(excess)
+        .collect()
+}
+
 fn prune_snapshots(client: &UreqWebDav, remote_root: &str, current: &str) {
     let snapshots_root = join_path(remote_root, "snapshots");
     let Ok(listing) = client.propfind(&snapshots_root, 1) else {
         return;
     };
-    let mut names = listing
+    let names = listing
         .hrefs
         .iter()
         .filter_map(|href| href.trim_end_matches('/').rsplit('/').next())
         .filter(|name| name.ends_with(".thingary.age"))
         .map(str::to_string)
         .collect::<Vec<_>>();
-    names.sort();
-    names.dedup();
-    while names.len() > 5 {
-        let name = names.remove(0);
-        if current.ends_with(&name) {
-            names.push(name);
-            names.sort();
-            continue;
-        }
+    for name in prune_victims(names, current, 5) {
         let _ = client.delete(&join_path(&snapshots_root, &name));
     }
 }
@@ -987,5 +1069,40 @@ fn device_short(device_id: &str) -> String {
         "device".into()
     } else {
         short
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::prune_victims;
+
+    fn names(items: &[&str]) -> Vec<String> {
+        items.iter().map(|item| item.to_string()).collect()
+    }
+
+    #[test]
+    fn pruning_keeps_the_newest_and_never_the_current_even_when_it_sorts_first() {
+        let list = names(&[
+            "20260101T000000Z-a",
+            "20260102T000000Z-b",
+            "20260103T000000Z-c",
+        ]);
+        assert_eq!(
+            prune_victims(list.clone(), "x/20260103T000000Z-c", 2),
+            names(&["20260101T000000Z-a"])
+        );
+        // The current snapshot has the oldest name (another device's clock is ahead).
+        let skewed = names(&[
+            "20260101T000000Z-cur",
+            "20270101T000000Z-1",
+            "20270102T000000Z-2",
+            "20270103T000000Z-3",
+        ]);
+        let victims = prune_victims(skewed, "snapshots/20260101T000000Z-cur", 2);
+        assert_eq!(
+            victims,
+            names(&["20270101T000000Z-1", "20270102T000000Z-2"])
+        );
+        assert!(prune_victims(list, "x", 5).is_empty());
     }
 }
