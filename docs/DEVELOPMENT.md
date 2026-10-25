@@ -228,7 +228,7 @@ node --import ./tests/setup/unwrap-t.mjs --test tests/sync-state.test.mjs tests/
 
 `sync_webdav` 的假服务器覆盖 MKCOL／PROPFIND／PUT／GET／DELETE、条件写入和错误脱敏；`sync_state` 覆盖方向判断、配置和口令期限；`sync_fingerprint` 覆盖内容指纹；`sync_engine` 覆盖错误口令、篡改／截断、大小／散列不符和待核对推送。`sync_e2e` 通过两个独立临时身份覆盖首次推拉、连续版本、冲突两种选择、原资料保护、全表计数与托管文件 SHA-256、远端 schema 较新拦截、清单应答丢失、未配置零连接及秘密不落盘。三个 `reconcile_*` 用例分别验证 `landed`／`not_landed`／`remote_changed`，并断言核对没有远端写入。
 
-上述命令也包含在相关全套检查中；测试存在不代表本工作树本次已通过。当前桌面“核对”处理器只调用 `sync_status`，未消费新增 `sync_reconcile`；手机界面没有同步入口。实际坚果云／Nextcloud、无 ETag 的并发、移动端往返、Windows 权限及大库性能需独立验收，不能用假服务器测试替代。现行限制见[同步架构](ARCHITECTURE.md#sync)。
+上述命令也包含在相关全套检查中；测试存在不代表本工作树本次已通过。桌面“核对”处理器调用 `sync_reconcile`（只读查看云端），手机界面在「我的 › 设置 › 同步」也有入口。实际坚果云／Nextcloud、无 ETag 的并发、移动端往返、Windows 权限及大库性能需独立验收，不能用假服务器测试替代。现行限制见[同步架构](ARCHITECTURE.md#sync)。
 
 <a id="v124-validation"></a>
 
