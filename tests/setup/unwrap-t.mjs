@@ -53,3 +53,18 @@ syncBuiltinESMExports();
 
 // Tests assert Chinese output: Node reports navigator.language as en-US, which would select the English table.
 Object.defineProperty(globalThis.navigator, 'language', { value: 'zh-CN', configurable: true });
+
+// Node 25 exposes an experimental `localStorage` object that has no working getItem unless a storage
+// file is configured, which breaks the phone form tests that read it. Give such runtimes an in-memory one.
+if (typeof globalThis.localStorage?.getItem !== 'function') {
+  const memory = new Map();
+  const storage = {
+    getItem: key => (memory.has(String(key)) ? memory.get(String(key)) : null),
+    setItem: (key, value) => { memory.set(String(key), String(value)); },
+    removeItem: key => { memory.delete(String(key)); },
+    clear: () => memory.clear(),
+    key: index => [...memory.keys()][index] ?? null,
+    get length() { return memory.size; },
+  };
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true, writable: true });
+}

@@ -100,6 +100,8 @@ iOS 不提供桌面应用菜单、窗口尺寸恢复、单实例进程控制，�
 
 <a id="android"></a>
 
+> **Windows 上跑测试**：`tests/gitee-sync.test.mjs` 会调用 `bash`，请让 `PATH` 里的 `bash` 是 Git Bash（`C:\Program Files\Git\bin`），不是 WSL 的 `C:\Windows\System32\bash.exe`。2026-10-26 真机测试里 8 个失败的 UI 用例就来自 WSL bash 与 Node 25 的实验性 Web Storage；后者已在 `tests/setup/unwrap-t.mjs` 里补了内存实现，前者需要环境配置。CI 使用 Node 22。
+
 ## Android 开发与模拟器
 
 > 应用 ID 与应用名默认是预览身份（`local.thingary.preview`／Thingary Preview）；正式构建用环境变量 `THINGARY_ANDROID_APPLICATION_ID` 与 `THINGARY_ANDROID_APP_LABEL` 切换，细节见[发布流程](RELEASING.md)的 Android 一节。Kotlin 插件类固定在 `local.thingary.preview` 包下，Rust 用 `crate::android::PLUGIN_PACKAGE` 注册。

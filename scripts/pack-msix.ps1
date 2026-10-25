@@ -260,6 +260,10 @@ if ($application.GetAttribute('Executable') -ne 'thingary.exe') { throw 'The app
 if ($application.GetAttribute('EntryPoint') -ne 'Windows.FullTrustApplication') { throw 'EntryPoint must be Windows.FullTrustApplication.' }
 $runFullTrust = $manifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Capabilities']/*[local-name()='Capability'][@Name='runFullTrust']")
 if ($null -eq $runFullTrust) { throw 'The runFullTrust capability is required for the desktop payload.' }
+$unvirtualized = $manifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Capabilities']/*[local-name()='Capability'][@Name='unvirtualizedResources']")
+if ($null -eq $unvirtualized) { throw 'The unvirtualizedResources capability is required to turn file-system write virtualization off.' }
+$virtualization = $manifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Properties']/*[local-name()='FileSystemWriteVirtualization']")
+if ($null -eq $virtualization -or $virtualization.InnerText -ne 'disabled') { throw 'FileSystemWriteVirtualization must be disabled so uninstalling the package keeps the library.' }
 $visual = $manifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Applications']/*[local-name()='Application']/*[local-name()='VisualElements']")
 if ($null -eq $visual) { throw 'The manifest has no VisualElements.' }
 $logoNode = $manifest.SelectSingleNode("/*[local-name()='Package']/*[local-name()='Properties']/*[local-name()='Logo']")

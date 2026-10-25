@@ -189,18 +189,18 @@ pwsh -NoProfile -File scripts/pack-msix.ps1 \
 
 | 项目 | NSIS 版 | MSIX 版（预期） | 处理 |
 |---|---|---|---|
-| 资料库路径 | `%LOCALAPPDATA%\local.thingary.main\library` | 默认被重定向到 `%LOCALAPPDATA%\Packages\CoderJackZhu.3513028683F74_0yc8cf5cay4hg\LocalCache\Local\local.thingary.main\library` | 真机读取实际路径；写入重定向、读取是否回落到真实目录须实测。不要在商店包里假设两个路径等价 |
-| 同步设置 | `%APPDATA%\local.thingary.main\sync` | 同样进入包内 `LocalCache\Roaming` | 真机核对同步配置保存、读取与迁移 |
-| 自动备份 | 资料库同目录 `auto-backups` | 随资料库一起被重定向 | 真机核对生成、轮换、恢复；额外自动备份目录由用户选择，位于包外，是否可写须实测 |
-| 手动备份／换机 | `.thingary` 导出／导入 | 功能不变，但路径在包存储内 | NSIS → MSIX 与 MSIX → NSIS 都只用完整备份搬运；不要直接复制包内目录，虚拟化可能看不见或写不回 |
-| 卸载 | 默认保留资料 | **默认卸载会删除包内数据** | 这是提交前的阻断决定（见下）；商店描述与首次使用须明确提示先导出完整备份 |
+| 资料库路径 | `%LOCALAPPDATA%\local.thingary.main\library` | 清单关闭了写入虚拟化，与 NSIS 相同的真实路径（待真机复验，M3） | 真机核对写入落在真实目录、包内没有副本；默认虚拟化下曾落在包存储里并随卸载消失 |
+| 同步设置 | `%APPDATA%\local.thingary.main\sync` | 同一真实路径 | 真机核对同步配置保存、读取，与 NSIS 版共用同一份设置 |
+| 自动备份 | 资料库同目录 `auto-backups` | 同一真实路径，随卸载保留 | 真机核对生成、轮换、恢复；额外自动备份目录由用户选择，已验证可写与不可写目录的提示 |
+| 手动备份／换机 | `.thingary` 导出／导入 | 功能不变（NSIS ↔ MSIX 双向完整备份已在 Sandbox 验证，逐表逐行一致） | 换版仍只用完整备份；不要直接复制资料目录 |
+| 卸载 | 默认保留资料 | 关闭虚拟化后应同样保留资料（默认虚拟化下实测会删除，已据此改清单，待复验 M5） | 商店描述仍建议提示用户卸载前先导出完整备份 |
 | 应用内检查更新 | 读取 Gitee／GitHub 公开版本列表 | 已按包身份禁用（`GetCurrentPackageFullName`），由商店更新 | 真机确认没有检查入口、启动不联网、商店更新生效 |
-| 单实例 | 每用户一个主实例 | 由包内进程和同一应用标识决定，预期仍单实例 | 连续启动、开始菜单启动、通知点击各验一次；NSIS 与 MSIX 并装时可能争同一把锁，不要同时运行 |
+| 单实例 | 每用户一个主实例 | 实测：NSIS 与 MSIX 同时存在时，启动 NSIS 会被运行中的 MSIX 实例接管 | 两种安装共用同一份资料和同一个实例；不建议并装，换版请先卸载旧的，并用完整备份搬运 |
 | 通知 | 启动时登记未打包 AUMID／`LocalServer32` 激活 | MSIX 的 AUMID 是 `包族名!App`，包身份由系统注册 | **高风险**：现有未打包注册在 MSIX 下可能无效或需要另写路径；必须真机验证三类提醒的送达与点击，失败则修复后再提交 |
 | 文件选择 | `rfd`／系统文件面板 | 全信任桌面进程，预期不变 | 选图、备份、xlsx、文件夹、另存为各验成功与取消，中文／带空格路径 |
 | 报告打印／导出 PDF | WebView2 打印对话框 | 预期不变 | 真机打开打印预览并“另存为 PDF”，核对分页与内容 |
 
-**卸载与资料安全（提交前必须决定）**：MSIX 默认把 `%LOCALAPPDATA%`／`%APPDATA%` 的写入重定向到包私有存储，卸载包时 Windows 会清理这些文件。按当前默认清单，商店版卸载可能直接删除资料库和自动备份，这与 NSIS“默认保留资料”相反。模板里保留默认行为，并把 `desktop6:FileSystemWriteVirtualization` 写成注释：关闭虚拟化能让路径回到真实 `%LOCALAPPDATA%`，但会改变卸载、并装和数据归属行为，必须先核对清单 schema 并在 Windows 11 真机验证。另一个选择是在应用里把资料放到包外并明确提示。**在选定方案并完成真机验证前，不提交商店包。** 不要在没有验证的情况下把“卸载会删资料”写成已解决。
+**卸载与资料安全（已决定，待真机复验）**：真机验证（2026-10-26，Windows Sandbox）确认：MSIX 默认把 `%LOCALAPPDATA%`／`%APPDATA%` 的写入重定向到包私有存储，卸载包会删除资料库、图片和包内自动备份；重装的 MSIX 还会读到 NSIS 的真实资料目录。决定：清单关闭写入虚拟化（`desktop6:FileSystemWriteVirtualization=disabled`，需要受限能力 `unvirtualizedResources`，提交时要在 Partner Center 写理由），让商店版和 NSIS 一样使用真实的 `%LOCALAPPDATA%\local.thingary.main`：卸载保留资料，两种安装共用一份资料库和一个运行实例。`pack-msix.ps1` 会校验这两项。**提交商店包前必须在 Windows 11 真机或 Sandbox 复验 M3、M5、M9**（资料落在真实目录、卸载后仍在、并装只有一个实例），并在 Store 提交页为 `unvirtualizedResources` 写理由：应用把用户的本地资料库放在 `%LOCALAPPDATA%\local.thingary.main`，需要与未打包的安装版共用并在卸载后保留，避免用户丢失个人财务资料。
 
 #### `runFullTrust` 认证理由（英文草稿）
 
