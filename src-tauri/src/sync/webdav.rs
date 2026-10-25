@@ -120,6 +120,11 @@ impl UreqWebDav {
     }
 
     fn url(&self, path: &str) -> Result<String> {
+        // Collections are addressed with a trailing slash: Apache, nginx and several NAS servers
+        // answer a slash-less collection URL with a redirect, which this client never follows.
+        let (path, slash) = path
+            .strip_suffix('/')
+            .map_or((path, ""), |inner| (inner, "/"));
         let mut safe = String::new();
         for (index, component) in path.split('/').enumerate() {
             if component.is_empty() || component == "." || component == ".." {
@@ -136,7 +141,7 @@ impl UreqWebDav {
                 }
             }
         }
-        Ok(format!("{}/{safe}", self.base_url))
+        Ok(format!("{}/{safe}{slash}", self.base_url))
     }
 
     pub fn get_optional(&self, path: &str) -> Result<Option<DavResponse>> {
@@ -151,7 +156,7 @@ impl UreqWebDav {
 
 impl WebDav for UreqWebDav {
     fn mkcol(&self, path: &str) -> Result<()> {
-        let (status, _) = self.request("MKCOL", path, &[], &[], 1)?;
+        let (status, _) = self.request("MKCOL", &collection(path), &[], &[], 1)?;
         match status {
             200 | 201 | 204 | 405 => Ok(()),
             _ => Err(status_error(status)),
@@ -194,7 +199,8 @@ impl WebDav for UreqWebDav {
 
     fn propfind(&self, path: &str, depth: u8) -> Result<PropfindResponse> {
         let depth = depth.to_string();
-        let (status, response) = self.request("PROPFIND", path, &[], &[("Depth", &depth)], 2)?;
+        let (status, response) =
+            self.request("PROPFIND", &collection(path), &[], &[("Depth", &depth)], 2)?;
         if status != 207 && status != 200 {
             return Err(status_error(status));
         }
@@ -225,6 +231,10 @@ impl WebDav for UreqWebDav {
             etag: response.etag,
         })
     }
+}
+
+fn collection(path: &str) -> String {
+    format!("{}/", path.trim_end_matches('/'))
 }
 
 fn status_error(status: u16) -> Error {
