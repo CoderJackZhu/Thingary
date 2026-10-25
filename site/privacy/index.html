@@ -20,45 +20,55 @@
     <main id="main" class="wrap" tabindex="-1" style="max-width:820px">
       <div class="help-breadcrumb"><a href="../">首页</a> / 隐私政策 · <a href="#english" lang="en">English</a></div>
       <h1>隐私政策</h1>
-      <p class="help-lead">一句话：物谱不收集你的任何资料。你的物品、账户、金额和照片只保存在你自己的设备上，我们拿不到，也没有地方可以上传。</p>
-      <p>最后更新：2026-10-21。适用于物谱（Thingary）的 iOS 版，以及 Mac 与 Windows 桌面版中与资料有关的部分。</p>
+      <p class="help-lead">一句话：你的资料留在你自己的设备上，我们拿不到。想在几台设备间用同一份资料，可以自己接一个网盘（可选，默认关闭），内容先加密再上传，我们同样看不到。物谱没有账号、广告和使用统计。</p>
+      <p>最后更新：2026-10-25。适用于物谱（Thingary）的 Android、iOS、Mac 与 Windows 版。</p>
       <article class="guide-article">
-        <h2 id="local">资料只存在本机</h2>
-        <p>物谱没有账号，也没有我们运营的云端。同步默认关闭，只有你主动配置自己的 WebDAV 后才会发生（见下文「可选的同步」）。你记录的物品、账户、盘点、规划条件和照片都保存在这台设备应用自己的存储空间里。物谱的开发者不运营收集资料的服务器，无法查看、读取或恢复你的资料。</p>
+        <h2 id="local">资料默认只在你的设备上</h2>
+        <p>你记录的物品、账户、盘点、规划条件和照片，都保存在这台设备上物谱自己的存储空间里。物谱没有账号，我们也没有运营任何接收你资料的服务器，所以我们既看不到，也没法帮你恢复。同步默认关闭，只有你自己配置之后才会发生，见下文「可选的同步」。</p>
+        <p>要说清楚的一点：设备上的资料库和图片本身没有加密，可选的加密保护的是你导出的备份和上传的同步副本。</p>
 
-        <h2 id="no-collect">不收集、不上传、不跟踪</h2>
+        <h2 id="no-collect">我们不收集，也不跟踪</h2>
         <ul>
-          <li>不收集个人信息、设备标识、使用记录或崩溃日志。</li>
+          <li>不自动向开发者发送个人信息、设备标识、使用记录或崩溃日志。</li>
           <li>不含广告，不含第三方统计、分析或跟踪工具；本网站也不使用统计脚本（在线测算页的可选计数功能默认关闭）。</li>
-          <li>不与任何第三方共享资料，因为我们没有你的资料。</li>
+          <li>开发者不会将你记录的资料提供给第三方；你主动配置的同步和分享由你选择的服务处理。</li>
           <li>App 隐私标签与应用内的隐私清单据此声明：不收集数据，不用于跟踪。</li>
         </ul>
 
         <h2 id="offline">默认不联网</h2>
-        <p>iOS 版默认不访问网络，也不检查更新（更新由 App Store 管理）。接触网络的情形只有：你主动点击应用里的帮助、反馈、官网链接，或你自己为心愿填写的商品链接：此时由系统浏览器打开该网页，访问的是对应网站，物谱不会附带你的任何资料。桌面版的「检查更新」只在你开启或点击后访问公开版本列表，不发送资料；以及下文你自己开启的同步。</p>
+        <p>手机版未配置同步时不主动访问网络。你点击帮助、官网、GitHub 反馈或自己填写的商品链接时，由系统浏览器打开对应网页，不附带资料库内容。桌面版的「检查更新」只在你开启或点击后访问公开版本列表，不发送资料库内容。可选同步见下文。</p>
+        <p>「写邮件反馈」会打开一封草稿，附上应用版本、系统版本和屏幕尺寸等运行环境信息，不读取物品、账户或金额。你可以修改草稿，并自行决定是否发送。</p>
 
         <h2 id="sync">可选的同步（默认关闭）</h2>
-        <p>你可以在设置里选择 WebDAV 同步，把资料同步到你自己的服务（如坚果云、Nextcloud 或自建服务器）。资料先在本机用你设置的同步口令加密，再上传；服务器和我们都看不到内容，但能看到清单里的设备名、时间、版本号和文件大小。开启后，物谱会在打开、回到前台或进入后台时联系你配置的服务器，核对是否有新版本，不会自动替换你本机的资料。物谱的开发者不运营这个服务器，不会收到你的地址、账号、密码或口令；这些只保存在你的设备上。忘记同步口令后，云端的加密副本无法恢复。</p>
+        <p>如果你想在几台设备间使用同一份资料，可以在设置里选 WebDAV 同步，把资料放到你自己的网盘（如坚果云、Nextcloud）或自建服务器上。</p>
+        <ul>
+          <li><strong>加密在你的设备上完成。</strong>资料先用你设置的同步口令加密，再上传；服务器的运营方和我们都看不到内容。服务器能看到的只有设备名、时间、版本号和文件大小。</li>
+          <li><strong>什么时候联网。</strong>开启后，物谱会在打开、回到前台或进入后台时联系你配置的服务器，看有没有新版本。它不会自己替换你设备上的资料，有新版本或冲突时会提示你自己选。</li>
+          <li><strong>我们收不到什么。</strong>你的服务器地址、账号、密码和同步口令只保存在你的设备上，开发者收不到。</li>
+          <li><strong>口令要自己记好。</strong>忘记同步口令，云端的加密副本就无法恢复；你设备上的资料不受影响。</li>
+        </ul>
 
         <h2 id="backup">备份由你自己保管</h2>
-        <p>物谱可以把全部资料导出为备份文件，也可导出表格或 PDF 报告。iOS 上导出后会打开系统分享面板，由你决定保存到「文件」、iCloud 云盘、发给自己或不保存。物谱不会自动把备份发送到任何地方。你可以在「备份安全」中用恢复密钥给备份加密；密钥丢失后无法找回加密备份，请自行妥善保存。备份一旦离开物谱，其保管与隐私由你选择的服务负责。</p>
+        <p>物谱可以导出完整备份和表格，支持的平台还可导出 PDF 报告。Android 与 iOS 导出后会打开系统分享面板，由你决定保存到哪里、发送给谁或取消。物谱不会自动发送这些导出文件。你可以在「备份安全」中用恢复密钥给备份加密；密钥丢失后无法找回加密备份，请自行妥善保存。备份一旦离开物谱，其保管与隐私由你选择的服务负责。</p>
 
         <h2 id="permissions">权限各自的用途</h2>
         <div class="table"><table>
           <thead><tr><th>权限</th><th>用途</th><th>说明</th></tr></thead>
           <tbody>
-            <tr><td>相机</td><td>为物品、凭证拍照</td><td>仅在你点「拍摄」时使用；照片保存在本机物品档案，不上传。</td></tr>
-            <tr><td>相册</td><td>选择已有照片作为物品图片或凭证</td><td>只读取你选中的照片，不浏览整个相册。</td></tr>
-            <tr><td>面容 ID / 触控 ID</td><td>解锁物谱中的本机资料</td><td>验证由系统完成，生物识别信息不会进入物谱，物谱只得知验证是否通过。需要你主动开启。</td></tr>
+            <tr><td>相机（iOS）</td><td>为物品、凭证拍照</td><td>仅在你点「拍摄」时使用；照片保存在本机物品档案。Android 版不申请相机权限。</td></tr>
+            <tr><td>相册与文件选择</td><td>选择图片、导入表格或恢复备份</td><td>只读取你选中的内容。Android 版不申请全盘文件或整个相册的读取权限。</td></tr>
+            <tr><td>系统身份验证</td><td>解锁物谱中的本机资料</td><td>使用面容 ID、触控 ID 或 Android 的生物识别／设备凭据。验证由系统完成，物谱不会读取指纹、面容或设备密码。需要你主动开启。</td></tr>
             <tr><td>通知</td><td>在本机按计划提醒盘点、保修到期、周期付款等</td><td>全部是本机定时通知，不经过推送服务器；拒绝通知不影响其他功能。</td></tr>
+            <tr><td>开机完成（Android）</td><td>手机重启后恢复已设置的提醒</td><td>只重新安排本机提醒，不上传资料。</td></tr>
+            <tr><td>网络（Android）</td><td>连接你配置的 WebDAV 服务器</td><td>同步默认关闭，开启后只连接你指定的地址。开发者不接收资料或服务器凭据。</td></tr>
           </tbody>
         </table></div>
-        <p>以上权限都可随时在系统「设置」中关闭。物谱还提供「屏幕隐私」选项，在切换应用时遮住内容。</p>
+        <p>通知等可授权权限可在系统「设置」中调整；同步和身份验证可在物谱设置中关闭。Android 版不申请通讯录、短信、定位或电话权限。物谱还提供「屏幕隐私」选项，在切换应用时遮住内容。</p>
 
         <h2 id="delete">如何删除资料</h2>
         <ul>
           <li><strong>应用内：</strong>可删除单条物品、心愿、账户或记录；删除的内容先进入「最近删除」，在「最近删除」中清空后永久清除。</li>
-          <li><strong>整体删除：</strong>从设备上删除物谱 App，会同时删除它保存的全部资料（包括应用内保存的自动备份）。</li>
+          <li><strong>整体删除：</strong>在 Android 或 iOS 上卸载物谱，会删除应用内保存的资料（包括应用内保存的自动备份）。桌面版的资料清理见<a href="../guide/update/">更新与卸载指南</a>。</li>
           <li><strong>你导出的文件：</strong>已分享到「文件」、云盘或其他位置的备份、表格、PDF 不由物谱管理，请到相应位置自行删除。</li>
         </ul>
         <p>物谱的开发者没有你的资料副本，所以不存在向我们申请删除的流程。</p>
@@ -75,13 +85,14 @@
 
       <article class="guide-article" id="english" lang="en">
         <h2>Privacy Policy (English)</h2>
-        <p><strong>Thingary does not collect any data.</strong> Everything you record (items, accounts, snapshots, plans, photos) stays on your device. There is no account, no analytics, no advertising and no tracking, and the developer operates no cloud or server that receives your data; the developer cannot see or recover it. Sync is optional and off by default: if you turn it on, Thingary uploads an encrypted snapshot to a WebDAV server that you configure yourself. Last updated: 2026-10-25.</p>
+        <p><strong>Thingary has no account, advertising or usage analytics.</strong> This policy covers Android, iOS, Mac and Windows. Your items, accounts, snapshots, plans and photos are stored on your device by default. The developer operates no server that receives your library. Optional sync, off by default, uploads an encrypted snapshot to a WebDAV server you configure yourself. The library and photos on the device itself are not encrypted; optional encryption protects exported backups and sync copies. Last updated: 2026-10-25.</p>
         <ul>
-          <li><strong>No network by default.</strong> The iOS app makes no network requests and does not check for updates (updates come from the App Store). The only requests are those you start: tapping a help, feedback or website link, or a product link you entered yourself (the system browser opens that page; Thingary sends nothing along), and the optional sync described next.</li>
+          <li><strong>No network by default.</strong> The mobile app makes no network requests unless you configure sync or open an external link. Help, GitHub feedback, website and product links open in the system browser without library contents. Desktop update checks run only when requested or enabled and do not send library contents.</li>
+          <li><strong>Feedback email.</strong> Writing feedback opens a draft with the app version, system version, screen dimensions and other runtime details, without reading your items, accounts or balances. You can edit it and decide whether to send it.</li>
           <li><strong>Optional sync (off by default).</strong> Your library is encrypted on the device with a passphrase you choose before it is uploaded to your own WebDAV server (for example Jianguoyun or Nextcloud). The server operator, and we, cannot read it, but the server can see device names, timestamps, version numbers and file sizes. Thingary contacts that server when you open the app or bring it to the foreground or background, to check for a newer version; it never replaces your local data on its own. The developer receives no address, account, password or passphrase. A forgotten passphrase cannot be recovered.</li>
-          <li><strong>Backups are yours.</strong> Exports (backup, spreadsheet, PDF) are handed to the iOS share sheet; you decide where they go. Optional recovery-key encryption is available; a lost key cannot be recovered.</li>
-          <li><strong>Permissions.</strong> Camera: take photos of items and receipts. Photos: pick photos you choose, nothing else. Face ID: unlock the app through the system; biometric data never reaches Thingary. Notifications: local reminders scheduled on the device, no push server.</li>
-          <li><strong>Deleting data.</strong> Delete records in the app (they go to Recently Deleted first; empty it to remove permanently), or delete the app to remove all of its data. Files you exported elsewhere must be deleted there.</li>
+          <li><strong>Backups are yours.</strong> Backup and spreadsheet exports, and PDF reports on supported platforms, are shared through the system share sheet on Android and iOS. You choose the destination or cancel; exports are not sent automatically. Optional recovery-key encryption is available; a lost key cannot be recovered. The local database and photos are not encrypted; optional encryption protects backup and sync copies.</li>
+          <li><strong>Permissions.</strong> Camera access applies to iOS only. Image and file selection reads only what you choose. System authentication uses Face ID, Touch ID or Android biometrics/device credentials; biometric data and device passwords never reach Thingary. Notifications are local reminders, without a push server. Android boot-completion access restores your scheduled reminders after a restart; network access connects to your configured WebDAV server. Android requests no camera, contacts, SMS, location, phone or broad storage permission.</li>
+          <li><strong>Deleting data.</strong> Delete records in the app (they go to Recently Deleted first; empty it to remove permanently). On Android and iOS, uninstalling the app removes its internal data and backups. Desktop cleanup is described in the <a href="../guide/update/">update and uninstall guide</a>. Files you exported elsewhere must be deleted there.</li>
           <li><strong>Contact.</strong> <a href="https://github.com/CoderJackZhu/Thingary/issues">GitHub Issues</a>. Please do not post real financial data or backups publicly.</li>
         </ul>
       </article>
