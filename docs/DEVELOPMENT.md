@@ -102,6 +102,8 @@ iOS 不提供桌面应用菜单、窗口尺寸恢复、单实例进程控制，�
 
 ## Android 开发与模拟器
 
+> 应用 ID 与应用名默认是预览身份（`local.thingary.preview`／Thingary Preview）；正式构建用环境变量 `THINGARY_ANDROID_APPLICATION_ID` 与 `THINGARY_ANDROID_APP_LABEL` 切换，细节见[发布流程](RELEASING.md)的 Android 一节。Kotlin 插件类固定在 `local.thingary.preview` 包下，Rust 用 `crate::android::PLUGIN_PACKAGE` 注册。
+
 Android 与 iOS 共用 `mobile.html` 和 Rust 业务层。工程在 `src-tauri/gen/android/`，平台配置为 `src-tauri/tauri.android.conf.json`，开发应用标识 `local.thingary.preview`。当前 Gradle 配置的 `compileSdk`／`targetSdk` 为 37、`minSdk` 为 29；这是编译／目标／最低系统要求，不代表所有对应系统都已验收。Android 原生能力边界见[架构说明](ARCHITECTURE.md#android-平台层)。
 
 ### 工具与构建

@@ -15,8 +15,8 @@ struct AndroidLinksPlugin<R: Runtime>(PluginHandle<R>);
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("thingary-links")
         .setup(|app, api| {
-            let identifier = app.config().identifier.clone();
-            let handle = api.register_android_plugin(&identifier, "LinksPlugin")?;
+            let handle =
+                api.register_android_plugin(crate::android::PLUGIN_PACKAGE, "LinksPlugin")?;
             app.manage(AndroidLinksPlugin(handle));
             Ok(())
         })

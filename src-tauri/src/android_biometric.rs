@@ -10,9 +10,9 @@ static PLUGIN: OnceLock<PluginHandle<tauri::Wry>> = OnceLock::new();
 
 pub fn plugin() -> TauriPlugin<tauri::Wry> {
     Builder::new("thingary-biometric")
-        .setup(|app, api| {
+        .setup(|_app, api| {
             let handle =
-                api.register_android_plugin(&app.config().identifier, "BiometricPlugin")?;
+                api.register_android_plugin(crate::android::PLUGIN_PACKAGE, "BiometricPlugin")?;
             let _ = PLUGIN.set(handle);
             Ok(())
         })

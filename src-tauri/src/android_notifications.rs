@@ -9,9 +9,9 @@ static PLUGIN: OnceLock<PluginHandle<tauri::Wry>> = OnceLock::new();
 
 pub fn plugin() -> TauriPlugin<tauri::Wry> {
     Builder::new("thingary-notifications")
-        .setup(|app, api| {
+        .setup(|_app, api| {
             let handle =
-                api.register_android_plugin(&app.config().identifier, "NotificationsPlugin")?;
+                api.register_android_plugin(crate::android::PLUGIN_PACKAGE, "NotificationsPlugin")?;
             PLUGIN.set(handle).map_err(|_| "通知服务已经初始化")?;
             Ok(())
         })

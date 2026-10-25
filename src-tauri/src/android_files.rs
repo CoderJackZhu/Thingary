@@ -106,8 +106,8 @@ mod platform {
     pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
         Builder::new("thingaryFiles")
             .setup(|app, api| {
-                let identifier = app.config().identifier.clone();
-                let handle = api.register_android_plugin(&identifier, "FilesPlugin")?;
+                let handle =
+                    api.register_android_plugin(crate::android::PLUGIN_PACKAGE, "FilesPlugin")?;
                 app.manage(AndroidFiles(handle));
                 Ok(())
             })

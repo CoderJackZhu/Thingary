@@ -9,13 +9,16 @@ use tauri::{
 
 struct AndroidPlugin<R: Runtime>(PluginHandle<R>);
 
+/// Package of the Kotlin plugin classes. It is the source package, not the application id,
+/// so a release build can ship under another applicationId without breaking plugin lookup.
+pub(crate) const PLUGIN_PACKAGE: &str = "local.thingary.preview";
+
 /// Registers the Kotlin `ThingaryPlugin` under the app's identifier, so a
 /// release build with a different package path still resolves its class.
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("thingary")
         .setup(|app, api| {
-            let identifier = app.config().identifier.clone();
-            let handle = api.register_android_plugin(&identifier, "ThingaryPlugin")?;
+            let handle = api.register_android_plugin(PLUGIN_PACKAGE, "ThingaryPlugin")?;
             app.manage(AndroidPlugin(handle));
             Ok(())
         })

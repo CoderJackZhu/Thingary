@@ -57,9 +57,9 @@
 
 签名获批并启用后，以对应版本的 Release 说明为准；启用前不会把安装包写成已签名。签名范围、审批、隐私和申请进度见 [Windows 代码签名政策](docs/CODE_SIGNING.md)。
 
-### Android（开发中，暂无安装包）
+### Android（预览中，Release 暂无安装包）
 
-Android 版仍在开发，本仓库的 Release 里暂时没有 APK，请不要从第三方转存安装。发布后会提供 `Thingary-<版本>-android.apk`，校验值列在 Release 的 `SHA256SUMS.txt` 里：
+Android 版处于预览阶段，本仓库的 Release 里暂时没有 APK，请不要从第三方转存安装。发布后会提供 `Thingary-<版本>-android.apk`，校验值列在 Release 的 `SHA256SUMS.txt` 里：
 
 1. 只从本仓库的 Release 下载 APK。
 2. 按系统提示，允许浏览器或文件管理器「安装未知应用」，装好后可以收回这项权限。
@@ -84,7 +84,7 @@ iPhone 版目前没有上架 App Store，也不提供公开安装包。有 Xcode
 - **不联网取行情，也不做交易。** 没有实时价格、收益率、自动付款或 AI；投资收益和汇率需要自己填写。不提供日常流水记账。
 - **源码已有可选的 WebDAV 整库同步。** 默认关闭，连接自己的服务器；快照加密，设备名等清单元数据为明文；开启后只在打开、前后台切换时核对云端，不自动替换本机资料，不做物谱账号体系或多人协作。手机也有同步页（真实云盘与真机验证尚未完成，属实验性），详见[同步说明](docs/USER_GUIDE.md#sync)；已发布包以版本说明为准。
 - **安装包未签名、未公证。** Mac 包只做本地临时签名，未使用 Developer ID 或 Apple 公证；Windows 免费代码签名仍在申请中，当前安装包未签名。发布包附带校验和。自行构建的方法见[开发说明](docs/DEVELOPMENT.md)。
-- **界面目前只有简体中文。** 支持范围：macOS 14+（Apple Silicon 已实测，Intel 仅构建检查）、Windows 11 x64（已实测；Windows 10 1809+ 为目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟；未签名）；Android 开发中，iOS 需自行构建；没有 Linux 客户端。完整清单见[已知限制](https://thingary.jackzhu.top/quickstart/#limits)。
+- **界面支持简体中文和 English**（设置 › 通用，自动时中文系统显示中文，其他显示英文）。支持范围：macOS 14+（Apple Silicon 已实测，Intel 仅构建检查）、Windows 11 x64（已实测；Windows 10 1809+ 为目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟；未签名）；Android 预览中（Release 暂未附 APK），iOS 需自行构建；没有 Linux 客户端。完整清单见[已知限制](https://thingary.jackzhu.top/quickstart/#limits)。
 
 ## 资料与隐私
 

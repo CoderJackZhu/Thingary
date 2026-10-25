@@ -48,7 +48,10 @@ android {
     namespace = "local.thingary.preview"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "local.thingary.preview"
+        // The preview identity is the default; a release build sets THINGARY_ANDROID_APPLICATION_ID
+        // (and THINGARY_ANDROID_APP_LABEL). The Kotlin plugin classes stay in the source package.
+        applicationId = System.getenv("THINGARY_ANDROID_APPLICATION_ID") ?: "local.thingary.preview"
+        manifestPlaceholders["appLabel"] = System.getenv("THINGARY_ANDROID_APP_LABEL") ?: "Thingary Preview"
         minSdk = 29
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

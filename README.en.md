@@ -16,13 +16,13 @@
 
 Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts accounts, belongings, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally, needs no account, and does not ask you to log every transaction.
 
-The interface is currently **Simplified Chinese only**. Account types are designed around mainland China (housing provident fund, individual pension accounts, mortgages), and amounts are recorded in Chinese yuan (CNY).
+The interface is available in **Simplified Chinese and English** (Settings › General; "Auto" follows the system language). Account types are designed around mainland China (housing provident fund, individual pension accounts, mortgages); the base currency is Chinese yuan (CNY), and foreign-currency accounts are supported with exchange rates you enter yourself.
 
 ## What it does
 
 | | |
 |---|---|
-| **Accounts and check-ins** | Record assets, debts, and a mortgage; check balances monthly or quarterly. Complete check-ins build a net-worth trend, and unchanged balances can be confirmed row by row. |
+| **Accounts and check-ins** | Record assets, debts, and a mortgage; check balances monthly or quarterly. Complete check-ins build a net-worth trend, and a new check-in starts with unchanged balances carried over, so only accounts that moved need typing. |
 | **Goals and planning** | Estimate required monthly savings and a possible financial-independence date; compare a large purchase, a break from work, or a job change. |
 | **Review and plans** | Income and major expenses, period review, savings goals, recurring costs, and large planned payments. Unknown values stay unknown, never zero. |
 | **Belongings (optional)** | Prices, photos, repairs, and warranties, with history kept after sale or retirement, plus daily ownership cost. |
@@ -59,9 +59,9 @@ The Windows installer is currently **unsigned**. We are preparing an application
 
 If signing is approved and enabled, the release notes for that version are the source of truth; this page will not call an installer signed before it is. See the [Windows code signing policy (Chinese)](docs/CODE_SIGNING.md) for scope, approval, privacy, and application status.
 
-### Android (in development, no installer yet)
+### Android (preview, no installer yet)
 
-The Android version is still in development; there is no APK in Releases yet, so do not install copies from third-party mirrors. Once published, the release will include `Thingary-<version>-android.apk`, with its checksum in the release's `SHA256SUMS.txt`:
+The Android version is in preview; there is no APK in Releases yet, so do not install copies from third-party mirrors. Once published, the release will include `Thingary-<version>-android.apk`, with its checksum in the release's `SHA256SUMS.txt`:
 
 1. Download the APK only from this repository's Releases.
 2. Allow your browser or file manager to “install unknown apps” when prompted; you can revoke that permission afterwards.
@@ -84,13 +84,13 @@ After your first entries, make a full backup under **Settings › Data managemen
 ## Known limitations
 
 - **No market data or trading.** There are no live prices, return tracking, automatic payments, or AI; investment returns and exchange rates are entered by hand. There is no daily transaction ledger.
-- **Desktop source includes optional manual WebDAV snapshot sync.** It is off by default and connects to your own server. Snapshots are encrypted; manifest metadata, including device names, is plaintext. There is no automatic sync, Thingary account system, or collaboration. The mobile app has a sync page too; native device verification is still pending. See the [sync guide (Chinese)](docs/USER_GUIDE.md#sync); released packages follow their release notes.
+- **Source includes optional WebDAV snapshot sync (experimental).** It is off by default and connects to your own server (for example Jianguoyun or Nextcloud). Snapshots are encrypted with a passphrase you choose; manifest metadata, including device names, is plaintext. Once enabled it checks the cloud when the app opens or changes between foreground and background and uploads plain fast-forwards, but it never replaces your local data on its own. There is no Thingary account system or collaboration. Tested against local WebDAV servers and an Android emulator only; real cloud providers and phones are still unverified. See the [sync guide (Chinese)](docs/USER_GUIDE.md#sync); released packages follow their release notes.
 - **Builds are unsigned and not notarized.** The Mac build is ad-hoc signed without a Developer ID or Apple notarization; the free Windows code-signing application is still in progress, so current Windows installers are unsigned. Releases include checksums. See the [development guide](docs/DEVELOPMENT.md) to build your own.
-- **Simplified Chinese interface only.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); Android in development, iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
+- **Interface in Simplified Chinese and English.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); Android in preview, iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
 
 ## Privacy
 
-Records stay local by default, with no Thingary account or login required. Optional WebDAV sync sends encrypted snapshots to your configured server; once enabled, it connects only when you click Check cloud, Test connection or Sync now; opening settings and saving configuration do not use the network. Desktop update checks read the public release lists on Gitee and GitHub only when you click **Check for updates**, or after you enable startup checks; it sends no records, device, or usage information (like any website visit, the request carries standard network information and an app-version User-Agent). The iOS version does not check for updates.
+Records stay local by default, with no Thingary account or login required. Optional WebDAV sync sends encrypted snapshots to your configured server; once enabled, it connects when you click Sync now, Check only or Test connection, and when the app opens or moves between foreground and background (you can turn that off in the sync settings); opening settings and saving configuration do not use the network by themselves. Desktop update checks read the public release lists on Gitee and GitHub only when you click **Check for updates**, or after you enable startup checks; it sends no records, device, or usage information (like any website visit, the request carries standard network information and an app-version User-Agent). The iOS version does not check for updates.
 
 The main database and photos are **not encrypted**. Backup encryption is optional, and the recovery key is yours to keep; losing it means the backup cannot be restored. Automatic backups share the same disk as the main data, so keep a separate off-device copy. Read [privacy and data safety (Chinese)](https://thingary.jackzhu.top/guide/#privacy).
 

@@ -171,6 +171,14 @@ SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，�
 
 <a id="ios"></a>
 
+## Android（GitHub APK）
+
+- **应用 ID 与名称**：正式版是 `local.thingary.main`，应用名「物谱」；开发预览是 `local.thingary.preview`、「Thingary Preview」，两者可同时安装。构建时用环境变量 `THINGARY_ANDROID_APPLICATION_ID`、`THINGARY_ANDROID_APP_LABEL` 切换（`release-draft.yml` 的 Android 步骤已设为正式值）；不设置就是预览身份。Kotlin 插件类固定在源码包 `local.thingary.preview` 下，Rust 通过 `crate::android::PLUGIN_PACKAGE` 注册，不随应用 ID 变化——不要把它改回读 `identifier`。
+- **发布密钥**：用一把专用密钥，离线备份，丢失后无法更新已安装的版本；不要和本地预览密钥（`.local/signing/`）混用。GitHub secrets：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`；缺失时 Android 步骤自动跳过。
+- **本地验证**：`THINGARY_ANDROID_APPLICATION_ID=local.thingary.main THINGARY_ANDROID_APP_LABEL=物谱 npm run android:build -- --target aarch64`，再用 `aapt2 dump badging` 核对包名与名称，装机后确认能进首页。
+- **安装提示**：国产安卓系统可能对未备案或未知来源应用弹提示或拦截；那是系统策略，不是应用故障。附件只从本仓库 Release 下载，并用 `SHA256SUMS.txt` 核对。
+- 产物名为 `Thingary-<版本>-android.apk`，随 Release 草稿附上，公开前仍按上文「多平台放行」逐项核对。
+
 ## iOS（App Store）
 
 先 TestFlight 内部测试，再准备海外区上架；**未经 Jack 明确授权，不提交 App Store 审核**。商店文案见 [App Store 上架文案](releases/app-store-listing.md)，隐私页在官网 `/privacy/`。
