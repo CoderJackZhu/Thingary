@@ -1074,7 +1074,29 @@ fn device_short(device_id: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::prune_victims;
+    use super::{prune_victims, SyncConfig, SyncRuntime};
+    use std::sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    };
+    use std::{thread, time::Duration};
+
+    fn runtime(temp: &tempfile::TempDir, config: SyncConfig) -> SyncRuntime {
+        let root = temp.path().join("config");
+        super::ConfigStore::new(root.clone()).save(&config).unwrap();
+        SyncRuntime::new(root, temp.path().join("staging")).unwrap()
+    }
+
+    fn enabled_with_secrets() -> SyncConfig {
+        SyncConfig {
+            enabled: true,
+            base_url: "http://127.0.0.1:1".into(),
+            username: "虚构账户".into(),
+            password: "虚构-应用密码".into(),
+            remembered_passphrase: Some("虚构-同步口令".into()),
+            ..SyncConfig::default()
+        }
+    }
 
     fn names(items: &[&str]) -> Vec<String> {
         items.iter().map(|item| item.to_string()).collect()
@@ -1104,5 +1126,106 @@ mod tests {
             names(&["20270101T000000Z-1", "20270102T000000Z-2"])
         );
         assert!(prune_victims(list, "x", 5).is_empty());
+    }
+
+    #[test]
+    fn a_late_finishing_transfer_never_re_enables_sync_or_restores_a_forgotten_passphrase() {
+        let temp = tempfile::tempdir().unwrap();
+        let runtime = runtime(&temp, enabled_with_secrets());
+        // A transfer started earlier still holds this older copy of the settings.
+        let mut stale = runtime.config().unwrap();
+        stale.library_id = Some("lib-1".into());
+        stale.last_synced_remote_version = Some(3);
+        stale.last_synced_fingerprint = Some("abc".into());
+        stale.last_synced_at = Some("2026-10-25T00:00:00Z".into());
+
+        // Meanwhile the person switches sync off and forgets the passphrase.
+        runtime
+            .update_config(|config| {
+                config.enabled = false;
+                config.remembered_passphrase = None;
+                Ok(())
+            })
+            .unwrap();
+
+        runtime.save_progress(&stale).unwrap();
+
+        let current = runtime.config().unwrap();
+        assert!(!current.enabled);
+        assert_eq!(current.remembered_passphrase, None);
+        // Only what the transfer learned is recorded.
+        assert_eq!(current.library_id.as_deref(), Some("lib-1"));
+        assert_eq!(current.last_synced_remote_version, Some(3));
+        assert_eq!(current.last_synced_fingerprint.as_deref(), Some("abc"));
+        // And the file on disk agrees with memory.
+        let saved = super::ConfigStore::new(temp.path().join("config"))
+            .load()
+            .unwrap();
+        assert!(!saved.enabled);
+        assert_eq!(saved.remembered_passphrase, None);
+        assert_eq!(saved.last_synced_remote_version, Some(3));
+        assert!(runtime.passphrase().is_err());
+    }
+
+    #[test]
+    fn a_failed_settings_change_leaves_memory_and_file_untouched() {
+        let temp = tempfile::tempdir().unwrap();
+        let runtime = runtime(&temp, enabled_with_secrets());
+        let result = runtime.update_config(|config| {
+            config.enabled = false;
+            Err(super::Error::new("TEST", "拒绝"))
+        });
+        assert!(result.is_err());
+        assert!(runtime.config().unwrap().enabled);
+        let saved = super::ConfigStore::new(temp.path().join("config"))
+            .load()
+            .unwrap();
+        assert!(saved.enabled);
+    }
+
+    #[test]
+    fn the_transfer_guard_lets_only_one_caller_in_at_a_time() {
+        let temp = tempfile::tempdir().unwrap();
+        let runtime = Arc::new(runtime(&temp, enabled_with_secrets()));
+
+        // Held by one caller, a second must wait until it is released.
+        let first = runtime.guard().unwrap();
+        let entered = Arc::new(AtomicBool::new(false));
+        let waiter = {
+            let runtime = Arc::clone(&runtime);
+            let entered = Arc::clone(&entered);
+            thread::spawn(move || {
+                let _second = runtime.guard().unwrap();
+                entered.store(true, Ordering::SeqCst);
+            })
+        };
+        thread::sleep(Duration::from_millis(150));
+        assert!(!entered.load(Ordering::SeqCst));
+        drop(first);
+        waiter.join().unwrap();
+        assert!(entered.load(Ordering::SeqCst));
+
+        // Many callers never overlap inside the guarded section.
+        let inside = Arc::new(AtomicUsize::new(0));
+        let overlaps = Arc::new(AtomicUsize::new(0));
+        let handles: Vec<_> = (0..6)
+            .map(|_| {
+                let runtime = Arc::clone(&runtime);
+                let inside = Arc::clone(&inside);
+                let overlaps = Arc::clone(&overlaps);
+                thread::spawn(move || {
+                    let _guard = runtime.guard().unwrap();
+                    if inside.fetch_add(1, Ordering::SeqCst) != 0 {
+                        overlaps.fetch_add(1, Ordering::SeqCst);
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                    inside.fetch_sub(1, Ordering::SeqCst);
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        assert_eq!(overlaps.load(Ordering::SeqCst), 0);
     }
 }

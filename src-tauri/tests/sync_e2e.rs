@@ -903,3 +903,32 @@ fn keep_this_device_works_on_a_new_device_that_has_not_synced_before() {
     // ...and choosing "keep this device" overwrites the one cloud library instead of failing.
     assert_eq!(push(&b.worker, &b.runtime, true).unwrap().version, 2);
 }
+
+#[test]
+fn a_cancelled_pull_does_not_block_later_status_or_a_new_pull() {
+    let server = FakeDav::start();
+    let a = Device::new(sync_config(&server, "虚构设备甲", true), PASSPHRASE);
+    let b = Device::new(sync_config(&server, "虚构设备乙", true), PASSPHRASE);
+    seed_library(&a.worker, "虚构相机");
+    push(&a.worker, &a.runtime, false).unwrap();
+
+    let inspection = pull_inspect(&b.worker, &b.runtime, false).unwrap();
+    let token = inspection.token.clone();
+    // The person cancels the confirmation: the checked session is gone.
+    b.worker.backup_session_cancel(token.clone()).unwrap();
+    assert_eq!(
+        b.worker.backup_session_result(token).unwrap_err().code,
+        "SESSION"
+    );
+
+    // Finishing the remembered pull is a no-op and later checks still work.
+    finalize_pending_pull(&b.worker, &b.runtime).unwrap();
+    assert_eq!(status(&b.worker, &b.runtime).unwrap().state, "remote_ahead");
+    assert!(b.fingerprint().empty);
+
+    // A fresh pull can still be inspected and completed.
+    let again = pull_inspect(&b.worker, &b.runtime, false).unwrap();
+    b.worker.backup_session_restore(again.token).unwrap();
+    finalize_pending_pull(&b.worker, &b.runtime).unwrap();
+    assert_eq!(status(&b.worker, &b.runtime).unwrap().state, "up_to_date");
+}
