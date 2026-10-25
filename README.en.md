@@ -55,7 +55,7 @@ Download [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thinga
 
 ### Windows code signing
 
-The Windows installer is currently **unsigned**. An application to SignPath Foundation for free code signing was submitted on 2026-10-25 and is awaiting review. While unsigned, SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install). Do not disable system-wide protection for this.
+The Windows installer is currently **unsigned**. An application to SignPath Foundation for free code signing was submitted on 2026-10-25; they asked for public third-party references of the project's reputation, which it does not have yet, so the installer will stay unsigned for now and we will re-apply later. While unsigned, SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install). Do not disable system-wide protection for this.
 
 If signing is approved and enabled, the release notes for that version are the source of truth; this page will not call an installer signed before it is. See the [Windows code signing policy (Chinese)](docs/CODE_SIGNING.md) for scope, approval, privacy, and application status.
 

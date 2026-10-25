@@ -2,7 +2,7 @@
 
 本文是申请 SignPath Foundation 免费 Windows 代码签名的公开政策与准备清单。签名接入的技术步骤、验签脚本和回退方案见 [SIGNING.md](SIGNING.md)；版本冻结与发布放行见 [RELEASING.md](RELEASING.md#release-lifecycle)。
 
-**当前状态：已于 2026-10-25 在 SignPath Foundation 官网提交申请，等待审核；尚未获得签名。** 本文不表示签名已经生效；已发布安装包是否签名，以对应版本的 Release 说明和实际验签结果为准。
+**当前状态：已于 2026-10-25 在 SignPath Foundation 官网提交申请；对方回复要求补充项目的公开第三方声誉材料（文章、博客、社区讨论等），项目目前没有，申请暂不能通过，待积累后再重新申请；尚未获得签名。** 本文不表示签名已经生效；已发布安装包是否签名，以对应版本的 Release 说明和实际验签结果为准。
 
 ## 当前状态
 
@@ -116,7 +116,7 @@ Free code signing provided by SignPath.io, certificate by SignPath Foundation.
 | 可下载的已发布版本 | v0.0.8 Release 提供 Windows x64 安装包与 `SHA256SUMS.txt` | 符合 |
 | 自动化构建 | GitHub Actions 构建，但签名步骤尚未接入 | 部分符合；见上文“需要改的自动化构建位置” |
 | 项目主页政策链接 | README 已链接本文；官网首页页脚暂无 | 部分符合；网站页脚待维护者决定是否补 |
-| SignPath 正式申请 | 2026-10-25 已在官网提交 | 等待审核；收到回复后按下文改构建流程 |
+| SignPath 正式申请 | 2026-10-25 已提交；对方要求补充公开声誉材料 | 暂无材料，待积累后重新申请；在此之前不改构建流程 |
 | 签名审批人名单 | 未指定 | 待维护者填写 |
 | SignPath 组织／项目／策略／产物配置 | 未配置 | 待维护者填写 |
 | 仓库内签名密钥／证书／token | 无 | 符合；以后只放 Actions secrets |
