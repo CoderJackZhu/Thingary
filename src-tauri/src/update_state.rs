@@ -681,6 +681,7 @@ impl UpdateState {
     pub fn view(&self) -> StateView {
         let mut inner = self.inner.lock().unwrap();
         inner.snapshot_revision += 1;
+        let store_managed = update_check::store_managed();
         let (preferences, preferences_problem) = self.preferences();
         let (mut cache, cache_unsaved) = self.read_cache_for_view(&inner);
         let context_matches = cache.context.as_ref().is_some_and(|c| {
@@ -735,14 +736,23 @@ impl UpdateState {
             ignored_version: preferences.ignored_version,
             last_attempt_at: cache.last_attempt_at,
             last_success_at: cache.last_success_at,
-            candidate: if update_available { candidate } else { None },
-            newer_unavailable: cache.newer_unavailable,
+            candidate: if update_available && !store_managed {
+                candidate
+            } else {
+                None
+            },
+            newer_unavailable: if store_managed {
+                None
+            } else {
+                cache.newer_unavailable
+            },
             last_unreachable: cache.last_unreachable,
             cache_applicable: context_matches,
             cache_unsaved,
-            update_available,
-            candidate_fresh,
-            unread,
+            update_available: update_available && !store_managed,
+            candidate_fresh: candidate_fresh && !store_managed,
+            unread: unread && !store_managed,
+            store_managed,
         }
     }
 }
@@ -775,6 +785,9 @@ pub struct StateView {
     pub update_available: bool,
     pub candidate_fresh: bool,
     pub unread: bool,
+    /// The Microsoft Store owns updates for this build; all other update
+    /// fields are informational and the surfaces hide their actions.
+    pub store_managed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

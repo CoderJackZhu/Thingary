@@ -508,6 +508,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       update_available: updateAvailable,
       candidate_fresh: true,
       unread: updateAvailable && params.get('update-seen') !== '1' && params.get('update-ignored') !== '1',
+      store_managed: false,
     };
     previewUpdateState = state;
     if (command === 'update_state_get') return state;

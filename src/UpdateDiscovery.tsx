@@ -267,6 +267,10 @@ export function UpdateCheck({ showVersion = true, compact = false, versionLabel 
     catch (e) { setToggleError(errorMessage(e)); }
   }
   const currentLabel = versionLabel || (version ? t('版本 {version}', { version }) : t('版本暂不可用'));
+  if (state?.store_managed) return <section className={compact ? 'update-check update-check-inline' : 'ui-card ui-content update-check'} aria-labelledby="update-check-heading">
+    <div className="support-version-row"><h3 id="update-check-heading" tabIndex={-1}>{currentLabel}</h3></div>
+    <p className="muted small">{t('此版本由 Microsoft Store 更新，应用内不检查新版本。')}</p>
+  </section>;
   const consentValue = state ? state.consent === 'enabled' : false;
   const lastAttempt = state?.last_attempt_at ? stampLabel(state.last_attempt_at) : '';
   const lastSuccess = state?.last_success_at ? stampLabel(state.last_success_at) : '';

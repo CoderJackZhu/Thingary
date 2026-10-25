@@ -5747,6 +5747,8 @@ export const en: Record<string, string> = {
   "检查已通过。当前资料会先保存保护副本，失败时保持原样。": "Check passed. A protected copy of the current data will be saved first; if that fails, the original will remain unchanged.",
   "检查提交结果": "Check Submission Result",
   "检查更新": "Check for Updates",
+  "此版本由 Microsoft Store 更新": "This copy is updated by the Microsoft Store",
+  "此版本由 Microsoft Store 更新，应用内不检查新版本。": "This copy is updated by the Microsoft Store; the app does not check for new versions.",
   "检查期间": "Check Period",
   "检查期间必须为 1 至 1200 个整月。": "The check period must be between 1 and 1200 whole months.",
   "检查的 {checked_months} 个月内未触及底线。": "The floor was not reached within the {checked_months} month(s) checked.",

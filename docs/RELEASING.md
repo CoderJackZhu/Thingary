@@ -134,6 +134,103 @@ winget 清单由 `scripts/generate-winget-manifest.mjs` 生成，目录、验证
 
 SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，再打 NSIS，最后签安装包；不能只签安装包。`windows-package.yml` 只把 release 矩阵的 `signing` 改为 `signed`，acceptance 保持 `unsigned`；`release-draft.yml` 同时把 `THINGARY_WINDOWS_SIGNING_STATUS` 改为 `signed`、`EXPECTED_WINDOWS_SIGNATURE` 改为 `Signed`（两者必须一致）。按实际签名主体决定是否加 `-ExpectedSubjectContains` 与 `-RequireTimestamp`，并重新核验 `BUILD_INFO.json` 的 `signing_status` 与实际文件一致。详细接入步骤、所需配置与回退方案见 [Windows 签名接入](SIGNING.md)；公开政策、审批与申请检查表见 [Windows 代码签名政策](CODE_SIGNING.md)。
 
+<a id="microsoft-store"></a>
+
+### 微软商店（MSIX）
+
+2026-10-25 起准备 Microsoft Store 的 MSIX 路线；它和上面的 NSIS 路线并行，不替换 NSIS。商店对 MSIX 重新签名，不需要购买代码签名证书；EXE／MSI 路线才需要自行购买受信任 CA 的代码签名证书。当前流程只产出**未签名的 x64 候选包**，设计为由 `windows-latest` 生成并做静态结构校验；**尚未在真实 Windows 上安装、未提交 Partner Center、未通过商店认证**。认证后由商店签名并分发，应用内不自行更新。
+
+个人开发者账号在 <https://storedeveloper.microsoft.com> 注册，需要政府证件与自拍验证；中国大陆能否注册尚未确认。应用名「物谱」已保留。产品标识是公开信息，不是密钥，可以写进仓库：
+
+| 项目 | 值 | 用途 |
+|---|---|---|
+| Identity Name | `CoderJackZhu.3513028683F74` | MSIX `Identity/@Name`，必须与 Partner Center「应用标识」逐字一致 |
+| Publisher | `CN=BE6E0613-B500-4B85-B8F0-44A3FA29EB8C` | MSIX `Identity/@Publisher`，必须与 Partner Center 逐字一致 |
+| PublisherDisplayName | `CoderJackZhu` | MSIX `Properties/PublisherDisplayName` |
+| Package Family Name | `CoderJackZhu.3513028683F74_0yc8cf5cay4hg` | 仅文档、注册表与真机核对使用；身份或发布者改变后会变 |
+| Store ID | `9N0Z2JF21D6D` | 商店链接 <https://apps.microsoft.com/detail/9N0Z2JF21D6D> |
+
+`Name` 或 `Publisher` 一旦提交就不能随意改：商店把它当作另一个应用，已有安装、评分和更新关系不会自动迁移。当前模板 `packaging/msix/Package.appxmanifest` 只放占位符，`scripts/pack-msix.ps1` 填入上面的默认值；`PARTNER_CENTER_IDENTITY_NAME`、`PARTNER_CENTER_PUBLISHER`、`PARTNER_CENTER_PUBLISHER_DISPLAY_NAME` 可覆盖。变量存在但为空、发布者不是单个 `CN=` 值、身份名不合法时脚本直接失败，不猜值。不得把证书、`.pfx`、私钥、Partner Center 口令或 Apple 密钥写进仓库或日志；测试自签证书只在本机临时生成。
+
+#### 版本号与提交
+
+- 商店要求四段 `主.次.修订.0`，第四段对商店必须为 `0`。`package.json` 的 `X.Y.Z` 映射为 `X.Y.Z.0`（`0.1.0` → `0.1.0.0`）；带 `-beta` 等后缀的版本不能直接映射，必须先定成三段数字版本。
+- 同一源码版本只产出一个商店包。每次向商店提交的版本必须高于上一次**已提交**的版本；只改商店包而没有应用变化时，提升第三段（patch）并同步 `package.json`、`Cargo.toml`、`tauri.conf.json` 和标签。只改 NSIS 的版本不需要重新提交商店包，但不要把同一版本的 MSIX 内容换成不同构建。
+- 商店包和 NSIS 包共用同一 `package.json` 版本和资料身份 `local.thingary.main`；MSIX 的包身份（`Identity`）与资料身份是两个东西，不要混用。
+- 上传的是**未签名**的 `.msix`。工作流只生成 artifact，不附到 GitHub Release、不签名、不安装。未经维护者授权不提交、不发布；未签名的 MSIX 也不作为普通用户下载提供。
+
+```sh
+npm ci
+cargo fetch --locked --manifest-path src-tauri/Cargo.toml
+npm run tauri -- build --config src-tauri/tauri.release.conf.json \
+  --config src-tauri/tauri.windows.release.conf.json --no-bundle \
+  --target x86_64-pc-windows-msvc --ci
+node scripts/prepare-windows.mjs --identity local.thingary.main \
+  --output .local/distribution/msix-notices --packaging msix
+pwsh -NoProfile -File scripts/pack-msix.ps1 \
+  -NoticesDir .local/distribution/msix-notices -OutputDir .local/msix
+```
+
+打包用 Windows SDK 的 `MakeAppx.exe`（`makeappx pack`／`unpack`），不依赖 `winapp` CLI。产物在 `.local/msix/`：`Thingary_<版本>_x64.msix`、`SHA256SUMS.txt`、`msix-verification.json` 与填好的 `AppxManifest.xml`。`msix-verification.json` 记录身份、发布者、四段版本、`Windows.Desktop`／最低版本、x64 PE、许可文件、源码提交和未签名状态；脚本用 `MakeAppx.exe pack` 打包，再 `unpack` 后逐文件比对散列并解析清单。这些只是结构检查，不等于安装、启动或认证通过。同样的步骤只能在 [MSIX 工作流](../.github/workflows/msix-package.yml)（只在手动触发或 `v*` 标签时运行）的 `windows-latest` 上运行；macOS 不运行 `winapp`／`MakeAppx`，也不交叉产出 MSIX。本次准备只在本机做了静态与工程检查，没有实际触发该工作流；首次运行的日志、`MakeAppx` 输出与 `msix-verification.json` 必须由维护者核对后才能当作通过。
+
+商店包的身份与版本检查、`runFullTrust` 说明、隐私与截图等提交材料见 [Microsoft Store 上架文案](releases/microsoft-store-listing.md) 与 [商店提交清单](releases/store-submission-checklist.md)。提交步骤由维护者在 Partner Center 执行：新提交 → 包 → 上传未签名 MSIX → 认证说明（`runFullTrust` 理由）→ 商店列表／隐私／年龄分级／截图 → 提交认证。认证通过后商店签名并上架；随后从商店安装，按 [Windows 验收清单的 MSIX 小节](WINDOWS_ACCEPTANCE.md#msix-microsoft-store) 复验，不能把 CI 结构检查当作真机通过。
+
+认证常见失败：`Identity`／`Publisher` 与 Partner Center 不一致；版本不是四段、第四段非 0 或不高于上次提交；`runFullTrust` 理由不足；降低 `MinVersion` 后在缺少 WebView2 的系统上启动失败；上传了自签或已签名包；图标尺寸／透明度或清单资源不合法；商店文案承诺了应用内更新、联网行情等商店包没有的行为；隐私政策不可访问。以实际认证报告为准，不凭记忆补规则。
+
+#### 支持范围与 WebView2
+
+商店包的 `TargetDeviceFamily` 是 `Windows.Desktop`，`MinVersion` 为 `10.0.22000.0`（Windows 11），`MaxVersionTested` 为 `10.0.26100.0`。**商店版只声明 Windows 11**；NSIS 版仍是 Windows 10 1809+／11 x64（Windows 10 未实机验证）。
+
+原因是 MSIX 不能在启动时联网安装 WebView2：NSIS 的 `downloadBootstrapper` 属于 Tauri 的 NSIS／MSI 打包器，对本仓库自己的 MSIX 流程不生效。Windows 11 通常自带 Evergreen WebView2 Runtime；企业精简镜像、策略移除或损坏时仍可能缺失，此时应用无法启动，商店包也不会自行修复。可选方案是把固定版本 WebView2 作为应用内容打包（体积、许可与更新负担大，未做），或在真机验证后另行支持 Windows 10；在完成这些之前不要降低 `MinVersion`，也不要在商店文案里写 Windows 10 可用。缺失 Runtime 的干净环境仍按 [N2](WINDOWS_ACCEPTANCE.md#n1n12-固定清单) 验证，不能用已有 Runtime 的机器推定。
+
+#### 已知差异（MSIX 与 NSIS）
+
+以下差异来自 Windows 的包模型，**除注明外均未在真机验证**；提交前必须逐项确认，不能只写“应该没问题”。
+
+| 项目 | NSIS 版 | MSIX 版（预期） | 处理 |
+|---|---|---|---|
+| 资料库路径 | `%LOCALAPPDATA%\local.thingary.main\library` | 默认被重定向到 `%LOCALAPPDATA%\Packages\CoderJackZhu.3513028683F74_0yc8cf5cay4hg\LocalCache\Local\local.thingary.main\library` | 真机读取实际路径；写入重定向、读取是否回落到真实目录须实测。不要在商店包里假设两个路径等价 |
+| 同步设置 | `%APPDATA%\local.thingary.main\sync` | 同样进入包内 `LocalCache\Roaming` | 真机核对同步配置保存、读取与迁移 |
+| 自动备份 | 资料库同目录 `auto-backups` | 随资料库一起被重定向 | 真机核对生成、轮换、恢复；额外自动备份目录由用户选择，位于包外，是否可写须实测 |
+| 手动备份／换机 | `.thingary` 导出／导入 | 功能不变，但路径在包存储内 | NSIS → MSIX 与 MSIX → NSIS 都只用完整备份搬运；不要直接复制包内目录，虚拟化可能看不见或写不回 |
+| 卸载 | 默认保留资料 | **默认卸载会删除包内数据** | 这是提交前的阻断决定（见下）；商店描述与首次使用须明确提示先导出完整备份 |
+| 应用内检查更新 | 读取 Gitee／GitHub 公开版本列表 | 已按包身份禁用（`GetCurrentPackageFullName`），由商店更新 | 真机确认没有检查入口、启动不联网、商店更新生效 |
+| 单实例 | 每用户一个主实例 | 由包内进程和同一应用标识决定，预期仍单实例 | 连续启动、开始菜单启动、通知点击各验一次；NSIS 与 MSIX 并装时可能争同一把锁，不要同时运行 |
+| 通知 | 启动时登记未打包 AUMID／`LocalServer32` 激活 | MSIX 的 AUMID 是 `包族名!App`，包身份由系统注册 | **高风险**：现有未打包注册在 MSIX 下可能无效或需要另写路径；必须真机验证三类提醒的送达与点击，失败则修复后再提交 |
+| 文件选择 | `rfd`／系统文件面板 | 全信任桌面进程，预期不变 | 选图、备份、xlsx、文件夹、另存为各验成功与取消，中文／带空格路径 |
+| 报告打印／导出 PDF | WebView2 打印对话框 | 预期不变 | 真机打开打印预览并“另存为 PDF”，核对分页与内容 |
+
+**卸载与资料安全（提交前必须决定）**：MSIX 默认把 `%LOCALAPPDATA%`／`%APPDATA%` 的写入重定向到包私有存储，卸载包时 Windows 会清理这些文件。按当前默认清单，商店版卸载可能直接删除资料库和自动备份，这与 NSIS“默认保留资料”相反。模板里保留默认行为，并把 `desktop6:FileSystemWriteVirtualization` 写成注释：关闭虚拟化能让路径回到真实 `%LOCALAPPDATA%`，但会改变卸载、并装和数据归属行为，必须先核对清单 schema 并在 Windows 11 真机验证。另一个选择是在应用里把资料放到包外并明确提示。**在选定方案并完成真机验证前，不提交商店包。** 不要在没有验证的情况下把“卸载会删资料”写成已解决。
+
+#### `runFullTrust` 认证理由（英文草稿）
+
+提交认证时把下面这段按实际包核对后填入；不要声称未实现的能力：
+
+> Thingary is a local-first desktop application built with Tauri and the Evergreen WebView2 Runtime. The `runFullTrust` capability is required because the app is a Win32 desktop process that stores its SQLite library and images in the user's local application data, opens and saves user-chosen files through the standard Windows file pickers, renders a printable report in its own WebView2 window, and optionally copies backups to a folder the user selects. The app does not install services, drivers, or browser extensions; it runs `asInvoker` and never requests administrator rights. It does not include ads, analytics, or telemetry, and it does not transmit personal data to the developer. Network access is limited to an optional WebDAV sync that the user configures and enables, and the Store build does not check for updates in-app because updates are delivered by the Microsoft Store. Removing `runFullTrust` would prevent the desktop process from starting.
+
+#### 真机安装测试（自签证书，只在本机生成）
+
+商店会签名，日常不需要自签。只在真实 Windows 11 上验证安装行为时，用**临时**证书，私钥不导出、不提交：
+
+```powershell
+$publisher = 'CN=BE6E0613-B500-4B85-B8F0-44A3FA29EB8C'
+$cert = New-SelfSignedCertificate -Type Custom -Subject $publisher `
+  -KeyUsage DigitalSignature -FriendlyName 'Thingary MSIX test' `
+  -CertStoreLocation 'Cert:\CurrentUser\My' `
+  -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
+Export-Certificate -Cert $cert -FilePath .local\msix\Thingary-test.cer
+$trustedPeople = 'Cert:\CurrentUser\TrustedPeople'
+if (-not (Test-Path $trustedPeople)) { New-Item -Path $trustedPeople -Force | Out-Null }
+Import-Certificate -FilePath .local\msix\Thingary-test.cer -CertStoreLocation $trustedPeople
+$signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' |
+  Sort-Object FullName -Descending | Select-Object -First 1
+& $signtool.FullName sign /fd SHA256 /sha1 $cert.Thumbprint .local\msix\Thingary_0.1.0_x64.msix
+Add-AppxPackage -Path .local\msix\Thingary_0.1.0_x64.msix
+Get-AppxPackage -Name 'CoderJackZhu.3513028683F74' | Format-List Name,PublisherId,Version,PackageFamilyName,InstallLocation
+```
+
+证书 Subject 必须与清单 `Publisher` 完全一致，否则签名或安装会失败。若 `Add-AppxPackage` 仍报证书不受信任，可把测试证书导入 `Cert:\LocalMachine\TrustedPeople`（需要管理员，仅限测试机），不要关闭整机安全保护。自签包只用于本机验收；不要上传到 Partner Center。测试后删除临时证书与包（`Remove-AppxPackage`、删除 `Cert:\CurrentUser\My` 与 `TrustedPeople` 中的测试证书），并按 [Windows 验收清单](WINDOWS_ACCEPTANCE.md#msix-microsoft-store) 记录未验项。Windows 10 的旁加载策略、Developer Mode 与证书信任要求可能不同，本流程只按 Windows 11 记录。
+
 ## 3. 核验交付物
 
 ### Mac

@@ -1619,7 +1619,7 @@ pub async fn update_consent_set(
     state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
 ) -> Result<crate::update_state::StateView> {
     if !crate::update_check::supported() {
-        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+        return Err(crate::update_check::unsupported());
     }
     let service = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || service.set_consent(enabled, expected_revision))
@@ -1633,7 +1633,7 @@ pub async fn update_check_request(
     state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
 ) -> Result<crate::update_state::RequestView> {
     if !crate::update_check::supported() {
-        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+        return Err(crate::update_check::unsupported());
     }
     let origin = crate::update_state::Origin::parse(&mode)
         .ok_or_else(|| Error::new("UPDATE_STATE", "未知的检查方式"))?;

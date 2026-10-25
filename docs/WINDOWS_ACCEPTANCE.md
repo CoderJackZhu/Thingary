@@ -139,6 +139,28 @@ Windows 按 `IsReparseTagNameSurrogate` 规则（标签 `& 0x20000000` 非零）
 - 正式资料目标为 `%LOCALAPPDATA%\local.thingary.main\`，验收仅核对对应验收身份的路径。Mac 路径保持 Application Support；Windows 主资料不进入 Roaming，不修改系统全局长路径设置。
 - Mac 与 Windows 换机使用兼容版本的完整 `.thingary` 备份，分别核对记录、整数金额、未知值、关系与原图。窗口、主题、模块与通知偏好留在本机，不从备份推定迁移。
 
+<a id="msix-microsoft-store"></a>
+
+## MSIX（Microsoft Store）候选验收
+
+边界：本节只适用于 `windows-latest` 产出的**未签名** x64 MSIX。到 2026-10-25 为止，没有在真实 Windows 上安装、启动或提交认证；CI 只做结构校验，且本次准备尚未实际触发该工作流。商店认证后由 Microsoft 重新签名，不能用本机自签包的通过代替商店包。打包、身份、版本、WebView2 与已知差异见[发布流程的微软商店小节](RELEASING.md#microsoft-store)。
+
+准备：Windows 11 x64（记录实际 build）、WebView2 Runtime 版本、MSIX 的 SHA-256 与 `msix-verification.json`、`Get-AppxPackage` 读出的 Package Family Name。所有资料为虚构；**不得打开或写入 `local.thingary.main` 的真实资料**。自签证书与 `Add-AppxPackage` 命令见上述发布流程小节，证书只在本机临时生成。
+
+| 编号 | 项目 | 方法与通过标准 |
+|---|---|---|
+| M1 | 安装与身份 | 信任临时测试证书后 `Add-AppxPackage`；开始菜单出现「物谱」，启动无需管理员；`Get-AppxPackage` 的 Name／PublisherId／Version／PackageFamilyName 与清单及 `msix-verification.json` 一致（0.1.0 → 0.1.0.0） |
+| M2 | 启动与 WebView2 | 正常 Windows 11 上首次启动进入虚构样例；在缺少 WebView2 的干净 Windows 11 环境（若无法提供则记未做）确认失败表现与提示。不要在工作机卸载 Runtime 制造条件，不把已有 Runtime 的通过当成缺失分支通过 |
+| M3 | 资料路径与备份 | 新建虚构资料后读取实际写入位置（包内 `LocalCache\Local`／`Roaming` 与真实 `%LOCALAPPDATA%`／`%APPDATA%`）；核对资料库、图片、同步设置、自动备份、恢复与额外备份目录；记录读取是否回落到真实目录 |
+| M4 | 与 NSIS 互搬 | 用 NSIS 版建立虚构资料并导出完整 `.thingary`，在 MSIX 版恢复；反向再做一次。核对记录、整数金额、未知值、关系、图片散列。不要用直接复制目录代替完整备份 |
+| M5 | 卸载与资料 | 先导出完整备份；卸载 MSIX，检查包内资料是否被删除、真实 `%LOCALAPPDATA%\local.thingary.main` 是否保留；重装后核对结果。此项直接决定商店版能否提交，失败不得写成已解决 |
+| M6 | 更新入口 | 「设置 › 支持」没有检查更新按钮或启动时开关；启动与打开设置不发起版本查询（断网或抓包核对）；商店发布新版本后由 Store 更新，应用内不提示下载 |
+| M7 | 单实例、通知与文件面板 | 连续启动只有一个主实例；开始菜单和通知点击能唤起同一窗口；三类提醒实际送达并核对 AUMID／点击行为；选图、备份、xlsx、文件夹、另存为的成功／取消与中文带空格路径 |
+| M8 | 报告与打印 | 打开当前报告，打印预览并“另存为 PDF”，核对分页、内容与文件可打开；确认没有走浏览器窗口或外部浏览器 |
+| M9 | 与 NSIS 并装 | NSIS 与 MSIX 同时安装时的资料隔离、单实例、通知身份与卸载影响；若会互相抢锁或写同一目录，明确记录并决定不支持并装 |
+
+每项记录「通过／失败／未做」、包版本与散列、Package Family Name、Windows build、WebView2 版本、操作者、证据文件名与复现步骤。CI 的结构校验、`MakeAppx unpack` 比对和 `Add-AppxPackage` 成功都不能代替 M2–M5、M7 的真实行为；未测就写未验证。
+
 ## 候选交付与公开判断
 
 交付包含安装包、SHA-256、完整源码 SHA、对应许可及检查结果，分别列出已验、失败与未验。artifact 来自[Windows 工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)，保留 30 天、需登录；失败产物只用于排错。用户根据 Windows 实际验收结果决定是否公开发布；未经用户明确授权，不创建标签或 Release，不上传或替换任一平台的发布附件。

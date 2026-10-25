@@ -431,14 +431,48 @@ fn fetch(source: Source) -> Result<String> {
         .map_err(|_| Error::new("UPDATE_CHECK", "更新服务返回的内容无法识别，请稍后再试"))
 }
 
+/// True when this Windows process runs from an MSIX package. A Store build is
+/// updated by the Microsoft Store, so the in-app release lookup must stay off
+/// there even if an older preference file says otherwise.
+#[cfg(windows)]
+pub fn store_managed() -> bool {
+    // Use kernel32 directly rather than adding another windows-crate feature
+    // for one probe. A null buffer asks only for the required length:
+    // 122 is ERROR_INSUFFICIENT_BUFFER (package identity exists); 15700
+    // (APPMODEL_ERROR_NO_PACKAGE) or any failure means an unpackaged app.
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetCurrentPackageFullName(length: *mut u32, name: *mut u16) -> i32;
+    }
+    let mut length = 0u32;
+    // SAFETY: the length is writable and a null buffer is the documented
+    // sizing call; no package name is written.
+    let status = unsafe { GetCurrentPackageFullName(&mut length, std::ptr::null_mut()) };
+    status == 0 || status == 122
+}
+
+#[cfg(not(windows))]
+pub fn store_managed() -> bool {
+    false
+}
+
+/// The error shown when an update surface is unavailable on this build.
+pub(crate) fn unsupported() -> Error {
+    if store_managed() {
+        Error::new("UNSUPPORTED", "此版本由 Microsoft Store 更新")
+    } else {
+        Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理")
+    }
+}
+
 /// Runs the lookups. Blocking: call from a blocking task.
 pub fn supported() -> bool {
-    !cfg!(target_os = "ios")
+    !cfg!(target_os = "ios") && !store_managed()
 }
 
 pub fn check() -> Result<Outcome> {
     if !supported() {
-        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+        return Err(unsupported());
     }
     check_with(env!("CARGO_PKG_VERSION"), &mut fetch)
 }
@@ -483,7 +517,7 @@ fn validated_download(
 
 fn open_url(url: &str) -> Result<()> {
     if !supported() {
-        return Err(Error::new("UNSUPPORTED", "iOS 更新由 App Store 管理"));
+        return Err(unsupported());
     }
     #[cfg(windows)]
     {

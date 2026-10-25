@@ -1,6 +1,6 @@
 # Microsoft Store 上架文案草稿（Windows）
 
-维护者提交 Microsoft Store 时的文案与素材草稿，不是版本说明，也不代表已打包、已提交或已通过认证。本文只覆盖商店列表内容；MSIX 打包、包身份、WebView2 与数据目录行为由 T-MS 负责，提交项见[商店提交清单](store-submission-checklist.md)。
+维护者提交 Microsoft Store 时的文案与素材草稿，不是版本说明，也不代表已打包、已提交或已通过认证。本文只覆盖商店列表内容；MSIX 打包、包身份、WebView2 与数据目录行为见[发布流程的微软商店小节](../RELEASING.md#microsoft-store)，提交项见[商店提交清单](store-submission-checklist.md)。
 
 当前源码的桌面版默认不联网；可选的 WebDAV 整库同步为实验性功能，默认关闭。文案不把默认离线写成无需联网的绝对状态，不写未验证的其他平台版本，不写未发生的代码签名或商店认证。商店包可能调整更新检查或数据目录；提交前由 T-MS 按实际包核对本文的网络与更新描述。
 
@@ -55,14 +55,14 @@
 
 - 没有物谱账号，没有开发者运营的云端，没有广告和统计，开发者看不到你的资料
 - 资料默认只保存在本机；可选 WebDAV 整库同步为实验性功能，默认关闭，只连接你自己配置的服务器
-- 桌面版默认不联网。只有你手动检查更新、开启启动时检查更新，或主动使用同步时才会联网；检查更新只读取公开版本列表，不发送资料
+- 桌面版默认不联网。商店版只有你主动使用 WebDAV 同步时才会联网（快照只发送到你配置的服务器）；版本更新由 Microsoft Store 提供，应用内不检查新版本
 - 可导出完整备份，并用你自己保管的恢复密钥加密；恢复密钥丢失后无法找回加密备份
 
 【请注意】
 
 - 物谱是个人记录与估算工具，结果依赖你填写的数据和假设，不构成投资、税务或养老金建议
 - 不提供联网行情、交易、支付或 AI 功能
-- 当前公开桌面安装包只在 Windows 11 x64 实测；Windows 10 1809+ 为目标范围但尚未实机验证。商店版的系统要求与功能以实际包和商店页面为准
+- 商店版要求 Windows 11 x64；MSIX 不能在启动时安装 WebView2。公开桌面安装包只在 Windows 11 x64 实测，Windows 10 1809+ 为目标范围但尚未实机验证
 
 ### English
 
@@ -93,16 +93,16 @@ No daily bookkeeping. Come back once a month or once a quarter: record balances 
 
 - No Thingary account, no developer-operated cloud, no ads or analytics; the developer cannot see your data
 - Data stays on your device by default. Optional WebDAV whole-library sync is experimental and off by default; it connects only to a server you configure
-- The desktop app does not use the network by default. It goes online only when you check for updates, enable startup update checks, or use sync. Update checks read public release lists only and send no personal data
+- The Store app does not use the network by default. It goes online only when you use the optional WebDAV sync you configured (snapshots go only to your own server). Updates are delivered by the Microsoft Store; the app does not check for new versions
 - Export a full backup and encrypt it with a recovery key you keep; a lost key cannot be recovered
 
 [Please note]
 
 - Thingary is a personal record and estimation tool. Results depend on the data and assumptions you enter and are not investment, tax or pension advice
 - No market data, trading, payments or AI features
-- The current public desktop package has been tested on Windows 11 x64 only. Windows 10 1809+ is the target range but has not been tested on a real device. Store system requirements and features depend on the actual package and store listing
+- The Store version requires Windows 11 x64; an MSIX cannot install WebView2 at launch. The public desktop package has been tested on Windows 11 x64 only; Windows 10 1809+ is the target range but has not been tested on a real device
 
-上述描述以当前 Windows 桌面版为准。若商店包移除应用内检查更新、改变同步入口或数据目录，T-MS 提交前应同步删改对应句子。
+上述描述以拟提交的商店包为准：应用内不检查更新，版本由 Microsoft Store 提供。若提交前数据目录、同步入口或 WebView2 支持范围再有变化，维护者应同步删改对应句子。
 
 ## 4. 关键词（最多 7 项）
 
