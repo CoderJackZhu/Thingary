@@ -24,6 +24,7 @@ import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewPurge
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { IncomeList, PlanReview, ProfileState } from './plan';
+import type { PlanningSources } from './plan-basic-contract';
 import type { Snapshot, Summary } from './wealth';
 import type { AccountAvailability, Review, Read } from './review';
 import type { ExpenseView } from './expenses';
@@ -660,6 +661,20 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       snapshotId: latest?.snapshot_id ?? null, snapshotDate: latest?.date ?? null,
     } : null;
     const today = localDay();
+    // The exported native demo has canonical IDs. Keep
+    // goal inputs on that same batch instead of mixing unrelated snapshot IDs.
+    // Historical review keeps its independent preview; the export omits its IDs.
+    if (planning && params.has('plan-nonblocking')) {
+      const batch = read<PlanningSources>('planning_sources');
+      if (batch.status === 'ready') {
+        Object.assign(planning, {
+          profile: batch.value.profile, snapshot: batch.value.snapshot,
+          incomes: batch.value.incomes,
+          snapshotId: batch.value.snapshot.status === 'ready' ? batch.value.snapshot.value?.id ?? null : null,
+          snapshotDate: batch.value.snapshot.status === 'ready' ? batch.value.snapshot.value?.date ?? null : null,
+        });
+      }
+    }
     const result: Review = { generation, today, year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth, account_availability: read<AccountAvailability>('wealth_account_availability', { today }), planning, expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
     return result;
   }

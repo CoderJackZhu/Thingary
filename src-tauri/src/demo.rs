@@ -530,7 +530,7 @@ mod unified_tests {
                 .contribution
                 .monthly_cents
                 .as_deref(),
-            Some("800000")
+            Some("1400000")
         );
         assert_eq!(recurring.annual_cents, "3756000");
         assert_eq!(recurring.monthly_cents, "313000");

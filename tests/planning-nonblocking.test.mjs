@@ -6,7 +6,7 @@ import { draftOf } from '../src/planning-basic-forms.ts';
 import { eventParts, offsetOf } from '../src/plan-events.ts';
 import { toEvent, buildRetireCalc } from '../src/plan-retire-calc.ts';
 import { table, oneOffsOf, startPaymentsOf, project, debtSeries, nominalFactor } from '../src/plan-ledger.ts';
-import { annotationSummary } from '../src/plan-annotations.ts';
+import { actionableAnnotations, annotationSummary } from '../src/plan-annotations.ts';
 import { canRetractOccurrence, retractOccurrence } from '../src/plan-occurrence-actions.ts';
 import { summaryRetire } from '../src/plan-summary.ts';
 import { impactOf } from '../src/plan-wishes.ts';
@@ -17,7 +17,11 @@ const profile = s => s.profile.value.saved.profile;
 const car = s => profile(s).retire.life_events[0];
 function fixture() {
   const s = structuredClone(raw);
-  // Only the user's Q3 confirmation is derived; all source balances, debt and event data are retained.
+  // Incomplete historical/user inputs still exercise the nonblocking paths.
+  // The raw v2 demo itself has explicit declarations and no pending conditions.
+  profile(s).retire.basic.contribution_costs = [];
+  profile(s).retire.basic.retirement_costs = [];
+  profile(s).retire.core.debt_repayments = [];
   profile(s).retire.core.fund_rules = draftOf(s.profile.value.saved, s.snapshot.value).funds;
   return s;
 }
@@ -36,6 +40,28 @@ function calc(s) {
 const codes = c => [...new Set(c.annotations.map(a => a.reason_code))].sort();
 const parts = (s, c) => eventParts(c.prediction.value.plan, toEvent(car(s)), offsetOf(car(s).date, s.snapshot.value.date));
 const near = (a, b) => assert.ok(Math.abs(a - b) < 0.001, `${a} != ${b}`);
+
+test('raw imported demo achieves the complete goal with no pending or omitted conditions', () => {
+  const c = calc(raw), pred = c.prediction.value;
+  assert.equal(profile(raw).retire.basic.contribution.monthly_cents, '1400000');
+  assert.equal(profile(raw).retire.spend_cents, '750000');
+  assert.equal(profile(raw).retire.saving_phases, undefined);
+  assert.equal(pred.outcome.success, true);
+  assert.equal(pred.outcome.funded_at_goal, true);
+  assert.equal(pred.outcome.failure_month, null);
+  assert.equal(pred.outcome.shortfall_month, null);
+  assert.equal(pred.outcome.shortfall_at_goal, 0);
+  assert.ok(pred.outcome.at_horizon > 0);
+  assert.deepEqual(c.annotations, []);
+  assert.deepEqual(actionableAnnotations(c.annotations), []);
+  const P = pred.plan, loan = P.saving_flows.find(f => f.source_id?.startsWith('debt:'));
+  assert.ok(loan, 'existing debt is charged, not hidden or linked to the future car');
+  assert.equal(loan.cents, -50000);
+  assert.equal(loan.to_month - loan.from_month, 10);
+  assert.ok(parts(raw, c).loans.length > 0, 'future car financing stays in the ledger');
+  const unknown = structuredClone(raw); profile(unknown).retire.basic.contribution.monthly_cents = null;
+  assert.equal(buildBasicCapabilities(unknown).prediction.status, 'blocked');
+});
 
 test('raw same-batch demo is ready; removing Q3 declarations preserves the hard blocker; cash/debt definition stays unchanged', () => {
   assert.equal(buildBasicCapabilities(raw).requirement.status, 'ready');

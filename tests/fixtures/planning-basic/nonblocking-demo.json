@@ -245,16 +245,51 @@
               "contract_version": 1,
               "contribution": {
                 "id": "demo-contribution",
-                "monthly_cents": "800000"
+                "monthly_cents": "1400000"
               },
-              "contribution_costs": [],
-              "retirement_costs": [],
+              "contribution_costs": [
+                {
+                  "reference_cents": null,
+                  "source_id": "event:demo-car:loan",
+                  "treatment": "extra"
+                },
+                {
+                  "reference_cents": null,
+                  "source_id": "event:demo-car:holding",
+                  "treatment": "extra"
+                }
+              ],
+              "retirement_costs": [
+                {
+                  "reference_cents": null,
+                  "source_id": "event:demo-car:loan",
+                  "treatment": "extra"
+                },
+                {
+                  "reference_cents": null,
+                  "source_id": "event:demo-car:holding",
+                  "treatment": "extra"
+                }
+              ],
               "start": {
                 "kind": "live"
               }
             },
             "core": {
               "contract_version": 1,
+              "debt_repayments": [
+                {
+                  "account_id": "00000000-0000-4000-8000-000000000002",
+                  "after": "scheduled",
+                  "as_of": "2026-10-10",
+                  "balance_cents": "500000",
+                  "before": "scheduled",
+                  "last_month": "2027-08",
+                  "monthly_cents": "50000",
+                  "recorded_on": "2026-10-10",
+                  "start_month": "2026-11"
+                }
+              ],
               "fund_rules": [
                 {
                   "account_id": "00000000-0000-4000-8000-000000000003",
@@ -322,7 +357,7 @@
           }
         },
         "reference_issues": [],
-        "revision": 2,
+        "revision": 3,
         "updated_at": "2026-10-10T00:00:00Z"
       }
     }
