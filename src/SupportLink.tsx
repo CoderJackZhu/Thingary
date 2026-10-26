@@ -5,9 +5,9 @@ import { errorMessage } from './asset';
 import { supportUrls, type SupportTarget } from './support';
 import { t } from './i18n.ts';
 /** Only a fixed destination ID crosses IPC; never pass a URL from the page. */
-export function SupportLink({ target, children }: { target: SupportTarget; children: ReactNode }) {
+export function SupportLink({ target, children, className }: { target: SupportTarget; children: ReactNode; className?: string }) {
   const [error, setError] = useState('');
-  return <span className="support-link"><a href={supportUrls[target]} onClick={async e => {
+  return <span className="support-link"><a className={className} href={supportUrls[target]} onClick={async e => {
     e.preventDefault(); setError('');
     try { await invoke('support_open', { target }); }
     catch (e) { setError(errorMessage(e)); }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MonthInput } from "../../DateInput";
 import type {
   PlanningSources,
   ProfileState,
@@ -64,14 +65,7 @@ function MonthField({
 }) {
   return (
     <FormRow label={label} hint={hint} stacked>
-      <input
-        className="m-input"
-        aria-label={label}
-        type="month"
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <span className="m-date"><MonthInput label={label} value={value} disabled={disabled} onChange={onChange}/></span>
     </FormRow>
   );
 }

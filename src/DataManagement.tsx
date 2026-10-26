@@ -5,6 +5,8 @@ import {Icon} from './AssetViews';
 import { AutoBackup } from './AutoBackup';
 import { BackupSecurity, KeyInput } from './BackupSecurity';
 import { looksLikeRecoveryKey, RESTORE_DISCLOSURE } from './backup-security-format';
+import { SyncSettings } from './sync/SyncSettings';
+import type { SyncPullInspection } from './sync/api';
 import { SupportLink } from './SupportLink';
 import { pendingKey, storedPending, code } from './wealth';
 import { FinancialImportDialog } from './FinancialImportDialog';
@@ -221,6 +223,17 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     setCandidate(null); setUnlockKey('');
     if (token) { try { await invoke('cancel_backup_session', { token }); } catch { /* session cleanup is best effort */ } }
   }
+  // A sync pull returns the same opaque session token as a backup inspection,
+  // so the existing confirmation and restore command do the restore.
+  function inspectSync(inspection: SyncPullInspection): boolean {
+    if (!inspection.summary || !alive.current || demo || restoreLock.current || restoreUnknown || !generation) {
+      if (inspection.token) void invoke('cancel_backup_session', { token: inspection.token }).catch(() => undefined);
+      return false;
+    }
+    const found: Inspected = { path: '', name: inspection.device_name ? t('云端快照（{device}）', { device: inspection.device_name }) : t('云端同步快照'), encrypted: false, token: inspection.token, summary: inspection.summary };
+    candidateRef.current = found; setCandidate(found); setUnlockKey(''); setTask({ kind: 'idle' });
+    return true;
+  }
   async function inspectAuto(name: string) {
     if (!canStart()) return;
     setCandidate(null); setTask({ kind: 'running', label: t('正在检查自动备份，当前资料不会改变…') });
@@ -273,6 +286,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     </div>
     <BackupSecurity key={scope} onBusyChange={setSecurityBusy} demo={demo} blocked={busy || restoreUnknown || blocked || !!candidate || !!sheet || !!financeImport || !!savedPending || !!itemPending} onStatusChange={setSecurity}/>
     <fieldset disabled={securityBusy || restoreUnknown || busy} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}><AutoBackup generation={generation} demo={demo} blocked={blocked || !!savedPending || !!itemPending} busy={busy || !!sheet || !!financeImport} candidateOpen={!!candidate} paused={!!security?.paused} securityRevision={security} onInspect={name => void inspectAuto(name)}/></fieldset>
+    <SyncSettings blocked={operationLocked || blocked || demo || !generation} onPull={inspectSync}/>
     <details className="data-explainer"><summary>{t('备份、导出导入和最近删除有什么区别？')}</summary><p>{t('完整备份包含物品、维护、保障、心愿、账户与盘点、重要支出与退款、周期计划与付款、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。')}</p><p>{t('自动备份在资料有改动后自动生成，保留最近 7 份，放在本机资料目录旁；与手动备份格式相同，都可用于恢复。额外备份位置由你选择，可保存副本到云盘或外接盘。')}</p><p>{t('导出资料表格保存为一个 .xlsx 文件，各类数据分工作表；其中物品、账户、完整盘点与月度收入可在对应入口预览导入，只有部分工作表支持导入，盘点记录、重要支出与周期费用等其余表仅供查看分析。文字、编号、日期和金额按文本保存，空金额仍为未知。Excel 不能用于恢复全部资料。最近删除仅用于找回误删记录。')}</p><p>{t('导入物品表只新增物品，不修改或合并已有物品，不能用于批量修改；只有名称必填，状态为已退役须填退役日期，已售出须填售出日期与售价。名称、购入日期和购入价与已有物品或文件内其他行相同会判为疑似重复，默认跳过。导出工作簿的「物品」工作表也可以直接导入；金融历史入口读取「账户」「完整盘点」「月度收入」。物品或金融导入提交后结果未知时，上次操作的编号都会保留，点「核对物品导入结果」或「核对金融导入结果」只检查上次导入是否成功，不会再次写入资料，确认未提交后才重新导入。整体搬家或回到以前请用完整备份。')}</p></details>
     {blocked && <p className="notice">{t('请先处理正在编辑或待核对的内容，再进行备份或恢复。')}</p>}
     {activeTask && <div className="actions"><button disabled={!!taskNotice} onClick={() => void cancelTask()}>{t('取消本次备份操作')}</button>{taskNotice && <p role="status">{taskNotice}</p>}</div>}

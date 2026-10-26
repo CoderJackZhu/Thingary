@@ -520,14 +520,33 @@ pub(crate) fn import_virtual(s: &mut Store, today: &str) -> Result<()> {
     Ok(())
 }
 
-/// Planning samples (monthly income, pension profile, saving phases, a car plan)
-/// carry their own marker so older sample libraries gain them on upgrade.
+/// Fictional monthly income, a single monthly contribution, and a financed car plan.
+/// Completed v1 samples retain edits; interrupted v1 imports finish their original
+/// requests. Only fresh samples use v2, with separate markers and request IDs.
 pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
-    let complete = s.root.join("unified-demo-plan-v1.complete");
+    if s.root.join("unified-demo-plan-v1.complete").exists()
+        || s.root.join("unified-demo-plan-v2.complete").exists()
+    {
+        return Ok(());
+    }
+    let legacy = s.root.join("unified-demo-plan-v1.date").exists();
+    import_plan_version(s, today, legacy)
+}
+
+fn import_plan_version(s: &mut Store, today: &str, legacy: bool) -> Result<()> {
+    let version = if legacy { "v1" } else { "v2" };
+    let request = |key: &str| {
+        if legacy {
+            rid(key)
+        } else {
+            super::demo::request(key, "unified-plan-v2")
+        }
+    };
+    let complete = s.root.join(format!("unified-demo-plan-{version}.complete"));
     if complete.exists() {
         return Ok(());
     }
-    let anchor = s.root.join("unified-demo-plan-v1.date");
+    let anchor = s.root.join(format!("unified-demo-plan-{version}.date"));
     let date = if anchor.exists() {
         std::fs::read_to_string(&anchor)?
     } else {
@@ -539,7 +558,7 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
     for m in 0..6u32 {
         s.plan_income_save(
             &crate::plan_income::Save {
-                request_id: rid(&format!("plan-income-{m}")),
+                request_id: request(&format!("plan-income-{m}")),
                 generation: generation.clone(),
                 id: None,
                 expected_revision: None,
@@ -576,29 +595,46 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
     let fund_rules: Vec<_> = snapshot.entries.iter().filter(|e| e.counted && e.side == "asset").map(|e| {
         serde_json::json!({"account_id":e.account_id,"availability":if e.kind == "cash" {"available"} else {"restricted"},"share_hundredths":10000})
     }).collect();
+    // Both the car loan and its running costs are extra to the saved net
+    // contribution / retirement living budget, in both phases of the ledger.
+    let costs: Vec<serde_json::Value> = if legacy {
+        vec![]
+    } else {
+        ["loan", "holding"]
+            .into_iter()
+            .map(|kind| {
+                serde_json::json!({
+                    "source_id": format!("event:demo-car:{kind}"),
+                    "treatment": "extra", "reference_cents": null
+                })
+            })
+            .collect()
+    };
     let base = &profile.retire;
     let section = serde_json::from_value(serde_json::json!({
       "section":"setup","fields":{
        "basic":{"spend_cents":"750000","mode":"traditional","real_return_before_hundredths":300,"real_return_after_hundredths":200,"volatility_hundredths":500,"emergency_months":6,"inflation_hundredths":200,"monetary_basis_date":date,
-        "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":"800000"},"contribution_costs":[],"retirement_costs":[]}},
+        "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":if legacy { "800000" } else { "1400000" }},"contribution_costs":costs,"retirement_costs":costs}},
        "simplified":{"contract_version":1,"time":{"reference":null,"target_month":day(now.checked_add_months(Months::new(240)).expect("bounded sample date"))[..7],"horizon_month":day(now.checked_add_months(Months::new(600)).expect("bounded sample date"))[..7]},"income_mode":"excluded","future_incomes":[],"household":{"mode":"single","partner":null}},
        "budget":null,"funds":{"monetary_basis_date":date,"fund_rules":fund_rules,"releases":[]}
       }
     }))?;
-    let saved = s.plan_profile_update(
+    s.plan_profile_update(
         &crate::plan_basic::Update {
-            request_id: rid("plan-profile"),
+            request_id: request("plan-profile"),
             generation: generation.clone(),
             expected_revision: None,
             section,
         },
         &date,
     )?;
+    // Replayed requests return the current profile, so revisions in the original
+    // request payload must stay fixed even after a later step has committed.
     s.plan_profile_update(
         &crate::plan_basic::Update {
-            request_id: rid("plan-events"),
-            generation,
-            expected_revision: Some(saved.revision),
+            request_id: request("plan-events"),
+            generation: generation.clone(),
+            expected_revision: Some(1),
             section: crate::plan_basic::Section::Events(crate::plan_basic::EventsFields {
                 life_events: base.life_events.clone(),
                 occurrences: vec![],
@@ -606,6 +642,50 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
         },
         &date,
     )?;
+    if !legacy {
+        // This is the existing balance in the sample snapshot, separate from
+        // the future car loan. Never subtract its principal from available cash.
+        let first = now
+            .checked_add_months(Months::new(1))
+            .expect("bounded sample date");
+        let last = now
+            .checked_add_months(Months::new(10))
+            .expect("bounded sample date");
+        let updates = snapshot
+            .entries
+            .iter()
+            .filter(|e| {
+                e.counted
+                    && e.side == "liability"
+                    && e.amount_cents.as_deref().is_some_and(|v| v != "0")
+            })
+            .map(|e| crate::plan_core::DebtRepayment {
+                account_id: e.account_id.clone(),
+                recorded_on: date.clone(),
+                as_of: snapshot.date.clone(),
+                balance_cents: e.amount_cents.clone().expect("known sample debt"),
+                start_month: day(first)[..7].into(),
+                last_month: Some(day(last)[..7].into()),
+                monthly_cents: Some("50000".into()),
+                before: Some("scheduled".into()),
+                after: Some("scheduled".into()),
+            })
+            .collect();
+        s.plan_profile_update(
+            &crate::plan_basic::Update {
+                request_id: request("plan-debt-repayments"),
+                generation,
+                expected_revision: Some(2),
+                section: crate::plan_basic::Section::DebtRepayments(
+                    crate::plan_basic::DebtRepaymentsFields {
+                        updates,
+                        remove: vec![],
+                    },
+                ),
+            },
+            &date,
+        )?;
+    }
     crate::storage::atomic_write(&complete, b"1")?;
     Ok(())
 }
@@ -614,6 +694,119 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
 mod nonblocking_tests {
     use super::*;
     use serde_json::{json, Value};
+
+    #[test]
+    fn plan_marker_preserves_completed_legacy_and_edited_samples() {
+        for legacy in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut store = Store::open(dir.path()).unwrap();
+            import(&mut store, "2026-10-10").unwrap();
+            import_plan_version(&mut store, "2026-10-10", legacy).unwrap();
+            let saved = store.plan_profile().unwrap().saved.unwrap();
+            let mut update = event_update(&store, &saved, json!([]));
+            if let crate::plan_basic::Section::Events(fields) = &mut update.section {
+                fields.life_events[0].label = "edited fictional car".into();
+            }
+            store.plan_profile_update(&update, "2026-10-10").unwrap();
+            let before = serde_json::to_value(store.plan_profile().unwrap()).unwrap();
+            let incomes = serde_json::to_value(store.plan_income_list().unwrap()).unwrap();
+            drop(store);
+            let mut store = Store::open(dir.path()).unwrap();
+            import_plan(&mut store, "2026-11-11").unwrap();
+            assert_eq!(
+                serde_json::to_value(store.plan_profile().unwrap()).unwrap(),
+                before
+            );
+            assert_eq!(
+                serde_json::to_value(store.plan_income_list().unwrap()).unwrap(),
+                incomes
+            );
+            let other = if legacy { "v2" } else { "v1" };
+            assert!(!dir
+                .path()
+                .join(format!("unified-demo-plan-{other}.date"))
+                .exists());
+            assert!(!dir
+                .path()
+                .join(format!("unified-demo-plan-{other}.complete"))
+                .exists());
+        }
+    }
+
+    #[test]
+    fn interrupted_plan_import_resumes_same_version_anchor_and_receipts() {
+        for legacy in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut store = Store::open(dir.path()).unwrap();
+            import(&mut store, "2026-10-10").unwrap();
+            store.set_hook(|point| {
+                if point == "plan_profile.after_commit" {
+                    Err(crate::domain::Error::new(
+                        "INJECTED",
+                        "fictional lost response",
+                    ))
+                } else {
+                    Ok(())
+                }
+            });
+            assert_eq!(
+                import_plan_version(&mut store, "2026-10-10", legacy)
+                    .unwrap_err()
+                    .code,
+                "INJECTED"
+            );
+            assert_eq!(store.plan_profile().unwrap().saved.unwrap().revision, 1);
+            drop(store);
+            let mut store = Store::open(dir.path()).unwrap();
+            import_plan(&mut store, "2026-11-11").unwrap();
+            let saved = store.plan_profile().unwrap().saved.unwrap();
+            let basic = saved.profile.retire.basic.as_ref().unwrap();
+            assert_eq!(saved.revision, if legacy { 2 } else { 3 });
+            assert_eq!(
+                basic.contribution.monthly_cents.as_deref(),
+                Some(if legacy { "800000" } else { "1400000" })
+            );
+            assert_eq!(basic.contribution_costs.len(), if legacy { 0 } else { 2 });
+            assert_eq!(
+                saved
+                    .profile
+                    .retire
+                    .core
+                    .as_ref()
+                    .unwrap()
+                    .debt_repayments
+                    .len(),
+                if legacy { 0 } else { 1 }
+            );
+            assert_eq!(
+                saved.profile.retire.simplified.time.target_month.as_deref(),
+                Some("2046-10")
+            );
+            assert_eq!(store.plan_income_list().unwrap().rows.len(), 6);
+            let version = if legacy { "v1" } else { "v2" };
+            let complete = dir
+                .path()
+                .join(format!("unified-demo-plan-{version}.complete"));
+            assert!(complete.exists());
+            // Interruption after the final commit but before its completion marker.
+            let before = serde_json::to_value(store.plan_profile().unwrap()).unwrap();
+            std::fs::remove_file(&complete).unwrap();
+            import_plan(&mut store, "2026-12-12").unwrap();
+            assert_eq!(
+                serde_json::to_value(store.plan_profile().unwrap()).unwrap(),
+                before
+            );
+            assert_eq!(store.plan_income_list().unwrap().rows.len(), 6);
+            assert_eq!(
+                std::fs::read_to_string(
+                    dir.path().join(format!("unified-demo-plan-{version}.date"))
+                )
+                .unwrap(),
+                "2026-10-10"
+            );
+            assert!(complete.exists());
+        }
+    }
 
     fn event_update(
         store: &Store,

@@ -3,7 +3,7 @@
   "private": true,
   "description": "物谱 Thingary：物品档案与净资产盘点，本地优先的桌面应用",
   "license": "AGPL-3.0-or-later",
-  "version": "0.0.8",
+  "version": "0.1.0",
   "type": "module",
   "engines": {
     "node": ">=22.18"
@@ -30,7 +30,10 @@
     "ios:init": "npm run ios:tauri -- ios init",
     "ios:dev": "npm run ios:tauri -- ios dev --host 127.0.0.1",
     "ios:check": "cargo check --manifest-path src-tauri/Cargo.toml --lib --target aarch64-apple-ios-sim && cargo check --manifest-path src-tauri/Cargo.toml --lib --target aarch64-apple-ios",
-    "ios:tauri": "npm exec --yes --package=@tauri-apps/cli@2.12.3 -- tauri"
+    "ios:tauri": "npm exec --yes --package=@tauri-apps/cli@2.12.3 -- tauri",
+    "android:init": "npm run tauri -- android init",
+    "android:dev": "npm run tauri -- android dev --host 0.0.0.0",
+    "android:build": "npm run tauri -- android build --apk --ci"
   },
   "dependencies": {
     "react": "19.3.0",

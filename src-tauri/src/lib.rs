@@ -1,4 +1,14 @@
 pub mod account_groups;
+#[cfg(target_os = "android")]
+mod android;
+#[cfg(target_os = "android")]
+mod android_biometric;
+#[cfg(any(target_os = "android", test))]
+mod android_files;
+#[cfg(target_os = "android")]
+mod android_links;
+#[cfg(target_os = "android")]
+mod android_notifications;
 pub mod auto_backup;
 pub mod backup;
 pub mod backup_crypto;
@@ -65,6 +75,7 @@ pub mod source;
 pub mod spreadsheet;
 pub mod storage;
 mod support;
+pub mod sync;
 pub mod tag_investment;
 pub mod taxonomy;
 pub mod timeline;
@@ -102,7 +113,18 @@ fn windows_close_event(editing: bool, close_blocked: bool) -> Option<&'static st
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "android")]
     let builder = tauri::Builder::default()
+        .plugin(android::plugin())
+        .plugin(android_files::plugin())
+        .plugin(android_links::plugin());
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(android_biometric::plugin());
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(android_notifications::plugin());
+    #[cfg(not(target_os = "android"))]
+    let builder = tauri::Builder::default();
+    let builder = builder
         .setup(|app| {
             #[cfg(desktop)]
             window_size::restore(app.handle());
@@ -158,6 +180,10 @@ pub fn run() {
             app.manage(worker::Worker::start(
                 app.path().app_local_data_dir()?.join("library"),
             )?);
+            app.manage(std::sync::Arc::new(sync::commands::SyncRuntime::new(
+                app.path().app_config_dir()?.join("sync"),
+                app.path().app_local_data_dir()?.join("sync-staging"),
+            )?));
             // Update discovery (D5) shares the app-identity preference folder
             // with the other machine-local files; never the library database.
             app.manage(std::sync::Arc::new(update_state::UpdateState::new(
@@ -323,6 +349,14 @@ pub fn run() {
             }
             #[cfg(mobile)]
             app.manage(commands::PageMenu {});
+            // Android starts the page as soon as its window exists, which can be before
+            // Worker::start finishes the first-run sample library; commands arriving then
+            // fail with "state not managed". The window is configured with create:false and
+            // built here, once everything above is managed.
+            #[cfg(target_os = "android")]
+            for window in app.config().app.windows.iter().filter(|w| !w.create) {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), window)?.build()?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -527,7 +561,21 @@ pub fn run() {
             commands::add_material,
             commands::material_upload_result,
             commands::remove_material,
-            commands::material_preview
+            commands::material_preview,
+            sync::commands::sync_config_get,
+            sync::commands::sync_config_set,
+            sync::commands::sync_test_connection,
+            sync::commands::sync_disable,
+            sync::commands::sync_status,
+            sync::commands::sync_unlock,
+            sync::commands::sync_passphrase_reveal,
+            sync::commands::sync_forget_passphrase,
+            sync::commands::sync_set_auto_check,
+            sync::commands::sync_push,
+            sync::commands::sync_pull_inspect,
+            sync::commands::sync_compare_remote,
+            sync::commands::sync_reconcile,
+            sync::commands::sync_resolve_conflict
         ]);
     #[cfg(desktop)]
     let builder = builder

@@ -4,9 +4,11 @@
 
 ## 当前范围
 
-源码版本为 **0.0.8 候选**，目标 Windows 10 1809+／Windows 11 x64。公开版 0.0.7 已同时提供 Mac 与 Windows（schema 42）；当前候选的数据库为 schema 46（外币、持仓、账户分组、固定资产购入价、订阅重开及金额原币记录）。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
+源码版本为 **0.1.0 候选**，目标 Windows 10 1809+／Windows 11 x64。公开版 0.0.7 已同时提供 Mac 与 Windows（schema 42）；当前候选的数据库为 schema 46（外币、持仓、账户分组、固定资产购入价及订阅重开）。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
 
 检查结果统一维护在[开发说明](DEVELOPMENT.md#windows-validation)。源码接入与 Mac 自动检查不代表 Windows 原生运行、可见通知、人工安装与文件对话框、微软拼音、讲述人、Windows 10 或真实 x64 通过；每次按实际结果登记，不从脚本存在推定完成。下述真实 x64 已验结论各限原受测包和指定路径，当前候选新增或修改的界面仍须按对应源码另行复验。
+
+对外支持文案以当前实测为准：**Windows 11 x64 已测；Windows 10 1809+ 是目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟。** README、QUICKSTART、USER_GUIDE 与发布说明必须保持一致，不能把目标范围写成已验。
 
 自动工程检查使用 GitHub `macos-latest`／`windows-latest`；NSIS release 构建使用 `windows-latest` x64，已安装隔离包验收使用标准托管 `windows-11-arm`，x64 程序经 Windows 模拟运行。运行器系统与模拟架构必须写入结果，不能冒充真实 x64 设备、性能测试或所有 Windows 版本的验收。[运行器官方范围](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)可能调整，每次以实际任务环境为准。
 
@@ -136,6 +138,28 @@ Windows 按 `IsReparseTagNameSurrogate` 规则（标签 `& 0x20000000` 非零）
 - 默认卸载保留资料与自动备份，同身份重装后可读取。人工确认卸载器存在“删除应用数据”选项且默认不勾选；使用者若要保留记录不可勾选。删除分支仅用额外虚构副本验证，不影响当前验收证据。
 - 正式资料目标为 `%LOCALAPPDATA%\local.thingary.main\`，验收仅核对对应验收身份的路径。Mac 路径保持 Application Support；Windows 主资料不进入 Roaming，不修改系统全局长路径设置。
 - Mac 与 Windows 换机使用兼容版本的完整 `.thingary` 备份，分别核对记录、整数金额、未知值、关系与原图。窗口、主题、模块与通知偏好留在本机，不从备份推定迁移。
+
+<a id="msix-microsoft-store"></a>
+
+## MSIX（Microsoft Store）候选验收
+
+边界：本节只适用于 `windows-latest` 产出的**未签名** x64 MSIX。到 2026-10-25 为止，没有在真实 Windows 上安装、启动或提交认证；CI 只做结构校验，且本次准备尚未实际触发该工作流。商店认证后由 Microsoft 重新签名，不能用本机自签包的通过代替商店包。打包、身份、版本、WebView2 与已知差异见[发布流程的微软商店小节](RELEASING.md#microsoft-store)。
+
+准备：Windows 11 x64（记录实际 build）、WebView2 Runtime 版本、MSIX 的 SHA-256 与 `msix-verification.json`、`Get-AppxPackage` 读出的 Package Family Name。所有资料为虚构；**不得打开或写入 `local.thingary.main` 的真实资料**。自签证书与 `Add-AppxPackage` 命令见上述发布流程小节，证书只在本机临时生成。
+
+| 编号 | 项目 | 方法与通过标准 |
+|---|---|---|
+| M1 | 安装与身份 | 信任临时测试证书后 `Add-AppxPackage`；开始菜单出现「物谱」，启动无需管理员；`Get-AppxPackage` 的 Name／PublisherId／Version／PackageFamilyName 与清单及 `msix-verification.json` 一致（0.1.0 → 0.1.0.0） |
+| M2 | 启动与 WebView2 | 正常 Windows 11 上首次启动进入虚构样例；在缺少 WebView2 的干净 Windows 11 环境（若无法提供则记未做）确认失败表现与提示。不要在工作机卸载 Runtime 制造条件，不把已有 Runtime 的通过当成缺失分支通过 |
+| M3 | 资料路径与备份 | 新建虚构资料后读取实际写入位置（包内 `LocalCache\Local`／`Roaming` 与真实 `%LOCALAPPDATA%`／`%APPDATA%`）；核对资料库、图片、同步设置、自动备份、恢复与额外备份目录；记录读取是否回落到真实目录 |
+| M4 | 与 NSIS 互搬 | 用 NSIS 版建立虚构资料并导出完整 `.thingary`，在 MSIX 版恢复；反向再做一次。核对记录、整数金额、未知值、关系、图片散列。不要用直接复制目录代替完整备份 |
+| M5 | 卸载与资料 | 清单已关闭写入虚拟化（见 RELEASING）。先导出完整备份；卸载 MSIX，**期望**：真实 `%LOCALAPPDATA%\local.thingary.main` 的资料库、图片、自动备份全部保留；重装后资料仍在。2026-10-26 在默认虚拟化下该项失败（包目录删除、资料随之消失），关闭虚拟化后必须重测，失败不得写成已解决 |
+| M6 | 更新入口 | 「设置 › 支持」没有检查更新按钮或启动时开关；启动与打开设置不发起版本查询（断网或抓包核对）；商店发布新版本后由 Store 更新，应用内不提示下载 |
+| M7 | 单实例、通知与文件面板 | 连续启动只有一个主实例；开始菜单和通知点击能唤起同一窗口；三类提醒实际送达并核对 AUMID／点击行为；选图、备份、xlsx、文件夹、另存为的成功／取消与中文带空格路径 |
+| M8 | 当前报告 | 现行业务范围：当前报告**没有**打印或 PDF 操作（`PRODUCT_RULES.md`、`PlanningCurrentReportDialog.tsx` 的 `allowPrint={false}`）。打开规划 › 查看当前报告，确认报告能打开、能复制摘要、关闭正常，且没有打印、PDF 入口，也不弹出浏览器窗口。不要用外部脚本生成 PDF 代验；若以后做打印能力，再恢复打印预览与分页的验收 |
+| M9 | 与 NSIS 并装 | 关闭虚拟化后两种安装共用真实资料目录和单实例（2026-10-26 实测：NSIS 启动会被已运行的 MSIX 实例接管）。验证：并装时只有一个运行实例、资料不丢；卸载其中一个不删除另一个的程序与资料；通知身份互相影响仍需验证。结论写进发布说明：不建议并装，换版用完整备份 |
+
+每项记录「通过／失败／未做」、包版本与散列、Package Family Name、Windows build、WebView2 版本、操作者、证据文件名与复现步骤。CI 的结构校验、`MakeAppx unpack` 比对和 `Add-AppxPackage` 成功都不能代替 M2–M5、M7 的真实行为；未测就写未验证。
 
 ## 候选交付与公开判断
 

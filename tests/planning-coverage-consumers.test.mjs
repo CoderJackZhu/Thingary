@@ -14,7 +14,19 @@ const code=ts.transpileModule(readFileSync(new URL('../src/CoverageNote.tsx',imp
 const exports={};
 vm.runInNewContext(code,{exports,require:id=>({'react':React,'react/jsx-runtime':jsx,'./plan-annotations':{actionableAnnotations,annotationSummary,annotationDirection},'./plan-basic':{prepareBasicPlan}}[id])});
 const render=(annotations,compact=false)=>renderToStaticMarkup(React.createElement(exports.CoverageNote,{annotations,compact}));
-const batch=JSON.parse(readFileSync(new URL('./fixtures/planning-basic/nonblocking-demo.json',import.meta.url)));
+const demo=JSON.parse(readFileSync(new URL('./fixtures/planning-basic/nonblocking-demo.json',import.meta.url)));
+const batch=structuredClone(demo);
+// Missing user declarations remain visible even though the complete demo has none.
+batch.profile.value.saved.profile.retire.basic.contribution_costs=[];
+batch.profile.value.saved.profile.retire.basic.retirement_costs=[];
+batch.profile.value.saved.profile.retire.core.debt_repayments=[];
+
+test('complete imported demo needs no coverage warning',()=>{
+ const c=buildBasicCapabilities(demo);
+ assert.equal(c.prediction.status,'ready'); assert.equal(c.prediction.value.outcome.success,true);
+ assert.deepEqual(actionableAnnotations(c.annotations),[]);
+ assert.equal(render(c.annotations,true),'');
+});
 
 test('demo ready result renders adjacent general cash-flow assumptions',()=>{
  const c=buildBasicCapabilities(batch);assert.equal(c.requirement.status,'ready');

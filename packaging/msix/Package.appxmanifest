@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Source template for the Microsoft Store (MSIX) package.
+
+  scripts/pack-msix.ps1 replaces the identity placeholders below and copies
+  this file into the staged payload as AppxManifest.xml (the name MakeAppx.exe
+  expects). The identity defaults come from the reserved Partner Center
+  product; PARTNER_CENTER_IDENTITY_NAME, PARTNER_CENTER_PUBLISHER and
+  PARTNER_CENTER_PUBLISHER_DISPLAY_NAME override them. Keep the identity in
+  step with Partner Center: the Store treats a changed Name or Publisher as a
+  different app, and the uploaded package is unsigned because the Store
+  re-signs it after certification.
+
+  TargetDeviceFamily MinVersion is Windows 11 (10.0.22000.0) on purpose. An
+  MSIX cannot run the WebView2 bootstrapper that the NSIS installer uses, so
+  the Store package must not claim Windows 10 support until a packaged
+  WebView2 runtime or another install path is verified. See
+  docs/RELEASING.md#microsoft-store.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  IgnorableNamespaces="uap uap10 rescap desktop6">
+
+  <Identity
+    Name="__IDENTITY_NAME__"
+    Publisher="__PUBLISHER__"
+    Version="__VERSION__"
+    ProcessorArchitecture="__ARCHITECTURE__" />
+
+  <Properties>
+    <DisplayName>物谱</DisplayName>
+    <PublisherDisplayName>__PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily
+      Name="Windows.Desktop"
+      MinVersion="10.0.22000.0"
+      MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="zh-CN" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="App"
+      Executable="thingary.exe"
+      EntryPoint="Windows.FullTrustApplication"
+      uap10:RuntimeBehavior="packagedClassicApp"
+      uap10:TrustLevel="mediumIL">
+      <uap:VisualElements
+        DisplayName="物谱"
+        Description="物品档案与净资产盘点"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+    </Application>
+  </Applications>
+
+  <!--
+    File-system write virtualization is DISABLED on purpose (the restricted capability
+    unvirtualizedResources below is required for that). Without it a packaged app's writes to
+    %LOCALAPPDATA% / %APPDATA% are redirected into the package store and Windows deletes them
+    when the package is uninstalled; a real-device run (2026-10-26) showed the library, images
+    and automatic backups disappearing on uninstall, and the installed app also reading the
+    NSIS install's data. With virtualization off the app uses the real
+    %LOCALAPPDATA%\local.thingary.main like the NSIS build: data survives uninstall and both
+    builds share one library (and one running instance). See docs/RELEASING.md#microsoft-store.
+  -->
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+</Package>

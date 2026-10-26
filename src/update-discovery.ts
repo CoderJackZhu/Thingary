@@ -36,6 +36,8 @@ export type UpdateDiscoveryState = {
   update_available: boolean;
   candidate_fresh: boolean;
   unread: boolean;
+  /** The Microsoft Store owns updates for this build; hide every update action. */
+  store_managed?: boolean;
 };
 export type UpdateTaskResult = { origin: 'automatic' | 'manual'; applied: boolean; cancelled: boolean; error: string | null };
 export type UpdateRequestResult = { decision: 'started' | 'joined' | 'skipped'; task: UpdateTaskResult | null; state: UpdateDiscoveryState };
@@ -133,7 +135,7 @@ export function updateInviteVisible(
   state: UpdateDiscoveryState | null,
   environment: { asked: boolean; hasRecords: boolean; demoActive: boolean; busy: boolean; idle?: boolean },
 ): boolean {
-  if (!state || !supportsUpdateChecks(state.platform_label)) return false;
+  if (!state || state.store_managed || !supportsUpdateChecks(state.platform_label)) return false;
   return (
     !environment.asked &&
     !environment.demoActive &&
@@ -153,7 +155,7 @@ export function autoCheckScheduled(
   state: UpdateDiscoveryState | null,
   environment: { idle: boolean; unlocked: boolean; checkedThisSession: boolean },
 ): boolean {
-  return !!state && supportsUpdateChecks(state.platform_label) && !environment.checkedThisSession && environment.idle && environment.unlocked && state.consent === 'enabled';
+  return !!state && !state.store_managed && supportsUpdateChecks(state.platform_label) && !environment.checkedThisSession && environment.idle && environment.unlocked && state.consent === 'enabled';
 }
 
 /** Milliseconds of calm first-screen time before the automatic request. */

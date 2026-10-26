@@ -14,8 +14,11 @@ import { Button } from './ui';
 import { KeyboardBar } from './ui/KeyboardBar';
 import { privacySnapshot, subscribePrivacy } from './me/privacy-runtime';
 import { t } from '../i18n.ts';
+import { useAutoSync } from '../sync/auto';
 /** The whole iPhone app: module switches, wealth session, per-tab page stacks, tab bar. */
+
 export function MobileApp({ initial }: { initial?: InitialRoute }) {
+  useAutoSync();
   const recovery = useRef<HTMLElement>(null);
   // Like the desktop PrivacyBoundary: until the first unlock nothing is mounted, so the library is not even read (the overlay alone only hides it).
   const mounted = useSyncExternalStore(subscribePrivacy, () => privacySnapshot().mounted);

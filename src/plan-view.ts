@@ -4,7 +4,7 @@ import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, ta
 import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
-import { t as tr, numberLocale } from './i18n.ts';
+import { t as tr } from './i18n.ts';
 import { t as tt } from './i18n.ts';
 export type ValueMode = 'today' | 'nominal';
 export type Tone = 'good' | 'watch' | 'bad';
@@ -13,14 +13,7 @@ export type Seg = { t: string; strong?: boolean };
 /** 展示用的缩放：今天的钱不变，名义值乘到该月龄的累计通胀。 */
 export const scaleAt = (P: Plan, mode: ValueMode, month: number) => (mode === 'nominal' ? nominalFactor(P, month) : 1);
 
-/** 紧凑金额（分 → 万／亿），图表坐标与卡片用。 */
-export function compactYuan(cents: number): string {
-  const v = cents / 100, a = Math.abs(v), sign = v < 0 ? '−' : '';
-  if (a >= 1e8) return tt('{sign}¥{v2}亿', { sign, v2: trim(a / 1e8) });
-  if (a >= 1e4) return tt('{sign}¥{v2}万', { sign, v2: trim(a / 1e4) });
-  return `${sign}¥${Math.round(a).toLocaleString(numberLocale())}`;
-}
-const trim = (x: number) => (x >= 100 ? Math.round(x).toString() : x.toFixed(1).replace(/\.0$/, ''));
+export { compactYuan } from './format-compact.ts';
 
 export const ageInt = (months: number) => Math.floor(months / 12);
 const durationText = (months: number) => { const y = Math.floor(months / 12), m = months % 12; return y === 0 ? tt('{m} 个月', { m }) : m === 0 ? tt('{y} 年', { y }) : tt('{y} 年 {m} 个月', { y, m }); };

@@ -315,6 +315,7 @@ try {
     $deliveryTime=[DateTime]::FromFileTimeUtc([long]$plan.ticks)
     $pollDeadline=(Get-Date).ToUniversalTime().AddSeconds(60)
     $delivered=$null
+    $historyWhileScheduled=$false
     while ((Get-Date).ToUniversalTime() -lt $pollDeadline) {
       $state=Notify 'inspect'
       $matching=@($state.history | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag })
@@ -322,12 +323,18 @@ try {
       if ($matching.Count -eq 1) {
         if ((Get-Date).ToUniversalTime() -lt $deliveryTime) { throw 'Fixture history appeared before its scheduled deadline.' }
         if ($matching[0].xml -notmatch '物谱隔离验收提醒' -or $matching[0].xml -notmatch 'thingary-windows-acceptance') { throw 'Delivered history content does not match the fictional fixture.' }
-        if (@($state.scheduled | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag }).Count -ne 0) { throw 'Delivered fixture remains in the pending schedule.' }
+        if (@($state.scheduled | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag }).Count -ne 0) {
+          # Windows may move the toast into history before the scheduled list stops reporting it; poll on.
+          $historyWhileScheduled=$true
+          Start-Sleep -Milliseconds 500
+          continue
+        }
         $delivered=$state
         break
       }
       Start-Sleep -Milliseconds 500
     }
+    if ($null -eq $delivered -and $historyWhileScheduled) { throw 'Delivered fixture remains in the pending schedule.' }
     if ($null -eq $delivered) { throw 'Windows scheduled notification was not delivered into system history within 60 seconds.' }
     $delivered | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $Output 'notification-delivered.json') -Encoding utf8
     $Summary.notificationDelivery=@{ appClosedAt=$closedAt; scheduled=$plan; deadline=$deliveryTime.ToString('o'); observedAt=$delivered.observed_at; source='WinRT ToastNotificationManager.History.GetHistoryWithId'; history=$delivered.history; visibleDesktopToastVerified=$false }

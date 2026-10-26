@@ -12,3 +12,28 @@
 @media(max-width:1050px){.settings-section.settings-categories{grid-template-columns:1fr;gap:20px}.settings-categories-nav{display:flex;flex-wrap:wrap;position:static;border-bottom:1px solid var(--line);padding-bottom:8px}.settings-categories-nav button{padding:8px 10px}}
 .stats-filter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .settings-categories .data-heading .eyebrow{display:none}
+.sync-settings{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.sync-head h3{font-size:13px;margin:0 0 2px}
+.sync-head p{font-size:12px;line-height:1.4;margin:0;color:var(--muted)}
+.sync-settings>.notice{margin:10px 0 0;font-size:12px;line-height:1.55}
+.sync-form{border:1px solid var(--line);border-radius:10px;margin-top:10px;overflow:hidden}
+.sync-form .form-row{padding:10px 12px;min-height:0}
+.sync-config-actions{margin-top:10px;justify-content:flex-start}
+.sync-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sync-actions button{font-size:12px;padding:6px 10px}
+.sync-state{margin-top:12px}
+.sync-state h3{font-size:13px;margin:0 0 4px}
+.sync-state.danger h3{color:var(--error)}
+.sync-state p{font-size:12px;line-height:1.55;margin:0 0 8px;color:var(--muted)}
+.sync-consequences{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;font-size:12px;line-height:1.5;color:var(--muted)}
+.sync-consequences strong{font-weight:500;color:var(--text)}
+.sync-passphrase .field{margin-top:12px}
+.sync-passphrase .notice{margin:12px 0 0;font-size:12px;line-height:1.55}
+.sync-history{margin:12px 0 0;font-size:12px;line-height:1.55;color:var(--muted)}
+.sync-disable-actions{display:grid;gap:8px;margin-top:16px}
+.sync-disable-actions button{white-space:normal}
+@media(max-width:520px){.sync-form .form-row{grid-template-columns:minmax(0,1fr);gap:6px}.sync-form .form-row-control{justify-content:flex-start}}
+
+.sync-line.attention .link-button{background:none;border:0;padding:0;color:var(--accent);font:inherit;cursor:pointer;text-align:left}.sync-remember{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px}.sync-revealed code{user-select:all;font-size:13px}
+.sync-form .sync-actions button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+.sync-compare{width:100%;max-width:460px;border-collapse:collapse;font-size:13px;margin-top:10px}.sync-compare caption{text-align:left;color:var(--muted);padding-bottom:6px}.sync-compare th,.sync-compare td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--line)}.sync-compare th[scope=row]{text-align:left;font-weight:400}.sync-compare tr.differs td{font-weight:600;color:var(--accent)}

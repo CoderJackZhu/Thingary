@@ -543,3 +543,61 @@ fn general_arrangements_preserve_personal_pension_and_housing_account_facts() {
     );
     assert!(restored.plan_income_list().unwrap().rows.is_empty());
 }
+
+#[test]
+fn demo_plan_v2_declarations_persist_and_backup_without_changing_account_facts() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("fictional-demo");
+    let mut store = Store::open(&root).unwrap();
+    thingary_lib::demo::prepare_fixture(&mut store, "2026-10-10").unwrap();
+    let saved = store.plan_profile().unwrap().saved.unwrap();
+    let r = &saved.profile.retire;
+    let basic = r.basic.as_ref().unwrap();
+    assert_eq!(basic.contribution.monthly_cents.as_deref(), Some("1400000"));
+    assert_eq!(r.spend_cents.as_deref(), Some("750000"));
+    for costs in [&basic.contribution_costs, &basic.retirement_costs] {
+        assert_eq!(costs.len(), 2);
+        assert!(costs
+            .iter()
+            .all(|c| c.treatment == "extra" && c.reference_cents.is_none()));
+    }
+    let core = r.core.as_ref().unwrap();
+    assert!(
+        core.occurrences.is_empty(),
+        "future car is not an actual purchase"
+    );
+    let debts = &core.debt_repayments;
+    assert_eq!(debts.len(), 1);
+    assert_eq!(debts[0].balance_cents, "500000");
+    assert_eq!(debts[0].monthly_cents.as_deref(), Some("50000"));
+    assert_eq!(debts[0].start_month, "2026-11");
+    assert_eq!(debts[0].last_month.as_deref(), Some("2027-08"));
+    assert_eq!(debts[0].before.as_deref(), Some("scheduled"));
+    assert_eq!(debts[0].after.as_deref(), Some("scheduled"));
+    let facts = serde_json::to_value(store.wealth_summary().unwrap()).unwrap();
+    assert_eq!(store.plan_income_list().unwrap().rows.len(), 6);
+    assert!(root.join("unified-demo-plan-v2.complete").exists());
+    assert!(!root.join("unified-demo-plan-v1.date").exists());
+    drop(store);
+    let mut store = Store::open(&root).unwrap();
+    thingary_lib::demo::prepare_fixture(&mut store, "2026-11-11").unwrap();
+    assert_eq!(
+        store.plan_profile().unwrap().saved.unwrap().profile,
+        saved.profile
+    );
+    assert_eq!(
+        serde_json::to_value(store.wealth_summary().unwrap()).unwrap(),
+        facts
+    );
+    let backup = dir.path().join("fictional-demo.thingary");
+    store.backup(Some(&backup)).unwrap();
+    let mut restored = Store::open(&dir.path().join("fictional-restore")).unwrap();
+    let info = restored.inspect_backup(&backup).unwrap();
+    restored
+        .restore(&backup, &info.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(
+        restored.plan_profile().unwrap().saved.unwrap().profile,
+        saved.profile
+    );
+}

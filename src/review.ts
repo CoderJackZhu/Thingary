@@ -115,7 +115,7 @@ export function attention(review: Review, m: Modules = allModules): Attention[] 
     const linked = v.fields.plan_id && !v.plan_deleted;
     const id = linked ? 'plan:' + v.fields.plan_id : 'virtual:' + v.id;
     const priority = v.status === 'expired' ? 1 : 2, date = v.valid_until!;
-    const detail = t('{name} · 权益{v2} · {date}', { name: v.fields.name, v2: v.status === 'expired' ? '已到期' : '即将到期', date });
+    const detail = t('{name} · 权益{v2} · {date}', { name: v.fields.name, v2: v.status === 'expired' ? t('已到期') : t('即将到期'), date });
     const entry: AttentionEntry = { action: t('打开虚拟档案'), target: { kind: 'virtual', id: v.id } };
     const group = groups.get(id);
     if (group) { group.details.push(detail); group.entries.push(entry); group.priority = Math.min(priority, group.priority); group.date = date < group.date ? date : group.date; }

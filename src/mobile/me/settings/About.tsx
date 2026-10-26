@@ -6,7 +6,7 @@ import license from '../../../../LICENSE?raw';
 import thirdParty from '../../../../THIRD_PARTY_LICENSES.md?raw';
 import { feedbackEmail } from '../../../support';
 import { Button, Card, ListGroup, ListRow, Notice } from '../../ui';
-import { diagnosticText } from '../feedback';
+import { feedbackBody } from '../feedback';
 import type { SettingsPage } from '../model';
 import { settingsTitles } from '../model';
 import { SettingsShell } from './Shell';
@@ -17,27 +17,23 @@ const Block = ({ title, children }: { title: string; children: React.ReactNode }
 export default function About({ page }: { page: Extract<SettingsPage, 'about' | 'feedback' | 'license'> }) {
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => { let live = true; if (page !== 'license') invoke<string>('app_version').then(value => { if (live) setVersion(value); }).catch(() => { if (live) setVersion(''); }); return () => { live = false; }; }, [page]);
-  const [note, setNote] = useState<{ tone: 'positive' | 'danger'; text: string } | null>(null);
-  const diagnostics = () => diagnosticText({ version, userAgent: navigator.userAgent, screen: { width: screen.width, height: screen.height, ratio: window.devicePixelRatio || 1 } });
+  const [note, setNote] = useState<string | null>(null);
+  const [mailBusy, setMailBusy] = useState(false);
   if (page === 'feedback') return <SettingsShell title={settingsTitles.feedback} lead={t('遇到问题或有建议，写封邮件告诉我们。')}>
     <Card label={t('反馈')}>
       <div className="me-actions">
-      <Button variant="primary" block onClick={async () => {
-        // 只有固定目标经过 IPC：先复制诊断信息，用户粘贴到邮件里；不含资料库内容。
-        const copied = await navigator.clipboard.writeText(diagnostics()).then(() => true, () => false);
-        try { await invoke('support_open', { target: 'mail' }); setNote(copied ? { tone: 'positive', text: t('诊断信息已复制，可粘贴到邮件末尾。') } : null); }
-        catch { setNote({ tone: 'danger', text: t('无法打开邮件。请手动发送到 {feedbackEmail}。', { feedbackEmail }) }); }
+      <Button variant="primary" block disabled={mailBusy || version === null} onClick={async () => {
+        setMailBusy(true); setNote(null);
+        const body = feedbackBody({ version, userAgent: navigator.userAgent, screen: { width: screen.width, height: screen.height, ratio: window.devicePixelRatio || 1 } });
+        try { await invoke('support_open', { target: 'mail', body }); }
+        catch { setNote(t('无法打开邮件。请手动发送到 {feedbackEmail}。', { feedbackEmail })); }
+        finally { setMailBusy(false); }
       }}>{t('写邮件反馈')}</Button>
-      <Button block onClick={() => {
-        navigator.clipboard.writeText(diagnostics()).then(() => setNote({ tone: 'positive', text: t('已复制诊断信息。') }), () => setNote({ tone: 'danger', text: t('复制失败，请手动选择文字。') }));
-      }}>{t('复制诊断信息')}</Button>
-      {note && <Notice tone={note.tone}>{note.text}</Notice>}
+      <SupportLink target="feedback" className="m-button m-block">{t('在 GitHub 提交（需要账号）')}</SupportLink>
+      {note && <Notice tone="danger">{note}</Notice>}
       </div>
-      <p className="me-prose-p">{t('点「写邮件反馈」会同时复制物谱版本、iOS 版本和设备类型，粘贴到邮件里即可，不包含你的资料。收件地址：{feedbackEmail}', { feedbackEmail })}</p>
-      <h2 className="me-h2">{t('反馈时提供什么')}</h2>
-      <p className="me-prose-p">{t('请写明物谱版本、系统版本、机型、安装来源、操作步骤和错误文字。截图请遮住真实资料，不要上传数据库、备份、发票或序列号。资料损坏时先保留现有资料和备份，再反馈问题。')}</p>
+      <p className="me-prose-p">{t('邮件会附上版本和设备信息。截图请遮住个人资料。')}</p>
     </Card>
-    <p className="m-group-footer"><SupportLink target="feedback">{t('在 GitHub 提交（需要账号）')}</SupportLink></p>
   </SettingsShell>;
   if (page === 'license') return <SettingsShell title={settingsTitles.license} lead={t('代码按 AGPL-3.0-or-later 授权。')}>
     <ListGroup><ListRow title={t('第三方声明与致谢')} subtitle={t('在浏览器中打开')} onClick={() => document.getElementById('me-sources-link')?.click()}/></ListGroup>

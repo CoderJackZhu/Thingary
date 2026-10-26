@@ -1,6 +1,6 @@
 [package]
 name = "thingary"
-version = "0.0.8"
+version = "0.1.0"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "物谱 Thingary: a local-first desktop archive for possessions and financial net worth"
@@ -35,6 +35,7 @@ rand = "0.8"
 calamine = { version = "0.36.1", features = ["chrono"] }
 rust_xlsxwriter = "0.99.1"
 quick-xml = "0.41.0"
+ureq = { version = "2.12", default-features = false, features = ["tls"] }
 
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 tauri-plugin-single-instance = "2"

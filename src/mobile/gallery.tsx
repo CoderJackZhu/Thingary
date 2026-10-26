@@ -14,7 +14,7 @@ function Gallery() {
   const [amount, setAmount] = useState('649000'), [date, setDate] = useState('2025-02-16'), [name, setName] = useState('索尼 A7C2 相机'), [note, setNote] = useState('');
   return <div className="m-page">
     <LargeTitle title={t('组件库')} actions={<><IconButton label={t('隐藏金额')} pressed={hidden} onClick={() => setHidden(!hidden)}><Icon name={hidden ? 'eyeOff' : 'eye'}/></IconButton><IconButton label={t('搜索')}><Icon name="search"/></IconButton></>}/>
-    <HeroCard eyebrow={t('规划 · 财务自由')} action={t('查看规划')} title={t('还要上 21 年 10 个月班')} subtitle={t('51 岁，最早 2048 年 8 月可以不靠工资生活')} tags={[{ text: t('两人都不上班：2050 年 3 月') }, { text: t('每月多存 1,000 元可提前约 1 年 5 个月'), tone: 'positive' }]} footnote={t('估算结果，不是理财建议')} onClick={() => nav.push(dev('dev.gallery.page'))}/>
+    <HeroCard eyebrow={t('规划 · 财务自由')} action={t('查看规划')} title={t('还要上 21 年 10 个月班')} subtitle={t('51 岁，最早 2048 年 8 月可以不靠工资生活')} tags={[{ text: t('两人都不上班：2050 年 3 月') }, { text: t('每月多存 1,000 元可提前约 1 年 5 个月'), tone: 'positive' }]} onClick={() => nav.push(dev('dev.gallery.page'))}/>
     <MetricGrid>
       <Metric label={t('金融净资产')} value="¥884,000" sub={t('较上次 +¥12,000')} subTone="positive"><LineAreaChart values={[70, 72, 71, 80, 84, 88.4]} summary={t('最近 6 次盘点金融净资产缓慢上升，最近一次 ¥884,000')}/></Metric>
       <Metric label={t('物品日均成本')} value={t('未知')} unknown sub={t('还没有可计入的物品')}/>

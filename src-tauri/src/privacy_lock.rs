@@ -12,7 +12,14 @@ pub(crate) fn auth_name() -> &'static str {
         1 => return "触控 ID",
         _ => {}
     }
-    "身份验证"
+    #[cfg(target_os = "android")]
+    {
+        "设备解锁"
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        "身份验证"
+    }
 }
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ffi::{c_char, c_void, CStr};
@@ -25,6 +32,11 @@ extern "C" {
 }
 
 fn unavailable() -> Error {
+    #[cfg(target_os = "android")]
+    {
+        Error::new("AUTH_UNAVAILABLE", "这台设备没有设置锁屏口令或生物识别")
+    }
+    #[cfg(not(target_os = "android"))]
     if cfg!(target_os = "macos") {
         Error::new("AUTH_UNAVAILABLE", "这台 Mac 没有设置登录密码或 Touch ID")
     } else if cfg!(target_os = "ios") {
@@ -38,11 +50,15 @@ fn unavailable() -> Error {
 }
 
 fn available() -> bool {
+    #[cfg(target_os = "android")]
+    {
+        crate::android_biometric::available().unwrap_or(false)
+    }
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
         unsafe { thingary_auth_available() == 1 }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
     {
         false
     }
@@ -60,6 +76,10 @@ fn authenticate_if_available(
 
 fn authenticate() -> Result<()> {
     authenticate_if_available(available(), || {
+        #[cfg(target_os = "android")]
+        {
+            crate::android_biometric::authenticate()
+        }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
             let result = unsafe { thingary_auth(c"解锁物谱，查看本机资料".as_ptr()) };
@@ -76,16 +96,30 @@ fn authenticate() -> Result<()> {
                 Err(Error::new("AUTH_FAILED", &message))
             }
         }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
         Err(unavailable())
     })
 }
 
 #[tauri::command]
 pub async fn privacy_auth_available() -> Result<bool> {
-    tauri::async_runtime::spawn_blocking(available)
+    #[cfg(target_os = "android")]
+    {
+        // A broken bridge is an error, not "this device has no screen lock": the
+        // frontend disables the lock when the answer is a definite false.
+        tauri::async_runtime::spawn_blocking(|| {
+            crate::android_biometric::available()
+                .ok_or_else(|| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))
+        })
         .await
-        .map_err(|_| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))
+        .map_err(|_| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))?
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        tauri::async_runtime::spawn_blocking(available)
+            .await
+            .map_err(|_| Error::new("AUTH_FAILED", "无法检查身份验证能力，请重试。"))
+    }
 }
 
 #[tauri::command]
@@ -114,7 +148,7 @@ mod tests {
         assert_eq!(error.message, "虚构取消");
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
     #[test]
     fn unsupported_platform_does_not_prompt() {
         assert!(!available());

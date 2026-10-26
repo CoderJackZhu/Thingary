@@ -1,6 +1,6 @@
 # 架构说明
 
-物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，macOS／Windows 桌面宿主与 iOS 宿主共用 Rust 业务层；各平台的验证边界见开发说明。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
+物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，macOS／Windows 桌面宿主与 iOS／Android 宿主共用 Rust 业务层；各平台的验证边界见开发说明。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无自营服务端、Node sidecar 或物谱账号系统；可选 WebDAV 同步经后端连接用户服务器。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
 
 当前已接入的资金／事件核对和月账本见下文。当前规划报告通过只读适配器接入真实来源，不新增持久对象；命名方案、冻结基准及基准／比较报告尚未接入，其物理表、命令与迁移版本在实施前确定，不能从规划推定数据库已变更。
 
@@ -48,11 +48,25 @@ flowchart TD
 
 ### iOS 平台层
 
-iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打开 mobile.html；桌面仍打开 index.html。菜单、窗口关闭／尺寸、快捷键和单实例插件仅编译到桌面。build.rs 只在 macOS 编译 AppKit 原生文件，在 iOS 编译 UIKit／ImageIO／LocalAuthentication／UserNotifications／PhotosUI／WebKit 桥接；SQLite bundled 与规划引擎共用，不新增同步、数据库 schema 或保存协议。
+iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打开 mobile.html；桌面仍打开 index.html。菜单、窗口关闭／尺寸、快捷键和单实例插件仅编译到桌面。build.rs 只在 macOS 编译 AppKit 原生文件，在 iOS 编译 UIKit／ImageIO／LocalAuthentication／UserNotifications／PhotosUI／WebKit 桥接；SQLite bundled 与规划引擎共用；平台层不另建同步、数据库 schema 或保存协议。
 
 `ios.rs` 将 UIKit 面板调度到主线程，等待与文件工作留在阻塞线程。`ios_exports.rs` 只接受 App Documents 里的普通导出文件名，不允许前端传任意分享路径；完整备份和工作簿发布与分享结果分开，取消分享仍保留导出文件。恢复先由系统选择器复制选中文件，再沿用 inspect_backup、解密、恢复确认和原回执核对。手机所有文件进出汇集于 `src/mobile/me/files.ts`；报告复用原隐私 HTML 快照，经独立 WKWebView 生成 A4 PDF 后分享，不计算新结果。恢复密钥仅作临时分享，用后清除，不持久保存在 Documents。
 
 手机隐私运行时同步遮挡偏好并接收原生场景事件；场景失活时原生遮罩先于系统截图，前台时先恢复 DOM 锁屏再移除。图片保留原件，ImageIO 生成方向正确的缩略图。心愿保留 pick_photo 调用，在 iOS 改接 PHPicker，避免复制照片 staging 和回执逻辑。提醒复用原有日期和稳定 ID，经 UNUserNotificationCenter 按本地 09:00 排程，最多使用系统剩余的 64 条容量；超限告知待补排数量。更新查询／授权／下载在后端网络入口前禁用，前端判定位于 update-check.ts 并由 update-discovery.ts 复用。
+
+### Android 平台层
+
+Android 工程位于 `src-tauri/gen/android`，Kotlin 包由应用标识生成，`MainActivity` 继承 `TauriActivity`；平台配置 `tauri.android.conf.json` 打开 mobile.html，窗口在 `setup` 里建好后才加载页面。原生插件名为 `thingary`，Kotlin 类 `ThingaryPlugin`（当前包 `local.thingary.preview`）由 `android.rs` 的插件 `setup` 注册，包路径取 `app.config().identifier`，句柄存入托管状态；`ios_privacy_cover_set` 在 Android 经该句柄调用 `setPrivacyCover`，在主线程给窗口加上或清除 `FLAG_SECURE`，开关后截图、录屏与最近任务缩略图随之为空或恢复。`platform_capabilities` 因此报告 `background_privacy_cover` 为 true。
+
+仍未接入：更新检查、照片选择器、资料表格导入选择器；这些命令在 Android 返回不支持，界面沿用既有降级。`thingary` 插件只改窗口标志，不写资料库、本机偏好或备份。
+
+隐私锁的设备身份验证现已由独立的 `android_biometric.rs`／`BiometricPlugin.kt` 接入，设备身份验证以本段为准：API ≥ 30 的能力检查与系统提示均使用 `BIOMETRIC_STRONG | DEVICE_CREDENTIAL`；API 29 的提示由独立兼容函数调用 `setDeviceCredentialAllowed(true)`，能力检查采用与旧提示一致的 `BIOMETRIC_WEAK | DEVICE_CREDENTIAL`，避免 API 29 不支持强生物识别与设备口令组合的限制。命令名与返回结构不变，不可用返回 `AUTH_UNAVAILABLE`，取消、锁定与超时沿用 `AUTH_FAILED` 及现有 iOS 消息；未识别的生物识别与 iOS 一样留在系统提示内重试，不单独结束会话；120 秒到期先使会话失效再取消系统提示，迟到回调不能解锁；本机桥接失败按错误上报，不当成「没有设置锁屏」放行。名称为「设备解锁」；未设置设备锁屏或生物识别时能力为 false，界面禁用开启。回前台按既有闲置时长检查锁定，只显示解锁按钮，不自动弹出系统验证，与 iOS 一致；用户点击「解锁」后调用系统验证。默认只在启动时验证，最短闲置重验选项为 5 分钟；编辑、保存与待核对结果继续延后锁定。这只是屏幕保护，不加密资料库。
+
+通知复用盘点、付款与保障到期提醒的计划 JSON、日期和稳定 ID，由 `android_notifications.rs` 注册独立的 `NotificationsPlugin`。插件创建通知渠道，Android 13 以上经 `POST_NOTIFICATIONS` 请求运行时权限；拒绝时提醒日期仍保存在资料库。`ReminderSchedule` 按计划日期的本地 09:00 使用 `AlarmManager.setAndAllowWhileIdle` 不精确闹钟，先取消旧批次再整体排程，重复排程不增加重复项；保守保留最近 64 条，超限返回待补排数量，不申请精确闹钟权限，也不保证整点送达。`BootReceiver` 在重启后从私有 SharedPreferences 恢复最后一份计划，并在应用更新、系统时间或时区变化后重排；该偏好不进资料库、备份与导出。`ReminderReceiver` 核对最新计划标识与到期时间，通知只显示固定的提醒类型与打开应用提示，不展示可能含金额的名称或自填备注；点击只打开应用，Intent 不携带资料正文。系统自动备份已对整个应用关闭，云备份与系统换机迁移规则排除全部存储域；资料只通过物谱自己的备份导出离开设备。实际验证边界见[开发说明](DEVELOPMENT.md#android-开发与模拟器)，真机省电策略与各厂商 ROM 的后台限制未验证。
+
+文件进出由独立的 `android_files.rs`／`FilesPlugin`（`thingaryFiles`）处理。完整备份与工作簿先写入应用专属 `files/exports/`，再用 `ACTION_SEND`、FileProvider 与临时读取授权打开系统分享面板；取消分享保留成品。分享只接受普通文件名和目录内的普通文件，拒绝路径穿越及符号链接。系统回调只能确认取消或交接，不能证明接收应用已经保存文件。手机目前没有已导出文件的重新分享入口，取消提示要求需要保存时重新导出并选择分享目标。
+
+恢复沿用 `inspect_backup` → 确认 → `restore_backup_session`／`backup_session_result`；`ACTION_OPEN_DOCUMENT` 选中的内容先在后台复制到每次选择独立的私有 staging。复制同时检查提供者声明大小与实际读取字节，上限取 `backup::MAX_ARCHIVE_FILE + backup_crypto::MAX_CIPHER_OVERHEAD`；`.part` 仅在复制和同步成功后改名，失败清理副本。检查取得自己的冻结副本后，无论检查成功或失败都清理该次选择的 staging。Android 能力报告 `native_file_sharing: true`、`pdf_export: false`；`ios_export_pdf` 继续返回 `UNSUPPORTED`，报告仅在 `pdf_export === false` 时隐藏导出按钮，保留复制摘要。真机与第三方文件提供者行为未验证。
 
 ### 手机界面
 
@@ -79,6 +93,8 @@ iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打�
 
 保存共用 `submit`、`storedPending` 与 `resolvePending`。未知回执保留原请求并暂停编辑和切页，以原请求身份只读核对，不自动继续剩余账户；确认成功后清除对应行输入并刷新来源，未保存时保留当前输入。普通输入只在当前页面内存保留，离页不存草稿。读取拒绝 generation／日期不匹配和已失效响应。
 
+手机反馈沿用 `support_open` 固定目标白名单，仅 `mail` 接受可选正文（最多 4096 字节）。正文由反馈页生成问题模板与版本／设备诊断，后端编码为 mailto 的 body，不接受前端传入 URL，不读取资料库或剪贴板，不直接发送邮件。其他公开网站目标继续只接受固定入口。
+
 手机的支出模块位于 `src/mobile/spending/`：`spending.home`（重要支出／周期费用）、`spending.recurring`（计划详情）、`spending.virtual`（虚拟资产）、`spending.review`（期间汇总、收入、年度回顾）及各编辑页。纯逻辑在 `model.ts`、`forms.ts`，复用桌面 `expenses.ts`、`recurring*.ts`、`rent-plan.ts`、`virtual.ts`、`finance-*.ts`、`annual-review.ts`，命令与载荷不变，保存统一经 `submit`（`read.ts` 的 `useSaver`：单次发送、结果未知时进入共享的核对流程、释放忙状态后才关闭页面）。手机版计划编辑只用简易表单（固定天数、试用、分段价格、续费价格分段、关联修复、统一名称、合并旧订阅、投资资金流动核对、标签新建、复制年度摘要仍只在桌面）；复杂计划在手机上只读其高级字段。预览 `mobile-state=unknown|save-error` 对支出的保存命令同样生效。
 
 `mobile-preview.html` → `src/mobile/preview.ts` 仅用于开发，经 `mockIPC` 使用与桌面预览共用的 `src/preview-ipc.ts` 虚构数据，不进入生产构建。`?theme=light|dark` 固定外观，`wealth=empty|missing|error` 覆盖空白／缺项／读取错误，`mobile-state=unknown|save-error` 模拟保存响应丢失和保存错误，`?tab=` 与 `?route=` 直接打开某个标签或页面，`route=dev.gallery` 展示组件库。浏览器预览刷新会重建虚构数据；它不证明原生持久性。手机逻辑测试位于 `tests/mobile-*.test.mjs`；浏览器尺寸与状态截图不替代 iOS 工程、WKWebView、安全区、软键盘或 VoiceOver 实机验收。
@@ -93,7 +109,7 @@ iOS 工程位于 `src-tauri/gen/apple`，平台配置 `tauri.ios.conf.json` 打�
 
 ## 网络
 
-webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端的更新查询（手动按钮或已授权的启动检查，见下节「更新发现状态」）：依次通过系统 `curl`（macOS 为 `/usr/bin/curl`、Windows 为 `curl.exe`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，不引入 HTTP 客户端依赖。两处结果按版本合并，取含当前应用平台兼容附件的最高版本；发布列表每源最多读取最近 30 条，不把未找到兼容包说成全部历史不存在，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只用于版本、安装附件匹配与纯文本展示：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用平台打开方式（macOS `open`／Windows `explorer.exe`）打开，不采用响应里的任意链接。`update_open_download` 接受严格版本、已知来源与约定安装文件名，重新验证当前平台并从固定仓库前缀重建下载地址；附件解析要求响应地址与该地址完全一致，拒绝空文件、未完成附件、其他架构及不同版本。Gitee 附件数组和 links 结构均适配；同版本下载源只包含拥有兼容附件的来源，Mac 通用包优先，Windows NSIS 优先于 MSI。下载由浏览器执行，应用不保存文件、不启动安装、不写任何本机设置。更高版本没有兼容附件时独立返回 newer_unavailable，不冒充可用更新。
+webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。后端联网分为可选 WebDAV 同步（见[同步](#sync)）和桌面更新查询。更新查询（手动按钮或已授权的启动检查，见下节「更新发现状态」）：依次通过系统 `curl`（macOS 为 `/usr/bin/curl`、Windows 为 `curl.exe`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，更新查询不使用同步模块的 HTTP 客户端。两处结果按版本合并，取含当前应用平台兼容附件的最高版本；发布列表每源最多读取最近 30 条，不把未找到兼容包说成全部历史不存在，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只用于版本、安装附件匹配与纯文本展示：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用平台打开方式（macOS `open`／Windows `explorer.exe`）打开，不采用响应里的任意链接。`update_open_download` 接受严格版本、已知来源与约定安装文件名，重新验证当前平台并从固定仓库前缀重建下载地址；附件解析要求响应地址与该地址完全一致，拒绝空文件、未完成附件、其他架构及不同版本。Gitee 附件数组和 links 结构均适配；同版本下载源只包含拥有兼容附件的来源，Mac 通用包优先，Windows NSIS 优先于 MSI。下载由浏览器执行，应用不保存文件、不启动安装、不写任何本机设置。更高版本没有兼容附件时独立返回 newer_unavailable，不冒充可用更新。
 
 帮助链接的 `support_open` 只接受固定目的地 ID，macOS 用 `/usr/bin/open`、Windows 用 `explorer.exe` 打开系统默认浏览器；维护者、项目、指南与反馈共用这条路径。失败保留可复制地址，不把任意 IPC 字符串作为地址执行。
 
@@ -205,6 +221,51 @@ QuickChange可选expected_original_minor补充已有CNY expected_previous，防�
 macOS 使用系统 ImageIO；Windows 用受限 Rust 解码，只接受 JPEG／PNG／WebP，按图片方向生成缩略预览，尺寸与解码内存先限界，不附带 HEIC／HEIF 解码器。Windows 文件身份由 `GetFileInformationByHandle` 返回的卷序列号与文件索引组成，并结合长度和修改时间判断文件替换；不再以创建时间代替文件编号。
 
 删除资料先维护最近删除及其引用。恢复保留对象身份和关联；不能把照片当普通缓存随意清空。未引用原图与恢复保护副本目前不会自动清理，保持这一限制的说明。
+
+<a id="sync"></a>
+
+## 同步：WebDAV 加密整库快照
+
+`src-tauri/src/sync/` 负责配置、指纹、状态判断、加密和 WebDAV；`src/sync/` 提供类型、状态视图与桌面 `SyncSettings`，由 `DataManagement` 接入。手机数据管理尚未接入同步界面。未配置时 `status` 直接返回 `unconfigured`，不构造连接；没有后台同步调度。配置启用后，桌面组件挂载及保存配置会调用 `sync_status` 读取远端；测试连接会创建所需目录并执行 PROPFIND。上传／拉取另由用户动作发起，不能声称所有请求都仅由“同步”按钮触发。
+
+### 远端与本机状态
+
+```text
+<base_path>/Thingary/<library_id>/
+  manifest.json
+  snapshots/<UTC-yyyymmddThhmmssZ>-<device_short>.thingary.age
+```
+
+首次配置的基础路径尚不存在时，只读核对按远端为空处理，不创建目录；推送和测试连接才按需创建目录。坚果云在顶层目录缺失时会对 GET／PROPFIND 返回 409：仅当响应是完整 DAV error XML、且其坚果云命名空间的异常码为 `AncestorsNotFound` 时按资源不存在处理。其他 409、所有 412 及写入失败仍保留冲突保护，不根据服务器的自由文本推断成功，也不将其正文回显给用户。
+
+首次上传生成随机 UUID `library_id`。未绑定库的新设备列出基础路径下的库，只有一库时自动读取；多库返回 `SYNC_LIBRARY_CHOICE`，目前没有选择器。未绑定 `library_id` 且远端已有快照时，当前 `push` 会返回 `SYNC_LIBRARY`，首次双方有资料的“保留本机”路径尚未闭环；已建立基线后的冲突两种选择有往返测试。`manifest.json` 格式为 1，明文包含 `library_id`、递增 `version`、`snapshot` 相对路径、密文 `snapshot_sha256`／`snapshot_bytes`、`schema_version`、`app_version`、`device_id`／`device_name` 和 `created_at`。校验限制路径为 snapshots 下的单一 `.thingary.age` 文件；清单不含记录正文，但设备等元数据对服务器可见。
+
+机器配置位于 `app_config_dir()/sync/sync.json`，包含启用状态、地址、用户名、应用密码、基础路径、库／设备 ID、设备名、上次远端版本／内容指纹／时间和 `pending_push`。不在资料库中，不随备份或表格导出。公开配置只返回 `has_password`，不回传密码。写入采用临时文件、同步、替换；Unix 文件权限为 0600，当前非 Unix 分支未另设 DACL，不能宣称与备份暂存目录有同等权限保证。停用命令只改本机配置并清除口令会话，可选择忘记凭据，不删除远端；当前设置界面尚无停用按钮。
+
+`fingerprint.rs` 在读事务中遍历按表名排序的非 SQLite 内部表，编码列与行（主键排序，无主键时按编码行排序），并加入 schema 与引用的托管文件内容，计算确定性 SHA-256。不哈希 SQLite 文件物理字节，不用只表示数据集身份的 `Store::generation()` 判断内容变化。
+
+### 状态与提交顺序
+
+| 本机指纹较基线改变 | 远端版本较基线改变 | 状态／后续动作 |
+|---|---|---|
+| 否 | 否 | `up_to_date` |
+| 是 | 否 | `local_ahead`，用户操作后推送 |
+| 否 | 是 | `remote_ahead`，检查后明确确认恢复 |
+| 是 | 是 | `conflict`，保留本机／采用云端／取消，不自动合并 |
+
+无基线时：双方空为 `up_to_date`，仅本机有资料为 `empty_remote`，仅远端有资料为 `remote_ahead`，双方有资料为 `conflict`。远端 schema 高于本机时以唯一的 schema 拦截码 `SYNC_SCHEMA_NEWER` 拒绝；较旧 schema 仍须通过既有恢复检查。应用版本不充当 schema。
+
+推送先读取清单及 ETag，生成完整备份并加密，上传快照后 GET 回读校验长度与 SHA-256；持久保存待核对证据，再最后写清单。有 ETag 使用 `If-Match`，首次无清单使用 `If-None-Match: *`；已有清单但无 ETag 时重读比较后写入，仍无法防止最后一次读写间的竞争，界面连接测试会提示。成功后才推进本机同步基线，并尽力修剪到最近 5 份快照；修剪失败不影响已成功的推送，不作永久历史或严格数量承诺。
+
+清单写入应答丢失时保留 `pending_push`（原版本、候选清单、内容指纹）。`sync_reconcile` 对远端只读：相同候选清单返回 `landed` 并推进本机基线；仍为原版本或原本为空且仍为空返回 `not_landed`；其他变化返回 `remote_changed`；无待核对项为 `nothing_pending`。`not_landed`／`remote_changed` 清除本机待核对项，之后由用户重新判断方向；不在核对时 PUT 或恢复。`sync_status` 只判断方向，不清除该项。界面的「核对云端状态」调用 `sync_reconcile`，按返回结果提示后再刷新状态；打开页面和保存配置不调用任何联网命令，只有用户点击「检查云端」「立即同步」等操作才联网。
+
+### 加密、恢复与上限
+
+`engine.rs` 用 age scrypt 口令加密完整备份归档（加密固定 2^18 的 scrypt 代价，不用 age 按设备自动选的值——否则快设备写出的快照会被慢设备拒绝并被误报成「口令不正确」；解密接受不高于 2^20，超出时返回单独的 SYNC_CIPHERTEXT 提示；故障注入测试特性下用 2^12 以保持测试速度），与普通加密备份的 X25519 恢复密钥分开。口令会话在内存中从解锁起 10 分钟有效，读取不延长期限；用户选择「记住口令」时另存于私有 `sync.json`（与应用密码同级，Debug 与公开视图一律隐去），取用顺序为会话再到记住值。前端 `src/sync/auto.ts` 在启动、前后台切换时只读检查，仅在本机快进且口令已记住时上传，从不自动拉取替换。WebDAV 使用 `ureq` 2.12（TLS），`webdav.rs` 注明选择 2 的原因是 ureq 3 拒绝 MKCOL／PROPFIND；阻塞网络由命令的 `spawn_blocking` 执行。客户端禁止重定向（集合地址一律带结尾斜杠请求，避免服务器用重定向回应），只连接配置地址，错误信息不带凭据；明文 http 只接受回环、私有网段、链路本地和 .local 等局域网主机，互联网地址必须 https。所有传输（状态、推送、拉取、核对）经 `SyncRuntime::guard` 串行；设置写入经 `update_config` 在设置锁内读改写，传输只写回自己得出的进度字段（`save_progress`），不会覆盖期间发生的停用或忘记口令；快照名带随机尾缀，旧云端快照裁剪不会选中当前快照。
+
+拉取先校验密文与 manifest，完整解密后交给 `Worker::backup_inspect_begin`，返回现有检查 token 与摘要。桌面复用 `restore_backup_session`、`backup_session_result` 的确认／回执流程；`finalize_pending_pull` 在确认恢复成功后登记同步基线。原资料保护、稳定 ID、原图、回执和数据集切换均沿用[备份恢复管线](#备份恢复与迁移)，不另造合并或恢复协议。
+
+整库方案没有增量／分块传输；当前实现将归档和密文读入内存，资料和图片增长会增加时间、内存和空间开销。远端密文超过 200 MiB 时状态返回慢同步提示；WebDAV 单次响应读取上限为 512 MiB，不能用普通完整备份的 32 GiB 上限推定同步也支持同等规模。假服务器、故障注入与两端往返的测试入口见[开发说明](DEVELOPMENT.md#sync-tests)。
 
 ## 备份、恢复与迁移
 

@@ -24,10 +24,13 @@ import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewPurge
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { IncomeList, PlanReview, ProfileState } from './plan';
+import type { PlanningSources } from './plan-basic-contract';
 import type { Snapshot, Summary } from './wealth';
 import type { AccountAvailability, Review, Read } from './review';
 import type { ExpenseView } from './expenses';
 import type { SourceTarget } from './source';
+import { createSyncPreview } from './sync/preview';
+import { registerSyncSettingsPreview } from './sync/preview-state';
 import { t as tr } from './i18n.ts';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_count:0,upcoming_count:0,expired_count:0,pending_count:0} as const;
@@ -75,6 +78,9 @@ const deletedMaintenances: { id: string; assetId: string; deleted_at: string; sn
 const deletedWarranties: { id: string; assetId: string; deleted_at: string; snapshot: Warranty }[] = [];
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
+// ?sync=unconfigured|synced|local_ahead|remote_ahead|conflict|push_error|unknown
+const syncPreview = createSyncPreview(params.get('sync'));
+registerSyncSettingsPreview(syncPreview.initialView);
 let previewStarted = params.get('started') !== 'first-use';
 
 if (params.get('state') === 'empty') records = [];
@@ -502,6 +508,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       update_available: updateAvailable,
       candidate_fresh: true,
       unread: updateAvailable && params.get('update-seen') !== '1' && params.get('update-ignored') !== '1',
+      store_managed: false,
     };
     previewUpdateState = state;
     if (command === 'update_state_get') return state;
@@ -655,6 +662,20 @@ export async function handle(command: string, payload: unknown): Promise<unknown
       snapshotId: latest?.snapshot_id ?? null, snapshotDate: latest?.date ?? null,
     } : null;
     const today = localDay();
+    // The exported native demo has canonical IDs. Keep
+    // goal inputs on that same batch instead of mixing unrelated snapshot IDs.
+    // Historical review keeps its independent preview; the export omits its IDs.
+    if (planning && params.has('plan-nonblocking')) {
+      const batch = read<PlanningSources>('planning_sources');
+      if (batch.status === 'ready') {
+        Object.assign(planning, {
+          profile: batch.value.profile, snapshot: batch.value.snapshot,
+          incomes: batch.value.incomes,
+          snapshotId: batch.value.snapshot.status === 'ready' ? batch.value.snapshot.value?.id ?? null : null,
+          snapshotDate: batch.value.snapshot.status === 'ready' ? batch.value.snapshot.value?.date ?? null : null,
+        });
+      }
+    }
     const result: Review = { generation, today, year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth, account_availability: read<AccountAvailability>('wealth_account_availability', { today }), planning, expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
     return result;
   }
@@ -666,6 +687,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   const search = searchPreview(command,args); if (search) return search.value;
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:previewStarted || params.get('started') === '1'};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:tr('浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。')};
+  if (command.startsWith('sync_')) return syncPreview.command(command, args);
   if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
   if (command === 'backup_task_begin') return crypto.randomUUID();
   if (command === 'backup_task_cancel') return true;

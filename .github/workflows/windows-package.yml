@@ -30,12 +30,16 @@ jobs:
         include:
           - flavor: release
             os: windows-latest
+            signing: unsigned
           - flavor: acceptance
             os: windows-11-arm
+            signing: unsigned
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     env:
       npm_config_script_shell: bash
+      THINGARY_WINDOWS_SIGNING_STATUS: ${{ matrix.signing }}
+      EXPECTED_WINDOWS_SIGNATURE: ${{ matrix.signing == 'signed' && 'Signed' || 'Unsigned' }}
     steps:
       - name: Preserve LF
         shell: bash
@@ -44,13 +48,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - name: Parse native acceptance PowerShell
+      - name: Parse native acceptance and signature PowerShell
         shell: pwsh
         run: |
           $tokens = $null
           $errors = $null
-          [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/windows-native-acceptance.ps1'), [ref]$tokens, [ref]$errors)
-          if ($errors.Count) { $errors | Format-List; throw 'PowerShell syntax validation failed' }
+          foreach ($script in @('scripts/windows-native-acceptance.ps1', 'scripts/verify-windows-signature.ps1')) {
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $script), [ref]$tokens, [ref]$errors)
+            if ($errors.Count) { $errors | Format-List; throw "PowerShell syntax validation failed: $script" }
+          }
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -69,10 +75,14 @@ jobs:
       - name: Prepare locked package archives for offline license collection
         shell: bash
         run: cargo fetch --locked --manifest-path src-tauri/Cargo.toml
-      - name: Build unsigned release candidate without fault injection
+      - name: Build release candidate without fault injection
         if: matrix.flavor == 'release'
         shell: bash
         run: npm run release:win
+      - name: Normalize the release installer name
+        if: matrix.flavor == 'release'
+        shell: bash
+        run: node scripts/normalize-windows-installer.mjs
       - name: Build isolated acceptance installer
         if: matrix.flavor == 'acceptance'
         shell: bash
@@ -85,7 +95,7 @@ jobs:
         if: matrix.flavor == 'acceptance'
         shell: bash
         run: node scripts/verify-windows-package.mjs --acceptance
-      - name: Verify embedded long-path manifest, version and unsigned state
+      - name: Verify embedded long-path manifest, version and signature state
         shell: pwsh
         run: |
           $profile = if ('${{ matrix.flavor }}' -eq 'acceptance') { 'debug' } else { 'release' }
@@ -100,7 +110,9 @@ jobs:
           if ($manifest.SelectSingleNode("//*[local-name()='requestedExecutionLevel']").GetAttribute('level') -ne 'asInvoker') { throw 'Unexpected elevation level' }
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           if ((Get-Item $payload).VersionInfo.ProductVersion -ne $version) { throw 'Windows payload version mismatch' }
-          if ((Get-AuthenticodeSignature $payload).Status -ne 'NotSigned') { throw 'Unsigned route unexpectedly changed' }
+          $installer = Get-ChildItem (Join-Path $PWD "src-tauri/target/x86_64-pc-windows-msvc/$profile/bundle/nsis") -Filter '*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer missing' }
+          pwsh -NoProfile -File scripts/verify-windows-signature.ps1 -Payload $payload -Installer $installer.FullName -Expected $env:EXPECTED_WINDOWS_SIGNATURE
       - name: Installed native acceptance, AUMID, scheduling and uninstall/reinstall
         if: matrix.flavor == 'acceptance'
         shell: pwsh

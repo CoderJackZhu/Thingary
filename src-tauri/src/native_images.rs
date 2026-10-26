@@ -121,8 +121,14 @@ pub fn preview(bytes: &[u8]) -> Result<Vec<u8>> {
     preview_rust(bytes)
 }
 
+// Android has no ImageIO bridge; the pure-Rust decoder covers the same formats.
+#[cfg(target_os = "android")]
+pub fn preview(bytes: &[u8]) -> Result<Vec<u8>> {
+    preview_rust(bytes)
+}
+
 // Compile this implementation in macOS tests as well, without changing ImageIO there.
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "android", test))]
 fn preview_rust(bytes: &[u8]) -> Result<Vec<u8>> {
     use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits};
     use std::io::Cursor;
@@ -193,7 +199,7 @@ fn preview_rust(bytes: &[u8]) -> Result<Vec<u8>> {
 }
 
 // Skip length-delimited metadata so an EOI-looking byte pair in Exif is not enough.
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "android", test))]
 fn jpeg_is_complete(bytes: &[u8]) -> bool {
     let mut offset = 2; // SOI was already recognized by ImageReader.
     while let Some(rest) = bytes.get(offset..) {
@@ -285,6 +291,11 @@ pub(crate) fn pick(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>>
         let _ = app;
         crate::ios::pick("image")
     }
+    #[cfg(target_os = "android")]
+    {
+        let _ = app;
+        Err(Error::new("UNSUPPORTED", "Android 暂不支持原生图片选择"))
+    }
     #[cfg(desktop)]
     {
         Ok(pick_desktop(app))
@@ -302,6 +313,11 @@ pub(crate) fn pick_save(
         let _ = (app, title, prompt);
         crate::ios_exports::save_path(suggested, extension).map(Some)
     }
+    #[cfg(target_os = "android")]
+    {
+        let _ = (title, prompt);
+        crate::android_files::save_path(app, suggested, extension).map(Some)
+    }
     #[cfg(desktop)]
     {
         Ok(pick_save_desktop(app, title, prompt, suggested, extension))
@@ -313,6 +329,10 @@ pub(crate) fn pick_backup_open(app: &tauri::AppHandle) -> Result<Option<std::pat
         let _ = app;
         crate::ios::pick("backup")
     }
+    #[cfg(target_os = "android")]
+    {
+        crate::android_files::pick_backup(app)
+    }
     #[cfg(desktop)]
     {
         Ok(pick_backup_open_desktop(app))
@@ -323,6 +343,14 @@ pub(crate) fn pick_spreadsheet_open(app: &tauri::AppHandle) -> Result<Option<std
     {
         let _ = app;
         crate::ios::pick("workbook")
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = app;
+        Err(Error::new(
+            "UNSUPPORTED",
+            "Android 暂不支持系统文件选择面板",
+        ))
     }
     #[cfg(desktop)]
     {
@@ -336,6 +364,14 @@ pub(crate) fn pick_folder(app: &tauri::AppHandle) -> Result<Option<std::path::Pa
         Err(Error::new(
             "UNSUPPORTED",
             "iOS 请通过分享面板把备份保存到文件或 iCloud Drive；不支持后台额外目录同步",
+        ))
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = app;
+        Err(Error::new(
+            "UNSUPPORTED",
+            "Android 请通过系统文件面板保存备份；不支持后台额外目录同步",
         ))
     }
     #[cfg(desktop)]

@@ -1,4 +1,5 @@
 import { FormRow } from "../ui";
+import { MonthInput } from '../../DateInput';
 import { flowSteps, progressText } from "./setup-model";
 import type { StepStatus } from "./setup-model";
 import { t } from '../../i18n.ts';
@@ -20,15 +21,7 @@ export function MonthField({
 }) {
   return (
     <FormRow label={label} hint={hint} stacked>
-      <input
-        className="m-input"
-        type="month"
-        aria-label={label}
-        value={value}
-        max={max}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <span className="m-date"><MonthInput label={label} value={value} max={max} disabled={disabled} onChange={onChange}/></span>
     </FormRow>
   );
 }

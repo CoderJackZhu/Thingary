@@ -45,6 +45,10 @@ const info = JSON.parse(readFileSync(infoFiles[0]));
 assert.equal(info.identity, identity);
 assert.equal(info.acceptance, acceptance);
 assert.equal(info.version, JSON.parse(readFileSync(resolve(root, 'package.json'))).version);
+if (info.signing_status !== undefined) {
+  assert.ok(['unsigned', 'signed'].includes(info.signing_status), 'Unknown signing status: ' + info.signing_status);
+  assert.equal(info.signed, info.signing_status === 'signed');
+}
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 assert.equal(info.source_commit, head);
 const licenseRoot = dirname(infoFiles[0]);

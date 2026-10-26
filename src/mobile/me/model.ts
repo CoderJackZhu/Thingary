@@ -11,8 +11,9 @@ import type { TimelineEvent } from '../../Timeline.tsx';
 import { t, numberLocale } from '../../i18n.ts';
 import { t as tr } from '../../i18n.ts';
 /** Settings sub-pages open as `me.settings` with `{ page }`; the title is also the back label of the next page. */
-export type SettingsPage = 'modules' | 'general' | 'rates' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license';
+export type SettingsPage = 'modules' | 'general' | 'rates' | 'appearance' | 'options' | 'materials' | 'checkin' | 'notifications' | 'privacy' | 'trash' | 'export' | 'demo' | 'about' | 'feedback' | 'license' | 'sync';
 export const settingsTitles: Record<SettingsPage, string> = {
+  sync: tr('同步'),
   modules: tr('功能模块'), general: tr('通用'), rates: tr('汇率'), appearance: tr('外观'), options: tr('选项管理'), materials: tr('素材库'), checkin: tr('盘点提醒'), notifications: tr('通知'), privacy: tr('隐私'),
   trash: tr('最近删除'), export: tr('导出表格'), demo: tr('样例体验'), about: tr('关于与帮助'), feedback: tr('反馈问题'), license: tr('开源许可'),
 };
@@ -67,7 +68,7 @@ export function groupByMonth(events: TimelineEvent[], today?: string): MonthGrou
 }
 export const monthSpendingText = (group: MonthGroup, current: string): string => {
   const unknown = group.unknownCount ? tr('（{unknownCount} 笔金额未知）', { unknownCount: group.unknownCount }) : '';
-  return tr('{v1}支出 {v2}{unknown}', { v1: group.key === current ? '本月' : '当月', v2: moneyText(group.spendingCents), unknown });
+  return tr('{v1}支出 {v2}{unknown}', { v1: group.key === current ? tr('本月') : tr('当月'), v2: moneyText(group.spendingCents), unknown });
 };
 export const monthsPerStep = 3;
 

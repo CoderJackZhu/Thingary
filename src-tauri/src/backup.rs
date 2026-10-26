@@ -404,11 +404,8 @@ impl Store {
             {
                 return Err(Error::new("BACKUP_LIMIT", "图片文件类型或大小超出限制"));
             }
-            fs::hard_link(&source, files.join(name)).map_err(|_| {
-                Error::new(
-                    "BACKUP_PREPARE",
-                    "无法安全固定图片原图，请检查本机资料目录权限与文件系统后重试",
-                )
+            pin_original(&source, &files.join(name), meta.len(), |from, to| {
+                fs::hard_link(from, to)
             })?;
         }
         cancel.check()?;
@@ -620,6 +617,35 @@ pub fn archive_hash(path: &Path) -> Result<String> {
 }
 /// Copies an archive into `root` so later checks and restore read bytes that
 /// cannot change underneath them. `max` bounds the accepted size.
+/// Pins one managed original for the backup: a hard link where the platform allows it,
+/// otherwise a byte copy. Android's SELinux policy denies `link` on app data, and some file
+/// systems have no hard links at all. Originals are named by the SHA-256 of their bytes and
+/// never rewritten, so a copy pins exactly the same content; its size is checked against the
+/// length validated just before.
+/// ponytail: the copy path doubles the temporary disk use of the images while a backup runs.
+fn pin_original(
+    source: &Path,
+    target: &Path,
+    expected_len: u64,
+    link: impl Fn(&Path, &Path) -> std::io::Result<()>,
+) -> Result<()> {
+    let failed = || {
+        Error::new(
+            "BACKUP_PREPARE",
+            "无法安全固定图片原图，请检查本机资料目录权限与文件系统后重试",
+        )
+    };
+    if link(source, target).is_ok() {
+        return Ok(());
+    }
+    fs::copy(source, target).map_err(|_| failed())?;
+    if fs::metadata(target).map(|meta| meta.len()).ok() != Some(expected_len) {
+        let _ = fs::remove_file(target);
+        return Err(failed());
+    }
+    Ok(())
+}
+
 pub(crate) fn freeze_with(
     archive: &Path,
     root: &Path,
@@ -956,5 +982,41 @@ mod v3_roundtrip_tests {
         store
             .restore(&dest, &info.hash, &store.generation())
             .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod pin_original_tests {
+    use super::*;
+
+    #[test]
+    fn falls_back_to_a_copy_when_hard_links_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let (source, target) = (dir.path().join("source"), dir.path().join("target"));
+        fs::write(&source, b"fictional original").unwrap();
+        pin_original(&source, &target, 18, |_, _| {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        })
+        .unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"fictional original");
+    }
+
+    #[test]
+    fn prefers_the_hard_link_and_rejects_a_copy_of_the_wrong_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let (source, target) = (dir.path().join("source"), dir.path().join("target"));
+        fs::write(&source, b"fictional original").unwrap();
+        pin_original(&source, &target, 18, |from, to| fs::hard_link(from, to)).unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"fictional original");
+        let other = dir.path().join("other");
+        let refused = |_: &Path, _: &Path| Err(std::io::Error::from(std::io::ErrorKind::Other));
+        assert_eq!(
+            pin_original(&source, &other, 99, refused).unwrap_err().code,
+            "BACKUP_PREPARE"
+        );
+        assert!(
+            !other.exists(),
+            "a wrong-sized copy must not be left behind"
+        );
     }
 }

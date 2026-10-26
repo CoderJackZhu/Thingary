@@ -128,6 +128,10 @@ fn native(json: &str, ask: bool) -> Result<()> {
             .ok_or_else(|| Error::new("REMINDER", "当前应用身份无法使用系统通知"))?;
         windows_native(identifier, json, ask)
     }
+    #[cfg(target_os = "android")]
+    {
+        crate::android_notifications::native(json, ask)
+    }
 }
 #[cfg(windows)]
 static APP_IDENTIFIER: OnceLock<String> = OnceLock::new();

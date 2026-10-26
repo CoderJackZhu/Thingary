@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { shareReport } from "../me/files";
+import { useEffect, useState } from "react";
+import { pdfExportAvailable, shareReport } from "../me/files";
 import type { BasicCapabilities, PlanningSources } from "../../plan";
 import { currentReportInput } from "../../planning-report/current-adapter";
 import {
@@ -45,7 +45,15 @@ export default function Report({
   });
   const [privacy, setPrivacy] = useState(true),
     [notice, setNotice] = useState(""),
-    [exporting, setExporting] = useState(false);
+    [exporting, setExporting] = useState(false),
+    [exportPdf, setExportPdf] = useState(true);
+  useEffect(() => {
+    let live = true;
+    void pdfExportAvailable()
+      .then(available => { if (live) setExportPdf(available); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
   if (!snapshot.report)
     return (
       <div className="m-page mp-page">
@@ -91,9 +99,11 @@ export default function Report({
       </Card>
       <div className="mp-actions">
         <Button onClick={() => void copy()}>{t('复制摘要')}</Button>
-        <Button variant="primary" disabled={exporting} onClick={() => void download()}>
-          {exporting ? t('正在导出…') : t('导出当前报告')}
-        </Button>
+        {exportPdf && (
+          <Button variant="primary" disabled={exporting} onClick={() => void download()}>
+            {exporting ? t('正在导出…') : t('导出当前报告')}
+          </Button>
+        )}
       </div>
       {notice && <Notice>{notice}</Notice>}
     </div>

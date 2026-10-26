@@ -32,7 +32,7 @@ import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { Icon } from './AssetViews';
-import { prefillCheckInRow, prefilledCount, quickAvailable, selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, comparisonText, enterJumpsAmount, checkInUnfilledTargets, nextUnfilledLabel, applyClosing, canCloseInCheckIn, rateText, noteSummary, snapshotEntryInput, previousCheckInRow, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
+import { prefillCheckInRow, prefilledCount, quickAvailable, selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, comparisonText, enterJumpsAmount, checkInUnfilledTargets, nextUnfilledLabel, applyClosing, canCloseInCheckIn, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
 import type { Account, AccountFields, AccountSave, CheckInRow, Draft, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
 import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
@@ -108,6 +108,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const [loadedRetry, setLoadedRetry] = useState(-1);
   const [sourceSnapshot, setSourceSnapshot] = useState<string | undefined>();
   const [checkIn, setCheckIn] = useState<string | null>(null);
+  const [checkInDirty, setCheckInDirty] = useState(false);
   const [checkInPin, setCheckInPin] = useState<string | undefined>();
   const [savedSnapshot, setSavedSnapshot] = useState<Snapshot | null>(null);
   const [snapshotDetail, setSnapshotDetail] = useState<string | null>(null);
@@ -147,7 +148,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(manageGroups || !!quickAccount || goalEditing || !!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [manageGroups, quickAccount, goalEditing, editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
+  useEffect(() => { onEditingChange(manageGroups || !!quickAccount || goalEditing || !!editing || !!pending || busy || (!!checkIn && checkInDirty) || !!snapshotDetail); return () => onEditingChange(false); }, [manageGroups, quickAccount, goalEditing, editing, pending, busy, checkIn, checkInDirty, snapshotDetail, onEditingChange]);
   const sourceError = useSource({source,onSourceDone}, summary?.generation, async (target, alive) => {
     // 账户来源：按稳定 ID 打开账户资料表单；未保存的输入不写入（§6.2）。
     if (target.kind === 'account') {
@@ -188,7 +189,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     setEditing('new');
   }, [autoNew]);
   if (snapshotDetail) return <SnapshotDetail id={snapshotDetail} onCorrect={id => { const date = summary?.points.find(p => p.snapshot_id === id)?.date; setSnapshotDetail(null); if (date) { setCheckInPin(id); setCheckIn(date); } }} onClose={() => { setSnapshotDetail(null); reload(); refocusHeading(); }}/>;
-  if (checkIn) return <CheckIn accountDialog={onDone => summary && <AccountDialog quickPoints={summary.points} groups={groups} onGroupsChanged={reload} account={null} generation={summary.generation} today={today} onQuick={openQuick} onClose={saved => onDone(saved)}/>} expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={(saved, snapshot) => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('overview'); reload(); } refocusHeading(); }}/>;
+  if (checkIn) return <CheckIn accountDialog={onDone => summary && <AccountDialog quickPoints={summary.points} groups={groups} onGroupsChanged={reload} account={null} generation={summary.generation} today={today} onQuick={openQuick} onClose={saved => onDone(saved)}/>} expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onDirtyChange={setCheckInDirty} onClose={(saved, snapshot) => { setCheckInDirty(false); setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('overview'); reload(); } refocusHeading(); }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const closeAccount = (saved: boolean, createdName?: string) => {
     (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close();
@@ -373,6 +374,8 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
     finally { groupCreating.current = false; setBusy(false); }
   }
   const [countedChoice, setCountedChoice] = useState<boolean | null>(account?.fields.counted ?? null);
+  // Creating asks for name, currency and type first; editing keeps every field in view.
+  const [moreOpen, setMoreOpen] = useState(!!account);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('wealth-account-name')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof AccountFields>(k: K, v: AccountFields[K]) => setFields(f => ({ ...f, [k]: v }));
@@ -392,7 +395,6 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
     {account && !!fields.holding_mode !== !!account.fields.holding_mode && <p className="notice">{tt('请先保存录入方式，再打开快速更新。')}</p>}
     <section className="form-block">
       <FormRow label={tt('名称')}><input id="wealth-account-name" aria-label={tt('账户名称')} maxLength={80} value={fields.name} disabled={busy || stuck} onChange={e => set('name', e.target.value)} placeholder={tt('例如 招行储蓄卡')}/></FormRow>
-      <FormRow label={tt('平台')} hint={tt('银行、券商等机构，可留空；不决定账户分组')}><input aria-label={tt('平台')} maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder={tt('可留空')}/></FormRow>
       <FormRow label={tt('币种')} hint={account?.has_entries ? tt('已有记录的账户不能更改币种，请新建账户并停用旧账户。') : tt('汇率手填，不联网。')}><CurrencyPicker label={tt('账户币种')} value={currencyCode(fields.currency)} disabled={busy || stuck || !!account?.has_entries} onChange={code => set('currency', code)}/></FormRow>
       <FormRow label={tt('类型')} hint={account ? tt('资产或负债建立后不能更改') : tt('选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额')}><select aria-label={tt('类型')} value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on || account?.fields.purchase_cents != null || account?.fields.purchased_on)) { setNotice(tt('请先清空并保存购入价和购入日期，再更改类型')); return; } setNotice(''); setFields(f => ({...selectAccountKind(f, kind, countedChoice),...(!holdingSupported(kind)?{holding_mode:false,holding_unit:null}:{})})); }}>
         {(!account || fields.side === 'asset') && <optgroup label={tt('资产')}>{assetKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
@@ -402,15 +404,20 @@ function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account
       {account && fields.kind === 'property' && account.fields.kind !== 'property' && <p className="notice">{tt('以后盘点不再计入金融净资产；既有盘点保持原记录。')}</p>}
       <FormRow label={tt('计入金融净资产')} hint={fields.kind === 'property' ? tt('房产固定不计入') : fields.side === 'liability' ? tt('房贷、车贷等可关闭') : tt('此类型新建建议：{v1}', { v1: defaultAccountCounted(fields.kind) ? tt('计入') : tt('不计入') })}><Switch label={tt('计入金融净资产')} value={fields.counted} disabled={busy || stuck || fields.kind === 'property'} onChange={v => { setCountedChoice(v); set('counted', v); }}/></FormRow>
       {holdingSupported(fields.kind) && <><FormRow label={tt('按持仓记录')} hint={tt('通常直接填平台总余额就够了。想用份额和单价算金额时再开启；一个账户一个持仓，不记录交易成本或收益。')}><Switch label={tt('按持仓记录')} value={!!fields.holding_mode} disabled={busy || stuck} onChange={value=>setFields(f=>({...f,holding_mode:value,...(!value?{holding_unit:null}:{})}))}/></FormRow>{fields.holding_mode && <FormRow label={tt('持仓单位')} hint={tt('可留空，默认显示份；最多8字')}><input aria-label={tt('持仓单位')} maxLength={8} value={fields.holding_unit??''} disabled={busy||stuck} onChange={e=>set('holding_unit',e.target.value||null)}/></FormRow>}</>}
-      <FormRow label={tt('分组')} hint={tt('只影响查看；未分组也可以正常盘点和规划')}><select aria-label={tt('账户分组')} value={fields.group_id ?? ''} disabled={busy || stuck} onChange={e => { if (e.target.value === '__new__') setCreateGroup(true); else set('group_id', e.target.value || null); }}><option value="">{tt('未分组')}</option>{availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}<option value="__new__">{tt('新建分组…')}</option></select>{createGroup && <div className="account-group-create">{stuck && <button type="button" disabled={busy} onClick={() => void verifyGroup()}>{tt('核对分组结果')}</button>}<input aria-label={tt('就地新建分组名称')} value={groupName} maxLength={40} disabled={busy || stuck} onChange={e => setGroupName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveGroup(); } }}/><button type="button" disabled={busy || stuck || !groupName.trim()} onClick={() => void saveGroup()}>{tt('创建并选择')}</button><button type="button" disabled={busy || stuck} onClick={() => setCreateGroup(false)}>{tt('取消')}</button></div>}</FormRow>
-      <FormRow label={tt('启用日期')} hint={tt('此日之前的盘点不要求填写')}><DateInput yearIntent="past" id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
       {account && <FormRow label={tt('停用日期')} hint={tt('停用后不再出现在之后的盘点里；有盘点记录的账户只能停用，不能删除。')}><DateInput yearIntent="past" id="wealth-account-closed" value={fields.closed_on ?? ''} max={today} allowClear disabled={busy || stuck} onChange={v => set('closed_on', v || null)}/></FormRow>}
       {['property', 'vehicle'].includes(fields.kind) && <>
         <FormRow label={tt('购入价')} hint={tt('可留空；仅用于显示估值涨跌，不参与净资产或规划计算')}><CentInput label={tt('购入价')} value={fields.purchase_cents ?? ''} disabled={busy || stuck} onChange={v => set('purchase_cents', v || null)}/></FormRow>
         <FormRow label={tt('购入日期')} hint={tt('可留空')}><DateInput yearIntent="past" id="wealth-account-purchased" value={fields.purchased_on ?? ''} min="1900-01-01" max={today} allowClear disabled={busy || stuck} onChange={v => set('purchased_on', v || null)}/></FormRow>
       </>}
     </section>
+    <details className="more-fields" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}><summary>{tt('更多选项（平台、分组、启用日期、备注）')}</summary>
+    <section className="form-block">
+      <FormRow label={tt('平台')} hint={tt('银行、券商等机构，可留空；不决定账户分组')}><input aria-label={tt('平台')} maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder={tt('可留空')}/></FormRow>
+      <FormRow label={tt('分组')} hint={tt('只影响查看；未分组也可以正常盘点和规划')}><select aria-label={tt('账户分组')} value={fields.group_id ?? ''} disabled={busy || stuck} onChange={e => { if (e.target.value === '__new__') setCreateGroup(true); else set('group_id', e.target.value || null); }}><option value="">{tt('未分组')}</option>{availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}<option value="__new__">{tt('新建分组…')}</option></select>{createGroup && <div className="account-group-create">{stuck && <button type="button" disabled={busy} onClick={() => void verifyGroup()}>{tt('核对分组结果')}</button>}<input aria-label={tt('就地新建分组名称')} value={groupName} maxLength={40} disabled={busy || stuck} onChange={e => setGroupName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveGroup(); } }}/><button type="button" disabled={busy || stuck || !groupName.trim()} onClick={() => void saveGroup()}>{tt('创建并选择')}</button><button type="button" disabled={busy || stuck} onClick={() => setCreateGroup(false)}>{tt('取消')}</button></div>}</FormRow>
+      <FormRow label={tt('启用日期')} hint={tt('此日之前的盘点不要求填写')}><DateInput yearIntent="past" id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
+    </section>
     <section className="form-block form-notes"><label htmlFor="wealth-account-notes">{tt('备注')}</label><textarea id="wealth-account-notes" maxLength={10000} value={fields.notes} disabled={busy || stuck} onChange={e => set('notes', e.target.value)}/></section>
+    </details>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;
 }
@@ -462,7 +469,7 @@ function SnapshotDetail({ id, onCorrect, onClose }: { id: string; onClose: () =>
     <section className="form-block form-notes snapshot-notes"><h3>{tt('备注')}</h3>{snapshot.notes.trim() ? <p className="notes" style={{whiteSpace:'pre-wrap'}}>{snapshot.notes}</p> : <p className="muted">{tt('未填写备注')}</p>}</section>
   </section>;
 }
-function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: { accountDialog?: (onDone: (saved: boolean) => void) => ReactNode; expectedId?: string; date: string; today: string; onClose: (saved: boolean, snapshot?: Snapshot) => void }) {
+function CheckIn({ date: initial, today, onClose, expectedId, accountDialog, onDirtyChange }: { accountDialog?: (onDone: (saved: boolean) => void) => ReactNode; expectedId?: string; date: string; today: string; onClose: (saved: boolean, snapshot?: Snapshot) => void; onDirtyChange?: (dirty: boolean) => void }) {
   const [date, setDate] = useState(initial);
   // The source's stable-ID guard holds only while its own date is being viewed:
   // once the user deliberately switches dates, this is a normal check-in again.
@@ -474,9 +481,11 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
   const [switchTo, setSwitchTo] = useState<string | null>(null);
   const [rates, setRates] = useState<Record<string,string>>({});
   const [closing, setClosing] = useState<ReadonlySet<string>>(() => new Set()), [adding, setAdding] = useState(false), [reads, setReads] = useState(0);
+  const [ratesDirty, setRatesDirty] = useState(false);
   const table = useRef<HTMLTableElement>(null);
   const focusedField = useRef<string | null>(null);
   const fromSaved = useRef(false);
+  const dirty = notesDirty || ratesDirty || closing.size > 0 || Object.values(rows).some(row => row.edited);
   useEffect(() => {
     let live = true; setError(''); setDraft(null);
     invoke<Draft>('wealth_snapshot_draft', { date }).then(d => {
@@ -489,6 +498,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
       // Notes belong to the snapshot of the viewed date; a new date starts empty.
       setNotes(d.existing?.notes ?? '');
       setNotesDirty(false);
+      setRatesDirty(false);
       // Only values typed for a new check-in follow a date change. Amounts loaded
       // from a saved check-in never carry to another date unreviewed (17.4 #2).
       setRows(old => {
@@ -503,6 +513,8 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
     return () => { live = false; };
   }, [date, pin, reads]);
   useEffect(() => setClosing(new Set()), [date]);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const toggleClose = (id: string, on: boolean) => setClosing(old => { const next = new Set(old); if (on) next.add(id); else next.delete(id); return next; });
   const set = (id: string, row: Row) => {
     setRows(r => ({ ...r, [id]: { ...row, edited: true } }));
@@ -518,6 +530,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
   };
   const changeRate = (code: string, rate: string) => {
     setRates(old => ({ ...old, [code]: rate }));
+    setRatesDirty(true);
     for (const r of draft?.rows ?? []) if (currencyCode(r.account.fields.currency) === code && rows[r.account.id]?.edited && rows[r.account.id]?.state === 'entered') { const row=rows[r.account.id]; if(r.account.fields.holding_mode)setHolding(r.account.id,code,row.quantity_e8??'',row.unit_price_e6??'',rate);else setForeign(r.account.id,code,row.original_minor??'',rate); }
   };
   const all = draft?.rows ?? [], existing = draft?.existing ?? null;
@@ -554,7 +567,7 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
   return <section className="stats-section wealth-section check-in" aria-labelledby="check-in-heading" onFocusCapture={event => { if (event.target instanceof HTMLInputElement) focusedField.current = event.target.closest<HTMLElement>('[data-check-in-field]')?.dataset.checkInField ?? null; }}>
     <header className="check-in-header">
       <button className="back" disabled={busy} onClick={() => onClose(false)}><Icon name="back"/> {tt('返回财富')}</button>
-      <div><h2 id="check-in-heading">{date === today ? tt('更新今天的余额') : existing ? tt('更正过去的余额记录') : tt('补记过去的余额')}</h2><p className="muted">{tt('对照所选日期填写每个账户的余额或欠款，确定是零就填 0，不知道的金额不要填成零。余额没有变化时，点「与上次相同」即可确认。回车跳到下一行；填齐后保存，关闭即放弃未保存的输入。')}</p></div>
+      <div><h2 id="check-in-heading">{date === today ? tt('更新今天的余额') : existing ? tt('更正过去的余额记录') : tt('补记过去的余额')}</h2><p className="muted">{tt('对照所选日期填写每个账户的余额或欠款，确定是零就填 0，不知道的金额不要填成零。新盘点已按上次金额预填，没变的不用动，变了直接改。回车跳到下一行；填齐后保存，关闭即放弃未保存的输入。')}</p></div>
       <div className="field check-in-date"><label htmlFor="check-in-date">{tt('盘点日期')}</label>{switchTo ? <div className="check-in-date-switch" role="alert"><p>{tt('切换日期将丢弃当前备注修改。')}</p><button type="button" onClick={() => setSwitchTo(null)}>{tt('取消')}</button><button type="button" className="primary" onClick={() => { const target = switchTo; setSwitchTo(null); setNotesDirty(false); setPin(undefined); if (target) setDate(target); }}>{tt('确认切换')}</button></div> : null}<DateInput yearIntent="past" id="check-in-date" value={date} max={today} disabled={frozen || !!switchTo} onChange={v => { if (!v) return; if (notesDirty) { setSwitchTo(v); return; } setPin(undefined); setDate(v); }}/></div>
     </header>
     {existing && draft && <div className="notice">{tt('这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。')}<DeleteButton label={tt('删除这次盘点')} disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={tt('{date} 盘点', { date })} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
@@ -564,14 +577,12 @@ function CheckIn({ date: initial, today, onClose, expectedId, accountDialog }: {
       <table ref={table} className="ui-table check-in-table"><thead><tr><th>{tt('账户')}</th><th>{tt('上次金额')}</th><th>{tt('本次金额')}</th><th>{tt('差额')}</th></tr></thead><tbody>{all.map(({ account: a, previous }) => {
         const row = rows[a.id] ?? { state: null, cents: '' };
         if (closing.has(a.id)) return <tr key={a.id} data-state="closing" className="check-in-closing"><td><s><strong>{a.fields.name}</strong></s><small className="muted">{kindLabel(a.fields.kind)}</small></td><td>{previous ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??tt('份')):null} code={a.fields.currency} fact={previous} date={previous.date}/> : <span className="muted">{tt('无')}</span>}</td><td colSpan={2}>{tt('已注销，从 {date} 起停用；余额视为已转出，不用填。', { date })} <button type="button" className="ui-link" disabled={frozen} onClick={() => toggleClose(a.id, false)}>{tt('撤销')}</button></td></tr>;
-        const previousRow = previousCheckInRow(a, previous);
         const diff = row.state && row.state !== 'missing' && row.cents !== '' && previous ? (BigInt(row.cents) - BigInt(previous.amount_cents)).toString() : null;
         return <tr key={a.id} data-state={row.state ?? 'empty'}>
           <td><strong>{a.fields.name}</strong><small className="muted">{a.fields.side === 'liability' ? tt('负债 · 尚欠') : kindLabel(a.fields.kind)}{a.fields.counted ? '' : tt(' · 不计入')}</small>{draft && canCloseInCheckIn(draft, a) && <button type="button" className="ui-link check-in-close-link" disabled={frozen} onClick={() => toggleClose(a.id, true)}>{tt('已注销，从这次起停用')}</button>}{(existing?.entries.find(e=>e.account_id===a.id)??previous)?.amount_cents!=null && !!a.fields.holding_mode !== ((existing?.entries.find(e=>e.account_id===a.id)??previous)?.quantity_e8!=null) && <small className="notice">{tt('从这次开始按')}{a.fields.holding_mode?tt('持仓'):tt('余额')}{tt('记录；未改动的历史金额保持原样。')}</small>}</td>
           <td>{previous ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??tt('份')):null} code={a.fields.currency} fact={previous} date={previous.date}/> : <span className="muted">{tt('无')}</span>}</td>
           <td onKeyDown={e => { if (e.target instanceof HTMLInputElement && enterJumpsAmount(e.key, e.nativeEvent.isComposing, true)) { e.preventDefault(); focusNext(e.target); } }}>
             <span data-amount-wrap data-check-in-field={a.fields.holding_mode ? undefined : `amount:${a.id}`}>{a.fields.holding_mode ? <div className="holding-check-in"><label data-check-in-field={`quantity:${a.id}`}>{tt('份额')}<HoldingInput label={tt('{name} 份额', { name: a.fields.name })} places={8} value={row.quantity_e8??''} disabled={frozen} onChange={q=>setHolding(a.id,currencyCode(a.fields.currency),q,row.unit_price_e6??'',rates[currencyCode(a.fields.currency)]??'')}/></label>{previous?.quantity_e8 != null && !row.quantity_e8 && <button type="button" className="ui-link" disabled={frozen} onClick={() => setHolding(a.id,currencyCode(a.fields.currency),previous.quantity_e8!,row.unit_price_e6??'',rates[currencyCode(a.fields.currency)]??'')}>{tt('沿用上次份额')}</button>}<label data-check-in-field={`price:${a.id}`}>{tt('单价（{v1}）', { v1: currencyCode(a.fields.currency) })}<HoldingInput label={tt('{name} 单价', { name: a.fields.name })} places={6} value={row.unit_price_e6??''} disabled={frozen} onChange={p=>setHolding(a.id,currencyCode(a.fields.currency),row.quantity_e8??'',p,rates[currencyCode(a.fields.currency)]??'')}/></label><small className="muted">{previous?.unit_price_e6!=null?(hidden?tt('上次单价 ••••'):tt('上次单价 {v1} {v2}，仅供参考', { v1: rateLabel(previous.unit_price_e6), v2: currencyCode(a.fields.currency) })):tt('没有上次单价，手动填写。')}</small><output>{row.cents?(hidden?'••••':`= ${money(row.cents)}`):tt('请填写份额、单价及所需汇率')}</output></div> : currencyCode(a.fields.currency)==='CNY' ? <CentInput label={tt('{name} 本次金额', { name: a.fields.name })} value={row.cents} disabled={frozen} placeholder="0.00" onChange={v => set(a.id, { state: v === '' ? null : 'entered', cents: v })}/> : <><label>{tt('{v1} 原币金额', { v1: currencyCode(a.fields.currency) })}<CurrencyInput label={tt('{name} 原币金额', { name: a.fields.name })} places={currencyDecimals(currencyCode(a.fields.currency))} value={row.original_minor??''} disabled={frozen} onChange={v=>setForeign(a.id,currencyCode(a.fields.currency),v,rates[currencyCode(a.fields.currency)]??'')}/></label><small className="muted">{hidden && row.cents ? '••••' : row.cents ? <>{tt('≈ {v1} · 汇率', { v1: money(row.cents) })} {row.fx_rate_micro ? rateLabel(row.fx_rate_micro) : tt('待填')}</> : tt('请填写原币金额与大于0的汇率')}</small></>}</span>
-            {previousRow && <button type="button" className="ui-link check-in-same" disabled={frozen} aria-label={tt('确认{name}与上次相同', { name: a.fields.name })} title={tt('确认这次金额与上次相同；外币汇率、份额和单价也保留上次记录，可再修改。')} onClick={() => { if (!frozen) set(a.id, previousRow); }}>{tt('与上次相同')}</button>}
           </td>
           <td>{diff === null ? <span className="muted">—</span> : diff === '0' ? tt('持平') : changeText(diff)}</td>
         </tr>; })}</tbody></table>

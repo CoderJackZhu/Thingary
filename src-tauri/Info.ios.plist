@@ -8,6 +8,8 @@
 	<string>用于拍摄物品照片并保存到本机物品档案。</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>用于验证设备机主身份，解锁物谱中的本机资料；生物识别信息不会进入物谱。</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>用于连接你自行配置的局域网 WebDAV 服务器并同步加密快照。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>用于选择物品照片并保存到本机物品档案。</string>
 	<key>UIApplicationSceneManifest</key>

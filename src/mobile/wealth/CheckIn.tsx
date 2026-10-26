@@ -109,7 +109,7 @@ export function FullCheckIn({params}:PageProps) {
   const generation=s.data?.summary.generation??'', pin=String(params.id??'');
   const read=useRead(`inventory:${generation}:${date}`,async()=>{const draft=await invoke<Draft>('wealth_snapshot_draft',{date});if(draft.generation!==generation || draft.date!==date || (pin && draft.existing?.id!==pin))throw Error(tr('这条盘点或资料库已变化，请返回后重新读取。'));return draft;});
   const header=<>
-    <LargeTitle title={tr('{v1}{v2}盘点', { v1: pin?tr('更正'):'', v2: dayLabel(date, s.today) })} subtitle={tr('对照各平台填写当前金额，零余额填 0。上次金额只作参考。')}/>
+    <LargeTitle title={tr('{v1}{v2}盘点', { v1: pin?tr('更正'):'', v2: dayLabel(date, s.today) })} subtitle={tr('对照各平台填写当前金额，零余额填 0。新盘点已按上次金额预填，没变的不用动。')}/>
     {!pin && <DateField label={tr('盘点日期')} value={date} max={s.today} disabled={s.navBlocked} onChange={v=>{if(v===date)return;if(entered.current)setChange(v);else setDate(v);}}/>}
     {change && <ConfirmSheet title={tr('切换日期？')} message={tr('切换到 {v1} 会放弃已经填写的内容。', { v1: dayLabel(change,s.today) })} confirm={tr('切换并放弃输入')} cancelLabel={tr('继续编辑')} danger busy={false} onClose={()=>setChange('')} onConfirm={()=>{entered.current=false;setDate(change);setChange('');}}/>}
   </>;

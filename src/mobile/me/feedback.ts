@@ -15,3 +15,7 @@ export function deviceText({ userAgent, screen }: Pick<DiagnosticInput, 'userAge
 export function diagnosticText(input: DiagnosticInput): string {
   return [t('物谱版本：{v1}', { v1: input.version || '未知' }), t('iOS 版本：{v1}', { v1: iosVersion(input.userAgent) ?? '未知' }), t('设备：{v1}', { v1: deviceText(input) })].join('\n');
 }
+
+export function feedbackBody(input: DiagnosticInput): string {
+  return [t('问题或建议：'), '', t('操作步骤（可选）：'), '', '---', diagnosticText(input)].join('\r\n');
+}
