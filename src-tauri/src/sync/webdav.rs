@@ -1,6 +1,11 @@
 use std::{io::Read, thread, time::Duration};
 
-use quick_xml::{events::Event, Reader};
+use quick_xml::{
+    events::Event,
+    name::{Namespace, ResolveResult},
+    reader::NsReader,
+    Reader,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{Error, Result};
@@ -158,6 +163,7 @@ impl UreqWebDav {
         match status {
             200 => Ok(Some(response)),
             404 => Ok(None),
+            409 if nutstore_missing_ancestors(&response.body) => Ok(None),
             _ => Err(status_error(status)),
         }
     }
@@ -194,7 +200,7 @@ impl WebDav for UreqWebDav {
         let (status, response) = self.request("GET", path, &[], &[], 2)?;
         match status {
             200 => Ok(response),
-            _ => Err(status_error(status)),
+            _ => Err(read_status_error(status, &response.body)),
         }
     }
 
@@ -211,7 +217,7 @@ impl WebDav for UreqWebDav {
         let (status, response) =
             self.request("PROPFIND", &collection(path), &[], &[("Depth", &depth)], 2)?;
         if status != 207 && status != 200 {
-            return Err(status_error(status));
+            return Err(read_status_error(status, &response.body));
         }
         let mut reader = Reader::from_reader(response.body.as_slice());
         reader.config_mut().trim_text(true);
@@ -244,6 +250,63 @@ impl WebDav for UreqWebDav {
 
 fn collection(path: &str) -> String {
     format!("{}/", path.trim_end_matches('/'))
+}
+
+fn read_status_error(status: u16, body: &[u8]) -> Error {
+    if status == 409 && nutstore_missing_ancestors(body) {
+        return status_error(404);
+    }
+    status_error(status)
+}
+
+// Nutstore returns 409 rather than 404 when a read's top-level folder is absent.
+// Only recognise its structured error on reads; write conflicts must keep failing.
+fn nutstore_missing_ancestors(body: &[u8]) -> bool {
+    if body.len() > 8192 {
+        return false;
+    }
+    let mut reader = NsReader::from_reader(body);
+    reader.config_mut().trim_text(true);
+    let mut depth = 0_usize;
+    let mut root_seen = false;
+    let mut in_exception = false;
+    let mut missing = false;
+    loop {
+        let Ok((namespace, event)) = reader.read_resolved_event() else {
+            return false;
+        };
+        match event {
+            Event::Start(event) => {
+                if depth == 0 {
+                    if root_seen
+                        || namespace != ResolveResult::Bound(Namespace(b"DAV:"))
+                        || event.local_name().as_ref() != b"error"
+                    {
+                        return false;
+                    }
+                    root_seen = true;
+                }
+                depth += 1;
+                in_exception = depth == 2
+                    && namespace == ResolveResult::Bound(Namespace(b"http://ns.jianguoyun.com"))
+                    && event.local_name().as_ref() == b"exception";
+            }
+            Event::Text(text) if in_exception => {
+                missing = text.decode().is_ok_and(|code| code == "AncestorsNotFound");
+            }
+            Event::End(_) => {
+                let Some(parent_depth) = depth.checked_sub(1) else {
+                    return false;
+                };
+                depth = parent_depth;
+                in_exception = false;
+            }
+            Event::DocType(_) => return false,
+            Event::Empty(_) if depth == 0 => return false,
+            Event::Eof => return root_seen && depth == 0 && missing,
+            _ => {}
+        }
+    }
 }
 
 fn status_error(status: u16) -> Error {

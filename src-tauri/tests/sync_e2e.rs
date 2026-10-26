@@ -44,6 +44,7 @@ struct DavState {
     sequence: u64,
     manifest_puts: usize,
     writes: usize,
+    nutstore_missing_ancestors: bool,
 }
 
 struct DavControl {
@@ -242,6 +243,19 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<DavState>>, control: &DavCont
     }
     let body = bytes[header_end..header_end + content_length].to_vec();
     let mut state = state.lock().unwrap();
+    let top = path.trim_start_matches('/').split('/').next().unwrap();
+    if state.nutstore_missing_ancestors
+        && matches!(method.as_str(), "GET" | "PROPFIND")
+        && !state.collections.contains(&format!("/{top}/"))
+    {
+        respond(
+            &mut stream,
+            409,
+            &[],
+            br#"<d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>AncestorsNotFound</s:exception></d:error>"#,
+        );
+        return;
+    }
     match method.as_str() {
         "MKCOL" => {
             state.collections.insert(path);
@@ -520,6 +534,25 @@ fn tree_contains(root: &Path, needle: &str) -> bool {
         }
     }
     false
+}
+
+#[test]
+fn new_nutstore_path_can_be_checked_and_pushed_without_connection_setup() {
+    let server = FakeDav::start();
+    server.state.lock().unwrap().nutstore_missing_ancestors = true;
+    let a = Device::new(sync_config(&server, "虚构设备甲", true), PASSPHRASE);
+    seed_library(&a.worker, "虚构相机");
+    let before = a.fingerprint();
+
+    assert_eq!(status(&a.worker, &a.runtime).unwrap().state, "empty_remote");
+    assert_eq!(
+        server.writes(),
+        0,
+        "checking must not create remote folders"
+    );
+    assert_eq!(a.fingerprint(), before);
+    assert_eq!(push(&a.worker, &a.runtime, false).unwrap().version, 1);
+    assert_eq!(status(&a.worker, &a.runtime).unwrap().state, "up_to_date");
 }
 
 #[test]

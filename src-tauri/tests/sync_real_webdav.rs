@@ -174,13 +174,16 @@ fn next_second() {
 #[test]
 #[ignore = "needs THINGARY_REAL_WEBDAV_URL"]
 fn two_desktop_devices_round_trip_on_a_real_server() {
-    // A fresh remote folder per run keeps repeated runs independent.
-    let base = format!("it-{}", uuid::Uuid::new_v4());
+    // Stay below Nutstore's top-level folder name limit, without reusing a run's data.
+    let base = format!("it-{}", &uuid::Uuid::new_v4().simple().to_string()[..20]);
+    println!("real WebDAV test path: {base}");
     let a = Device::new(config("虚构设备甲", &base), PASSPHRASE);
     let b = Device::new(config("虚构设备乙", &base), PASSPHRASE);
 
     // 1. first push, empty device pulls: identical content and managed files.
     let asset = seed_library(&a.worker, "虚构相机");
+    // Checking a brand-new path must be read-only and must not require test_connection first.
+    assert_eq!(status(&a.worker, &a.runtime).unwrap().state, "empty_remote");
     assert_eq!(push(&a.worker, &a.runtime, false).unwrap().version, 1);
     assert_eq!(status(&b.worker, &b.runtime).unwrap().state, "remote_ahead");
     b.pull_and_restore();

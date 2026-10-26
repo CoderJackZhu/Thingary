@@ -13,6 +13,7 @@ struct DavState {
     collections: BTreeSet<String>,
     files: HashMap<String, (Vec<u8>, String)>,
     sequence: u64,
+    forced_response: Option<(u16, Vec<u8>)>,
 }
 
 struct FakeDav {
@@ -99,6 +100,10 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<DavState>>) {
     }
     let body = bytes[header_end..header_end + content_length].to_vec();
     let mut state = state.lock().unwrap();
+    if let Some((status, body)) = &state.forced_response {
+        respond(&mut stream, *status, &[], body);
+        return;
+    }
     match method.as_str() {
         "MKCOL" => {
             state.collections.insert(path);
@@ -238,4 +243,58 @@ fn configured_client_never_exposes_credentials_in_errors() {
     let visible = format!("{} {}", error.code, error.message);
     assert!(!visible.contains("fictional-user"));
     assert!(!visible.contains("super-secret-application-password"));
+}
+
+#[test]
+fn nutstore_missing_ancestors_are_absent_only_for_reads() {
+    let server = FakeDav::start();
+    let client =
+        UreqWebDav::new(server.base_url.clone(), "fictional".into(), "secret".into()).unwrap();
+    let missing = br#"<?xml version="1.0"?><d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>AncestorsNotFound</s:exception><s:message>private server details</s:message></d:error>"#;
+    server._state.lock().unwrap().forced_response = Some((409, missing.to_vec()));
+
+    assert!(client
+        .get_optional("new/Thingary/manifest.json")
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        client.get("new/Thingary/snapshot.age").unwrap_err().code,
+        "SYNC_NOT_FOUND"
+    );
+    assert_eq!(
+        client.propfind("new/Thingary", 1).unwrap_err().code,
+        "SYNC_NOT_FOUND"
+    );
+    for condition in [PutCondition::Missing, PutCondition::Match("stale".into())] {
+        assert_eq!(
+            client
+                .put("manifest.json", b"data", condition)
+                .unwrap_err()
+                .code,
+            "SYNC_PRECONDITION"
+        );
+    }
+    assert_eq!(client.mkcol("new").unwrap_err().code, "SYNC_PRECONDITION");
+
+    // Unknown conflicts, malformed XML and other namespaces must remain errors.
+    for body in [
+        b"AncestorsNotFound".as_slice(),
+        br#"<d:error xmlns:d="DAV:"><exception>AncestorsNotFound</exception></d:error>"#,
+        br#"<d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>AncestorsNotFound</s:exception>"#,
+        br#"<d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>PreconditionFailed</s:exception></d:error>"#,
+    ] {
+        server._state.lock().unwrap().forced_response = Some((409, body.to_vec()));
+        let error = client.get_optional("manifest.json").unwrap_err();
+        assert_eq!(error.code, "SYNC_PRECONDITION");
+        assert_eq!(client.propfind("new", 1).unwrap_err().code, "SYNC_PRECONDITION");
+        assert!(!error.message.contains("private server details"));
+    }
+    for status in [401, 403, 412, 500] {
+        server._state.lock().unwrap().forced_response = Some((status, missing.to_vec()));
+        assert!(client.get_optional("manifest.json").is_err());
+        assert_ne!(
+            client.propfind("new", 1).unwrap_err().code,
+            "SYNC_NOT_FOUND"
+        );
+    }
 }

@@ -236,6 +236,8 @@ macOS 使用系统 ImageIO；Windows 用受限 Rust 解码，只接受 JPEG／PN
   snapshots/<UTC-yyyymmddThhmmssZ>-<device_short>.thingary.age
 ```
 
+首次配置的基础路径尚不存在时，只读核对按远端为空处理，不创建目录；推送和测试连接才按需创建目录。坚果云在顶层目录缺失时会对 GET／PROPFIND 返回 409：仅当响应是完整 DAV error XML、且其坚果云命名空间的异常码为 `AncestorsNotFound` 时按资源不存在处理。其他 409、所有 412 及写入失败仍保留冲突保护，不根据服务器的自由文本推断成功，也不将其正文回显给用户。
+
 首次上传生成随机 UUID `library_id`。未绑定库的新设备列出基础路径下的库，只有一库时自动读取；多库返回 `SYNC_LIBRARY_CHOICE`，目前没有选择器。未绑定 `library_id` 且远端已有快照时，当前 `push` 会返回 `SYNC_LIBRARY`，首次双方有资料的“保留本机”路径尚未闭环；已建立基线后的冲突两种选择有往返测试。`manifest.json` 格式为 1，明文包含 `library_id`、递增 `version`、`snapshot` 相对路径、密文 `snapshot_sha256`／`snapshot_bytes`、`schema_version`、`app_version`、`device_id`／`device_name` 和 `created_at`。校验限制路径为 snapshots 下的单一 `.thingary.age` 文件；清单不含记录正文，但设备等元数据对服务器可见。
 
 机器配置位于 `app_config_dir()/sync/sync.json`，包含启用状态、地址、用户名、应用密码、基础路径、库／设备 ID、设备名、上次远端版本／内容指纹／时间和 `pending_push`。不在资料库中，不随备份或表格导出。公开配置只返回 `has_password`，不回传密码。写入采用临时文件、同步、替换；Unix 文件权限为 0600，当前非 Unix 分支未另设 DACL，不能宣称与备份暂存目录有同等权限保证。停用命令只改本机配置并清除口令会话，可选择忘记凭据，不删除远端；当前设置界面尚无停用按钮。
