@@ -189,7 +189,7 @@ pwsh -NoProfile -File scripts/pack-msix.ps1 \
 
 | 项目 | NSIS 版 | MSIX 版（预期） | 处理 |
 |---|---|---|---|
-| 资料库路径 | `%LOCALAPPDATA%\local.thingary.main\library` | 清单关闭了写入虚拟化，与 NSIS 相同的真实路径（待真机复验，M3） | 真机核对写入落在真实目录、包内没有副本；默认虚拟化下曾落在包存储里并随卸载消失 |
+| 资料库路径 | `%LOCALAPPDATA%\local.thingary.main\library` | 清单关闭了写入虚拟化，与 NSIS 相同的真实路径（2026-10-26 Windows Sandbox 复验通过，M3） | 真机核对写入落在真实目录、包内没有副本；默认虚拟化下曾落在包存储里并随卸载消失 |
 | 同步设置 | `%APPDATA%\local.thingary.main\sync` | 同一真实路径 | 真机核对同步配置保存、读取，与 NSIS 版共用同一份设置 |
 | 自动备份 | 资料库同目录 `auto-backups` | 同一真实路径，随卸载保留 | 真机核对生成、轮换、恢复；额外自动备份目录由用户选择，已验证可写与不可写目录的提示 |
 | 手动备份／换机 | `.thingary` 导出／导入 | 功能不变（NSIS ↔ MSIX 双向完整备份已在 Sandbox 验证，逐表逐行一致） | 换版仍只用完整备份；不要直接复制资料目录 |
@@ -200,7 +200,7 @@ pwsh -NoProfile -File scripts/pack-msix.ps1 \
 | 文件选择 | `rfd`／系统文件面板 | 全信任桌面进程，预期不变 | 选图、备份、xlsx、文件夹、另存为各验成功与取消，中文／带空格路径 |
 | 报告打印／导出 PDF | WebView2 打印对话框 | 预期不变 | 真机打开打印预览并“另存为 PDF”，核对分页与内容 |
 
-**卸载与资料安全（已决定，待真机复验）**：真机验证（2026-10-26，Windows Sandbox）确认：MSIX 默认把 `%LOCALAPPDATA%`／`%APPDATA%` 的写入重定向到包私有存储，卸载包会删除资料库、图片和包内自动备份；重装的 MSIX 还会读到 NSIS 的真实资料目录。决定：清单关闭写入虚拟化（`desktop6:FileSystemWriteVirtualization=disabled`，需要受限能力 `unvirtualizedResources`，提交时要在 Partner Center 写理由），让商店版和 NSIS 一样使用真实的 `%LOCALAPPDATA%\local.thingary.main`：卸载保留资料，两种安装共用一份资料库和一个运行实例。`pack-msix.ps1` 会校验这两项。**提交商店包前必须在 Windows 11 真机或 Sandbox 复验 M3、M5、M9**（资料落在真实目录、卸载后仍在、并装只有一个实例），并在 Store 提交页为 `unvirtualizedResources` 写理由：应用把用户的本地资料库放在 `%LOCALAPPDATA%\local.thingary.main`，需要与未打包的安装版共用并在卸载后保留，避免用户丢失个人财务资料。
+**卸载与资料安全（已决定；M3、M5、M9 于 2026-10-26 在 Windows Sandbox 对 CI 候选包复验通过，范围限该包与核心条件，其余子项未验证）**：真机验证（2026-10-26，Windows Sandbox）确认：MSIX 默认把 `%LOCALAPPDATA%`／`%APPDATA%` 的写入重定向到包私有存储，卸载包会删除资料库、图片和包内自动备份；重装的 MSIX 还会读到 NSIS 的真实资料目录。决定：清单关闭写入虚拟化（`desktop6:FileSystemWriteVirtualization=disabled`，需要受限能力 `unvirtualizedResources`，提交时要在 Partner Center 写理由），让商店版和 NSIS 一样使用真实的 `%LOCALAPPDATA%\local.thingary.main`：卸载保留资料，两种安装共用一份资料库和一个运行实例。`pack-msix.ps1` 会校验这两项。**清单或打包脚本再有改动时须重新复验 M3、M5、M9**（资料落在真实目录、卸载后仍在、并装只有一个实例），并在 Store 提交页为 `unvirtualizedResources` 写理由：应用把用户的本地资料库放在 `%LOCALAPPDATA%\local.thingary.main`，需要与未打包的安装版共用并在卸载后保留，避免用户丢失个人财务资料。
 
 #### `runFullTrust` 认证理由（英文草稿）
 
