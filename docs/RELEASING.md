@@ -138,7 +138,7 @@ SignPath 接入后，签名顺序必须是：先构建并签 `thingary.exe`，�
 
 ### 微软商店（MSIX）
 
-2026-10-25 起准备 Microsoft Store 的 MSIX 路线；它和上面的 NSIS 路线并行，不替换 NSIS。商店对 MSIX 重新签名，不需要购买代码签名证书；EXE／MSI 路线才需要自行购买受信任 CA 的代码签名证书。当前流程只产出**未签名的 x64 候选包**，设计为由 `windows-latest` 生成并做静态结构校验；**尚未在真实 Windows 上安装、未提交 Partner Center、未通过商店认证**。认证后由商店签名并分发，应用内不自行更新。
+2026-10-25 起准备 Microsoft Store 的 MSIX 路线；它和上面的 NSIS 路线并行，不替换 NSIS。商店对 MSIX 重新签名，不需要购买代码签名证书；EXE／MSI 路线才需要自行购买受信任 CA 的代码签名证书。当前流程只产出**未签名的 x64 候选包**，设计为由 `windows-latest` 生成并做静态结构校验；**已在 Windows Sandbox 安装并验证 M3、M5、M9（见下文），其余验收项未验证；未提交 Partner Center、未通过商店认证**。认证后由商店签名并分发，应用内不自行更新。
 
 个人开发者账号在 <https://storedeveloper.microsoft.com> 注册，需要政府证件与自拍验证；中国大陆能否注册尚未确认。应用名「物谱」已保留。产品标识是公开信息，不是密钥，可以写进仓库：
 
@@ -171,7 +171,7 @@ pwsh -NoProfile -File scripts/pack-msix.ps1 \
   -NoticesDir .local/distribution/msix-notices -OutputDir .local/msix
 ```
 
-打包用 Windows SDK 的 `MakeAppx.exe`（`makeappx pack`／`unpack`），不依赖 `winapp` CLI。产物在 `.local/msix/`：`Thingary_<版本>_x64.msix`、`SHA256SUMS.txt`、`msix-verification.json` 与填好的 `AppxManifest.xml`。`msix-verification.json` 记录身份、发布者、四段版本、`Windows.Desktop`／最低版本、x64 PE、许可文件、源码提交和未签名状态；脚本用 `MakeAppx.exe pack` 打包，再 `unpack` 后逐文件比对散列并解析清单。这些只是结构检查，不等于安装、启动或认证通过。同样的步骤只能在 [MSIX 工作流](../.github/workflows/msix-package.yml)（只在手动触发或 `v*` 标签时运行）的 `windows-latest` 上运行；macOS 不运行 `winapp`／`MakeAppx`，也不交叉产出 MSIX。本次准备只在本机做了静态与工程检查，没有实际触发该工作流；首次运行的日志、`MakeAppx` 输出与 `msix-verification.json` 必须由维护者核对后才能当作通过。
+打包用 Windows SDK 的 `MakeAppx.exe`（`makeappx pack`／`unpack`），不依赖 `winapp` CLI。产物在 `.local/msix/`：`Thingary_<版本>_x64.msix`、`SHA256SUMS.txt`、`msix-verification.json` 与填好的 `AppxManifest.xml`。`msix-verification.json` 记录身份、发布者、四段版本、`Windows.Desktop`／最低版本、x64 PE、许可文件、源码提交和未签名状态；脚本用 `MakeAppx.exe pack` 打包，再 `unpack` 后逐文件比对散列并解析清单。这些只是结构检查，不等于安装、启动或认证通过。同样的步骤只能在 [MSIX 工作流](../.github/workflows/msix-package.yml)（只在手动触发或 `v*` 标签时运行）的 `windows-latest` 上运行；macOS 不运行 `winapp`／`MakeAppx`，也不交叉产出 MSIX。该工作流在触及打包文件的 pull request 上也会演练（PR #50 中 MakeAppx 接受了当前清单）；每次发布前仍须由维护者核对日志、`MakeAppx` 输出与 `msix-verification.json`，才能当作通过。
 
 商店包的身份与版本检查、`runFullTrust` 说明、隐私与截图等提交材料见 [Microsoft Store 上架文案](releases/microsoft-store-listing.md) 与 [商店提交清单](releases/store-submission-checklist.md)。提交步骤由维护者在 Partner Center 执行：新提交 → 包 → 上传未签名 MSIX → 认证说明（`runFullTrust` 理由）→ 商店列表／隐私／年龄分级／截图 → 提交认证。认证通过后商店签名并上架；随后从商店安装，按 [Windows 验收清单的 MSIX 小节](WINDOWS_ACCEPTANCE.md#msix-microsoft-store) 复验，不能把 CI 结构检查当作真机通过。
 
