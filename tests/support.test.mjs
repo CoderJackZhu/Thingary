@@ -41,7 +41,7 @@ test('the privacy copy tells when the app goes online and keeps the manual actio
   assert.equal(r.button('关于物谱'), undefined);
   assert.equal(r.button('版本与更新'), undefined);
   assert.ok(r.button('检查更新'), 'the update area keeps its manual entry');
-  assert.match(r.text(r.nodes()[0]), /资料使用完全离线.*启动时检查更新.*主动点“检查更新”/);
+  assert.match(r.text(r.nodes()[0]), /默认不上传.*WebDAV 同步默认关闭.*启动时检查更新.*主动点“检查更新”/);
   assert.match(r.text(r.nodes()[0]), /下载和安装始终由你决定/);
 });
 
