@@ -162,7 +162,8 @@ jobs:
         env:
           THINGARY_ANDROID_APPLICATION_ID: local.thingary.main
           THINGARY_ANDROID_APP_LABEL: 物谱
-        run: npm run android:build
+        # arm64 only: phones with Android 10+ are arm64; the other ABIs (32-bit ARM, x86) only add ~40-50 MB each.
+        run: npm run android:build -- --target aarch64
       - name: Collect the APK and its checksum
         if: steps.ready.outputs.ready == 'true'
         run: |

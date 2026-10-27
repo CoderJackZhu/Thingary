@@ -276,6 +276,7 @@ Get-AppxPackage -Name 'CoderJackZhu.3513028683F74' | Format-List Name,PublisherI
 - **发布密钥**：用一把专用密钥，离线备份，丢失后无法更新已安装的版本；不要和本地预览密钥（`.local/signing/`）混用。GitHub secrets：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`；缺失时 Android 步骤自动跳过。
 - **本地验证**：`THINGARY_ANDROID_APPLICATION_ID=local.thingary.main THINGARY_ANDROID_APP_LABEL=物谱 npm run android:build -- --target aarch64`，再用 `aapt2 dump badging` 核对包名与名称，装机后确认能进首页。
 - **安装提示**：国产安卓系统可能对未备案或未知来源应用弹提示或拦截；那是系统策略，不是应用故障。附件只从本仓库 Release 下载，并用 `SHA256SUMS.txt` 核对。
+- **只构建 arm64-v8a。** 发布流水线用 `--target aarch64`：Android 10（minSdk 29）及以上的手机基本都是 arm64；0.1.0 首个草稿带四种架构（arm64、32 位 ARM、x86、x86_64）约 190 MB，每多一种架构约增加 40–50 MB，仅 arm64 约 51 MB。代价：不能装在 x86 模拟器和仅 32 位系统的老设备上，开发验收用预览身份另行构建。
 - 产物名为 `Thingary-<版本>-android.apk`，随 Release 草稿附上，公开前仍按上文「多平台放行」逐项核对。
 
 ## iOS（App Store）
