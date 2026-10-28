@@ -1,6 +1,13 @@
 // 英文译文。key 是界面里的简体中文原文；没有的条目显示中文原文。
 // 由 scripts/i18n-keys.mjs 列出 key；过期条目用 --check 查出。
 export const en: Record<string, string> = {
+  "显示页面时出现问题。可以重试；已提交但结果未知的操作仍需核对。": "There was a problem displaying this page. You can retry; submitted operations with an unknown result still need to be checked.",
+  "操作失败": "Action failed",
+  "操作完成": "Action completed",
+  "跳到主要内容": "Skip to main content",
+  "正在更新物品列表…": "Updating items…",
+  "更新失败，仍显示上次读取的物品。": "Update failed. The previously loaded items are still displayed. ",
+  "返回总览": "Back to overview",
   " / 天": " / day",
   " / 次": " / time",
   " · {count} 条{v2}": " · {count, plural, one {# entry} other {# entries}}{v2}",

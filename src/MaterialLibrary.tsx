@@ -24,7 +24,7 @@ export function MaterialThumb({ id, alt, generation, onSelect, disabled = false 
     {error && <span className="material-thumb-error" role="alert"><span title={error}>{t('图片读取失败')}</span><button type="button" disabled={disabled} aria-label={t('重新读取：') + alt} onClick={() => setAttempt(n => n + 1)}>{t('重试')}</button></span>}</>;
 }
 
-export function MaterialLibrary({ generation, onNotice, onBusyChange, search, onSearch }: { generation: string; onNotice: (message: string) => void; onBusyChange: (busy: boolean) => void; search: string; onSearch: (value: string) => void;  }) {
+export function MaterialLibrary({ generation, onNotice, onBusyChange, search, onSearch }: { generation: string; onNotice: (message: string, kind?: 'success' | 'error' | 'info') => void; onBusyChange: (busy: boolean) => void; search: string; onSearch: (value: string) => void;  }) {
   const [entries, setEntries] = useState<MaterialEntry[] | null>(null);
   const [source, setSource] = useState<MaterialSource>('icon');
   const [category, setCategory] = useState(t('全部'));
@@ -57,7 +57,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
     localStorage.removeItem(uploadKey);
     setPending(null);
     if (entry) { setSource('custom'); setCategory(t('全部')); onSearch(''); }
-    onNotice(entry ? t('已上传素材「{name}」。', { name: entry.name }) : t('核对完成：没有保存素材，可重新上传。'));
+    onNotice(entry ? t('已上传素材「{name}」。', { name: entry.name }) : t('核对完成：没有保存素材，可重新上传。'), entry ? 'success' : 'info');
     reload();
   }
   async function resolveUpload() {
@@ -70,7 +70,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
         onNotice(t('资料已切换，旧上传不会写入当前资料。')); return;
       }
       completed(await invoke<MaterialEntry | null>('material_upload_result', pending));
-    } catch (e) { onNotice(errorMessage(e) + t(' 原操作已保留，请继续核对。')); }
+    } catch (e) { onNotice(errorMessage(e) + t(' 原操作已保留，请继续核对。'), 'error'); }
     finally { lock.current = false; setBusy(false); }
   }
   async function upload() {
@@ -84,7 +84,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
       completed(await uploadAndResolve(next,
         p => invoke<MaterialEntry>('add_material', p),
         p => invoke<MaterialEntry | null>('material_upload_result', p)));
-    } catch (e) { onNotice(persisted ? errorMessage(e) + t(' 上传结果未确认；请先核对，勿重复上传。') : t('无法保存上传核对记录，尚未开始上传。')); }
+    } catch (e) { onNotice(persisted ? errorMessage(e) + t(' 上传结果未确认；请先核对，勿重复上传。') : t('无法保存上传核对记录，尚未开始上传。'), 'error'); }
     finally { lock.current = false; setBusy(false); }
   }
   async function remove(id: string, name: string) {
@@ -93,8 +93,8 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
     setBusy(true); setConfirming(null);
     try {
       setEntries(await invoke<MaterialEntry[]>('remove_material', { id, generation }));
-      onNotice(t('已删除素材「{name}」。已保存物品的图片不受影响。', { name }));
-    } catch (e) { onNotice(errorMessage(e)); reload(); }
+      onNotice(t('已删除素材「{name}」。已保存物品的图片不受影响。', { name }), 'success');
+    } catch (e) { onNotice(errorMessage(e), 'error'); reload(); }
     finally { lock.current = false; setBusy(false); }
   }
   return <section className="materials-section" aria-labelledby="materials-heading">
