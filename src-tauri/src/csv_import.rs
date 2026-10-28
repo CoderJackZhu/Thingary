@@ -1,10 +1,11 @@
-//! Asset table import (D21, U14): adds new assets only, never updates or
-//! merges. Preview checks every row without writing; commit re-checks the
-//! same bytes and writes all valid rows in one transaction.
+//! Asset table import (D21, U14): adds new assets and updates ordinary fields
+//! for rows that carry a stable exported ID and matching revision. Preview
+//! checks every row without writing; commit re-checks the same bytes and writes
+//! all valid rows in one transaction.
 use crate::{
     catalog::Details,
     csv_export::HEADER,
-    domain::{date, Error, Result, Save},
+    domain::{Error, Result, Save},
     lifecycle::{append_event, Kind, Lifecycle, State},
     storage::{atomic_write, digest, uid, Store},
     taxonomy::{self, Classification},
@@ -12,7 +13,7 @@ use crate::{
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     path::Path,
 };
 
@@ -25,12 +26,30 @@ pub struct RowNote {
     pub name: String,
     pub reason: String,
 }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ChangeKind {
+    Add,
+    Update,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Change {
+    pub line: usize,
+    pub name: String,
+    pub kind: ChangeKind,
+    pub changed: Vec<String>,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Preview {
     pub hash: String,
     pub valid: usize,
+    pub additions: usize,
+    pub updates: usize,
+    pub unchanged: usize,
     pub invalid: Vec<RowNote>,
     pub duplicates: Vec<RowNote>,
+    pub changes: Vec<Change>,
+    pub conflicts: Vec<RowNote>,
     pub new_categories: Vec<String>,
     pub new_channels: Vec<String>,
 }
@@ -45,13 +64,25 @@ pub struct Commit {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Done {
     pub imported: usize,
+    #[serde(default)]
+    pub updated: usize,
+    #[serde(default)]
+    pub unchanged: usize,
     pub skipped_duplicates: usize,
     pub invalid: usize,
 }
 
-/// Header-only template; the export's 档案编号 column is left out.
+/// Header-only template; stable IDs and revisions are only for round-tripping
+/// an exported library, never required for adding rows.
 pub fn template() -> String {
-    format!("\u{feff}{}\r\n", HEADER[1..].join(","))
+    let mut columns = HEADER
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !matches!(i, 0 | 17))
+        .map(|(_, h)| *h)
+        .collect::<Vec<_>>();
+    columns.push("序列号");
+    format!("\u{feff}{}\r\n", columns.join(","))
 }
 pub fn write_template(path: &Path) -> Result<()> {
     atomic_write(path, template().as_bytes())
@@ -59,6 +90,8 @@ pub fn write_template(path: &Path) -> Result<()> {
 
 struct Row {
     line: usize,
+    /// Present only when the row came from an export and still names a live item.
+    existing: Option<(String, i64)>,
     name: String,
     details: Details,
     category: Option<String>,
@@ -120,23 +153,14 @@ fn unguard(v: &str) -> &str {
 }
 
 fn yuan(v: &str) -> std::result::Result<Option<i64>, String> {
-    let v: String = v.trim().trim_start_matches(['¥', '￥']).replace(',', "");
-    if v.is_empty() {
-        return Ok(None);
+    let value = crate::import_values::yuan(v)?;
+    if value.is_some_and(|n| n < 0) {
+        return Err(format!(
+            "金额「{}」须为不小于 0 的数字，最多两位小数",
+            v.trim()
+        ));
     }
-    let bad = || format!("金额「{v}」须为不小于 0 的数字，最多两位小数");
-    let (whole, frac) = v.split_once('.').unwrap_or((&v, ""));
-    if whole.is_empty()
-        || whole.len() > 9
-        || frac.len() > 2
-        || !(whole.chars().chain(frac.chars())).all(|c| c.is_ascii_digit())
-    {
-        return Err(bad());
-    }
-    Ok(Some(
-        whole.parse::<i64>().map_err(|_| bad())? * 100
-            + format!("{frac:0<2}").parse::<i64>().map_err(|_| bad())?,
-    ))
+    Ok(value)
 }
 
 fn day(v: &str, label: &str, today: &str) -> std::result::Result<Option<String>, String> {
@@ -144,15 +168,12 @@ fn day(v: &str, label: &str, today: &str) -> std::result::Result<Option<String>,
     if v.is_empty() {
         return Ok(None);
     }
-    let parts: Vec<&str> = v.split(['-', '/', '.']).collect();
-    let normal = match parts.as_slice() {
-        [y, m, d] if y.len() == 4 => format!("{y}-{:0>2}-{:0>2}", m, d),
-        _ => String::new(),
-    };
-    match date(&normal) {
-        Ok(_) if normal.as_str() > today => Err(format!("{label}不能晚于今天")),
-        Ok(_) => Ok(Some(normal)),
-        Err(_) => Err(format!("{label}「{v}」须写成 2026-09-01 或 2026/9/1")),
+    match crate::import_values::day(v) {
+        Some(normal) if normal.as_str() > today => Err(format!("{label}不能晚于今天")),
+        Some(normal) => Ok(Some(normal)),
+        None => Err(format!(
+            "{label}「{v}」须写成 2026-09-01、2026/9/1 或 2026年9月1日"
+        )),
     }
 }
 
@@ -174,7 +195,7 @@ fn row(
     let details = Details {
         brand: cell("品牌").trim().into(),
         model: cell("型号").trim().into(),
-        serial_number: String::new(),
+        serial_number: cell("序列号").trim().into(),
         notes: cell("备注"),
     };
     details.validate().map_err(|e| e.message)?;
@@ -228,6 +249,7 @@ fn row(
     };
     Ok(Row {
         line,
+        existing: None,
         name,
         details,
         category,
@@ -242,6 +264,7 @@ fn row(
 struct Checked {
     rows: Vec<Row>,
     duplicate: Vec<bool>,
+    unchanged: Vec<bool>,
     preview: Preview,
 }
 
@@ -293,11 +316,17 @@ fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Che
     let mut out = Checked {
         rows: Vec::new(),
         duplicate: Vec::new(),
+        unchanged: Vec::new(),
         preview: Preview {
             hash: digest(bytes),
             valid: 0,
+            additions: 0,
+            updates: 0,
+            unchanged: 0,
             invalid: Vec::new(),
             duplicates: Vec::new(),
+            changes: Vec::new(),
+            conflicts: Vec::new(),
             new_categories: Vec::new(),
             new_channels: Vec::new(),
         },
@@ -306,34 +335,102 @@ fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Che
     // Dedup also covers repeats inside this file, so an empty library cannot
     // import the same row twice.
     let mut seen: HashSet<(String, Option<String>, Option<i64>)> = HashSet::new();
+    let mut seen_ids = HashSet::new();
     for (line, cells) in data {
+        let raw_id = columns
+            .iter()
+            .position(|c| c == "档案编号")
+            .and_then(|i| cells.get(i))
+            .map(|v| v.trim())
+            .unwrap_or("");
+        let baseline = current_cells(c, raw_id)?;
         let cell = |label: &str| {
-            columns
+            let value = columns
                 .iter()
                 .position(|c| c == label)
-                .and_then(|i| cells.get(i))
-                .map_or(String::new(), |v| {
-                    if guarded {
-                        unguard(v).to_owned()
-                    } else {
-                        v.to_owned()
-                    }
-                })
+                .map(|i| cells.get(i).cloned().unwrap_or_default())
+                .unwrap_or_else(|| baseline.get(label).cloned().unwrap_or_default());
+            if guarded && columns.iter().any(|c| c == label) {
+                unguard(&value).to_owned()
+            } else {
+                value
+            }
         };
+        let stable_id = cell("档案编号").trim().to_owned();
+        let stable_revision = cell("档案版本").trim().to_owned();
+        let existing = if stable_id.is_empty() {
+            None
+        } else {
+            c.query_row(
+                "SELECT revision,deleted_at IS NOT NULL FROM assets WHERE id=?1",
+                [&stable_id],
+                |x| Ok((x.get::<_, i64>(0)?, x.get::<_, bool>(1)?)),
+            )
+            .optional()?
+        };
+        // Identity checks must also cover rows with invalid editable values;
+        // otherwise a stale/copy conflict could silently become a skipped row.
+        let identity_issue = if stable_id.is_empty() && !stable_revision.is_empty() {
+            Some("档案编号和档案版本须一起保留；新增物品请将两格都留空")
+        } else if let Some((revision, deleted)) = existing {
+            if !seen_ids.insert(stable_id.clone()) {
+                Some("同一档案编号在文件中出现多次；复制行新增物品时请清空隐藏的档案编号和档案版本")
+            } else if deleted {
+                Some("这件物品已在最近删除中；请先核对原档案，不能通过表格重新新增")
+            } else {
+                match stable_revision.parse::<i64>().ok().filter(|n| *n > 0) {
+                    Some(value) if value == revision => None,
+                    Some(_) => {
+                        Some("这份表格导出后，物品又被修改过。请重新导出再改，避免覆盖新内容")
+                    }
+                    None => Some(
+                        "修改已有物品须保留隐藏的档案版本；新增物品请将档案编号和档案版本都留空",
+                    ),
+                }
+            }
+        } else {
+            None
+        };
+        if let Some(reason) = identity_issue {
+            out.preview.conflicts.push(RowNote {
+                line,
+                name: cell("名称").trim().into(),
+                reason: reason.into(),
+            });
+        }
         match row(line, &cell, today) {
             Err(reason) => out.preview.invalid.push(RowNote {
                 line,
                 name: cell("名称").trim().into(),
                 reason,
             }),
-            Ok(r) => {
+            Ok(mut r) => {
+                let mut same = false;
+                let mut conflict = identity_issue.is_some();
+                if !conflict {
+                    if let Some((revision, false)) = existing {
+                        r.existing = Some((stable_id.clone(), revision));
+                        if lifecycle_changed(c, &stable_id, &r)? {
+                            conflict = true;
+                            out.preview.conflicts.push(RowNote {
+                                line,
+                                name: r.name.clone(),
+                                reason: "批量表格可修改名称、分类、品牌、型号、序列号、购入信息、渠道和备注；退役、重新启用或售出请到物品详情处理".into(),
+                            });
+                        } else {
+                            same = changed_fields(c, &stable_id, &r)?.is_empty();
+                        }
+                    }
+                }
                 let in_file = !seen.insert((r.name.clone(), r.purchase.clone(), r.price));
-                let dup: bool = in_file
-                    || c.query_row(
-                        "SELECT EXISTS(SELECT 1 FROM assets WHERE deleted_at IS NULL AND name=?1 AND purchase_date IS ?2 AND price_cents IS ?3)",
-                        params![r.name, r.purchase, r.price],
-                        |x| x.get(0),
-                    )?;
+                let dup: bool = !conflict
+                    && r.existing.is_none()
+                    && (in_file
+                        || c.query_row(
+                            "SELECT EXISTS(SELECT 1 FROM assets WHERE deleted_at IS NULL AND name=?1 AND purchase_date IS ?2 AND price_cents IS ?3)",
+                            params![r.name, r.purchase, r.price],
+                            |x| x.get(0),
+                        )?);
                 if dup {
                     out.preview.duplicates.push(RowNote {
                         line,
@@ -344,6 +441,27 @@ fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Che
                             "名称、购入日期和购入价与已有物品相同".into()
                         },
                     });
+                }
+                if !conflict {
+                    if r.existing.is_some() && same {
+                        out.preview.unchanged += 1;
+                    } else if r.existing.is_some() {
+                        out.preview.updates += 1;
+                        out.preview.changes.push(Change {
+                            line,
+                            name: r.name.clone(),
+                            kind: ChangeKind::Update,
+                            changed: changed_fields(c, &stable_id, &r)?,
+                        });
+                    } else {
+                        out.preview.additions += 1;
+                        out.preview.changes.push(Change {
+                            line,
+                            name: r.name.clone(),
+                            kind: ChangeKind::Add,
+                            changed: Vec::new(),
+                        });
+                    }
                 }
                 for (set, kind, v) in [
                     (&mut cats, taxonomy::Kind::Category, &r.category),
@@ -358,6 +476,7 @@ fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Che
                     }
                 }
                 out.duplicate.push(dup);
+                out.unchanged.push(same);
                 out.rows.push(r);
             }
         }
@@ -366,6 +485,140 @@ fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Che
     out.preview.new_categories = cats.into_iter().collect();
     out.preview.new_channels = chans.into_iter().collect();
     Ok(out)
+}
+
+fn changed_fields(c: &Connection, id: &str, row: &Row) -> Result<Vec<String>> {
+    let current: [String; 9] = c.query_row(
+        "SELECT a.name,COALESCE(c.name,''),COALESCE(p.brand,''),COALESCE(p.model,''),
+                COALESCE(CAST(a.price_cents AS TEXT),''),COALESCE(a.purchase_date,''),
+                COALESCE(ch.name,''),COALESCE(p.serial_number,''),COALESCE(p.notes,'')
+         FROM assets a LEFT JOIN categories c ON c.id=a.category_id
+         LEFT JOIN channels ch ON ch.id=a.channel_id
+         LEFT JOIN asset_profiles p ON p.asset_id=a.id WHERE a.id=?1 AND a.deleted_at IS NULL",
+        [id],
+        |r| {
+            Ok([
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                r.get(8)?,
+            ])
+        },
+    )?;
+    let price = row.price.map(|v| v.to_string()).unwrap_or_default();
+    let wanted = [
+        row.name.as_str(),
+        row.category.as_deref().unwrap_or(""),
+        row.details.brand.as_str(),
+        row.details.model.as_str(),
+        price.as_str(),
+        row.purchase.as_deref().unwrap_or(""),
+        row.channel.as_deref().unwrap_or(""),
+        row.details.serial_number.as_str(),
+        row.details.notes.as_str(),
+    ];
+    let labels = [
+        "名称",
+        "分类",
+        "品牌",
+        "型号",
+        "购入价",
+        "购入日期",
+        "渠道",
+        "序列号",
+        "备注",
+    ];
+    Ok(labels
+        .iter()
+        .zip(current.iter().zip(wanted))
+        .filter(|(_, (old, new))| old.as_str() != *new)
+        .map(|(label, _)| (*label).to_owned())
+        .collect())
+}
+
+/// Omitted columns preserve existing facts; an explicitly empty editable cell
+/// clears that field. New rows have no baseline.
+fn current_cells(c: &Connection, id: &str) -> Result<BTreeMap<String, String>> {
+    if id.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    let value = c
+        .query_row(
+            "SELECT a.name,COALESCE(c.name,''),COALESCE(p.brand,''),COALESCE(p.model,''),
+                a.price_cents,COALESCE(a.purchase_date,''),COALESCE(ch.name,''),
+                COALESCE(p.serial_number,''),COALESCE(p.notes,''),a.lifecycle_state,
+                CASE WHEN a.lifecycle_state='retired' THEN
+                    (SELECT e.date FROM lifecycle_events e WHERE e.asset_id=a.id ORDER BY e.sequence DESC LIMIT 1)
+                END,s.date,s.price_cents
+             FROM assets a LEFT JOIN categories c ON c.id=a.category_id
+             LEFT JOIN channels ch ON ch.id=a.channel_id
+             LEFT JOIN asset_profiles p ON p.asset_id=a.id
+             LEFT JOIN sales s ON s.asset_id=a.id AND s.revoked_at IS NULL
+             WHERE a.id=?1 AND a.deleted_at IS NULL",
+            [id],
+            |r| {
+                let money = |index| -> rusqlite::Result<String> {
+                    Ok(r.get::<_, Option<i64>>(index)?
+                        .map(|v| crate::currency::decimal(v, 2))
+                        .unwrap_or_default())
+                };
+                Ok(BTreeMap::from([
+                    ("名称".into(), r.get(0)?),
+                    ("分类".into(), r.get(1)?),
+                    ("品牌".into(), r.get(2)?),
+                    ("型号".into(), r.get(3)?),
+                    ("购入价".into(), money(4)?),
+                    ("购入日期".into(), r.get(5)?),
+                    ("渠道".into(), r.get(6)?),
+                    ("序列号".into(), r.get(7)?),
+                    ("备注".into(), r.get(8)?),
+                    (
+                        "状态".into(),
+                        match r.get::<_, String>(9)?.as_str() {
+                            "retired" => "已退役",
+                            "sold" => "已售出",
+                            _ => "使用中",
+                        }
+                        .into(),
+                    ),
+                    ("退役日期".into(), r.get::<_, Option<String>>(10)?.unwrap_or_default()),
+                    ("售出日期".into(), r.get::<_, Option<String>>(11)?.unwrap_or_default()),
+                    ("售价".into(), money(12)?),
+                ]))
+            },
+        )
+        .optional()?;
+    Ok(value.unwrap_or_default())
+}
+
+fn lifecycle_changed(c: &Connection, id: &str, row: &Row) -> Result<bool> {
+    let (state, retired, sold_date, sold_price): (String, Option<String>, Option<String>, Option<i64>) = c.query_row(
+        "SELECT a.lifecycle_state,
+                CASE WHEN a.lifecycle_state='retired' THEN
+                    (SELECT e.date FROM lifecycle_events e WHERE e.asset_id=a.id ORDER BY e.sequence DESC LIMIT 1)
+                END,
+                (SELECT s.date FROM sales s WHERE s.asset_id=a.id AND s.revoked_at IS NULL),
+                (SELECT s.price_cents FROM sales s WHERE s.asset_id=a.id AND s.revoked_at IS NULL)
+         FROM assets a WHERE a.id=?1",
+        [id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+    )?;
+    Ok(match state.as_str() {
+        "active" => row.retired.is_some() || row.sold.is_some(),
+        "retired" => row.retired.as_ref() != retired.as_ref() || row.sold.is_some(),
+        "sold" => match (&row.sold, sold_date, sold_price) {
+            (Some((date, price)), Some(current_date), Some(current_price)) => {
+                date != &current_date || *price != current_price || row.retired.is_some()
+            }
+            _ => true,
+        },
+        _ => true,
+    })
 }
 
 /// Finds a category/channel by name or appends it at the end.
@@ -521,20 +774,41 @@ impl Store {
         let now = chrono::Utc::now().to_rfc3339();
         let mut done = Done {
             imported: 0,
+            updated: 0,
+            unchanged: 0,
             skipped_duplicates: 0,
             invalid: checked.preview.invalid.len(),
         };
-        for (r, dup) in checked.rows.iter().zip(&checked.duplicate) {
+        if !checked.preview.conflicts.is_empty() {
+            return Err(Error::new(
+                "CSV_CONFLICT",
+                "表格中有需要重新核对的档案编号、版本或状态，资料未改变",
+            ));
+        }
+        for ((r, dup), unchanged) in checked
+            .rows
+            .iter()
+            .zip(&checked.duplicate)
+            .zip(&checked.unchanged)
+        {
             if *dup && !input.include_duplicates {
                 done.skipped_duplicates += 1;
                 continue;
             }
+            if *unchanged {
+                done.unchanged += 1;
+                continue;
+            }
             let at = |e: Error| Error::new(&e.code, &format!("第 {} 行：{}", r.line, e.message));
+            let (request, asset_id, expected_revision) = match &r.existing {
+                Some((id, revision)) => (uid(), Some(id.clone()), Some(*revision)),
+                None => (uid(), None, None),
+            };
             let save = Save {
-                request_id: uid(),
+                request_id: request,
                 generation: input.generation.clone(),
-                asset_id: None,
-                expected_revision: None,
+                asset_id: asset_id.clone(),
+                expected_revision,
                 name: r.name.clone(),
                 price_cents: r.price.map(|p| p.to_string()),
                 purchase_date: r.purchase.clone(),
@@ -555,6 +829,13 @@ impl Store {
             let asset = self
                 .write_asset(&tx, &save, Some(&r.details), None, Some(&classification))
                 .map_err(at)?;
+            if asset_id.is_some() {
+                // Detail reads must observe the updated revision immediately.
+                // Lifecycle/sale edits are deliberately outside bulk import.
+                done.updated += 1;
+                done.imported += 1;
+                continue;
+            }
             let mut previous = "active";
             if let Some(d) = &r.retired {
                 let life = Lifecycle {
@@ -597,7 +878,7 @@ impl Store {
             }
             done.imported += 1;
         }
-        if done.imported == 0 {
+        if done.imported == 0 && done.unchanged == 0 {
             return Err(Error::new("CSV_NOTHING", "没有可导入的行，资料未改变"));
         }
         tx.execute(

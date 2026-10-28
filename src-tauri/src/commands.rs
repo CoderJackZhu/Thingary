@@ -1346,12 +1346,20 @@ pub async fn inspect_item_workbook(
             .invalid
             .iter_mut()
             .chain(preview.duplicates.iter_mut())
+            .chain(preview.conflicts.iter_mut())
         {
             note.line = sheet
                 .row_numbers
                 .get(note.line)
                 .copied()
                 .unwrap_or(note.line);
+        }
+        for change in &mut preview.changes {
+            change.line = sheet
+                .row_numbers
+                .get(change.line)
+                .copied()
+                .unwrap_or(change.line);
         }
         Ok(Some(ItemSheetInspected {
             name: path

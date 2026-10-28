@@ -238,16 +238,82 @@ fn keys(c: &Connection, b: &BatchInput) -> Result<BTreeMap<(String, String), Key
         .collect::<std::result::Result<_, _>>()?;
     Ok(result)
 }
+fn record_key(
+    c: &Connection,
+    mappings: &BTreeMap<(String, String), Key>,
+    kind: &str,
+    key: &str,
+) -> Result<Option<Key>> {
+    if let Some(mapped) = mappings.get(&(kind.into(), key.into())) {
+        return Ok(Some(mapped.clone()));
+    }
+    let table = match kind {
+        "account" => "fin_accounts",
+        "snapshot" => "fin_snapshots",
+        "income" => "plan_income",
+        _ => return Err(Error::new("IMPORT_KIND", "导入对象类型无效")),
+    };
+    // Our exports use local IDs as keys. Match exact identity, including deleted
+    // rows, before allocating an ID for a previously unseen external key.
+    let deleted: Option<bool> = c
+        .query_row(
+            &format!("SELECT deleted_at IS NOT NULL FROM {table} WHERE id=?1"),
+            [key],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let status = if let Some(deleted) = deleted {
+        if deleted {
+            "deleted"
+        } else {
+            "active"
+        }
+    } else if c.query_row(
+        "SELECT EXISTS(SELECT 1 FROM import_external_key
+         WHERE object_kind=?1 AND object_id=?2 AND status='purged')",
+        params![kind, key],
+        |r| r.get::<_, bool>(0),
+    )? {
+        "purged"
+    } else {
+        return Ok(None);
+    };
+    Ok(Some(Key {
+        id: key.into(),
+        status: status.into(),
+    }))
+}
+
+fn bind_account_key(
+    c: &Connection,
+    mappings: &BTreeMap<(String, String), Key>,
+    bindings: &mut BTreeMap<String, String>,
+    key: &str,
+) -> Result<()> {
+    if !bindings.contains_key(key) {
+        if let Some(mapped) = record_key(c, mappings, "account", key)? {
+            if mapped.status == "active" && wealth::account(c, &mapped.id)?.is_some() {
+                bindings.insert(key.into(), mapped.id);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn context_digest(c: &Connection, b: &BatchInput, cancel: &dyn Fn() -> bool) -> Result<String> {
     // Includes deleted objects and mappings: membership changes and edits to
     // reused or skipped objects must invalidate an outstanding preview too.
     let mut values = Vec::<Value>::new();
     let mut tables = Vec::new();
-    if b.files.iter().any(|f| f.kind == "incomes") {
+    let incomes = b.files.iter().any(|f| f.kind == "incomes");
+    if incomes {
         tables.push("plan_income");
     }
+    if has_wealth(b) || incomes {
+        tables.push("fin_accounts");
+    }
     if has_wealth(b) {
-        tables.extend(["fin_accounts", "fin_snapshots"]);
+        tables.push("fin_snapshots");
     }
     for table in tables {
         let sql = format!("SELECT id,revision,coalesce(deleted_at,'') FROM {table} ORDER BY id");
@@ -521,9 +587,8 @@ fn prepare(
                 "所选账户已变化，请重新预览",
             ));
         }
-        if mappings
-            .get(&("account".into(), key.clone()))
-            .is_some_and(|old| old.status == "purged" || old.id != m.id)
+        if record_key(tx, &mappings, "account", key)?
+            .is_some_and(|old| old.status != "active" || old.id != m.id)
         {
             return Err(Error::new(
                 "IMPORT_MAPPING_CONFLICT",
@@ -574,10 +639,11 @@ fn prepare(
                 holding_mode: r.holding_mode,
                 holding_unit: r.holding_unit.clone(),
             };
-            let old_key = mappings.get(&("account".into(), r.account_key.clone()));
+            let old_key = record_key(tx, &mappings, "account", &r.account_key)?;
             let id = bindings
                 .get(&r.account_key)
                 .cloned()
+                .or_else(|| old_key.as_ref().map(|k| k.id.clone()))
                 .unwrap_or_else(|| stable_id(b, "account", &r.account_key));
             let old = wealth::account(tx, &id)?;
             let before = old
@@ -593,10 +659,9 @@ fn prepare(
                 "conflict"
             }
             .to_string();
-            if old_key.is_some_and(|k| k.status == "purged")
-                || old
-                    .as_ref()
-                    .is_some_and(|a| !live_by_id.contains_key(a.id.as_str()))
+            if old_key
+                .as_ref()
+                .is_some_and(|k| k.status != "active" || old.is_none())
             {
                 status = "error".into();
                 issue(
@@ -726,28 +791,6 @@ fn prepare(
         Vec::new()
     };
     let by_id: BTreeMap<_, _> = projected.iter().map(|a| (a.id.as_str(), a)).collect();
-    let catalog: Vec<_> = bindings
-        .iter()
-        .filter_map(|(key, id)| {
-            by_id.get(id.as_str()).copied().map(|a| ExistingAccountV1 {
-                external_key: Some(key.clone()),
-                account_id: id.clone(),
-                name: a.fields.name.clone(),
-                kind: a.fields.kind.clone(),
-                enabled_from: a.fields.opened_on.clone(),
-                disabled_from: a.fields.closed_on.clone(),
-            })
-        })
-        .collect();
-    // Parser contract permits only one key per account; aliases in a namespace
-    // would otherwise create an ambiguous completeness catalog.
-    let ids: BTreeSet<_> = catalog.iter().map(|a| &a.account_id).collect();
-    if ids.len() != catalog.len() {
-        return Err(Error::new(
-            "IMPORT_MAPPING_CONFLICT",
-            "同一账户不能对应多个外部键，请核对映射集合",
-        ));
-    }
     progress("正在解析盘点文件");
     if let Some(file) = b.files.iter().find(|f| f.kind == "snapshots") {
         let references = parse(file, None, today, cancel)?;
@@ -762,6 +805,33 @@ fn prepare(
                 }
             })
             .collect::<BTreeSet<_>>();
+        for key in &raw_keys {
+            checkpoint(cancel)?;
+            bind_account_key(tx, &mappings, &mut bindings, key)?;
+        }
+        // Only aliases used by this file belong in its parser catalog. Older
+        // external keys can coexist with IDs from a subsequent local export.
+        let catalog: Vec<_> = bindings
+            .iter()
+            .filter(|(key, _)| raw_keys.contains(*key))
+            .filter_map(|(key, id)| {
+                by_id.get(id.as_str()).copied().map(|a| ExistingAccountV1 {
+                    external_key: Some(key.clone()),
+                    account_id: id.clone(),
+                    name: a.fields.name.clone(),
+                    kind: a.fields.kind.clone(),
+                    enabled_from: a.fields.opened_on.clone(),
+                    disabled_from: a.fields.closed_on.clone(),
+                })
+            })
+            .collect();
+        let ids: BTreeSet<_> = catalog.iter().map(|a| &a.account_id).collect();
+        if ids.len() != catalog.len() {
+            return Err(Error::new(
+                "IMPORT_MAPPING_CONFLICT",
+                "同一账户不能对应多个外部键，请核对映射集合",
+            ));
+        }
         referenced_keys.extend(raw_keys);
         drop(references);
         let p = parse(file, Some(catalog), today, cancel)?;
@@ -782,7 +852,7 @@ fn prepare(
             let key = format!("snapshot:{}", group.group_key);
             let rs = rows.remove(&group.group_key).unwrap_or_default();
             let day = group.date.clone().unwrap_or_default();
-            let mapped = mappings.get(&("snapshot".into(), group.group_key.clone()));
+            let mapped = record_key(tx, &mappings, "snapshot", &group.group_key)?;
             let by_date: Option<String> = tx
                 .query_row(
                     "SELECT id FROM fin_snapshots WHERE date=?1 AND deleted_at IS NULL",
@@ -791,6 +861,7 @@ fn prepare(
                 )
                 .optional()?;
             let id = mapped
+                .as_ref()
                 .map(|k| k.id.clone())
                 .or(by_date)
                 .unwrap_or_else(|| stable_id(b, "snapshot", &group.group_key));
@@ -903,7 +974,10 @@ fn prepare(
                 }
                 .into();
             }
-            if mapped.is_some_and(|k| k.status == "purged") || (mapped.is_some() && old.is_none()) {
+            if mapped
+                .as_ref()
+                .is_some_and(|k| k.status != "active" || old.is_none())
+            {
                 status = "error".into();
                 issue(
                     &mut issues,
@@ -1025,6 +1099,9 @@ fn prepare(
             };
             let key = format!("income:{}", r.income_key);
             standard.push(serde_json::to_value(&r)?);
+            for key in r.source_account_key.iter().chain(&r.receiving_account_key) {
+                bind_account_key(tx, &mappings, &mut bindings, key)?;
+            }
             let mut unresolved_reference = false;
             let mut resolve_account = |external: &Option<String>| -> Option<String> {
                 external.as_ref().and_then(|key| {
@@ -1060,8 +1137,9 @@ fn prepare(
                 destination: r.destination,
                 receiving_account_id,
             };
-            let mapped = mappings.get(&("income".into(), r.income_key.clone()));
+            let mapped = record_key(tx, &mappings, "income", &r.income_key)?;
             let id = mapped
+                .as_ref()
                 .map(|m| m.id.clone())
                 .unwrap_or_else(|| stable_id(b, "income", &r.income_key));
             let old = plan_income::read(tx, &id)?;
@@ -1097,7 +1175,10 @@ fn prepare(
                 "conflict"
             }
             .to_owned();
-            if mapped.is_some_and(|m| m.status == "purged" || old.is_none()) {
+            if mapped
+                .as_ref()
+                .is_some_and(|m| m.status != "active" || old.is_none())
+            {
                 status = "error".into();
                 issue(
                     &mut issues,

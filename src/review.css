@@ -17,13 +17,20 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 
 /* U15e 收尾：变化行着色；辅助指标与其他页指标行同样式（一张卡、竖线分隔） */
 .review-change.pos{color:var(--positive)}.review-change.neg{color:var(--error)}
-/* U16c 综合回顾（规范 6.1）：两张主卡 → 辅助指标 → 待关注＋近期记录 */
+/* 综合回顾：无关心的家底在前，待关注有内容时在上方给一条紧凑提醒。 */
 .review-section.u16{display:grid;gap:16px;container-type:inline-size}
 .review-heroes{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
 .review-heroes.single{grid-template-columns:minmax(0,1fr)}
 .review-section.u16 .review-metrics{margin:0}
 .review-lists{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 .review-lists.single{grid-template-columns:minmax(0,1fr)}
+.review-attention-brief{display:flex;align-items:center;gap:10px;min-height:44px;padding:9px var(--surface-pad-x);border:1px solid var(--line);border-radius:var(--surface-radius);background:var(--warn-bg)}
+.review-attention-brief .ui-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--warn)}
+.review-attention-brief-text{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1;color:var(--warn)}
+.review-attention-brief-text strong{font-size:13px;white-space:nowrap}
+.review-attention-brief-text small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.review-attention-brief .ui-link{flex:none;color:var(--warn)}
+@media(max-width:620px){.review-attention-brief{align-items:flex-start;flex-wrap:wrap}.review-attention-brief-text{flex-basis:calc(100% - 18px);flex-wrap:wrap}.review-attention-brief .ui-link{margin-left:18px}}
 .review-lists .ui-empty{padding:18px var(--surface-pad-x);margin:0}
 .review-lists .review-links{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .review-lists .ui-row.clickable{cursor:pointer}

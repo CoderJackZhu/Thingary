@@ -73,6 +73,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   const [amountsHidden, setAmountsHidden] = useState(() => { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem('thingary.hide-financial-amounts.v1', amountsHidden ? '1' : '0'); } catch { /* Session state still works when preferences cannot be stored. */ } }, [amountsHidden]);
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  const attentionHeading = useRef<HTMLHeadingElement>(null);
   const gate = useRef(requestGate());
   const moduleKey = JSON.stringify(modules);
   const context = useRef<{ generation: string; today: string; version: unknown; year: number | null; moduleKey: string } | null>(null);
@@ -170,20 +171,11 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
           <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>{t('设置计划 →')}</button></div>
         </article>)}
     </div>}
-    <div className={'review-lists' + (!modules.timeline ? ' single' : '')}>
-      <article className="ui-card">
-        <div className="ui-section-head"><h3>{t('待关注')}</h3><span className="ui-aside">{groups.length ? t('{length} 项', { length: groups.length }) : ''}<Info text={t('只列出需要你确认或即将到期的事项；不会自动付款。')}/></span></div>
-        {!attentionSourcesReady(data, modules) && <div className="ui-error" role="alert">{t('部分来源读取失败，当前事项只显示已读取部分。请重试。')}<button onClick={reload}>{t('重试')}</button></div>}
-        {!groups.length ? <p className="ui-empty">{attentionSourcesReady(data, modules) ? t('暂时没有需要关注的事项。') : t('可用来源中暂无事项。')}</p> : <ul className="ui-rows">{groups.slice(0, 5).map(g => <li key={g.id} className="ui-row"><span className={'ui-dot' + (g.priority <= 1 ? ' warn' : '')}/><div className="ui-main"><div>{g.title}</div>{g.details.map(d => <small key={d}>{d}</small>)}</div><span className="review-links">{g.entries.map((entry, i) => <button key={i} className="ui-link" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button>)}</span></li>)}</ul>}
-        {groups.length > 5 && <p className="ui-card-foot">{t('还有')} {groups.length - 5} {t('项，请在对应模块查看。')}</p>}
-      </article>
-      {modules.timeline && <article className="ui-card">
-        <div className="ui-section-head"><h3>{t('近期记录')}</h3><span className="ui-aside"><select aria-label={t('期间')} value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">{t('全部期间')}</option>{years.map(y => <option key={y} value={y}>{t('{y} 年', { y })}</option>)}</select>{modules.timeline && <button className="ui-link" onClick={() => onNavigate('timeline')}>{t('时间轴 →')}</button>}</span></div>
-        <p className="review-period-note muted">{t('所选期间用于重要支出与近期记录；持有物品与固定负担为当前资料，净资产取最近完整盘点。')}</p>
-        {failure(data.recent)}
-        {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? t('所选期间暂无记录。') : t('可用来源中暂无记录。')}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><span className="review-ev"><Icon name={ev.icon}/></span><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={t('查看来源：{title}', { title: ev.title })} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
-      </article>}
-    </div>
+    {!!groups.length && (modules.wealth || modules.recurring || modules.virtual) && <aside className="review-attention-brief" aria-label={t('待关注提醒')}>
+      <span className="ui-dot warn" aria-hidden="true"/>
+      <span className="review-attention-brief-text"><strong>{t('{length} 项需要关注', { length: groups.length })}</strong><small>{groups[0].title}{groups.length > 1 ? t(' 等') : ''}</small></span>
+      <button type="button" className="ui-link" onClick={() => { attentionHeading.current?.scrollIntoView({ block: 'start' }); attentionHeading.current?.focus({ preventScroll: true }); }}>{t('查看待关注 →')}</button>
+    </aside>}
     <div className={'review-heroes' + (modules.physical !== false && modules.wealth && w?.structure_date ? '' : ' single')}>
       {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>{t('资产结构')}</h3><p className="muted">{t('金融金额已隐藏')}</p>{link('wealth')}</article> : <StructureCard summary={w} onBrowse={() => onNavigate('wealth')}/>)}
       {modules.physical !== false && <article className="ui-card ui-hero tint-2">
@@ -206,6 +198,20 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     {metrics.length > 0 && <div className="ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label={t('辅助指标')}>
       {metrics.map(m => <div key={m.label} className={m.big ? 'big' : undefined}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}{m.page && link(m.page)}</div>)}
     </div>}
+    <div className={'review-lists' + (!modules.timeline ? ' single' : '')}>
+      <article className="ui-card">
+        <div className="ui-section-head"><h3 ref={attentionHeading} tabIndex={-1}>{t('待关注')}</h3><span className="ui-aside">{groups.length ? t('{length} 项', { length: groups.length }) : ''}<Info text={t('只列出需要你确认或即将到期的事项；不会自动付款。')}/></span></div>
+        {!attentionSourcesReady(data, modules) && <div className="ui-error" role="alert">{t('部分来源读取失败，当前事项只显示已读取部分。请重试。')}<button onClick={reload}>{t('重试')}</button></div>}
+        {!groups.length ? <p className="ui-empty">{attentionSourcesReady(data, modules) ? t('暂时没有需要关注的事项。') : t('可用来源中暂无事项。')}</p> : <ul className="ui-rows">{groups.slice(0, 5).map(g => <li key={g.id} className="ui-row"><span className={'ui-dot' + (g.priority <= 1 ? ' warn' : '')}/><div className="ui-main"><div>{g.title}</div>{g.details.map(d => <small key={d}>{d}</small>)}</div><span className="review-links">{g.entries.map((entry, i) => <button key={i} className="ui-link" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button>)}</span></li>)}</ul>}
+        {groups.length > 5 && <p className="ui-card-foot">{t('还有')} {groups.length - 5} {t('项，请在对应模块查看。')}</p>}
+      </article>
+      {modules.timeline && <article className="ui-card">
+        <div className="ui-section-head"><h3>{t('近期记录')}</h3><span className="ui-aside"><select aria-label={t('期间')} value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">{t('全部期间')}</option>{years.map(y => <option key={y} value={y}>{t('{y} 年', { y })}</option>)}</select>{modules.timeline && <button className="ui-link" onClick={() => onNavigate('timeline')}>{t('时间轴 →')}</button>}</span></div>
+        <p className="review-period-note muted">{t('所选期间用于重要支出与近期记录；持有物品与固定负担为当前资料，净资产取最近完整盘点。')}</p>
+        {failure(data.recent)}
+        {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? t('所选期间暂无记录。') : t('可用来源中暂无记录。')}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><span className="review-ev"><Icon name={ev.icon}/></span><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={t('查看来源：{title}', { title: ev.title })} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
+      </article>}
+    </div>
     {modules.wealth && <SavingsGoals key={generation} generation={generation} today={today} version={version} compact hideAmounts={amountsHidden} onManage={() => onNavigate('wealth', 'savings-goals')}/>}
   </section>;
 }

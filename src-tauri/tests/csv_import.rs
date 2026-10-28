@@ -25,7 +25,17 @@ fn rows(s: &Store) -> Vec<String> {
         .split("\r\n")
         .skip(1)
         .filter(|l| !l.is_empty())
-        .map(|l| l.split_once(',').unwrap().1.to_owned())
+        .map(|l| {
+            // Version protects edits in one library; it is not a business
+            // value and new copies start with their own revision.
+            l.split_once(',')
+                .unwrap()
+                .1
+                .rsplit_once(',')
+                .unwrap()
+                .0
+                .to_owned()
+        })
         .collect();
     out.sort();
     out
@@ -267,5 +277,215 @@ fn extra_original_currency_columns_do_not_block_item_import() {
         rows.iter()
             .any(|r| r.starts_with("虚构台灯,,,,") && r.contains("9253.30,CNY")),
         "{rows:?}"
+    );
+}
+
+#[test]
+fn edited_export_updates_the_item_and_new_rows_still_add() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    import(
+        &mut s,
+        "名称,品牌,序列号,购入价,购入日期,备注\n虚构相机,虚构品牌,TEST-001,100,2026/1/2,原备注\n",
+        false,
+    )
+    .unwrap();
+    let csv = s.asset_csv().unwrap();
+    let (item_id, _) = csv.lines().nth(1).unwrap().split_once(',').unwrap();
+    let item_id = item_id.to_owned();
+    let record = s.record(&item_id).unwrap().unwrap();
+    let edited = csv
+        .replace("虚构相机,", "虚构新相机,")
+        .replace("100.00,CNY", "0,CNY")
+        .replace("2026-01-02", "2026年1月3日")
+        .replace("原备注", "新备注");
+    let mixed = format!("{edited},虚构新项目\n");
+    let p = s.preview_csv_import(mixed.as_bytes(), TODAY).unwrap();
+    assert!(p.invalid.is_empty(), "{:?}", p.invalid);
+    assert!(p.conflicts.is_empty(), "{:?}", p.conflicts);
+    assert_eq!((p.additions, p.updates, p.unchanged), (1, 1, 0));
+    assert!(p.changes[0].changed.contains(&"购入价".into()));
+    assert_eq!(s.count().unwrap(), 1, "preview is read-only");
+    let input = commit(&s, mixed.as_bytes(), false);
+    let done = s.import_csv(mixed.as_bytes(), &input, TODAY).unwrap();
+    assert_eq!((done.imported, done.updated), (2, 1));
+    assert_eq!(s.item_import_receipt(&input).unwrap(), Some(done.clone()));
+    assert_eq!(s.import_csv(mixed.as_bytes(), &input, TODAY).unwrap(), done);
+    assert_eq!(
+        s.count().unwrap(),
+        2,
+        "update never creates a second camera"
+    );
+    let current = s.record(&item_id).unwrap().unwrap();
+    assert_eq!(current.asset.name, "虚构新相机");
+    assert_eq!(current.asset.price_cents.as_deref(), Some("0"));
+    assert_eq!(current.asset.purchase_date.as_deref(), Some("2026-01-03"));
+    assert_eq!(current.details.serial_number, record.details.serial_number);
+    assert_eq!(current.details.notes, "新备注");
+    assert_eq!(current.asset.revision, record.asset.revision + 1);
+    let exported = s.asset_csv().unwrap();
+    let p = s.preview_csv_import(exported.as_bytes(), TODAY).unwrap();
+    assert_eq!((p.updates, p.unchanged), (0, 2));
+    assert_eq!(import(&mut s, &exported, false).unwrap().unchanged, 2);
+}
+
+#[test]
+fn partial_edits_preserve_omitted_fields_and_stale_or_repeated_ids_block_all_writes() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    import(
+        &mut s,
+        "名称,品牌,序列号,购入价,购入日期,备注\n虚构台灯,品牌,TEST-002,100,2026/1/2,原备注\n",
+        false,
+    )
+    .unwrap();
+    let exported = s.asset_csv().unwrap();
+    let item_id = exported.lines().nth(1).unwrap().split_once(',').unwrap().0;
+    let record = s.record(item_id).unwrap().unwrap();
+    let partial = format!(
+        "档案编号,档案版本,名称,备注\n{item_id},{},改名,\n",
+        record.asset.revision
+    );
+    assert_eq!(import(&mut s, &partial, false).unwrap().updated, 1);
+    let changed = s.record(item_id).unwrap().unwrap();
+    assert_eq!(changed.details.notes, "", "explicit blank clears notes");
+    assert_eq!(
+        changed.details.serial_number, "TEST-002",
+        "omitted fields survive"
+    );
+    assert_eq!(changed.asset.price_cents.as_deref(), Some("10000"));
+    let stale = format!("{partial},,新增行,\n");
+    let input = commit(&s, stale.as_bytes(), false);
+    assert_eq!(
+        s.preview_csv_import(stale.as_bytes(), TODAY)
+            .unwrap()
+            .conflicts
+            .len(),
+        1
+    );
+    assert_eq!(
+        s.import_csv(stale.as_bytes(), &input, TODAY)
+            .unwrap_err()
+            .code,
+        "CSV_CONFLICT"
+    );
+    assert_eq!(s.count().unwrap(), 1);
+    assert!(s.item_import_receipt(&input).unwrap().is_none());
+    let repeated = format!(
+        "档案编号,档案版本,名称\n{item_id},{0},甲\n{item_id},{0},乙\n",
+        changed.asset.revision
+    );
+    assert_eq!(
+        s.preview_csv_import(repeated.as_bytes(), TODAY)
+            .unwrap()
+            .conflicts
+            .len(),
+        1
+    );
+    assert_eq!(
+        import(&mut s, &repeated, false).unwrap_err().code,
+        "CSV_CONFLICT"
+    );
+    let stale_invalid = format!(
+        "档案编号,档案版本,名称,购入价\n{item_id},{},改名,abc\n,,新增行,0\n",
+        record.asset.revision
+    );
+    let preview = s
+        .preview_csv_import(stale_invalid.as_bytes(), TODAY)
+        .unwrap();
+    assert_eq!((preview.conflicts.len(), preview.invalid.len()), (1, 1));
+    assert_eq!(
+        import(&mut s, &stale_invalid, false).unwrap_err().code,
+        "CSV_CONFLICT"
+    );
+    let repeated_invalid = format!(
+        "档案编号,档案版本,名称,购入价\n{item_id},{0},甲,abc\n{item_id},{0},乙,0\n",
+        changed.asset.revision
+    );
+    assert_eq!(
+        s.preview_csv_import(repeated_invalid.as_bytes(), TODAY)
+            .unwrap()
+            .conflicts
+            .len(),
+        1
+    );
+    assert_eq!(
+        import(&mut s, &repeated_invalid, false).unwrap_err().code,
+        "CSV_CONFLICT"
+    );
+    assert_eq!(s.count().unwrap(), 1);
+    s.backup(Some(&root.path().join("虚构修改.thingary")))
+        .unwrap();
+}
+
+#[test]
+fn lifecycle_columns_cannot_silently_rewrite_history() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    import(
+        &mut s,
+        "名称,购入价,购入日期,状态,退役日期\n虚构退役物品,0,2026-01-01,已退役,2026-02-01\n",
+        false,
+    )
+    .unwrap();
+    let exported = s.asset_csv().unwrap();
+    let item_id = exported.lines().nth(1).unwrap().split_once(',').unwrap().0;
+    let edited = exported.replace("虚构退役物品", "改名退役物品");
+    assert_eq!(import(&mut s, &edited, false).unwrap().updated, 1);
+    assert_eq!(
+        s.record(item_id).unwrap().unwrap().lifecycle.events.len(),
+        1
+    );
+    let exported = s.asset_csv().unwrap().replace("2026-02-01", "2026-03-01");
+    assert_eq!(
+        s.preview_csv_import(exported.as_bytes(), TODAY)
+            .unwrap()
+            .conflicts
+            .len(),
+        1
+    );
+    assert_eq!(
+        import(&mut s, &exported, false).unwrap_err().code,
+        "CSV_CONFLICT"
+    );
+    import(
+        &mut s,
+        "名称,购入价,购入日期,状态,售出日期,售价\n虚构售出物品,0,2026-01-01,已售出,2026-04-01,0\n",
+        false,
+    )
+    .unwrap();
+    let exported = s.asset_csv().unwrap();
+    let records = thingary_lib::spreadsheet::csv_text(&[
+        vec![
+            "档案编号".into(),
+            "档案版本".into(),
+            "名称".into(),
+            "退役日期".into(),
+        ],
+        {
+            let sold = exported
+                .lines()
+                .find(|line| line.contains("虚构售出物品"))
+                .unwrap()
+                .split(',')
+                .collect::<Vec<_>>();
+            vec![
+                sold[0].into(),
+                sold[17].into(),
+                "售出后改名".into(),
+                "2026-03-01".into(),
+            ]
+        },
+    ]);
+    assert_eq!(
+        s.preview_csv_import(records.as_bytes(), TODAY)
+            .unwrap()
+            .conflicts
+            .len(),
+        1
+    );
+    assert_eq!(
+        import(&mut s, &records, false).unwrap_err().code,
+        "CSV_CONFLICT"
     );
 }

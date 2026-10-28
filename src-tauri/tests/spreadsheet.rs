@@ -59,6 +59,184 @@ fn commit(s: &mut Store, b: BatchInput) -> thingary_lib::financial_import::Recei
     )
     .unwrap()
 }
+
+#[test]
+fn income_excel_keeps_recorded_currency_precision_and_clears_stale_origins() {
+    use thingary_lib::catalog::{AmountKind, AmountOriginSave, PriceOrigin};
+    let temp = tempfile::tempdir().unwrap();
+    let mut store = open_store(&temp.path().join("source")).unwrap();
+    let mut expected = BTreeMap::new();
+    for (code, original, rate) in [
+        ("USD", 12345, 7_123456),
+        ("JPY", 12345, 48_000),
+        ("KRW", 12345, 5_100),
+        ("VND", 12345, 280),
+    ] {
+        let cents = thingary_lib::currency::convert(code, original, rate).unwrap();
+        let income = store
+            .plan_income_save(
+                &thingary_lib::plan_income::Save {
+                    request_id: id(),
+                    generation: store.generation(),
+                    id: None,
+                    expected_revision: None,
+                    fields: thingary_lib::plan_income::Fields {
+                        date: "2026-09-30".into(),
+                        net_cents: cents.to_string(),
+                        notes: code.into(),
+                        ..Default::default()
+                    },
+                },
+                TODAY,
+            )
+            .unwrap();
+        store
+            .set_amount_origin(&AmountOriginSave {
+                generation: store.generation(),
+                kind: AmountKind::Income,
+                record_id: income.id.clone(),
+                origin: Some(PriceOrigin {
+                    currency: code.into(),
+                    original_minor: original.to_string(),
+                    fx_rate_micro: rate.to_string(),
+                }),
+            })
+            .unwrap();
+        expected.insert(
+            income.id,
+            (
+                code,
+                thingary_lib::currency::decimal(original, thingary_lib::currency::decimals(code)),
+            ),
+        );
+    }
+    let stale = store
+        .plan_income_save(
+            &thingary_lib::plan_income::Save {
+                request_id: id(),
+                generation: store.generation(),
+                id: None,
+                expected_revision: None,
+                fields: thingary_lib::plan_income::Fields {
+                    date: "2026-09-30".into(),
+                    net_cents: "100".into(),
+                    notes: "原币失效".into(),
+                    ..Default::default()
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    store
+        .conn_for_test()
+        .unwrap()
+        .execute(
+            "INSERT INTO amount_origin VALUES ('income',?1,'USD',100,1000000)",
+            [&stale.id],
+        )
+        .unwrap();
+    store
+        .conn_for_test()
+        .unwrap()
+        .execute(
+            "UPDATE plan_income SET net_cents=300 WHERE id=?1",
+            [&stale.id],
+        )
+        .unwrap();
+    store
+        .conn_for_test()
+        .unwrap()
+        .execute(
+            "INSERT INTO fin_snapshots(id,date,revision,created_at,updated_at,notes)
+             VALUES('deleted-snapshot','2026-09-01',1,'2026-09-01','2026-09-01','')",
+            [],
+        )
+        .unwrap();
+    store
+        .conn_for_test()
+        .unwrap()
+        .execute(
+            "UPDATE fin_snapshots SET deleted_at='2026-09-02' WHERE id='deleted-snapshot'",
+            [],
+        )
+        .unwrap();
+    let changes = store.conn_for_test().unwrap().total_changes();
+    let file = temp.path().join("币种核对.xlsx");
+    store.export_workbook(&file).unwrap();
+    assert_eq!(changes, store.conn_for_test().unwrap().total_changes());
+    let bytes = std::fs::read(&file).unwrap();
+    let mut workbook = Xlsx::new(Cursor::new(&bytes)).unwrap();
+    let snapshots = workbook.worksheet_range("盘点概况").unwrap();
+    assert!(!snapshots
+        .rows()
+        .skip(1)
+        .any(|r| r[6] == Data::String("deleted-snapshot".into())));
+    let range = workbook.worksheet_range("月度收入").unwrap();
+    let headers: Vec<_> = range
+        .rows()
+        .next()
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    let at = |row: &[Data], title: &str| {
+        row[headers.iter().position(|h| h == title).unwrap()].to_string()
+    };
+    for row in range.rows().skip(1) {
+        let key = at(row, "收入编号");
+        if key == stale.id {
+            assert_eq!(at(row, "原币币种"), "");
+            assert_eq!(at(row, "原币金额"), "");
+        } else {
+            let (code, amount) = expected.get(&key).unwrap();
+            assert_eq!(at(row, "原币币种"), *code);
+            assert_eq!(at(row, "原币金额"), *amount);
+        }
+        assert_eq!(at(row, "公积金缴存（元）"), "");
+        assert_eq!(at(row, "收入分类"), "未分类");
+    }
+    let mut dest = open_store(&temp.path().join("destination")).unwrap();
+    let imported = batch(&dest, &bytes);
+    let copied = commit(&mut dest, imported);
+    assert_eq!(copied.counts.created_incomes, 5);
+}
+
+#[test]
+fn workbook_failure_does_not_replace_destination_and_layout_supports_reading() {
+    use std::io::Read;
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("只读样例.xlsx");
+    std::fs::write(&file, b"previous").unwrap();
+    let too_long = vec![vec!["名称".into()], vec!["字".repeat(32768)]];
+    assert!(spreadsheet::write_workbook(&file, &[("明细", too_long)]).is_err());
+    assert_eq!(std::fs::read(&file).unwrap(), b"previous");
+    spreadsheet::write_workbook(
+        &file,
+        &[(
+            "明细",
+            rows(&[
+                &["名称", "备注", "记录编号"],
+                &["=普通文本", "第一行\n第二行", "000001"],
+            ]),
+        )],
+    )
+    .unwrap();
+    let mut zip = zip::ZipArchive::new(std::fs::File::open(&file).unwrap()).unwrap();
+    let mut xml = String::new();
+    zip.by_name("xl/worksheets/sheet1.xml")
+        .unwrap()
+        .read_to_string(&mut xml)
+        .unwrap();
+    assert!(xml.contains("<autoFilter"));
+    assert!(xml.contains("state=\"frozen\""));
+    assert!(xml.contains("hidden=\"1\""));
+    let mut styles = String::new();
+    zip.by_name("xl/styles.xml")
+        .unwrap()
+        .read_to_string(&mut styles)
+        .unwrap();
+    assert!(styles.contains("wrapText=\"1\""));
+}
 #[test]
 fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
     let t = tempfile::tempdir().unwrap();
@@ -98,24 +276,41 @@ fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
     source.export_workbook(&path).unwrap();
     let bytes = std::fs::read(&path).unwrap();
     let mut book = Xlsx::new(Cursor::new(&bytes)).unwrap();
+    for expected in [
+        "说明",
+        "物品",
+        "账户",
+        "完整盘点",
+        "月度收入",
+        "存钱目标",
+        "目标关联账户",
+        "盘点记录",
+        "重要支出",
+        "周期费用",
+        "投资区间核对",
+        "资金流动",
+        "规划假设",
+        "规划核对审计",
+        "心愿清单",
+        "维护记录",
+        "保障记录",
+        "虚拟资产",
+        "储值充值",
+        "储值余额记录",
+        "业务提醒",
+        "支出明细",
+    ] {
+        assert!(
+            book.sheet_names().iter().any(|name| name == expected),
+            "{expected}"
+        );
+    }
     assert_eq!(
-        book.sheet_names(),
-        &[
-            "说明",
-            "物品",
-            "账户",
-            "完整盘点",
-            "月度收入",
-            "存钱目标",
-            "目标关联账户",
-            "盘点记录",
-            "重要支出",
-            "周期费用",
-            "投资区间核对",
-            "资金流动",
-            "规划假设",
-            "规划核对审计"
-        ]
+        book.sheet_names().len(),
+        book.sheet_names()
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
     );
     assert!(book.worksheet_formula("物品").unwrap().is_empty());
     let range = book.worksheet_range("物品").unwrap();
@@ -152,11 +347,130 @@ fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
     dest.export_workbook(&second).unwrap();
     let mut other = Xlsx::new(Cursor::new(std::fs::read(second).unwrap())).unwrap();
     let other = other.worksheet_range("物品").unwrap();
-    let mut original: Vec<_> = range.rows().skip(1).map(|r| r[1..].to_vec()).collect();
-    let mut copied: Vec<_> = other.rows().skip(1).map(|r| r[1..].to_vec()).collect();
+    let business_cells = |r: &[Data]| {
+        r.iter()
+            .enumerate()
+            .filter(|(index, _)| !matches!(index, 0 | 17))
+            .map(|(_, cell)| cell.clone())
+            .collect::<Vec<_>>()
+    };
+    let mut original: Vec<_> = range.rows().skip(1).map(business_cells).collect();
+    let mut copied: Vec<_> = other.rows().skip(1).map(business_cells).collect();
     original.sort_by_key(|r| r[0].to_string());
     copied.sort_by_key(|r| r[0].to_string());
     assert_eq!(original, copied);
+}
+#[test]
+fn edited_item_xlsx_updates_existing_and_accepts_new_rows_and_excel_dates() {
+    let t = tempfile::tempdir().unwrap();
+    let mut store = open_store(&t.path().join("fictional")).unwrap();
+    let asset = store
+        .save_asset(
+            &SaveAsset {
+                base: Save {
+                    request_id: id(),
+                    generation: store.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: "虚构旧名称".into(),
+                    price_cents: Some("123450".into()),
+                    purchase_date: Some("2026-09-01".into()),
+                },
+                details: Details {
+                    brand: "保留品牌".into(),
+                    model: String::new(),
+                    serial_number: "000123".into(),
+                    notes: "原备注".into(),
+                },
+                photos: None,
+                classification: None,
+                options: None,
+            },
+            TODAY,
+        )
+        .unwrap();
+    let exported = t.path().join("导出.xlsx");
+    store.export_workbook(&exported).unwrap();
+    let mut original: Xlsx<_> = calamine::open_workbook(&exported).unwrap();
+    let original = original.worksheet_range("物品").unwrap();
+    let titles = original.rows().next().unwrap();
+    let col = |title: &str| {
+        titles
+            .iter()
+            .position(|cell| cell.to_string().replace("（元）", "") == title)
+            .unwrap()
+    };
+    let mut table = original
+        .rows()
+        .map(|r| r.iter().map(ToString::to_string).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    table[1][col("名称")] = "虚构新名称".into();
+    table[1][col("购入日期")] = "2026年9月2日".into();
+    table[1][col("购入价")] = "￥1,250.50".into();
+    table[1][col("备注")] = String::new();
+    let mut added = vec![String::new(); titles.len()];
+    added[col("名称")] = "虚构新增物品".into();
+    added[col("购入价")] = "0".into();
+    table.push(added);
+    let edited = t.path().join("修改并新增.xlsx");
+    let mut workbook = rust_xlsxwriter::Workbook::new();
+    let sheet = workbook.add_worksheet();
+    sheet.set_name("物品").unwrap();
+    for (r, row) in table.iter().enumerate() {
+        for (c, value) in row.iter().enumerate() {
+            sheet.write_string(r as u32, c as u16, value).unwrap();
+        }
+    }
+    let date = rust_xlsxwriter::ExcelDateTime::from_ymd(2026, 9, 3).unwrap();
+    sheet
+        .write_datetime_with_format(
+            2,
+            col("购入日期") as u16,
+            &date,
+            &rust_xlsxwriter::Format::new().set_num_format("yyyy/m/d"),
+        )
+        .unwrap();
+    workbook.save(&edited).unwrap();
+    let csv = spreadsheet::read_items(&std::fs::read(&edited).unwrap()).unwrap();
+    let preview = store.preview_item_sheet(&csv, TODAY).unwrap();
+    assert!(preview.invalid.is_empty(), "{:?}", preview.invalid);
+    assert!(preview.conflicts.is_empty(), "{:?}", preview.conflicts);
+    assert_eq!(
+        (preview.additions, preview.updates, preview.unchanged),
+        (1, 1, 0)
+    );
+    let result = store
+        .import_item_sheet(
+            &csv,
+            &Commit {
+                request_id: id(),
+                generation: store.generation(),
+                hash: preview.hash,
+                include_duplicates: false,
+            },
+            TODAY,
+        )
+        .unwrap();
+    assert_eq!((result.imported, result.updated), (2, 1));
+    let after = t.path().join("再次导出.xlsx");
+    store.export_workbook(&after).unwrap();
+    let mut book: Xlsx<_> = calamine::open_workbook(&after).unwrap();
+    let items = book.worksheet_range("物品").unwrap();
+    let current = items
+        .rows()
+        .skip(1)
+        .find(|r| r[0].to_string() == asset.asset.id)
+        .unwrap();
+    assert_eq!(current[col("名称")].to_string(), "虚构新名称");
+    assert_eq!(current[col("购入价")].to_string(), "1250.50");
+    assert_eq!(current[col("购入日期")].to_string(), "2026-09-02");
+    assert_eq!(current[col("序列号")].to_string(), "000123");
+    assert_eq!(current[col("品牌")].to_string(), "保留品牌");
+    assert_eq!(current[col("备注")].to_string(), "");
+    assert!(items
+        .rows()
+        .skip(1)
+        .any(|r| r[col("名称")] == "虚构新增物品" && r[col("购入日期")] == "2026-09-03"));
 }
 #[test]
 fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
@@ -542,4 +856,658 @@ fn sheet_test_numeric_key(path: &std::path::Path) {
     sheet.write_string(0, 0, "income_key").unwrap();
     sheet.write_number(1, 0, 123.0).unwrap();
     book.save(path).unwrap();
+}
+
+fn financial_edit_records(s: &mut Store) -> (String, String, String) {
+    use thingary_lib::{plan_income, wealth};
+    let account = s
+        .wealth_account_save(
+            &wealth::AccountSave {
+                request_id: id(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: wealth::AccountFields {
+                    name: "虚构日常账户".into(),
+                    institution: "虚构银行".into(),
+                    side: "asset".into(),
+                    kind: "cash".into(),
+                    counted: true,
+                    opened_on: "2026-01-01".into(),
+                    closed_on: None,
+                    notes: "普通保存，未经过导入".into(),
+                    purchase_cents: None,
+                    purchased_on: None,
+                    group_id: None,
+                    currency: "CNY".into(),
+                    holding_mode: false,
+                    holding_unit: None,
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    let snapshot = s
+        .wealth_snapshot_save(
+            &wealth::SnapshotSave {
+                request_id: id(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                date: "2026-09-30".into(),
+                notes: "虚构完整盘点".into(),
+                entries: vec![wealth::EntryInput {
+                    account_id: account.id.clone(),
+                    state: "entered".into(),
+                    amount_cents: Some("10000".into()),
+                    original_minor: None,
+                    fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
+                }],
+                close_accounts: Vec::new(),
+            },
+            TODAY,
+        )
+        .unwrap();
+    let income = s
+        .plan_income_save(
+            &plan_income::Save {
+                request_id: id(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: plan_income::Fields {
+                    date: "2026-09-30".into(),
+                    net_cents: "1001".into(),
+                    notes: "虚构利息".into(),
+                    category: "interest".into(),
+                    source_account_id: Some(account.id.clone()),
+                    ..Default::default()
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    assert_eq!(
+        s.conn_for_test()
+            .unwrap()
+            .query_row("SELECT count(*) FROM import_external_key", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    (account.id, snapshot.id, income.id)
+}
+
+fn financial_edit_sheet<'a>(
+    sheets: &'a mut [(String, Vec<Vec<String>>)],
+    name: &str,
+) -> &'a mut Vec<Vec<String>> {
+    &mut sheets.iter_mut().find(|(n, _)| n == name).unwrap().1
+}
+
+fn financial_edit_cell(rows: &mut [Vec<String>], row: usize, title: &str, value: &str) {
+    let column = rows[0].iter().position(|h| h == title).unwrap();
+    rows[row].resize(rows[0].len(), String::new());
+    rows[row][column] = value.into();
+}
+
+fn financial_edit_workbook(
+    s: &Store,
+    path: &std::path::Path,
+    edit: impl FnOnce(&mut Vec<(String, Vec<Vec<String>>)>),
+) -> Vec<u8> {
+    s.export_workbook(path).unwrap();
+    let mut book = Xlsx::new(Cursor::new(std::fs::read(path).unwrap())).unwrap();
+    // Start from the real export, retaining its headers, IDs and reading sheets.
+    let mut sheets: Vec<_> = book
+        .sheet_names()
+        .clone()
+        .into_iter()
+        .map(|name| {
+            let range = book.worksheet_range(&name).unwrap();
+            let rows = range
+                .rows()
+                .map(|r| r.iter().map(ToString::to_string).collect())
+                .collect();
+            (name, rows)
+        })
+        .collect();
+    edit(&mut sheets);
+    let sheets: Vec<_> = sheets
+        .iter()
+        .map(|(n, r)| (n.as_str(), r.clone()))
+        .collect();
+    spreadsheet::write_workbook(path, &sheets).unwrap();
+    std::fs::read(path).unwrap()
+}
+
+fn financial_edit_batch(s: &Store, bytes: &[u8]) -> BatchInput {
+    BatchInput {
+        source_name: "历史表格".into(),
+        mapping_set_id: "账户映射".into(),
+        ..batch(s, bytes)
+    }
+}
+
+fn financial_edit_commit_input(s: &Store, b: BatchInput) -> CommitInput {
+    let p = s.financial_import_preview(&b, TODAY, &|| false).unwrap();
+    assert!(p.can_commit, "{:?}", p.issues);
+    CommitInput {
+        request_id: id(),
+        batch: b,
+        context_digest: p.context_digest,
+        normalized_digest: p.normalized_digest,
+        file_fingerprints: p.file_fingerprints,
+    }
+}
+
+#[test]
+fn financial_export_edit_reimport_corrects_local_ids_and_adds_rows_atomically() {
+    use thingary_lib::financial_import::Action;
+    let temp = tempfile::tempdir().unwrap();
+    let mut s = open_store(&temp.path().join("library")).unwrap();
+    let (account_id, snapshot_id, income_id) = financial_edit_records(&mut s);
+    let bytes = financial_edit_workbook(&s, &temp.path().join("编辑导出.xlsx"), |sheets| {
+        let accounts = financial_edit_sheet(sheets, "账户");
+        financial_edit_cell(accounts, 1, "账户名称", "虚构改名账户");
+        financial_edit_cell(accounts, 1, "备注", "编辑后的备注\n仍为同一账户");
+        accounts.push(accounts[1].clone());
+        financial_edit_cell(accounts, 2, "账户编号", "");
+        financial_edit_cell(accounts, 2, "账户名称", "虚构新增账户");
+        financial_edit_cell(accounts, 2, "启用日期", "2026-10-01");
+        let snapshots = financial_edit_sheet(sheets, "完整盘点");
+        financial_edit_cell(snapshots, 1, "人民币金额（元）", "123.45");
+        snapshots.push(snapshots[1].clone());
+        financial_edit_cell(snapshots, 2, "盘点编号", "");
+        financial_edit_cell(snapshots, 2, "盘点日期", "2026-10-02");
+        financial_edit_cell(snapshots, 2, "账户编号", "");
+        financial_edit_cell(snapshots, 2, "账户名称", "虚构改名账户");
+        snapshots.push(snapshots[2].clone());
+        financial_edit_cell(snapshots, 3, "账户名称", "虚构新增账户");
+        financial_edit_cell(snapshots, 3, "人民币金额（元）", "0");
+        let incomes = financial_edit_sheet(sheets, "月度收入");
+        financial_edit_cell(incomes, 1, "税后到账（元）", "20.02");
+        financial_edit_cell(incomes, 1, "到账日期", "2026-10-01");
+        incomes.push(incomes[1].clone());
+        financial_edit_cell(incomes, 2, "收入编号", "");
+        financial_edit_cell(incomes, 2, "税后到账（元）", "5");
+        financial_edit_cell(incomes, 2, "到账日期", "2026-10-02");
+    });
+    let mut b = financial_edit_batch(&s, &bytes);
+    let changes = s.conn_for_test().unwrap().total_changes();
+    let p = s.financial_import_preview(&b, TODAY, &|| false).unwrap();
+    assert_eq!(s.conn_for_test().unwrap().total_changes(), changes);
+    assert_eq!(p.counts.conflicts, 3, "{:?}", p.issues);
+    assert!(!p.can_commit);
+    for (kind, original) in [
+        ("account", &account_id),
+        ("snapshot", &snapshot_id),
+        ("income", &income_id),
+    ] {
+        let object = p.objects.iter().find(|o| o.id == *original).unwrap();
+        assert_eq!(object.kind, kind);
+        assert_eq!(object.status, "conflict");
+        assert_eq!(object.action, "unresolved");
+        assert!(object.before.is_some());
+        assert_ne!(object.before.as_ref(), Some(&object.after));
+        b.actions.insert(
+            object.key.clone(),
+            Action {
+                action: "correct".into(),
+                expected_revision: object.expected_revision,
+            },
+        );
+    }
+    let blocked = CommitInput {
+        request_id: id(),
+        batch: financial_edit_batch(&s, &bytes),
+        context_digest: p.context_digest,
+        normalized_digest: p.normalized_digest,
+        file_fingerprints: p.file_fingerprints,
+    };
+    assert_eq!(
+        s.financial_import_commit(&blocked, TODAY).unwrap_err().code,
+        "IMPORT_INVALID"
+    );
+    assert_eq!(s.wealth_accounts().unwrap().len(), 1);
+    let input = financial_edit_commit_input(&s, b);
+    let receipt = s.financial_import_commit(&input, TODAY).unwrap();
+    assert_eq!(receipt.counts.corrected, 3);
+    assert_eq!(receipt.counts.created_accounts, 1);
+    assert_eq!(receipt.counts.created_snapshots, 1);
+    assert_eq!(receipt.counts.created_incomes, 1);
+    let accounts = s.wealth_accounts().unwrap();
+    assert_eq!(accounts.len(), 2);
+    let account = accounts.iter().find(|a| a.id == account_id).unwrap();
+    assert_eq!(account.fields.name, "虚构改名账户");
+    assert_eq!(account.fields.notes, "编辑后的备注\n仍为同一账户");
+    assert_eq!(account.revision, 2);
+    let snapshot = s.wealth_snapshot(&snapshot_id).unwrap().unwrap();
+    assert_eq!(snapshot.revision, 2);
+    assert_eq!(snapshot.entries[0].amount_cents.as_deref(), Some("12345"));
+    assert!(snapshot.missing.is_empty());
+    assert_eq!(s.wealth_summary().unwrap().points.len(), 2);
+    let income = s.plan_income(&income_id).unwrap().unwrap();
+    assert_eq!(income.revision, 2);
+    assert_eq!(income.fields.date, "2026-10-01");
+    assert_eq!(income.fields.net_cents, "2002");
+    assert_eq!(income.fields.hpf_cents, None);
+    assert_eq!(
+        income.fields.source_account_id.as_deref(),
+        Some(account_id.as_str())
+    );
+    assert_eq!(s.plan_income_list().unwrap().rows.len(), 2);
+    assert_eq!(
+        s.financial_import_commit(&input, TODAY).unwrap().request_id,
+        receipt.request_id
+    );
+    let mut retry = input;
+    retry.request_id = id();
+    assert_eq!(
+        s.financial_import_commit(&retry, TODAY).unwrap().request_id,
+        receipt.request_id
+    );
+    // A fresh export uses local IDs even for rows first created by an import.
+    let path = temp.path().join("再次导出.xlsx");
+    s.export_workbook(&path).unwrap();
+    let fresh = financial_edit_batch(&s, &std::fs::read(path).unwrap());
+    let p = s
+        .financial_import_preview(&fresh, TODAY, &|| false)
+        .unwrap();
+    assert_eq!(p.counts.same, 6, "{:?}", p.issues);
+    assert_eq!(
+        p.counts.new_accounts + p.counts.new_snapshots + p.counts.new_incomes,
+        0
+    );
+    assert!(p.can_commit, "{:?}", p.issues);
+}
+
+#[test]
+fn financial_export_edit_reimport_single_sheets_resolve_local_references() {
+    use thingary_lib::financial_import::Action;
+    for kind in ["snapshots", "incomes"] {
+        let temp = tempfile::tempdir().unwrap();
+        let mut s = open_store(&temp.path().join("library")).unwrap();
+        let (account, snapshot, income) = financial_edit_records(&mut s);
+        let bytes = financial_edit_workbook(&s, &temp.path().join("单表编辑.xlsx"), |sheets| {
+            if kind == "snapshots" {
+                let rows = financial_edit_sheet(sheets, "完整盘点");
+                financial_edit_cell(rows, 1, "人民币金额（元）", "222.22");
+                financial_edit_cell(rows, 1, "盘点日期", "2026-09-29");
+            } else {
+                let rows = financial_edit_sheet(sheets, "月度收入");
+                financial_edit_cell(rows, 1, "税后到账（元）", "222.22");
+                financial_edit_cell(rows, 1, "到账日期", "2026-10-01");
+            }
+        });
+        let mut b = financial_edit_batch(&s, &bytes);
+        b.files.retain(|f| f.kind == kind);
+        if kind == "incomes" {
+            // The income-only UI uses a separate mapping namespace.
+            b.mapping_set_id = "收入映射".into();
+        }
+        let p = s.financial_import_preview(&b, TODAY, &|| false).unwrap();
+        assert!(!p.issues.iter().any(|i| i.blocking), "{:?}", p.issues);
+        assert_eq!(p.counts.conflicts, 1);
+        assert_eq!(p.external_keys.get(&account), Some(&account));
+        let object = &p.objects[0];
+        assert_eq!(
+            object.id,
+            if kind == "snapshots" {
+                &snapshot
+            } else {
+                &income
+            }
+            .as_str()
+        );
+        b.actions.insert(
+            object.key.clone(),
+            Action {
+                action: "keep".into(),
+                expected_revision: object.expected_revision,
+            },
+        );
+        assert_eq!(commit(&mut s, b.clone()).counts.skipped, 1);
+        assert_eq!(
+            s.wealth_snapshot(&snapshot).unwrap().unwrap().date,
+            "2026-09-30"
+        );
+        assert_eq!(
+            s.plan_income(&income).unwrap().unwrap().fields.net_cents,
+            "1001"
+        );
+        b.actions.get_mut(&object.key).unwrap().action = "correct".into();
+        let receipt = commit(&mut s, b);
+        assert_eq!(receipt.counts.corrected, 1);
+        assert_eq!(s.wealth_accounts().unwrap().len(), 1);
+        assert_eq!(s.wealth_summary().unwrap().points.len(), 1);
+        assert_eq!(s.plan_income_list().unwrap().rows.len(), 1);
+        if kind == "snapshots" {
+            let snapshot = s.wealth_snapshot(&snapshot).unwrap().unwrap();
+            assert_eq!(snapshot.date, "2026-09-29");
+            assert_eq!(snapshot.entries[0].amount_cents.as_deref(), Some("22222"));
+        } else {
+            let income = s.plan_income(&income).unwrap().unwrap();
+            assert_eq!(income.fields.date, "2026-10-01");
+            assert_eq!(income.fields.net_cents, "22222");
+            assert_eq!(
+                income.fields.source_account_id.as_deref(),
+                Some(account.as_str())
+            );
+        }
+    }
+}
+
+#[test]
+fn financial_export_edit_reimport_rejects_stale_context_and_correction_revisions() {
+    use thingary_lib::{financial_import::Action, plan_income, wealth};
+    let temp = tempfile::tempdir().unwrap();
+    let mut s = open_store(&temp.path().join("library")).unwrap();
+    let (account, _, income) = financial_edit_records(&mut s);
+    let bytes = financial_edit_workbook(&s, &temp.path().join("过期预览.xlsx"), |sheets| {
+        financial_edit_cell(
+            financial_edit_sheet(sheets, "月度收入"),
+            1,
+            "税后到账（元）",
+            "123",
+        );
+    });
+    let mut b = financial_edit_batch(&s, &bytes);
+    b.files.retain(|f| f.kind == "incomes");
+    let p = s.financial_import_preview(&b, TODAY, &|| false).unwrap();
+    b.actions.insert(
+        p.objects[0].key.clone(),
+        Action {
+            action: "correct".into(),
+            expected_revision: p.objects[0].expected_revision,
+        },
+    );
+    let input = financial_edit_commit_input(&s, b.clone());
+    let a = s.wealth_accounts().unwrap().remove(0);
+    s.wealth_account_save(
+        &wealth::AccountSave {
+            request_id: id(),
+            generation: s.generation(),
+            id: Some(account),
+            expected_revision: Some(a.revision),
+            fields: wealth::AccountFields {
+                notes: "预览后账户变化".into(),
+                ..a.fields
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+    assert_eq!(
+        s.financial_import_commit(&input, TODAY).unwrap_err().code,
+        "REVISION_CONFLICT"
+    );
+    assert!(s
+        .financial_import_receipt(&input.request_id, &s.generation())
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        s.plan_income(&income).unwrap().unwrap().fields.net_cents,
+        "1001"
+    );
+    let input = financial_edit_commit_input(&s, b.clone());
+    let current = s.plan_income(&income).unwrap().unwrap();
+    s.plan_income_save(
+        &plan_income::Save {
+            request_id: id(),
+            generation: s.generation(),
+            id: Some(income.clone()),
+            expected_revision: Some(current.revision),
+            fields: plan_income::Fields {
+                notes: "预览后收入变化".into(),
+                ..current.fields
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+    assert_eq!(
+        s.financial_import_commit(&input, TODAY).unwrap_err().code,
+        "REVISION_CONFLICT"
+    );
+    assert_eq!(
+        s.financial_import_preview(&b, TODAY, &|| false)
+            .unwrap_err()
+            .code,
+        "REVISION_CONFLICT"
+    );
+    assert_eq!(
+        s.plan_income(&income).unwrap().unwrap().fields.net_cents,
+        "1001"
+    );
+}
+
+fn financial_edit_delete(s: &mut Store, kind: &str, record: &str, revision: i64, purge: bool) {
+    s.wealth_trash(&thingary_lib::wealth::TrashChange {
+        request_id: id(),
+        generation: s.generation(),
+        kind: kind.into(),
+        id: record.into(),
+        expected_revision: revision,
+        deleted: true,
+    })
+    .unwrap();
+    if purge {
+        s.purge_trash(&thingary_lib::purge::Purge {
+            request_id: id(),
+            generation: s.generation(),
+            kind: Some(kind.into()),
+            id: record.into(),
+            preview: None,
+        })
+        .unwrap();
+    }
+}
+
+#[test]
+fn financial_export_edit_reimport_preserves_deleted_ids_and_purged_tombstones() {
+    for (kind, file_kind, sheet, title) in [
+        ("account", "accounts", "账户", "备注"),
+        ("snapshot", "snapshots", "完整盘点", "备注"),
+        ("income", "incomes", "月度收入", "备注"),
+    ] {
+        let temp = tempfile::tempdir().unwrap();
+        let mut s = open_store(&temp.path().join("library")).unwrap();
+        let (account, snapshot, income) = financial_edit_records(&mut s);
+        if kind == "account" {
+            // Accounts with history cannot be deleted through the normal API.
+            financial_edit_delete(&mut s, "snapshot", &snapshot, 1, true);
+            financial_edit_delete(&mut s, "income", &income, 1, true);
+        }
+        let original = match kind {
+            "account" => &account,
+            "snapshot" => &snapshot,
+            _ => &income,
+        };
+        let bytes = financial_edit_workbook(&s, &temp.path().join("删除前导出.xlsx"), |_| {});
+        let mut unchanged = financial_edit_batch(&s, &bytes);
+        unchanged.files.retain(|f| f.kind == file_kind);
+        // Establish the mapping through the real same-record import path.
+        assert_eq!(commit(&mut s, unchanged).counts.skipped, 1);
+        let bytes = financial_edit_workbook(&s, &temp.path().join("编辑旧表.xlsx"), |sheets| {
+            financial_edit_cell(
+                financial_edit_sheet(sheets, sheet),
+                1,
+                title,
+                "删除后不能回导复活",
+            );
+        });
+        financial_edit_delete(&mut s, kind, original, 1, false);
+        for purged in [false, true] {
+            if purged {
+                s.purge_trash(&thingary_lib::purge::Purge {
+                    request_id: id(),
+                    generation: s.generation(),
+                    kind: Some(kind.into()),
+                    id: original.clone(),
+                    preview: None,
+                })
+                .unwrap();
+            }
+            let mut b = financial_edit_batch(&s, &bytes);
+            b.files.retain(|f| f.kind == file_kind);
+            for fresh_namespace in [false, true] {
+                if fresh_namespace {
+                    b.mapping_set_id = "虚构另一组".into();
+                }
+                let changes = s.conn_for_test().unwrap().total_changes();
+                let p = s.financial_import_preview(&b, TODAY, &|| false).unwrap();
+                assert!(!p.can_commit);
+                assert!(
+                    p.issues.iter().any(|i| i.code == "IMPORT_TOMBSTONE"),
+                    "{kind}: {:?}",
+                    p.issues
+                );
+                assert_eq!(p.objects[0].id, *original);
+                assert_eq!(p.objects[0].status, "error");
+                assert_eq!(changes, s.conn_for_test().unwrap().total_changes());
+            }
+        }
+    }
+}
+
+#[test]
+fn financial_export_edit_reimport_corrects_visible_chinese_enums() {
+    use thingary_lib::financial_import::Action;
+    let temp = tempfile::tempdir().unwrap();
+    let mut s = open_store(&temp.path().join("library")).unwrap();
+    let (account_id, snapshot_id, income_id) = financial_edit_records(&mut s);
+    let bytes = financial_edit_workbook(&s, &temp.path().join("可见枚举.xlsx"), |sheets| {
+        let accounts = financial_edit_sheet(sheets, "账户");
+        let id = accounts[0].iter().position(|h| h == "账户编号").unwrap();
+        assert_eq!(accounts[1][id], account_id);
+        financial_edit_cell(accounts, 1, "账户类型", "其他资产");
+        financial_edit_cell(accounts, 1, "计入净资产", "否");
+        let snapshots = financial_edit_sheet(sheets, "完整盘点");
+        let id = snapshots[0].iter().position(|h| h == "盘点编号").unwrap();
+        assert_eq!(snapshots[1][id], snapshot_id);
+        financial_edit_cell(snapshots, 1, "当时账户类型", "投资账户");
+        financial_edit_cell(snapshots, 1, "当时计入净资产", "否");
+        let incomes = financial_edit_sheet(sheets, "月度收入");
+        let id = incomes[0].iter().position(|h| h == "收入编号").unwrap();
+        assert_eq!(incomes[1][id], income_id);
+        financial_edit_cell(incomes, 1, "收入分类", "其他投资收入");
+        financial_edit_cell(incomes, 1, "收入去向", "去向待核对");
+    });
+    // A visible value must override the hidden canonical cell, not be ignored.
+    let mut b = financial_edit_batch(&s, &bytes);
+    let changes = s.conn_for_test().unwrap().total_changes();
+    let p = s.financial_import_preview(&b, TODAY, &|| false).unwrap();
+    assert_eq!(changes, s.conn_for_test().unwrap().total_changes());
+    assert!(!p.can_commit);
+    assert_eq!(p.counts.conflicts, 3, "{:?}", p.issues);
+    let account = p.objects.iter().find(|o| o.id == account_id).unwrap();
+    let snapshot = p.objects.iter().find(|o| o.id == snapshot_id).unwrap();
+    let income = p.objects.iter().find(|o| o.id == income_id).unwrap();
+    assert_eq!(account.after["kind"], "other_asset");
+    assert_eq!(account.after["counted"], false);
+    assert_eq!(snapshot.after["entries"][0]["kind"], "investment");
+    assert_eq!(snapshot.after["entries"][0]["counted"], false);
+    assert_eq!(income.after["category"], "other_investment");
+    assert_eq!(income.after["destination"], "unknown");
+    for object in [account, snapshot, income] {
+        b.actions.insert(
+            object.key.clone(),
+            Action {
+                action: "correct".into(),
+                expected_revision: object.expected_revision,
+            },
+        );
+    }
+    let receipt = commit(&mut s, b);
+    assert_eq!(receipt.counts.corrected, 3);
+    let account = s
+        .wealth_accounts()
+        .unwrap()
+        .into_iter()
+        .find(|a| a.id == account_id)
+        .unwrap();
+    assert_eq!(account.fields.kind, "other_asset");
+    assert!(!account.fields.counted);
+    let snapshot = s.wealth_snapshot(&snapshot_id).unwrap().unwrap();
+    assert_eq!(snapshot.entries[0].kind, "investment");
+    assert!(!snapshot.entries[0].counted);
+    let income = s.plan_income(&income_id).unwrap().unwrap();
+    assert_eq!(income.fields.category, "other_investment");
+    assert_eq!(income.fields.destination.as_deref(), Some("unknown"));
+    assert_eq!(
+        income.fields.source_account_id.as_deref(),
+        Some(account_id.as_str())
+    );
+    assert_eq!(s.wealth_accounts().unwrap().len(), 1);
+    assert_eq!(s.wealth_summary().unwrap().points.len(), 1);
+    assert_eq!(s.plan_income_list().unwrap().rows.len(), 1);
+}
+
+#[test]
+fn financial_export_edit_reimport_rejects_each_unknown_visible_chinese_enum() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut s = open_store(&temp.path().join("library")).unwrap();
+    let (account, snapshot, income) = financial_edit_records(&mut s);
+    for (sheet, title, value, code) in [
+        ("账户", "账户类型", "虚构未知类型", "KIND_INVALID"),
+        ("账户", "计入净资产", "也许", "BOOL_INVALID"),
+        ("完整盘点", "当时账户类型", "虚构未知类型", "KIND_INVALID"),
+        ("完整盘点", "当时计入净资产", "也许", "BOOL_INVALID"),
+        (
+            "月度收入",
+            "收入分类",
+            "虚构未知分类",
+            "INCOME_CLASSIFICATION",
+        ),
+        (
+            "月度收入",
+            "收入去向",
+            "虚构未知去向",
+            "INCOME_CLASSIFICATION",
+        ),
+    ] {
+        let unknown =
+            financial_edit_workbook(&s, &temp.path().join("未知枚举.xlsx"), |sheets| {
+                financial_edit_cell(financial_edit_sheet(sheets, sheet), 1, title, value)
+            });
+        let b = financial_edit_batch(&s, &unknown);
+        let changes = s.conn_for_test().unwrap().total_changes();
+        let p = s.financial_import_preview(&b, TODAY, &|| false).unwrap();
+        assert!(!p.can_commit, "{sheet}/{title}: silently accepted {value}");
+        assert!(
+            p.issues.iter().any(|i| i.blocking && i.code == code),
+            "{sheet}/{title}: {:?}",
+            p.issues
+        );
+        assert_eq!(changes, s.conn_for_test().unwrap().total_changes());
+        let input = CommitInput {
+            request_id: id(),
+            batch: b,
+            context_digest: p.context_digest,
+            normalized_digest: p.normalized_digest,
+            file_fingerprints: p.file_fingerprints,
+        };
+        assert_eq!(
+            s.financial_import_commit(&input, TODAY).unwrap_err().code,
+            "IMPORT_INVALID",
+            "{sheet}/{title}"
+        );
+        assert!(s
+            .financial_import_receipt(&input.request_id, &s.generation())
+            .unwrap()
+            .is_none());
+        assert_eq!(s.wealth_accounts().unwrap().len(), 1);
+        assert_eq!(s.wealth_accounts().unwrap()[0].id, account);
+        let unchanged = s.wealth_snapshot(&snapshot).unwrap().unwrap();
+        assert_eq!(unchanged.revision, 1);
+        assert_eq!(unchanged.entries[0].kind, "cash");
+        assert!(unchanged.entries[0].counted);
+        let unchanged = s.plan_income(&income).unwrap().unwrap();
+        assert_eq!(unchanged.revision, 1);
+        assert_eq!(unchanged.fields.category, "interest");
+        assert_eq!(unchanged.fields.destination, None);
+    }
 }

@@ -238,7 +238,7 @@ node --import ./tests/setup/unwrap-t.mjs --test tests/sync-state.test.mjs tests/
 
 ### 四项补充范围与统一验收
 
-账户扩充、存钱目标、加密备份和区间回顾的历史整合使用 schema 42。当前开发候选继续至 schema 44，使用既有新列补充盘点与核算能力；功能与界面冻结已于 2026-10-17 解除，备份容器格式不变。下述原生阶段结果按各自受测提交与资料版本保留，不能替代当前候选验收。使用隔离身份和虚构资料，禁止读取正式资料库。
+账户扩充、存钱目标、加密备份和区间回顾的历史整合使用 schema 42。当前开发候选为 schema 46，包含已保存的物品、支出、收入与心愿原币记录；本轮导出使用既有资料结构；功能与界面冻结已于 2026-10-17 解除，备份容器格式不变。下述原生阶段结果按各自受测提交与资料版本保留，不能替代当前候选验收。使用隔离身份和虚构资料，禁止读取正式资料库。
 
 专项入口：`src-tauri/tests/account_kinds.rs` 检查双表迁移、回滚与未知结构拒绝；`savings_goals.rs` 检查保存回执、来源缺项、恢复、永久删除和备份／表格；`annual_review.rs` 检查同一读取事务、模块关闭、范围变化、旧年份超过24条、修订失效与只读。前端口径与隐私回归见 `tests/account-kinds.test.mjs`、`savings-goals*.test.mjs` 和 `annual-review*.test.mjs`。当前集成候选按本页四项命令验证；较早独立功能检查的计数不能代替集成结果。虚构浏览器覆盖三种外观明暗、窄窗、正常／未知／空白／错误和隐私复制；它们不能替代四项集成后的统一原生验证。
 
@@ -266,7 +266,7 @@ V1–V4 的 Windows 补验源码为 `68adfe77ba6720c1ce894a0046b754257521d4ed`�
 
 虚构浏览器已核对 Windows 下载、空列表、缺包、单源及错误提示；截图接口超时，未取得关于页本轮同尺寸图片对照。关于页真实外部链接／查询、新核心整页交互与取消，以及整合版本的通知点击和实体关窗抽查仍待真实 Windows 补验。此前实体验收与自动脚本结果分别保留，不能以旧包或 CDP 合成按键替代新版本实体证据。步骤与判定见 [Windows 清单](WINDOWS_ACCEPTANCE.md#主分支整合后的复验)。
 
-Windows 接入阶段的 0.0.7 候选已包含图片／文件选择、文件占用重试与长路径、窗口／Ctrl 交互、WinRT 定时提醒和 NSIS 打包，接入基线为 schema 40，随后账户类型和存钱目标补充升至 schema 42。当前开发候选为 schema 44，备份容器格式不变，升级兼容性须按当前源码重新验证。Windows 界面与数据语义复用 Mac；公开安装包与附件以对应 Release 为准，本节历史结果不代表当前候选已完成原生验收。
+Windows 接入阶段的 0.0.7 候选已包含图片／文件选择、文件占用重试与长路径、窗口／Ctrl 交互、WinRT 定时提醒和 NSIS 打包，接入基线为 schema 40，随后账户类型和存钱目标补充升至 schema 42。当前开发候选为 schema 46，备份容器格式不变，升级兼容性须按当前源码重新验证。Windows 界面与数据语义复用 Mac；公开安装包与附件以对应 Release 为准，本节历史结果不代表当前候选已完成原生验收。
 
 两平台 CI 分别执行构建、完整 UI 回归、格式／Clippy 与 Rust 回归；容量测试默认忽略，安装身份的通知集成测试由原生验收任务单独执行。每份候选包的通过状态、测试数量、运行器系统与源码 SHA 以对应工作流日志和 artifact 摘要为准；逐次证据另行保存。工作流配置、验收脚本存在或另一平台通过，不能推定该候选包已通过。
 
@@ -385,6 +385,27 @@ cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --tes
 
 独立报告预览 `/planning-report-preview.html` 仅展示固定虚构 v1 状态。真实当前报告入口另见[当前报告验证](#current-report-validation)，基准／比较与原生打印 PDF 未接入。组件契约与回归见[报告说明](../src/planning-report/README.md)和 `tests/planning-report.test.mjs`。
 
+<a id="business-excel-export-validation"></a>
+
+### 业务资料 Excel 导出验证
+
+导出实现在 `src-tauri/src/spreadsheet.rs` 与 `src-tauri/src/spreadsheet_export/{daily,planning,finance}.rs`；行为边界见[业务规则](PRODUCT_RULES.md#资料表格导出边界)，工作表用途见[使用指南](USER_GUIDE.md#导出的工作簿里有什么)。共用格式与文件发布负责字符串精度、冻结／筛选／换行、中文金融表头映射、说明与行数；日常模块负责心愿及物品附属、虚拟储值、提醒与选项，规划模块负责订阅和保存条件，财务模块负责统一支出、盘点概况和可读核对摘要。
+
+针对性入口如下，命令存在及历史通过均不代表本轮已经通过：
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --lib spreadsheet_export
+cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --test spreadsheet --test finance_export --test csv_export --test currency
+```
+
+验收须从临时虚构 Store 生成真实 `.xlsx` 并重新读取，覆盖空表仍有表头、说明与行数一致、未分页、关闭显示模块不遗漏保存资料、最近删除及已删除父记录的子记录排除、正常历史保留、同名对象稳定关联、未知与零、原币有效／失效及 34 币种精度、JPY／KRW／VND、长编号、公式样式文字、多行备注、负净投入、储值赠送与余额、订阅本期不付和服务期间、规划付款与盘点吸收关系。统一支出与来源表是重复视角，核对实际统计排除及去重，不能把所有表相加。导出前后资料修订和逻辑内容须不变；失败不能替换已有成品，不能少表仍报成功。
+
+兼容检查分别验证旧模板与中文金融导出表头在 `read_finance` 映射到既有 canonical 列；四类已支持字段导入仍受原事务、回执和容量约束，序列号纳入物品普通字段更新；物品／收入原币等阅读列不视为可回导字段。新增项与同库编辑需用真实工作簿验证，覆盖中文日期、Excel 日期、合法千分位、空值清除、缺列保留、版本冲突和回执重放。内部 CSV 的收入原币用例不能代替工作簿收入原币用例。超出既有文件上限的整份扩展工作簿不承诺直接回导，不为此放宽 ZIP／公式等安全检查。
+
+2026-10-28 当前实现的 `npm run build`、`npm run test:ui`、`npm run check`、`npm test` 通过：UI 1,911 项；Rust 共 1,079 项（规划引擎 106、应用 973），6 项按既有条件忽略（3 项容量测量、3 项需要真实 WebDAV 环境）。工作簿 16 项集成回归覆盖实际导出、编辑、新增空编号、常见日期与 Excel 日期、金额、中文可见枚举优先、同库更正、单表引用、未知／零、删除墓碑、旧修订拒绝及回执重放；物品导入 9 项、共用解析 48 项通过。ImageIO 与本机回环测试在沙盒外执行，不能把沙盒权限失败归为业务错误。
+
+macOS 使用独立虚构身份 `local.thingary.export.20261028` 的普通构建，已验证启动、心愿记录购入、系统保存取消／重试、中文空格路径及真实文件重新读取。最终工作簿有 36 表、无公式；WPS 实际打开并定位心愿“确认购入日期”，值和显示均为 `2026-10-28`，长备注换行且编号隐藏。WPS 中修改原物品名称、带人民币符号及千分位的价格、斜线日期，并新增零金额及中文日期行，另存本地 `.xlsx` 后通过系统面板导入：预览明确显示新增 1、修改 1 及具体字段；提交回执与再次导出一致，原 ID 保留、版本由 1 增至 2，新行独立建档，金额及日期规范化正确。重新选择更新前的旧表明确提示版本冲突且禁止提交。手机文件生成／分享取消、Windows 保存与表格软件、大库性能、完整键盘／输入法和辅助功能矩阵本轮未验，用户最终验收也未进行。
+
 ### 职业变化情景原型
 
 `/career-preview.html` 使用虚构现金流比较空窗、降低投入或换工作。普通目标页的职业试算共用通用模型；关闭丢弃临时条件，不保存职业路线，不恢复政策待遇、资格或停续缴计算。
@@ -445,7 +466,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_cont
 
 Rust 入口包括 `src-tauri/tests/backup_security.rs`、`auto_backup.rs`、`backup_staging.rs`、`backup_copy_epoch.rs`、`backup_pipeline.rs` 和模块内嵌测试，覆盖策略选择与异常暂停、密钥验证／轮换、首备结果、目标目录无明文、冻结会话、代际发布及取消。`v1234_integration.rs` 用临时虚构资料核对 schema 42、新账户类型、目标关系和年度事实经标准 age 解密与恢复后的结果，以及只读恢复回执。`examples/v1234_acceptance_fixture.rs` 仅接受显式隔离根目录，拒绝非空目录重新创建，已有验收资料只读检查使用 `--inspect`。前端回归在 `tests/backup-security.test.mjs`、`finance-data-management.test.mjs` 和 `data-management.test.mjs`；运行中取消须等原 promise 清理后才解除互斥，恢复最终提交不提供取消。
 
-已有 Apple Silicon 隔离普通构建的开发验证记录覆盖账户／目标保存、未知盘点回退、删除恢复、重启持久化、年度隐私摘要复制、恢复密钥文件保存与验证、手动／自动／额外密文、标准 age CLI 双向互通及加密恢复。原生大文件读取取消和独立小型测试卷空间不足均保留旧好成品并清理临时文件；启动清理用孤儿夹具复验，不等于所有强退时点都已实测。该 Mac 记录不覆盖 Windows；历史 schema 40 的工程双向恢复与 schema 42 的虚构明文／密文双向恢复分别记录于[Windows 验证](#windows-validation)，ACL、MSVC 链接与占用重试也按各自受测范围保留。当前 schema 44 候选的双向恢复与 Windows 长路径原生专项仍须按对应源码复验；所有导出／恢复强退时点、真实容量上限、Intel、macOS 14、完整键盘／输入法和 VoiceOver 仍未验证，不以已实现或自动检查替代。
+已有 Apple Silicon 隔离普通构建的开发验证记录覆盖账户／目标保存、未知盘点回退、删除恢复、重启持久化、年度隐私摘要复制、恢复密钥文件保存与验证、手动／自动／额外密文、标准 age CLI 双向互通及加密恢复。原生大文件读取取消和独立小型测试卷空间不足均保留旧好成品并清理临时文件；启动清理用孤儿夹具复验，不等于所有强退时点都已实测。该 Mac 记录不覆盖 Windows；历史 schema 40 的工程双向恢复与 schema 42 的虚构明文／密文双向恢复分别记录于[Windows 验证](#windows-validation)，ACL、MSVC 链接与占用重试也按各自受测范围保留。当前 schema 46 候选的双向恢复与 Windows 长路径原生专项仍须按对应源码复验；所有导出／恢复强退时点、真实容量上限、Intel、macOS 14、完整键盘／输入法和 VoiceOver 仍未验证，不以已实现或自动检查替代。
 
 ## 样例与原生验收
 

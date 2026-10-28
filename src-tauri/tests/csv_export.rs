@@ -222,7 +222,7 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
         5,
         "4 undeleted assets incl. sold and retired; deleted excluded"
     );
-    assert!(rows.iter().all(|r| r.len() == 17));
+    assert!(rows.iter().all(|r| r.len() == HEADER.len()));
     let by_id = |id: &str| rows.iter().find(|r| r[0] == id).unwrap().clone();
 
     let ra = by_id(&a.asset.id);

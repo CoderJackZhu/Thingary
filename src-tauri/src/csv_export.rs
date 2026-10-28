@@ -8,7 +8,7 @@ use crate::{
 };
 use std::path::Path;
 
-pub const HEADER: [&str; 17] = [
+pub const HEADER: [&str; 18] = [
     "档案编号",
     "名称",
     "分类",
@@ -26,6 +26,7 @@ pub const HEADER: [&str; 17] = [
     "原币币种",
     "原币金额",
     "汇率",
+    "档案版本",
 ];
 
 /// Text a spreadsheet could run as a formula gets a leading apostrophe.
@@ -46,7 +47,7 @@ fn yuan(cents: Option<i64>) -> String {
 
 /// Original currency, amount and rate, but only while the stored origin still
 /// explains the current CNY amount; otherwise three empty cells, never zero.
-fn origin_cells(
+pub(crate) fn origin_cells(
     currency: Option<String>,
     original_minor: Option<i64>,
     fx_rate_micro: Option<i64>,
@@ -89,7 +90,7 @@ impl Store {
         let mut stmt = self.conn()?.prepare(
             "SELECT a.id,a.name,c.name,p.brand,p.model,a.price_cents,a.purchase_date,ch.name,a.lifecycle_state,s.date,s.price_cents,p.notes,
                     CASE WHEN a.lifecycle_state='retired' THEN (SELECT e.date FROM lifecycle_events e WHERE e.asset_id=a.id ORDER BY e.sequence DESC LIMIT 1) END,
-                    o.currency,o.original_minor,o.fx_rate_micro
+                    o.currency,o.original_minor,o.fx_rate_micro,a.revision
              FROM assets a LEFT JOIN asset_profiles p ON p.asset_id=a.id LEFT JOIN categories c ON c.id=a.category_id
              LEFT JOIN channels ch ON ch.id=a.channel_id LEFT JOIN sales s ON s.asset_id=a.id AND s.revoked_at IS NULL
              LEFT JOIN asset_price_origin o ON o.asset_id=a.id
@@ -126,6 +127,7 @@ impl Store {
                 currency,
                 original,
                 rate,
+                r.get::<_, i64>(16)?.to_string(),
             ])
         })?;
         for row in rows {
@@ -242,7 +244,9 @@ impl Store {
                     o.currency,o.original_minor,o.fx_rate_micro
              FROM expenses x LEFT JOIN assets a ON a.id=x.asset_id
              LEFT JOIN amount_origin o ON o.kind='expense' AND o.record_id=x.id
-             WHERE x.deleted_at IS NULL ORDER BY x.date,x.id",
+             WHERE x.deleted_at IS NULL
+               AND (x.asset_id IS NULL OR (a.id IS NOT NULL AND a.deleted_at IS NULL))
+             ORDER BY x.date,x.id",
         )?;
         let rows = stmt
             .query_map([], |r| {
@@ -700,5 +704,67 @@ fn recurring_category(category: &str) -> &str {
         "membership" => "会员服务",
         "other" => "其他",
         other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::{params, Connection};
+
+    #[test]
+    fn expenses_table_exports_only_standalone_or_live_linked_expenses() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(dir.path()).unwrap();
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(crate::storage::SCHEMA).unwrap();
+        crate::storage::migrate(&db, &|_| Ok(())).unwrap();
+        store.db = Some(db);
+        let db = store.conn().unwrap();
+        db.execute_batch(
+            "INSERT INTO assets(id,name,revision,deleted_at)
+             VALUES('live-asset','Fictional camera',1,NULL),
+                   ('deleted-asset','Fictional deleted camera',1,'2026-10-01');",
+        )
+        .unwrap();
+        // Simulate an orphaned legacy link only in this fictional in-memory database.
+        db.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
+        for (id, title, asset_id, deleted_at) in [
+            ("01", "Standalone", None, None),
+            ("02", "Linked", Some("live-asset"), None),
+            ("03", "Deleted parent", Some("deleted-asset"), None),
+            ("04", "Missing parent", Some("missing-asset"), None),
+            ("05", "Deleted standalone", None, Some("2026-10-01")),
+            (
+                "06",
+                "Deleted linked",
+                Some("live-asset"),
+                Some("2026-10-01"),
+            ),
+        ] {
+            db.execute(
+                "INSERT INTO expenses(id,title,date,amount_cents,category,notes,asset_id,
+                                      revision,created_at,updated_at,deleted_at)
+                 VALUES(?1,?2,'2026-09-01',12345,'other','',?3,1,
+                        '2026-09-01','2026-09-01',?4)",
+                params![id, title, asset_id, deleted_at],
+            )
+            .unwrap();
+        }
+        db.execute_batch("PRAGMA foreign_keys=ON").unwrap();
+
+        for guarded in [true, false] {
+            let (csv, count) = store.expenses_table(guarded).unwrap();
+            assert_eq!(count, 2, "guarded={guarded}");
+            assert_eq!(
+                csv.split("\r\n").skip(1).collect::<Vec<_>>(),
+                vec![
+                    "2026-09-01,Standalone,其他,123.45,,,,,,,",
+                    "2026-09-01,Linked,其他,123.45,,,Fictional camera,,,,",
+                    "",
+                ],
+                "guarded={guarded}",
+            );
+        }
     }
 }

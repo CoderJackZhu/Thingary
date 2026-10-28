@@ -4,6 +4,8 @@
 #![allow(dead_code)]
 #[path = "../src/financial_import_parser.rs"]
 mod financial_import_parser;
+#[path = "../src/import_values.rs"]
+mod import_values;
 
 use financial_import_parser::{
     parse_import_request_json, parse_import_v1, template_csv, ExistingAccountV1, GroupValidationV1,
@@ -462,21 +464,112 @@ fn amount_boundaries_and_rejections() {
     csv.push_str("i11,2026-09-30,,,空金额\n");
     let p = run_ok(&request("incomes", &csv));
     let rows = income_rows(&p);
-    assert_eq!(rows.len(), 4, "i1, i3, i4, i9 survive");
+    assert_eq!(rows.len(), 6, "i1, i3, i4, i7, i8, i9 survive");
     assert_eq!(rows[0].net_income_cents, "99999999999");
     assert_eq!(rows[1].net_income_cents, "1");
     assert_eq!(
         rows[2].net_income_cents, "120",
         "1.2 → 120 cents, no rounding"
     );
-    assert_eq!(rows[3].net_income_cents, "550");
+    assert_eq!(rows[3].net_income_cents, "100000");
+    assert_eq!(rows[4].net_income_cents, "500");
+    assert_eq!(rows[5].net_income_cents, "550");
     let found = |code| p.issues.iter().any(|i| i.code == code);
     assert!(found(CODE_AMOUNT_RANGE));
     assert!(found(CODE_AMOUNT_INVALID));
     assert!(found(CODE_AMOUNT_NEGATIVE));
     assert!(found(CODE_AMOUNT_REQUIRED));
     assert_eq!(p.counts.rows_read, 11);
+    assert_eq!(p.counts.rows_valid, 6);
+    assert_eq!(p.counts.rows_error, 5);
     assert_eq!(p.counts.rows_valid + p.counts.rows_error, 11);
+}
+
+#[test]
+fn friendly_amounts_preserve_long_integers_zero_and_unknown() {
+    let values = [
+        ("1000", "100000"),
+        ("12000.50", "1200050"),
+        ("123456789.01", "12345678901"),
+        ("1,234,567.89", "123456789"),
+        (" ¥1,234.56 ", "123456"),
+        (" ￥ 12,345.6 ", "1234560"),
+        ("00001234.50", "123450"),
+        ("0", "0"),
+        ("￥0.00", "0"),
+        ("999,999,999.99", "99999999999"),
+    ];
+    let mut csv = String::from("income_key,date,net_income,hpf_deposit\n");
+    for (i, (value, _)) in values.iter().enumerate() {
+        csv.push_str(&format!("i{i},2026-09-30,\"{value}\",\n"));
+    }
+    let p = run_ok(&request("incomes", &csv));
+    assert!(p.issues.is_empty(), "{:?}", p.issues);
+    assert_eq!(p.counts.rows_read as usize, values.len());
+    assert_eq!(p.counts.rows_valid as usize, values.len());
+    for (row, (_, expected)) in income_rows(&p).iter().zip(values) {
+        assert_eq!(row.net_income_cents, expected);
+        assert_eq!(row.hpf_deposit_cents, None, "blank remains unknown");
+    }
+    let p = run_ok(&request(
+        "incomes",
+        "income_key,date,net_income,hpf_deposit\na,2026-09-30,0,0\nb,2026-09-30, ,\n",
+    ));
+    assert_eq!(p.counts.rows_read, 2);
+    assert_eq!(p.counts.rows_valid, 1);
+    assert_eq!(p.counts.rows_error, 1);
+    assert_eq!(income_rows(&p)[0].hpf_deposit_cents.as_deref(), Some("0"));
+    assert!(has_code(&p, CODE_AMOUNT_REQUIRED));
+}
+
+#[test]
+fn amount_error_codes_preserve_shape_sign_and_range() {
+    let invalid = [
+        "1,2", "12,34", "1234,567", "1,2345", "1e3", "1.234", "1.", ".5", "¥¥1", "￥¥1", "+1",
+        "--1", "1元", "1，000", "1 000",
+    ];
+    for value in invalid {
+        let csv = format!("history_key,date,net_worth\nh,2026-09-30,\"{value}\"\n");
+        let p = run_ok(&request("net_worth_history", &csv));
+        assert_eq!(only_error_codes(&p), vec![CODE_AMOUNT_INVALID], "{value}");
+        assert_eq!(p.counts.rows_error, 1);
+    }
+    for value in [
+        "1000000000",
+        "1,000,000,000.00",
+        "9223372036854775808",
+        "99999999999999999999999999999999999999999999999999",
+        "-1000000000",
+        "-999,999,999.999",
+    ] {
+        let csv = format!("history_key,date,net_worth\nh,2026-09-30,\"{value}\"\n");
+        let p = run_ok(&request("net_worth_history", &csv));
+        let expected = if value.ends_with(".999") {
+            CODE_AMOUNT_INVALID
+        } else {
+            CODE_AMOUNT_RANGE
+        };
+        assert_eq!(only_error_codes(&p), vec![expected], "{value}");
+    }
+    for value in [" -1 ", "−1", "-¥1,000", "￥-1,000", "-0", "￥−0.00"] {
+        let csv = format!("income_key,date,net_income\ni,2026-09-30,\"{value}\"\n");
+        let p = run_ok(&request("incomes", &csv));
+        assert_eq!(only_error_codes(&p), vec![CODE_AMOUNT_NEGATIVE], "{value}");
+        let csv = format!("history_key,date,net_worth\nh,2026-09-30,\"{value}\"\n");
+        let p = run_ok(&request("net_worth_history", &csv));
+        assert!(p.issues.is_empty(), "{value}: {:?}", p.issues);
+        assert_eq!(p.counts.rows_valid, 1);
+    }
+    let p = run_ok(&request(
+        "net_worth_history",
+        "history_key,date,net_worth\nh,2026-09-30,\"-999,999,999.99\"\n",
+    ));
+    match &p.rows[0] {
+        StandardRowV1::NetWorthHistory(row) => {
+            assert_eq!(row.net_worth_cents, "-99999999999");
+        }
+        _ => panic!("expected a net-worth row"),
+    }
 }
 
 #[test]
@@ -509,7 +602,7 @@ fn negative_amounts_only_for_net_worth() {
 // ---- Dates ------------------------------------------------------------------
 
 #[test]
-fn strict_calendar_dates_including_leap_days() {
+fn friendly_calendar_dates_still_require_real_days() {
     let mut csv = String::from("history_key,date,net_worth,note\n");
     csv.push_str("h1,2024-02-29,1,闰日\n");
     csv.push_str("h2,2000-02-29,1,四百年仍闰\n");
@@ -520,14 +613,60 @@ fn strict_calendar_dates_including_leap_days() {
     csv.push_str("h7,2026-13-01,1,月份越界\n");
     csv.push_str("h8,2026-04-31,1,日期越界\n");
     let p = run_ok(&request("net_worth_history", &csv));
-    assert_eq!(p.counts.rows_valid, 2);
+    assert_eq!(p.counts.rows_read, 8);
+    assert_eq!(p.counts.rows_valid, 4);
+    assert_eq!(p.counts.rows_error, 4);
     assert_eq!(
         p.issues
             .iter()
             .filter(|i| i.code == CODE_DATE_INVALID)
             .count(),
-        6
+        4
     );
+}
+
+#[test]
+fn friendly_dates_normalize_and_reject_untrusted_suffixes() {
+    for value in [
+        "2026-9-1",
+        " 2026/9/1 ",
+        "2026.9.1",
+        "2026年9月1日",
+        "2026/9/1 08:30",
+        "2026-09-01T08:30:00",
+        "2026-09-01T08:30:00.123Z",
+        "2026-09-01T08:30:00+08:00",
+        "2026-09-01 23:59:59-05:30",
+    ] {
+        let csv = format!("income_key,date,net_income\ni,{value},1000\n");
+        let p = run_ok(&request("incomes", &csv));
+        assert!(p.issues.is_empty(), "{value}: {:?}", p.issues);
+        assert_eq!(p.counts.rows_valid, 1, "{value}");
+        assert_eq!(income_rows(&p)[0].date, "2026-09-01");
+    }
+    for value in [
+        "2026-09-01Tgarbage",
+        "2026-09-01T",
+        "2026-09-01 text:garbage",
+        "2026-09-01 08:30garbage",
+        "2026-09-01T24:00:00",
+        "2026-09-01T08:60:00",
+        "2026-09-01T08:30:60",
+        "2026-09-01T08:30:00+99:00",
+        "2026-09-01T08:30:00Zjunk",
+        "2026-09-01T08:30:00.",
+        "2026-09-01 08:30 09:30",
+    ] {
+        let csv = format!("income_key,date,net_income\ni,{value},1000\n");
+        let p = run_ok(&request("incomes", &csv));
+        assert_eq!(only_error_codes(&p), vec![CODE_DATE_INVALID], "{value}");
+        assert_eq!(p.counts.rows_error, 1);
+    }
+    let p = run_ok(&request(
+        "incomes",
+        "income_key,date,net_income\ni,2026年10月8日 08:30,1000\n",
+    ));
+    assert_eq!(only_error_codes(&p), vec![CODE_DATE_FUTURE]);
 }
 
 #[test]
@@ -567,6 +706,81 @@ fn account_field_rules() {
     assert!(found(CODE_ACCOUNT_DATE_ORDER));
     assert!(found(CODE_DATE_FUTURE));
     assert!(found(CODE_KEY_LENGTH));
+}
+
+#[test]
+fn account_kinds_accept_chinese_labels_and_canonical_keys() {
+    let mut csv = String::from("account_key,name,kind,enabled_from,counted\n");
+    for (index, kind) in financial_import_parser::ACCOUNT_KINDS.iter().enumerate() {
+        for (form, value) in [kind.label, kind.key].iter().enumerate() {
+            csv.push_str(&format!(
+                "a{index}_{form},账户{index}_{form}, {value} ,2024-01-01,否\n"
+            ));
+        }
+    }
+    let p = run_ok(&request("accounts", &csv));
+    assert!(p.issues.is_empty(), "{:?}", p.issues);
+    assert_eq!(p.counts.rows_read, 32);
+    assert_eq!(p.counts.rows_valid, 32);
+    for (rows, kind) in p
+        .rows
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .zip(financial_import_parser::ACCOUNT_KINDS.iter())
+    {
+        for row in rows {
+            let StandardRowV1::Accounts(account) = row else {
+                panic!("expected an account");
+            };
+            assert_eq!(account.kind, kind.key);
+            assert!(!account.counted);
+        }
+    }
+    for invalid in ["", "储蓄卡", "未知类型", "Cash"] {
+        let csv =
+            format!("account_key,name,kind,enabled_from,counted\na,账户,{invalid},2024-01-01,是\n");
+        let p = run_ok(&request("accounts", &csv));
+        assert_eq!(only_error_codes(&p), vec![CODE_KIND_INVALID], "{invalid}");
+        assert_eq!(p.counts.rows_error, 1);
+    }
+}
+
+#[test]
+fn counted_accepts_explicit_chinese_numeric_and_boolean_values() {
+    for (value, expected) in [
+        ("是", true),
+        ("否", false),
+        ("1", true),
+        ("0", false),
+        ("true", true),
+        ("false", false),
+        (" TRUE ", true),
+        (" False ", false),
+    ] {
+        let csv = format!(
+            "account_key,name,kind,enabled_from,counted\na,账户,现金与存款,2024-01-01,{value}\n"
+        );
+        let p = run_ok(&request("accounts", &csv));
+        assert!(p.issues.is_empty(), "{value}: {:?}", p.issues);
+        assert_eq!(p.counts.rows_valid, 1);
+        let StandardRowV1::Accounts(account) = &p.rows[0] else {
+            panic!("expected an account");
+        };
+        assert_eq!(account.kind, "cash");
+        assert_eq!(account.counted, expected, "{value}");
+    }
+    for invalid in ["", " ", "yes", "no", "2", "-1", "1.0", "真", "是否"] {
+        let csv = format!(
+            "account_key,name,kind,enabled_from,counted\na,账户,cash,2024-01-01,{invalid}\n"
+        );
+        let p = run_ok(&request("accounts", &csv));
+        assert_eq!(only_error_codes(&p), vec![CODE_BOOL_INVALID], "{invalid}");
+        assert_eq!(p.counts.rows_error, 1);
+    }
+    let csv = "account_key,name,kind,enabled_from,counted\na,房产,房产,2024-01-01,是\n";
+    let p = run_ok(&request("accounts", csv));
+    assert_eq!(only_error_codes(&p), vec![CODE_BOOL_INVALID]);
 }
 
 #[test]
@@ -618,7 +832,7 @@ fn catalog_shape_failures_are_context_errors() {
             ea(Some("k2"), "id1", "乙", "cash", "2024-01-01", None),
         ],
         vec![ea(Some("k1"), "id1", "甲", "储蓄卡", "2024-01-01", None)],
-        vec![ea(Some("k1"), "id1", "甲", "cash", "2024/01/01", None)],
+        vec![ea(Some("k1"), "id1", "甲", "cash", "2024/02/30", None)],
         vec![ea(
             Some("k1"),
             "id1",
@@ -632,6 +846,45 @@ fn catalog_shape_failures_are_context_errors() {
         let err = run_err(&cataloged(request("accounts", base), catalog));
         assert_eq!(err.code, CODE_CONTEXT_INVALID);
     }
+}
+
+#[test]
+fn friendly_context_dates_are_normalized_before_comparison() {
+    let context = ImportContext {
+        today: "2026/9/30",
+        cancel: &(no_cancel as fn() -> bool),
+    };
+    let req = request(
+        "incomes",
+        "income_key,date,net_income\na,2026年9月30日,1000\nb,2026-10-1,1000\n",
+    );
+    let p = parse_import_v1(&req, &context).unwrap();
+    assert_eq!(p.counts.rows_read, 2);
+    assert_eq!(p.counts.rows_valid, 1);
+    assert_eq!(p.counts.rows_error, 1);
+    assert_eq!(income_rows(&p)[0].date, "2026-09-30");
+    assert_eq!(only_error_codes(&p), vec![CODE_DATE_FUTURE]);
+
+    let req = cataloged(
+        request(
+            "snapshots",
+            "snapshot_key,date,account_key,amount\ns1,2026-9-2,k1,1000\ns2,2026-9-3,k1,1000\n",
+        ),
+        vec![ea(
+            Some("k1"),
+            "id1",
+            "甲",
+            "cash",
+            "2026/9/1",
+            Some("2026年9月3日"),
+        )],
+    );
+    let p = run_ok(&req);
+    assert_eq!(p.counts.rows_read, 2);
+    assert_eq!(group(&p, "s1").validation, GroupValidationV1::Valid);
+    assert_eq!(group(&p, "s1").date.as_deref(), Some("2026-09-02"));
+    assert_eq!(group(&p, "s2").validation, GroupValidationV1::Invalid);
+    assert!(has_code(&p, CODE_ACCOUNT_NOT_ACTIVE));
 }
 
 // ---- Snapshots --------------------------------------------------------------
@@ -755,7 +1008,8 @@ fn disabled_accounts_leave_the_due_scope() {
 fn snapshot_overrides_are_validated_and_kept() {
     let csv = "snapshot_key,date,account_key,amount,note,kind_at_date,counted_at_date\n\
                s1,2025-01-31,a1,100,注,bond,true\n\
-               s2,2025-02-28,a1,100,注,储蓄卡,1\n";
+               s2,2025-02-28,a1,100,注,储蓄卡,2\n\
+               s3,2025-03-31,a1,100,注,债券,否\n";
     let p = run_ok(&request("snapshots", csv));
     let row = match &p.rows[0] {
         StandardRowV1::Snapshots(s) => s,
@@ -763,6 +1017,13 @@ fn snapshot_overrides_are_validated_and_kept() {
     };
     assert_eq!(row.kind_at_date.as_deref(), Some("bond"));
     assert_eq!(row.counted_at_date, Some(true));
+    assert_eq!(p.counts.rows_read, 3);
+    assert_eq!(p.counts.rows_valid, 2);
+    let StandardRowV1::Snapshots(row) = &p.rows[1] else {
+        panic!("expected a snapshot");
+    };
+    assert_eq!(row.kind_at_date.as_deref(), Some("bond"));
+    assert_eq!(row.counted_at_date, Some(false));
     assert!(has_code(&p, CODE_KIND_INVALID));
     assert!(has_code(&p, CODE_BOOL_INVALID));
 }
@@ -866,7 +1127,7 @@ fn contract_version_kind_and_context_failures() {
     assert_eq!(p.counts.rows_valid, 1);
 
     let ctx = ImportContext {
-        today: "2026/10/07",
+        today: "2026/02/30",
         cancel: &(no_cancel as fn() -> bool),
     };
     let err = parse_import_v1(&request("incomes", "x"), &ctx).unwrap_err();
