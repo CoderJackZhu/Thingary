@@ -14,7 +14,7 @@ const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(
 const unavailable={status:'error',value:{code:'MODULE_DISABLED',message:''}};
 const review=(availability,generation='fictional')=>({generation,today:'2026-10-19',year:null,account_availability:availability,wealth:{status:'ready',value:{points:[],structure:[],liabilities:[]}},physical:unavailable,expenses:unavailable,recurring:unavailable,virtual_assets:unavailable,recent:{status:'ready',value:[]},planning:null});
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function host(){
+function host(attentionGroups=[]){
  const states=[],refs=[],effects=[],pending=[],requests=[],calls=[],listeners=new Map();let i=0,j=0,k=0;
  const props={generation:'fictional',today:'2026-10-19',year:null,version:1,modules:{...allModules,physical:false,planning:false,expenses:false,recurring:false,virtual:false,wishlist:false},onUpdateBalances:date=>calls.push('update:'+date),onNewAccount:()=>calls.push('new'),onManageAccounts:()=>calls.push('accounts'),onNavigate:page=>calls.push(page)};
  const context={module:{exports:{}},exports:{},require:()=>jsx,ready,latestComplete,requestGate,allModules,labels:{assets:'全部物品',wealth:'账户与盘点'},
@@ -23,8 +23,8 @@ function host(){
  useEffect(effect,deps){const n=k++,prior=effects[n];if(!prior||deps.some((v,x)=>v!==prior.deps[x])){effects[n]={deps,cleanup:prior?.cleanup};pending.push(()=>{effects[n].cleanup?.();effects[n].cleanup=effect();});}},
  invoke:()=>new Promise((resolve,reject)=>requests.push({resolve,reject})),
  window:{addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name)},localStorage:{getItem:()=>null,setItem(){}},
- useRestored(){},useTrendSelection:()=>({points:[]}),hiddenKinds:()=>new Set(),attention:()=>[],attentionSourcesReady:()=>true,errorMessage:e=>e.message,
- money:String,Info:()=>null,ReviewPlanSummary:()=>null,SavingsGoals:()=>null,StructureCard:()=>null,Sparkline:()=>null,TrendRangeControl:()=>null,DailyCostMetric:()=>null,Icon:()=>null};
+ useRestored(){},useTrendSelection:()=>({points:[]}),hiddenKinds:()=>new Set(),attention:()=>attentionGroups,attentionSourcesReady:()=>true,errorMessage:e=>e.message,
+ money:String,Info:()=>null,ReviewPlanSummary:()=>null,SavingsGoals:'savings-goals-stub',StructureCard:'structure-card-stub',Sparkline:()=>null,TrendRangeControl:()=>null,DailyCostMetric:()=>null,Icon:()=>null};
  vm.runInNewContext(script,context);
  const render=()=>{i=j=k=0;const tree=context.module.exports(props);while(pending.length)pending.shift()();return tree;};
  const action=()=>nodes(render()).find(n=>n.type==='div'&&n.props.className==='wealth-return-action')?.props.children[0];
@@ -66,4 +66,21 @@ test('an account with no snapshots shows no top balance prompt and keeps an inde
  const h=host();h.props.modules.physical=true;h.render();const data=review({status:'ready',value:{total:1,due_today:1}});data.physical={status:'ready',value:{held_count:0,held_known_cents:'0',held_unknown_price_count:0,active_count:0,retired_count:0,categories:[],average_holding_days:null}};h.requests[0].resolve(data);await settle();
  const tree=h.render();assert.doesNotMatch(text(tree),/建立账户并盘点|从这里开始/);assert.equal(nodes(tree).filter(n=>n.type==='button'&&text(n)==='更新今天的余额').length,0);
  const physical=nodes(tree).find(n=>n.type==='button'&&text(n)==='去记录物品 →');assert.ok(physical);physical.props.onClick();assert.deepEqual(h.calls,['assets']);h.unmount();
+});
+
+test('attention appears as a compact top brief only when needed, while the full lists stay below the holdings',async()=>{
+ const empty=host();empty.render();empty.requests[0].resolve(review({status:'ready',value:{total:1,due_today:0}}));await settle();
+ assert.equal(nodes(empty.render()).find(n=>n.type==='aside'&&n.props['aria-label']==='待关注提醒'),undefined);empty.unmount();
+
+ const groups=[{id:'due',priority:1,date:'2026-10-19',title:'虚构到期待付款',details:['付款待确认 · 2026-10-19'],entries:[{action:'进入计划',target:{kind:'plan',id:'p'}}]},{id:'right',priority:2,date:'2026-10-20',title:'虚构即将到期权益',details:[],entries:[]}];
+ const h=host(groups);h.props.modules={...h.props.modules,physical:true,recurring:true};h.render();
+ const data=review({status:'ready',value:{total:1,due_today:0}});data.wealth.value.structure_date='2026-10-15';data.wealth.value.structure=[{kind:'cash',amount_cents:'100',share_hundredths:10000}];data.wealth.value.liabilities=[];data.physical={status:'ready',value:{held_count:1,held_known_cents:'100',held_unknown_price_count:0,active_count:1,retired_count:0,categories:[],average_holding_days:1,held_daily:{}}};data.recurring={status:'ready',value:{monthly_cents:'0'}};
+ h.requests[0].resolve(data);await settle();
+ const tree=h.render(),all=nodes(tree),brief=all.find(n=>n.type==='aside'&&n.props['aria-label']==='待关注提醒');
+ assert.match(text(brief),/2 项需要关注/);assert.match(text(brief),/虚构到期待付款/);
+ const order=['structure-card-stub','持有物品','固定负担','待关注','近期记录','savings-goals-stub'].map(label=>all.findIndex(n=>n.type===label||text(n)===label));
+ assert.ok(order.every(index=>index>=0)&&order.every((index,i)=>i===0||order[i-1]<index));
+ const heading=all.find(n=>n.type==='h3'&&text(n)==='待关注'),moves=[];heading.props.ref.current={scrollIntoView:value=>moves.push(['scroll',value.block]),focus:value=>moves.push(['focus',value.preventScroll])};
+ all.find(n=>n.type==='button'&&text(n)==='查看待关注 →').props.onClick();
+ assert.deepEqual(moves,[['scroll','start'],['focus',true]]);h.unmount();
 });
