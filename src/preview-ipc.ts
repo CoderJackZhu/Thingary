@@ -1043,7 +1043,7 @@ export async function handle(command: string, payload: unknown): Promise<unknown
   if (command === 'privacy_authenticate') return null;
   if (command === 'export_workbook') return {path:'/tmp/物谱表格.xlsx',files:[{name:'物品',rows:8},{name:'账户',rows:4},{name:'完整盘点',rows:8},{name:'月度收入',rows:3},{name:'盘点记录',rows:8},{name:'重要支出',rows:2},{name:'周期费用',rows:2}]};
   if (command === 'save_spreadsheet_template') return '/Users/demo/Downloads/物谱导入模板.xlsx';
-  if (command === 'inspect_item_workbook') return {path:'/tmp/旧表格.xlsx',name:'旧表格.xlsx',preview:{hash:'h',valid:12,invalid:[{line:5,name:'台灯',reason:'金额「约100」须为不小于 0 的数字，最多两位小数'},{line:9,name:'',reason:'名称须为 1–200 字'}],duplicates:[{line:3,name:'降噪耳机',reason:'名称、购入日期和购入价与已有物品相同'}],new_categories:['乐器'],new_channels:['闲鱼']}};
+  if (command === 'inspect_item_workbook') return {path:'/tmp/旧表格.xlsx',name:'旧表格.xlsx',preview:{hash:'h',valid:12,additions:10,updates:1,unchanged:1,conflicts:[],changes:[{line:4,name:'虚构台灯',kind:'update',changed:['名称','备注']}],invalid:[{line:5,name:'台灯',reason:'金额「约100」须为不小于 0 的数字，最多两位小数'},{line:9,name:'',reason:'名称须为 1–200 字'}],duplicates:[{line:3,name:'降噪耳机',reason:'名称、购入日期和购入价与已有物品相同'}],new_categories:['乐器'],new_channels:['闲鱼']}};
   if (command === 'commit_item_workbook') throw {message:tr('导入请在原生 App 验证。')};
   if (command === 'item_import_receipt') return null;
   if (command === 'pick_photo') throw {message:tr('图片选择请在原生 App 中验证，此页面仅使用虚构示意图。')};

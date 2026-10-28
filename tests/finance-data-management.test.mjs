@@ -29,6 +29,7 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
     if (name === '@tauri-apps/api/core') return { invoke: async (name, args) => { calls.push({ name, args }); const result = await invoke(name, args); return name === 'backup_task_begin' && typeof result !== 'string' ? `fictional-task-${calls.length}` : result; } };
     if (name === './wealth') return { pendingKey, storedPending, kindLabel: s => s, code: e => e?.code };
     if (name === './asset') return { errorMessage: e => e?.message ?? String(e) };
+    if (name === './i18n.ts') return { t: (key, values = {}) => key.replace(/\{(\w+)\}/g, (hole, name) => values[name] ?? hole), numberLocale: () => 'zh-CN' };
     if (name === './financial-import') return imports;
     if (name === './FinancialImportDialog') return { FinancialImportDialog };
     if (name === './income-classification') return { incomeCategories: {} };

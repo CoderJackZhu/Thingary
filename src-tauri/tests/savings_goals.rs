@@ -639,24 +639,45 @@ fn complete_backup_and_read_only_excel_preserve_goals_relations_and_deleted_stat
         assert!(book.worksheet_formula(name).unwrap().is_empty());
     }
     let goals = book.worksheet_range("存钱目标").unwrap();
-    assert_eq!(goals.height(), 3);
+    assert_eq!(goals.height(), 2);
+    let goal_headers = goals.rows().next().unwrap();
+    let goal_col = |name: &str| {
+        goal_headers
+            .iter()
+            .position(|v| matches!(v, Data::String(value) if value == name))
+            .unwrap()
+    };
     let exported = goals
         .rows()
         .skip(1)
-        .find(|row| row[0] == Data::String(active.id.clone()))
+        .find(|row| row[goal_col("目标编号")] == Data::String(active.id.clone()))
         .unwrap();
-    assert_eq!(exported[1], Data::String("=SUM(1,2)".into()));
-    assert_eq!(exported[2], Data::String("1000.00".into()));
-    assert!(exported
-        .iter()
-        .any(|cell| cell.to_string().contains("不支持回导")));
+    assert_eq!(exported[goal_col("名称")], Data::String("=SUM(1,2)".into()));
+    assert_eq!(
+        exported[goal_col("目标金额（元）")],
+        Data::String("1000.00".into())
+    );
+    assert!(!goals
+        .rows()
+        .skip(1)
+        .any(|row| row[goal_col("目标编号")] == Data::String(deleted.id.clone())));
     let links = book.worksheet_range("目标关联账户").unwrap();
-    assert_eq!(links.height(), 4);
+    assert_eq!(links.height(), 3);
+    let link_headers = links.rows().next().unwrap();
+    let link_col = |name: &str| {
+        link_headers
+            .iter()
+            .position(|v| matches!(v, Data::String(value) if value == name))
+            .unwrap()
+    };
     assert!(links
         .rows()
         .skip(1)
-        .any(|row| row[0] == Data::String(deleted.id.clone())
-            && row[1] == Data::String(b.id.clone())));
+        .all(|row| row[link_col("目标编号")] == Data::String(active.id.clone())));
+    assert!(links
+        .rows()
+        .skip(1)
+        .any(|row| row[link_col("账户编号")] == Data::String(b.id.clone())));
     let imported = thingary_lib::spreadsheet::read_finance(&bytes).unwrap();
     assert!(imported
         .iter()

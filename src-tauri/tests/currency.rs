@@ -293,7 +293,7 @@ fn foreign_import_csv_excel_and_backup_roundtrip_and_row_errors() {
             kind: f.kind,
             name: f.name,
             csv_text: f.csv_text,
-            column_mapping: BTreeMap::new(),
+            column_mapping: f.column_mapping,
         })
         .collect();
     let mut dest = Store::open(&t.path().join("虚构往返")).unwrap();

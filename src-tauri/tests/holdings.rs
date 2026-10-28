@@ -358,7 +358,7 @@ fn excel_roundtrip_preserves_both_historical_modes_fx_groups_and_rejects_corrupt
                 kind: f.kind,
                 name: f.name,
                 csv_text: f.csv_text,
-                column_mapping: BTreeMap::new(),
+                column_mapping: f.column_mapping,
             })
             .collect::<Vec<_>>();
         let mut d = Store::open(&t.path().join("虚构导入")).unwrap();

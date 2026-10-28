@@ -35,9 +35,11 @@ test('Excel export is enabled, explains its scope and cannot be mistaken for a b
   assert.doesNotMatch(src, /下一阶段提供/);
 });
 
-test('item import states it only adds and cannot batch-modify existing assets', () => {
+test('item import explains additions, ordinary edits, and stable identities', () => {
   assert.match(src, /导入物品表（Excel）/);
-  assert.match(src, /不能用于批量修改/);
+  assert.match(src, /批量更新常规资料/);
+  assert.match(src, /档案编号和版本/);
+  assert.match(src, /p\.conflicts\.length > 0/);
   assert.match(src, /与已有物品或文件内其他行相同/);
 });
 

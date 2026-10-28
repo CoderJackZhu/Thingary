@@ -984,22 +984,22 @@ fn full_backup_restart_and_excel_include_facts_modes_confirmation_and_audit() {
     assert!(flow
         .rows()
         .flatten()
-        .any(|v| matches!(v, calamine::Data::String(t) if t == "800000")));
+        .any(|v| matches!(v, calamine::Data::String(t) if t == "8000.00")));
     let review = excel.worksheet_range("投资区间核对").unwrap();
     assert!(review
         .rows()
         .flatten()
-        .any(|v| matches!(v, calamine::Data::String(t) if t == "movements")));
+        .any(|v| matches!(v, calamine::Data::String(t) if t == "资金流动明细")));
     assert!(review
         .rows()
         .flatten()
-        .any(|v| matches!(v, calamine::Data::String(t) if t == "confirmed")));
+        .any(|v| matches!(v, calamine::Data::String(t) if t == "已核对")));
     assert!(excel.worksheet_range("规划核对审计").unwrap().height() > 1);
     let assumptions = excel.worksheet_range("规划假设").unwrap();
     assert!(assumptions
         .rows()
         .flatten()
-        .any(|v| matches!(v,calamine::Data::String(t) if t=="confirmed")));
+        .any(|v| matches!(v,calamine::Data::String(t) if t=="已核对")));
     let archive = d.path().join("fictional.thingary");
     s.backup(Some(&archive)).unwrap();
     let root = d.path().join("library");
