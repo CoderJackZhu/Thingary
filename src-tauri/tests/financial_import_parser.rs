@@ -724,7 +724,9 @@ fn account_kinds_accept_chinese_labels_and_canonical_keys() {
     assert_eq!(p.counts.rows_valid, 32);
     for (rows, kind) in p
         .rows
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .zip(financial_import_parser::ACCOUNT_KINDS.iter())
     {
         for row in rows {
