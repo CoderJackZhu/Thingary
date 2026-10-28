@@ -19,10 +19,12 @@ export function GlobalNotice({ notice, onDismiss, children }: { notice: AppNotic
   const timer = useRef<ReturnType<typeof pausableTimer> | null>(null);
   if (!timer.current) timer.current = pausableTimer(() => latestDismiss.current());
   useEffect(() => {
-    if (notice?.kind === 'success') timer.current!.start(5000);
+    if (!notice) timer.current!.reset();
+    else if (notice.kind === 'success') timer.current!.start(5000);
     else timer.current!.cancel();
     return () => timer.current!.cancel();
   }, [notice]);
+  useEffect(() => () => timer.current!.reset(), []);
   if (!notice) return null;
   function dismiss() {
     if (bar.current?.contains(document.activeElement)) document.getElementById('page-heading')?.focus();

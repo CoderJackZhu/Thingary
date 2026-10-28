@@ -35,8 +35,9 @@ export function UndoBar() {
   useEffect(() => {
     const listener = (e: Event) => { ++version.current; setOffer((e as CustomEvent<Offer>).detail); setMessage(''); setBusy(false); hideLater(10000); };
     window.addEventListener(offerEvent, listener);
-    return () => { ++version.current; window.removeEventListener(offerEvent, listener); timer.current!.cancel(); };
+    return () => { ++version.current; window.removeEventListener(offerEvent, listener); timer.current!.reset(); };
   }, []);
+  useEffect(() => { if (!offer) timer.current!.reset(); }, [offer]);
   const latest = useRef<{ offered: boolean; undo: () => void }>({ offered: false, undo: () => {} });
   useEffect(() => {
     const off = listen<string>('asset-action', event => {

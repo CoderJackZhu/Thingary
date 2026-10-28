@@ -21,6 +21,7 @@ export function pausableTimer(expire: () => void, clock: Clock = {
   return {
     start(ms: number) { cancel(); remaining = ms; running = true; schedule(); },
     cancel,
+    reset() { cancel(); reasons.clear(); },
     pause(reason: string) {
       if (running && !reasons.size) { remaining = Math.max(0, remaining - (clock.now() - started)); clock.clearTimeout(timer); timer = undefined; }
       reasons.add(reason);
