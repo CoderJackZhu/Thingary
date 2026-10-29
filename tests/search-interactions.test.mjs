@@ -16,7 +16,7 @@ function runtime(keyword, invoke) {
     useState(value){const i=cursor++;if(!slots[i])slots[i]={value};return [slots[i].value,v=>{slots[i].value=typeof v==='function'?v(slots[i].value):v}];},
     useRef(value){const i=cursor++;if(!slots[i])slots[i]={value:{current:value}};return slots[i].value;},
     useEffect(fn,deps){const i=cursor++;const previous=slots[i];if(!previous||!deps||deps.length!==previous.deps.length||deps.some((v,n)=>!Object.is(v,previous.deps[n]))){effects.push(()=>{previous?.cleanup?.();const cleanup=fn();slots[i]={deps,cleanup};});}},
-    document:{activeElement:{isConnected:true,focus(){}}},requestAnimationFrame:fn=>fn(),HTMLInputElement:class {},CloseButton(){},
+    document:{activeElement:{isConnected:true,focus(){}},body:{},querySelector(){return {isConnected:true,focus(){}};}},requestAnimationFrame:fn=>fn(),HTMLInputElement:class {},CloseButton(){},
     window:{setTimeout(fn){const timer={fn,active:true};timers.push(timer);return timer;},clearTimeout(timer){timer.active=false;}},
     searchDebounceMs:200,searchPageSize:30,searchScopeText:'scope',searchKindLabel:v=>v,searchKindOrder:['asset','wish','account'],searchFilterList:()=>[],errorMessage:String,
     async invoke(command,args){calls.push({command,args});const value=await invoke(command,args);return command==='search_all'?{revision:'fictional-revision',offset:args.input.offset,...value}:value;},
@@ -24,7 +24,7 @@ function runtime(keyword, invoke) {
   vm.runInNewContext(script,context);
   function render(){
     cursor=0;const tree=context.module.exports({session,onSessionChange:s=>{session=s},onClose(){session={...session,open:false}},generation,modulesOn,onOpenSource(){opened++;}});
-    const nodes=[];function walk(n){if(!n||typeof n!=='object')return;if(Array.isArray(n)){n.forEach(walk);return;}if(n.props){if(n.props.ref&&!n.props.ref.current)n.props.ref.current={scrollTop:0,children:[],focus(){},scrollIntoView(){}};nodes.push(n);walk(n.props.children);}}walk(tree);
+    const nodes=[];function walk(n){if(!n||typeof n!=='object')return;if(Array.isArray(n)){n.forEach(walk);return;}if(n.props){if(n.props.ref&&!n.props.ref.current)n.props.ref.current={scrollTop:0,children:[],focus(){},contains(){return true;},scrollIntoView(){},showModal(){this.open=true;},close(){this.open=false;}};nodes.push(n);walk(n.props.children);}}walk(tree);
     const pending=effects;effects=[];pending.forEach(fn=>fn());return nodes;
   }
   return {render,calls,change(value){session={...session,...value};},generation(value){generation=value;},modules(fn){modulesOn=fn;},unmount(){slots.forEach(s=>s?.cleanup?.());},fire(){for(const t of timers.splice(0))if(t.active)t.fn();},get opened(){return opened;},get session(){return session;}};
@@ -33,6 +33,39 @@ const tick=()=>new Promise(setImmediate);
 test('native_search_command_is_registered',()=>{
   assert.equal(/pub async fn search_all\b/.test(readFileSync(root+'/src-tauri/src/commands.rs','utf8')),true,'Native search command wrapper is missing');
   assert.equal(/commands::search_all\b/.test(readFileSync(root+'/src-tauri/src/lib.rs','utf8')),true,'Native search command registration is missing');
+});
+test('search uses a modal dialog and keeps IME Escape inside composition',()=>{
+  const ui=runtime('',async()=>({total:0,items:[],type_counts:[]}));
+  let nodes=ui.render();
+  const dialog=nodes.find(n=>n.type==='dialog');
+  assert.equal(dialog.props.ref.current.open,true);
+  assert.equal(dialog.props['aria-modal'],'true');
+  assert.equal(typeof dialog.props.onKeyDown,'function','The dialog must handle its own Tab boundary');
+  nodes.find(n=>n.type==='input').props.onCompositionStart();
+  const event={preventDefault(){this.prevented=true;}};
+  ui.render().find(n=>n.type==='dialog').props.onCancel(event);
+  assert.equal(event.prevented,true);assert.equal(ui.session.open,true);
+  ui.render().find(n=>n.type==='input').props.onCompositionEnd({currentTarget:{value:''}});
+  ui.render().find(n=>n.type==='dialog').props.onCancel(event);
+  assert.equal(ui.session.open,false);
+  ui.unmount();assert.equal(dialog.props.ref.current.open,false);
+});
+test('search arrows focus real result buttons and only one result is in the Tab order',async()=>{
+  const items=Array.from({length:3},(_,i)=>({id:`asset:fictional-${i}`,kind:'asset',title:`虚构 ${i}`,target:{kind:'asset',id:`fictional-${i}`}}));
+  const ui=runtime('虚构',async()=>({total:3,items,type_counts:[]}));
+  ui.render();ui.fire();await tick();
+  let nodes=ui.render();const focused=[];
+  const list=nodes.find(n=>n.type==='ul');
+  list.props.ref.current.children=items.map((_,i)=>({scrollIntoView(){},querySelector:()=>({focus:()=>focused.push(i)})}));
+  nodes.find(n=>n.type==='input').props.onKeyDown({key:'ArrowDown',nativeEvent:{},preventDefault(){}});
+  assert.equal(focused.at(-1),0);
+  nodes=ui.render();
+  nodes.find(n=>n.type==='ul').props.onKeyDown({key:'End',nativeEvent:{},preventDefault(){}});
+  assert.equal(focused.at(-1),2);
+  nodes=ui.render();
+  const buttons=nodes.filter(n=>n.props.className?.startsWith('global-search-item'));
+  assert.deepEqual(buttons.map(n=>n.props.tabIndex),[-1,-1,0]);
+  assert.equal(nodes.some(n=>n.props.role==='option'||n.props.role==='listbox'),false);
 });
 test('retry_reissues_same_keyword_on_first_page',async()=>{
   const ui=runtime('camera',async()=>{throw new Error('fictional read failure')});

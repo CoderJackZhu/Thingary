@@ -1,0 +1,56 @@
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 70;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  transform: translateY(-180%);
+}
+.skip-link:focus { transform: none; outline: 3px solid var(--accent); }
+.shell > main:focus { outline: none; }
+.global-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+}
+.global-notice > span { flex: 1; min-width: min(220px, 100%); overflow-wrap: anywhere; }
+.global-notice .notice-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.global-notice .notice-actions button { margin: 0; }
+.notice-success strong { color: var(--positive); }
+.notice-error { border-color: var(--error); }
+.notice-error strong { color: var(--error); }
+.notice-dock {
+  position: fixed;
+  right: 20px;
+  bottom: 18px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+.notice-dock > .notification-notice,
+.notice-dock > .backup-security-notice,
+.notice-dock > .undo-bar {
+  position: static;
+  transform: none;
+  max-width: 100%;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+.collection-updating { position: relative; top: -18px; height: 0; margin: 0; color: var(--muted); font-size: 12px; line-height: 18px; text-align: right; }
+.asset-row[aria-disabled=true] { cursor: progress; }
+.page-error button + button { margin-left: 8px; }

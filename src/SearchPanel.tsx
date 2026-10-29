@@ -6,6 +6,7 @@ import { searchDebounceMs, searchFilterList, searchKindLabel, searchKindOrder, s
 import type { SearchItem, SearchResults, SearchSession } from './search';
 import type { SourceTarget } from './source';
 import { t } from './i18n.ts';
+import { keepTabInDialog } from './search-focus';
 /**
  * 居中的“搜索全部资料”面板（§6.1）。关键词停止约 200ms 或中文组合输入结束
  * 后查询；空关键词不查询；再次打开保留本轮关键词、类型、分页与滚动；
@@ -17,6 +18,7 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
   const [error, setError] = useState('');
   const [active, setActive] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const [isComposing, setIsComposing] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -35,8 +37,10 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
   useEffect(() => {
     live.current = true;
     opener.current = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
     inputRef.current?.focus();
-    return () => { live.current = false; ticket.current++; openTicket.current++; };
+    return () => { live.current = false; ticket.current++; openTicket.current++; dialog?.close(); };
   }, []);
 
   function invalidate() {
@@ -79,7 +83,10 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
     live.current = false;
     invalidate();
     onClose();
-    const target = opener.current;
+    const previous = opener.current;
+    const target = previous && previous !== document.body && !dialogRef.current?.contains(previous)
+      ? previous
+      : document.querySelector<HTMLElement>('.global-search-open');
     requestAnimationFrame(() => target?.isConnected && target.focus());
   }
   function setKeyword(value: string) {
@@ -126,14 +133,24 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
   const currentPage = Math.floor(session.offset / searchPageSize) + 1;
 
   function move(delta: number) {
+    if (!items.length) return;
     const next = Math.min(items.length - 1, Math.max(0, active + delta));
+    focusResult(next);
+  }
+  function focusResult(next: number) {
+    if (!items[next]) return;
     setActive(next);
     listRef.current?.children[next]?.scrollIntoView({ block: 'nearest' });
+    listRef.current?.children[next]?.querySelector('button')?.focus();
   }
-  return <div className="global-search-overlay" role="presentation" onKeyDown={e => {
-    if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); close(); }
-  }}>
-    <dialog open className="global-search" aria-label={t('搜索全部资料')} onClick={e => { if (e.target === e.currentTarget) close(); }}>
+  return <dialog ref={dialogRef} className="global-search" aria-modal="true" aria-label={t('搜索全部资料')}
+    onKeyDown={e => { if (keepTabInDialog(dialogRef.current, e)) e.stopPropagation(); }}
+    onCancel={e => { e.preventDefault(); if (!composing.current) close(); }}
+    onClick={e => {
+      if (e.target !== e.currentTarget) return;
+      const bounds = e.currentTarget.getBoundingClientRect();
+      if (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom) close();
+    }}>
       <header>
         <h2>{t('搜索全部资料')}</h2>
         <p className="muted">{t('仅搜索当前资料库已开启模块')}</p>
@@ -147,7 +164,7 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
           // IME 组合输入期间 Enter 属于候选确认，不打开结果（B02）。
           if (composing.current || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
           if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
-          else if (e.key === 'ArrowDown') { e.preventDefault(); move(1); listRef.current?.focus(); }
+          else if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
           else if (e.key === 'Enter' && active >= 0 && items[active]) { e.preventDefault(); void open(items[active]); }
         }}/>
       {session.keyword.trim() && <div className="global-search-filters" role="group" aria-label={t('类型筛选')}>
@@ -163,15 +180,17 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
       : !results || !results.total ? <p className="muted global-search-state">{t('没有找到匹配的记录。')}</p>
       : <>
         <p className="muted global-search-count" role="status">{t('找到 {total} 条', { total: results.total })}</p>
-        <ul ref={listRef} className="global-search-results" tabIndex={-1} role="listbox" aria-label={t('搜索结果')} onScroll={e => onSessionChange({ ...session, scrollTop: e.currentTarget.scrollTop })} onKeyDown={e => {
+        <ul ref={listRef} className="global-search-results" tabIndex={-1} aria-label={t('搜索结果')} onScroll={e => onSessionChange({ ...session, scrollTop: e.currentTarget.scrollTop })} onKeyDown={e => {
           if (composing.current || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229 || e.defaultPrevented) return;
           if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+          else if (e.key === 'Home') { e.preventDefault(); focusResult(0); }
+          else if (e.key === 'End') { e.preventDefault(); focusResult(items.length - 1); }
           else if (e.key === 'Enter' && items[active]) { e.preventDefault(); void open(items[active]); }
           else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
         }}>
-          {items.map((item, i) => <li key={item.id} role="option" aria-selected={i === active}>
-            <button type="button" disabled={opening} className={'global-search-item' + (i === active ? ' active' : '')} onClick={() => void open(item)} onFocus={() => setActive(i)}
+          {items.map((item, i) => <li key={item.id}>
+            <button type="button" tabIndex={i === Math.max(0, active) ? 0 : -1} disabled={opening} className={'global-search-item' + (i === active ? ' active' : '')} onClick={() => void open(item)} onFocus={() => setActive(i)}
               onKeyDown={e => { if (e.key === 'Enter' && !composing.current && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) { e.preventDefault(); e.stopPropagation(); void open(item); } }}>
               <span className="kind">{searchKindLabel(item.kind)}</span>
               <span className="title">{item.title}{item.date && <small className="muted"> · {item.date}</small>}{item.status && <small className="muted"> · {item.status}</small>}</span>
@@ -185,6 +204,5 @@ export function SearchPanel({ session, onSessionChange, onClose, generation, mod
           <button type="button" disabled={session.offset + searchPageSize >= results.total} onClick={() => page(1)}>{t('下一页')}</button>
         </nav>}
       </>}
-    </dialog>
-  </div>;
+    </dialog>;
 }
