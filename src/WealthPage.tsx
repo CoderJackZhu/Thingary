@@ -36,6 +36,7 @@ import { prefillCheckInRow, prefilledCount, quickAvailable, selectAccountKind, d
 import type { Account, AccountFields, AccountSave, CheckInRow, Draft, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
 import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
+import { revealNotice } from './reveal-notice.ts';
 import './wealth.css';
 import { t as tt } from './i18n.ts';
 export type WealthReviewFocus = { generation: string; kind: 'accounts' | 'snapshot' | 'history' | 'check-in' | 'savings-goals'; id?: string; date?: string };
@@ -433,7 +434,7 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
       // A delete bumps the revision once; the undo restores exactly that state.
       offerUndo(tt('已删除「{name}」，已移入最近删除。', { name }), () => submit<void>({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision + 1, deleted: false }, label: tt('恢复') + name }));
     }
-    catch (e) { onError(e instanceof Error ? e.message : errorMessage(e), e instanceof Unresolved); setArmed(false); }
+    catch (e) { const message = e instanceof Error ? e.message : errorMessage(e); onError(message, e instanceof Unresolved); setArmed(false); requestAnimationFrame(() => revealNotice(message)); }
     finally { setBusy(false); onBusyChange?.(false); }
   }
   return armed ? <button type="button" className="primary danger" disabled={disabled || busy} onClick={() => void remove()}>{busy ? tt('正在删除…') : tt('确认移入最近删除')}</button>
