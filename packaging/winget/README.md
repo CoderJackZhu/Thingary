@@ -4,22 +4,30 @@
 
 ## 当前状态
 
-- 已生成 `0.0.8` 清单，安装包 URL 与 SHA-256 对应 GitHub Release `v0.0.8`。它保留为已发布版本的示例。
-- **尚未提交到 winget-pkgs。** 下一版源码版本已定为 `0.1.0`；等 `0.1.0` 安装包发布后生成并提交对应清单，不提交 `0.0.8`。
+- 已生成 `0.0.8` 和 `0.1.0` 清单，安装包 URL 与 SHA-256 分别对应 GitHub Release `v0.0.8`、`v0.1.0`。
+- `0.1.0` 的 SHA-256 于 2026-11-02 从 Release 附件 `SHA256SUMS.txt` 回读：`F75B5A512F208748A15A433590043B03845A09BAC82C53EF706DCA2938DB9230`。生成清单时没有使用候选包或文档里的预先抄写值。
+- **两个版本都尚未提交到 winget-pkgs。** 正式提交需要维护者另行授权。
 - winget 不会消除 SmartScreen；安装包签名仍由 SignPath 或 Store 解决。
+- `0.1.0` 在 GitHub 上是 Pre-release，Windows 安装包未签名。winget-pkgs 对这两种状态是否有额外要求尚未核实；本清单不宣称已经满足提交审核条件。
 
 ## 目录
 
 ```text
 packaging/winget/manifests/
-└── c/CoderJackZhu/Thingary/0.0.8/
-    ├── CoderJackZhu.Thingary.yaml
-    ├── CoderJackZhu.Thingary.installer.yaml
-    ├── CoderJackZhu.Thingary.locale.zh-CN.yaml
-    └── CoderJackZhu.Thingary.locale.en-US.yaml
+└── c/CoderJackZhu/Thingary/
+    ├── 0.0.8/
+    │   ├── CoderJackZhu.Thingary.yaml
+    │   ├── CoderJackZhu.Thingary.installer.yaml
+    │   ├── CoderJackZhu.Thingary.locale.zh-CN.yaml
+    │   └── CoderJackZhu.Thingary.locale.en-US.yaml
+    └── 0.1.0/
+        ├── CoderJackZhu.Thingary.yaml
+        ├── CoderJackZhu.Thingary.installer.yaml
+        ├── CoderJackZhu.Thingary.locale.zh-CN.yaml
+        └── CoderJackZhu.Thingary.locale.en-US.yaml
 ```
 
-winget-pkgs 的目录规则是 `manifests/<PackageIdentifier 首字母小写>/<Publisher>/<Package>/<Version>/`。提交时把整个 `0.0.8` 目录复制到 fork 的相同路径。
+winget-pkgs 的目录规则是 `manifests/<PackageIdentifier 首字母小写>/<Publisher>/<Package>/<Version>/`。提交时只把准备发布的那一版目录复制到 fork 的相同路径。
 
 ## 生成新版本
 
@@ -29,7 +37,7 @@ winget-pkgs 的目录规则是 `manifests/<PackageIdentifier 首字母小写>/<P
 node scripts/generate-winget-manifest.mjs \
   --version 0.1.0 \
   --installer Thingary_0.1.0_x64-setup.exe \
-  --release-date 2026-10-24
+  --release-date 2026-11-01
 ```
 
 也可以只给 SHA-256（适合在另一台机器上生成清单）：
@@ -37,8 +45,8 @@ node scripts/generate-winget-manifest.mjs \
 ```sh
 node scripts/generate-winget-manifest.mjs \
   --version 0.1.0 \
-  --sha256 <64 位十六进制 SHA-256> \
-  --release-date 2026-10-24
+  --sha256 f75b5a512f208748a15a433590043b03845a09bac82c53ef706dca2938db9230 \
+  --release-date 2026-11-01
 ```
 
 默认安装包名为 `Thingary_<版本>_x64-setup.exe`，默认下载地址为：
@@ -56,11 +64,13 @@ https://github.com/CoderJackZhu/Thingary/releases/download/v<版本>/Thingary_<�
 在 Windows 上安装 winget 后：
 
 ```powershell
-winget validate --manifest .\packaging\winget\manifests\c\CoderJackZhu\Thingary\0.0.8
-winget install --manifest .\packaging\winget\manifests\c\CoderJackZhu\Thingary\0.0.8
+winget validate --manifest .\packaging\winget\manifests\c\CoderJackZhu\Thingary\0.1.0
+winget install --manifest .\packaging\winget\manifests\c\CoderJackZhu\Thingary\0.1.0
 ```
 
 建议在干净虚拟机里验证安装、开始菜单入口、卸载保留资料和重装。`winget install` 仍可能遇到 SmartScreen 或 Smart App Control，未签名包不会被 winget 变成受信任包。
+
+本次只在 macOS 上完成生成器测试和静态字段检查；`winget validate`、实际安装及提交审核均未验证。
 
 ## 从 release-draft 取清单
 
