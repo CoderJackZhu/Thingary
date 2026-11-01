@@ -11,7 +11,7 @@ const jsx = (type, props) => ({ type, props });
 const FinancialImportDialog = () => null;
 const KeyInput = () => null;
 function runtime(file, props, initialPending = null, invoke = async () => null) {
-  const slots = [], effects = [], calls = [], events = new Map(), storage = new Map();
+  const slots = [], effects = [], calls = [], reveals = [], events = new Map(), storage = new Map();
   if (initialPending) storage.set(pendingKey, JSON.stringify(initialPending));
   let at = 0, reloads = 0;
   const localStorage = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k), key: i => [...storage.keys()][i], get length() { return storage.size; } };
@@ -23,7 +23,7 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
     useEffect(fn, deps) { const i = at++; if (!slots[i] || deps.some((v, n) => v !== slots[i].deps[n])) { effects.push(() => { slots[i]?.cleanup?.(); slots[i] = { deps, cleanup: fn() }; }); } },
   };
   const window = { addEventListener: (n, f) => events.set(n, f), removeEventListener: n => events.delete(n), dispatchEvent: e => events.get(e.type)?.(), setInterval: () => 1, clearInterval() {} };
-  const context = { exports: {}, localStorage, window, Event, crypto: { randomUUID: () => 'new-request' }, location: { reload() { reloads++; } }, require(name) {
+  const context = { exports: {}, localStorage, window, Event, crypto: { randomUUID: () => 'new-request' }, document: {}, requestAnimationFrame: fn => fn(), location: { reload() { reloads++; } }, require(name) {
     if (name === 'react') return hooks;
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
     if (name === '@tauri-apps/api/core') return { invoke: async (name, args) => { calls.push({ name, args }); const result = await invoke(name, args); return name === 'backup_task_begin' && typeof result !== 'string' ? `fictional-task-${calls.length}` : result; } };
@@ -31,6 +31,7 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
     if (name === './asset') return { errorMessage: e => e?.message ?? String(e) };
     if (name === './i18n.ts') return { t: (key, values = {}) => key.replace(/\{(\w+)\}/g, (hole, name) => values[name] ?? hole), numberLocale: () => 'zh-CN' };
     if (name === './financial-import') return imports;
+    if (name === './reveal-notice') return { revealNotice: (message, _root, selector = '.notice') => reveals.push([message, selector]) };
     if (name === './FinancialImportDialog') return { FinancialImportDialog };
     if (name === './income-classification') return { incomeCategories: {} };
     if (name === './AssetViews') return { Icon: () => null };
@@ -50,9 +51,10 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
   const render = () => { at = 0; const tree = context.exports[file](props); while (effects.length) effects.shift()(); return tree; };
   const all = () => nodes(render());
   const find = predicate => all().find(predicate);
+  const renderComponent = node => nodes(node.type(node.props));
   const button = text => find(n => n.type === 'button' && [n.props.children].flat(Infinity).join('') === text);
   const click = text => { const b = button(text); assert.ok(b, text); assert.ok(!b.props.disabled, text); return b.props.onClick(); };
-  return { render, all, find, button, click, calls, storedPending, props, storage, get reloads() { return reloads; }, unmount() { for (const slot of slots) slot?.cleanup?.(); } };
+  return { render, all, find, renderComponent, button, click, calls, reveals, storedPending, props, storage, get reloads() { return reloads; }, unmount() { for (const slot of slots) slot?.cleanup?.(); } };
 }
 const pending = { command: 'financial_import_commit', input: { request_id: 'original-request', generation: 'old-library' }, label: '金融历史导入' };
 const settle = async () => { for (let i = 0; i < 24; i++) await Promise.resolve(); };
@@ -98,6 +100,47 @@ test('financial wizard, item preview and restore preview are mutually exclusive'
     preview.button('选择金融历史…').props.onClick();
     assert.equal(preview.find(n => n.type === FinancialImportDialog), undefined);
   }
+});
+
+const itemPreview = { path: '/tmp/fictional.xlsx', name: '虚构物品表', preview: { hash: 'hash', valid: 1, additions: 1, updates: 0, unchanged: 0, invalid: [], duplicates: [], conflicts: [], changes: [], new_categories: [], new_channels: [] } };
+
+test('item import preview, result and definite error enter view with the existing reveal helper', async () => {
+  const success = runtime('DataManagement', settings(), null, async name => {
+    if (name === 'inspect_item_workbook') return itemPreview;
+    if (name === 'commit_item_workbook') return { imported: 1, updated: 0, unchanged: 0, skipped_duplicates: 0, invalid: 0 };
+  });
+  success.click('选择表格…'); await settle();
+  assert.deepEqual(success.reveals.at(-1), ['虚构物品表', '.item-import-preview']);
+  const preview = success.find(n => typeof n.type === 'function' && n.type.name === 'CsvConfirm');
+  assert.ok(preview);
+  const confirm = success.renderComponent(preview).find(n => n.type === 'button' && [n.props.children].flat(Infinity).join('').startsWith('导入'));
+  assert.ok(confirm);
+  assert.equal([confirm.props.children].flat(Infinity).join(''), '导入 1 件');
+  assert.equal(confirm.props.disabled, false);
+  confirm.props.onClick(); await settle();
+  assert.deepEqual(success.reveals.at(-1), ['新增 1 件，修改 0 件，未变化 0 件。', '.notice']);
+
+  const failure = runtime('DataManagement', settings(), null, async name => {
+    if (name === 'inspect_item_workbook') return itemPreview;
+    if (name === 'commit_item_workbook') throw { message: '虚构提交失败' };
+    if (name === 'item_import_receipt') return null;
+  });
+  failure.click('选择表格…'); await settle();
+  const failedPreview = failure.find(n => typeof n.type === 'function' && n.type.name === 'CsvConfirm');
+  const failedConfirm = failure.renderComponent(failedPreview).find(n => n.type === 'button' && [n.props.children].flat(Infinity).join('') === '导入 1 件');
+  assert.equal(failedConfirm.props.disabled, false);
+  failedConfirm.props.onClick(); await settle();
+  assert.deepEqual(failure.reveals.at(-1), ['导入未提交，资料未改变：虚构提交失败', '.notice']);
+
+  const unknown = runtime('DataManagement', settings(), null, async name => {
+    if (name === 'inspect_item_workbook') return itemPreview;
+    if (name === 'commit_item_workbook' || name === 'item_import_receipt') throw { message: '虚构响应中断' };
+  });
+  unknown.click('选择表格…'); await settle();
+  const unknownPreview = unknown.find(n => typeof n.type === 'function' && n.type.name === 'CsvConfirm');
+  const unknownConfirm = unknown.renderComponent(unknownPreview).find(n => n.type === 'button' && [n.props.children].flat(Infinity).join('') === '导入 1 件');
+  unknownConfirm.props.onClick(); await settle();
+  assert.deepEqual(unknown.reveals.at(-1), ['导入结果未知：虚构响应中断 上次操作编号已保留，请点「核对物品导入结果」，不要重新选择同一文件重复导入。', '.notice']);
 });
 
 test('settings request flag is consumed and opens recovery even while blocked', () => {

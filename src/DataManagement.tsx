@@ -13,6 +13,7 @@ import { FinancialImportDialog } from './FinancialImportDialog';
 import { preserveImportReceipt } from './financial-import';
 import { t, numberLocale } from './i18n.ts';
 import { t as tr } from './i18n.ts';
+import { revealNotice } from './reveal-notice';
 type Summary = { savings_goals?: number; planning_conditions_reset?: boolean; hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; plans: number; payments: number; virtual_assets: number; import_mappings: number; import_receipts: number; files: number };
 type Inspected = { path: string; name: string; encrypted: boolean; token: string | null; summary: Summary | null };
 type Note = { line: number; name: string; reason: string };
@@ -69,6 +70,10 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
   const itemPending = storedItemImport();
   const busy = task.kind === 'running';
   const operationLocked = securityBusy || restoreUnknown || busy || !!candidate || !!sheet || !!financeImport || !!savedPending || !!itemPending;
+  function finishItemImport(next: Extract<Task, { kind: 'done' | 'error' }>) {
+    setTask(next);
+    requestAnimationFrame(() => revealNotice(next.text));
+  }
   function canStart() { return !securityBusy && !restoreUnknown && !busy && !candidate && !sheet && !financeImport && !blocked && !demo && !!generation && !storedPending() && !storedItemImport(); }
   function openFinance() {
     if (securityBusy || restoreUnknown || busy || candidate || sheet || financeImport) return;
@@ -127,20 +132,21 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     try {
       const found = await invoke<CsvPreview | null>('inspect_item_workbook');
       setSheet(found); setWithDuplicates(false); setImportId(crypto.randomUUID()); setTask({ kind: 'idle' });
-    } catch (e) { setTask({ kind: 'error', text: tr('这个表格不能导入，当前资料未改变：') + errorMessage(e) }); }
+      if (found) requestAnimationFrame(() => revealNotice(found.name, document, '.item-import-preview'));
+    } catch (e) { finishItemImport({ kind: 'error', text: tr('这个表格不能导入，当前资料未改变：') + errorMessage(e) }); }
   }
   async function commitCsv() {
     if (!sheet || !generation || busy || demo || financeImport || candidate || storedPending() || storedItemImport()) return;
     const pending: ItemImportPending = { request_id: importId, generation, hash: sheet.preview.hash, include_duplicates: withDuplicates };
     try { localStorage.setItem(itemImportPendingKey, JSON.stringify(pending)); }
-    catch { setTask({ kind: 'error', text: t('无法保存这次操作的编号，尚未开始导入，请检查可用空间后重试。') }); return; }
+    catch { finishItemImport({ kind: 'error', text: t('无法保存这次操作的编号，尚未开始导入，请检查可用空间后重试。') }); return; }
     refreshItemPending(n => n + 1);
     setTask({ kind: 'running', label: t('正在导入…') });
     try {
       const done = await invoke<ImportDone>('commit_item_workbook', { path: sheet.path, input: pending });
       clearItemImport(); refreshItemPending(n => n + 1);
       setSheet(null);
-      setTask({ kind: 'done', text: importSummary(done) });
+      finishItemImport({ kind: 'done', text: importSummary(done) });
       onImported();
     } catch (e) {
       // A definite backend error wrote nothing; a lost reply is told apart by checking the original request.
@@ -148,13 +154,13 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       if (checked) {
         clearItemImport(); refreshItemPending(n => n + 1);
         setSheet(null);
-        setTask({ kind: 'done', text: t('已核对上次导入：{v1}', { v1: importSummary(checked) }) });
+        finishItemImport({ kind: 'done', text: t('已核对上次导入：{v1}', { v1: importSummary(checked) }) });
         onImported();
       } else if (checked === null) {
         clearItemImport(); refreshItemPending(n => n + 1); window.dispatchEvent(new Event('thingary-restored'));
-        setTask({ kind: 'error', text: tr('导入未提交，资料未改变：') + errorMessage(e) });
+        finishItemImport({ kind: 'error', text: tr('导入未提交，资料未改变：') + errorMessage(e) });
       } else {
-        setTask({ kind: 'error', text: tr('导入结果未知：') + errorMessage(e) + tr(' 上次操作编号已保留，请点「核对物品导入结果」，不要重新选择同一文件重复导入。') });
+        finishItemImport({ kind: 'error', text: tr('导入结果未知：') + errorMessage(e) + tr(' 上次操作编号已保留，请点「核对物品导入结果」，不要重新选择同一文件重复导入。') });
       }
     }
   }
@@ -166,13 +172,13 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       const checked = await itemReceipt(pending);
       clearItemImport(); refreshItemPending(n => n + 1); window.dispatchEvent(new Event('thingary-restored'));
       if (checked) {
-        setTask({ kind: 'done', text: t('已核对上次导入：{v1}', { v1: importSummary(checked) }) });
+        finishItemImport({ kind: 'done', text: t('已核对上次导入：{v1}', { v1: importSummary(checked) }) });
         onImported();
       } else {
-        setTask({ kind: 'done', text: t('核对完成：上次没有导入，资料未改变。可重新选择表格导入。') });
+        finishItemImport({ kind: 'done', text: t('核对完成：上次没有导入，资料未改变。可重新选择表格导入。') });
       }
     } catch (e) {
-      setTask({ kind: 'error', text: code(e) === 'STALE_DATASET' ? t('已经切换资料，上次操作编号仍保留。请回到原来的资料中核对，不要在这里重复导入同一文件。') : tr('暂时无法核对，上次操作编号仍保留：') + errorMessage(e) });
+      finishItemImport({ kind: 'error', text: code(e) === 'STALE_DATASET' ? t('已经切换资料，上次操作编号仍保留。请回到原来的资料中核对，不要在这里重复导入同一文件。') : tr('暂时无法核对，上次操作编号仍保留：') + errorMessage(e) });
     }
   }
   async function backup(forcePlaintext = false) {
@@ -322,7 +328,7 @@ function NoteList({ title, notes }: { title: string; notes: Note[] }) {
 
 function CsvConfirm({ sheet, busy, withDuplicates, onDuplicates, onCancel, onConfirm }: { sheet: CsvPreview; busy: boolean; withDuplicates: boolean; onDuplicates: (v: boolean) => void; onCancel: () => void; onConfirm: () => void }) {
   const p = sheet.preview, count = p.additions + p.updates - (withDuplicates ? 0 : p.duplicates.length);
-  return <div className="confirm" role="alert">
+  return <div className="confirm item-import-preview" role="alert">
     <strong>{t('从「{name}」导入 {count} 件物品？', { name: sheet.name, count })}</strong>
     <p>{t('新增 {added} 件，修改 {updated} 件，未变化 {unchanged} 件', { added: p.additions - (withDuplicates ? 0 : p.duplicates.length), updated: p.updates, unchanged: p.unchanged })}{p.invalid.length > 0 && t('，{length} 行有问题不会导入', { length: p.invalid.length })}{p.duplicates.length > 0 && t('，其中 {length} 行疑似重复', { length: p.duplicates.length })}</p>
     <p>{t('修改行保留隐藏的档案编号和版本；新增行请将这两格留空。空白单元格会清空对应字段，删去整列则保留现有值。')}</p>

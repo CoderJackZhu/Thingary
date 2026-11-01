@@ -1,3 +1,5 @@
+#[cfg(feature = "fault-injection")]
+use std::cell::Cell;
 use thingary_lib::{
     csv_import::{template, Commit, Done},
     domain::Error,
@@ -165,6 +167,47 @@ fn d21_import_is_all_or_nothing_and_checks_the_file() {
         done,
         "same request replays"
     );
+    assert_eq!(s.count().unwrap(), 2);
+}
+
+#[cfg(feature = "fault-injection")]
+#[test]
+fn d21_import_rolls_back_when_a_row_fails_after_being_written() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let csv = "名称,分类\n甲,中途新建分类\n乙,\n";
+    let input = commit(&s, csv.as_bytes(), false);
+    let failed = Cell::new(false);
+
+    s.set_hook(move |p| {
+        if p == "csv_import.after_row" && !failed.replace(true) {
+            Err(Error::new("FAULT", "注入首行写入后失败"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        s.import_csv(csv.as_bytes(), &input, TODAY)
+            .unwrap_err()
+            .code,
+        "FAULT"
+    );
+    assert_eq!(s.count().unwrap(), 0, "written rows rolled back");
+    assert!(!s
+        .taxonomy_snapshot()
+        .unwrap()
+        .categories
+        .iter()
+        .any(|c| c.name == "中途新建分类"));
+    assert!(
+        s.item_import_receipt(&input).unwrap().is_none(),
+        "no success receipt was committed"
+    );
+
+    s.set_hook(|_| Ok(()));
+    let done = s.import_csv(csv.as_bytes(), &input, TODAY).unwrap();
+    assert_eq!(done.imported, 2);
+    assert_eq!(s.item_import_receipt(&input).unwrap(), Some(done));
     assert_eq!(s.count().unwrap(), 2);
 }
 

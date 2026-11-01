@@ -13,4 +13,10 @@ test('uses the topmost open dialog as the search scope', () => {
   revealNotice('错误', root([], [root([]), inner]));
   assert.deepEqual(log, [['错误', 'nearest']]);
 });
+test('can reveal a message outside the default notice container', () => {
+  const log = [];
+  const preview = { querySelectorAll: s => s === 'dialog[open]' ? [] : [notice('虚构表格', log)] };
+  revealNotice('虚构表格', preview, '.item-import-preview');
+  assert.deepEqual(log, [['虚构表格', 'nearest']]);
+});
 test('missing notice is a no-op', () => { revealNotice('x', root([])); });
