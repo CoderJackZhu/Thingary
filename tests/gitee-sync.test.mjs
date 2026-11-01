@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mismatches, parseSums, plan } from '../scripts/sync-gitee-release.mjs';
+import { fetchWithRetry, mismatches, parseSums, plan } from '../scripts/sync-gitee-release.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,6 +28,100 @@ test('verification catches a changed, missing or unlisted-mismatch attachment', 
   assert.deepEqual(mismatches(sums, github, new Map([['a.dmg', h('9')], ['b.exe', h('2')]])).length, 2);
   assert.deepEqual(mismatches(sums, github, new Map([['a.dmg', h('1')]])), ['b.exe: missing on Gitee']);
   assert.deepEqual(mismatches(sums, github, new Map([['a.dmg', h('1')], ['b.exe', h('3')]])), ['b.exe: Gitee differs from GitHub']);
+});
+
+test('API fetch retries transient transport failures with bounded exponential delays', async () => {
+  const delays = [];
+  let calls = 0;
+  const response = await fetchWithRetry('https://example.invalid/api', {}, {
+    attempts: 3,
+    retryDelayMs: 10,
+    maxRetryDelayMs: 100,
+    sleep: async delay => delays.push(delay),
+    fetchImpl: async () => {
+      calls++;
+      if (calls < 3) throw Object.assign(new Error('socket closed'), { code: 'ECONNRESET' });
+      return new Response('{}', { status: 200 });
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [10, 20]);
+});
+
+test('API fetch retries retryable HTTP responses and returns the final response', async () => {
+  let calls = 0;
+  const response = await fetchWithRetry('https://example.invalid/api', {}, {
+    attempts: 3,
+    sleep: async () => {},
+    fetchImpl: async () => {
+      calls++;
+      return new Response('', { status: calls === 1 ? 503 : calls === 2 ? 429 : 502 });
+    },
+  });
+  assert.equal(response.status, 502);
+  assert.equal(calls, 3);
+});
+
+test('API fetch does not retry ordinary HTTP errors', async () => {
+  let calls = 0;
+  const response = await fetchWithRetry('https://example.invalid/api', {}, {
+    attempts: 4,
+    sleep: async () => assert.fail('an ordinary HTTP error must not sleep'),
+    fetchImpl: async () => {
+      calls++;
+      return new Response('not found', { status: 404 });
+    },
+  });
+  assert.equal(response.status, 404);
+  assert.equal(calls, 1);
+});
+
+test('API fetch aborts and retries an attempt that exceeds its timeout', async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchWithRetry('https://example.invalid/api', {}, {
+      attempts: 2,
+      timeoutMs: 5,
+      sleep: async () => {},
+      fetchImpl: async (_url, { signal }) => {
+        calls++;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        });
+      },
+    }),
+    /fetch attempt timed out/,
+  );
+  assert.equal(calls, 2);
+});
+
+test('API fetch surfaces the transport cause after its attempt bound', async () => {
+  let calls = 0;
+  const delays = [];
+  await assert.rejects(
+    fetchWithRetry('https://example.invalid/api?access_token=secret-token', {}, {
+      attempts: 2,
+      retryDelayMs: 7,
+      sleep: async delay => delays.push(delay),
+      fetchImpl: async () => {
+        calls++;
+        throw new TypeError('fetch failed', {
+          cause: Object.assign(new Error('TLS connection reset'), { code: 'ECONNRESET' }),
+        });
+      },
+    }),
+    error => {
+      assert.match(error.message, /after 2 attempts/);
+      assert.match(error.message, /TLS connection reset/);
+      assert.match(error.message, /code=ECONNRESET/);
+      assert.doesNotMatch(error.message, /secret-token/);
+      assert.match(error.message, /access_token=\[REDACTED\]/);
+      return true;
+    },
+  );
+  assert.equal(calls, 2);
+  assert.deepEqual(delays, [7]);
 });
 
 test('the workflow can mirror an old tag repeatedly without moving main or replacing a tag', () => {
