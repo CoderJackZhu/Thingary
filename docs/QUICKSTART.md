@@ -1,6 +1,6 @@
 # 快速上手
 
-> 本文跟随当前源码。“更新今天的余额”、首次样例优先等等新操作尚未包含在 0.0.8 安装包；使用 0.0.8 请看[对应版本指南](https://github.com/CoderJackZhu/Thingary/blob/v0.0.8/docs/USER_GUIDE.md)。已发布功能以版本说明为准。
+> 本文跟随当前源码，对应 0.1.0 安装包。仍在使用 0.0.8 的请看[对应版本指南](https://github.com/CoderJackZhu/Thingary/blob/v0.0.8/docs/USER_GUIDE.md)。已发布功能以版本说明为准。
 
 先完成一件小事：盘一次账户，或给一件物品留档。无需账号，也不用先填完所有设置。
 
@@ -10,9 +10,9 @@
 
 ## 1. 安装并看看样例
 
-到[国内下载镜像（Gitee）](https://gitee.com/CoderJackZhu/thingary/releases)或 [GitHub 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)，选择 **0.0.8** 的安装附件。Source code 是源码，不是安装包。
+到[国内下载镜像（Gitee）](https://gitee.com/CoderJackZhu/thingary/releases)或 [GitHub 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0)，选择 **0.1.0** 的安装附件。Source code 是源码，不是安装包。
 
-- **Mac**：下载 `Thingary-0.0.8-universal.dmg`，打开后将「物谱」拖进「应用程序」。Apple Silicon 与 Intel 使用同一个包。
+- **Mac**：下载 `Thingary-0.1.0-universal.dmg`，打开后将「物谱」拖进「应用程序」。Apple Silicon 与 Intel 使用同一个包。
 - **Windows**：下载 `x64-setup.exe` 并运行。默认只安装给当前用户；缺少 WebView2 时安装器需要联网补装。Windows 11 x64 已实测；Windows 10 1809+ 是目标范围但尚未实机验证；仅提供 x64 安装包，ARM64 走系统模拟。安装或启动失败时见[Windows 安装](USER_GUIDE.md#windows-install)。
 
 首次打开可能遇到系统安全提示。Mac 可在「系统设置 › 隐私与安全性」查看「仍要打开」；Windows SmartScreen 可查看「更多信息 › 仍要运行」。只对可信来源的安装包操作；若提示损坏、恶意软件或没有放行按钮，请先看[安装排查](USER_GUIDE.md#download)，不要关闭系统保护。
