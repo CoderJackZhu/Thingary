@@ -4,6 +4,7 @@ use std::{
     net::{TcpListener, TcpStream},
     sync::{Arc, Mutex},
     thread,
+    time::{Duration, Instant},
 };
 
 use thingary_lib::sync::webdav::{PutCondition, UreqWebDav, WebDav};
@@ -25,9 +26,14 @@ struct FakeDav {
 
 impl FakeDav {
     fn start() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let address = listener.local_addr().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .expect("fake WebDAV should bind an ephemeral loopback port");
+        listener
+            .set_nonblocking(true)
+            .expect("fake WebDAV listener should enter nonblocking mode");
+        let address = listener
+            .local_addr()
+            .expect("fake WebDAV listener should expose its loopback address");
         let state = Arc::new(Mutex::new(DavState::default()));
         let server_state = Arc::clone(&state);
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -43,6 +49,7 @@ impl FakeDav {
                 }
             }
         });
+        wait_until_ready(address);
         Self {
             base_url: format!("http://{address}"),
             _state: state,
@@ -60,6 +67,40 @@ impl Drop for FakeDav {
             let _ = handle.join();
         }
     }
+}
+
+fn wait_until_ready(address: std::net::SocketAddr) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut attempts = 0;
+    let mut last_error = String::new();
+    while Instant::now() < deadline {
+        attempts += 1;
+        match TcpStream::connect_timeout(&address, Duration::from_millis(250)) {
+            Ok(mut stream) => {
+                let _ = stream.set_read_timeout(Some(Duration::from_millis(250)));
+                let _ = stream.set_write_timeout(Some(Duration::from_millis(250)));
+                let request =
+                    b"GET /ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+                if let Err(error) = stream.write_all(request) {
+                    last_error = format!("write readiness request: {error}");
+                } else {
+                    let mut response = String::new();
+                    match stream.read_to_string(&mut response) {
+                        Ok(_) if response.starts_with("HTTP/1.1 ") => return,
+                        Ok(_) => {
+                            last_error = format!("unexpected readiness response: {response:?}")
+                        }
+                        Err(error) => last_error = format!("read readiness response: {error}"),
+                    }
+                }
+            }
+            Err(error) => last_error = format!("connect: {error}"),
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    panic!(
+        "fake WebDAV at {address} did not answer a readiness probe after {attempts} attempts in 5s: {last_error}"
+    );
 }
 
 fn handle(mut stream: TcpStream, state: &Arc<Mutex<DavState>>) {
