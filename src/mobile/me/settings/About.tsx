@@ -52,7 +52,7 @@ export default function About({ page }: { page: Extract<SettingsPage, 'about' | 
       {([['site', t('产品主页')], ['guide', t('使用指南')], ['feedback', t('问题反馈')], ['project', t('项目源码')]] as const).map(([target, label]) => <p key={target} className="me-link-row"><SupportLink target={target}>{label}</SupportLink></p>)}
     </ListGroup>
     <Block title={t('隐私与资料安全')}>
-      <p>{t('没有账号，资料保存在这台手机，应用不上传资料，使用完全离线。')}</p>
+      <p>{t('没有账号，资料默认保存在这台手机，不主动上传。可选的 WebDAV 同步默认关闭；开启后只有你点「立即同步」时才连接自己配置的服务器，并用你的口令加密后上传。')}</p>
       <p>{t('可用恢复密钥加密备份，应用只保存公钥，恢复密钥由你保管；主资料库、图片与恢复保护副本未加密。首次使用须在数据管理选择启用加密或继续明文，选择前自动备份暂停。建议另存一份完整备份到手机以外的地方。')}</p>
     </Block>
   </SettingsShell>;

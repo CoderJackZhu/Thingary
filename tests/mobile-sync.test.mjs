@@ -9,6 +9,7 @@ import { initialNav, navReducer, topEntry } from '../src/mobile/nav.ts';
 
 const read = file => readFileSync(new URL('../' + file, import.meta.url), 'utf8');
 const page = read('src/mobile/me/settings/Sync.tsx');
+const about = read('src/mobile/me/settings/About.tsx');
 const shared = read('src/sync/SyncSettings.tsx');
 const data = read('src/mobile/me/Data.tsx');
 const preview = read('src/mobile/preview.ts');
@@ -130,6 +131,15 @@ test('all seven mobile preview modes use the existing fictional sync implementat
     assert.ok((await mock.command('sync_status')).state);
     assert.equal('password' in await mock.command('sync_config_get'), false);
   }
+});
+
+test('About privacy copy distinguishes default local storage from explicit encrypted WebDAV sync', () => {
+  const chinese = '没有账号，资料默认保存在这台手机，不主动上传。可选的 WebDAV 同步默认关闭；开启后只有你点「立即同步」时才连接自己配置的服务器，并用你的口令加密后上传。';
+  const english = "No account. Your data stays on this phone by default and isn't uploaded automatically. Optional WebDAV sync is off by default; after you enable it, it connects only to the server you configure when you tap “Sync now” and uploads content encrypted with your passphrase.";
+  assert.ok(about.includes(chinese));
+  assert.ok(read('src/locales/en.ts').includes(`"${chinese}": "${english}"`));
+  assert.doesNotMatch(about, /应用不上传资料，使用完全离线/);
+  assert.match(data, /page: 'sync'/);
 });
 
 test('mobile styles keep touch targets, inputs and dialogs within the existing viewport tokens', () => {
