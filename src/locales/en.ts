@@ -3341,7 +3341,7 @@ export const en: Record<string, string> = {
   "已有档案请通过对应保障、退役或售出记录更正历史": "For an existing profile, correct history through the matching coverage, retirement, or sale record",
   "已有状态记录与日期": "Status record and date already exist",
   "已有的支出明细（阶段性支出可在「每月生活费」一步增删）：": "Existing expense details (staged expenses can be added or removed in the \"Monthly living costs\" step):",
-  "已有盘点记录的账户不能删除，可填写停用日期。": "Accounts with check-in records can't be deleted; you can enter a deactivation date.",
+  "已有盘点记录（含最近删除中的盘点）的账户不能删除，可填写停用日期。": "Accounts with check-in records (including check-ins in Recently Deleted) can't be deleted; you can enter a deactivation date.",
   "已有记录只关联，不复制。愿望购入仍须在心愿清单确认／关联物品。": "Existing records are only linked, not copied. A wish purchase still needs to be confirmed or linked to an item in the wishlist.",
   "已有记录的稳定ID": "Stable ID of the existing record",
   "已有记录的账户不能更改币种，请新建一个外币账户，再停用旧账户。": "An account with records can't change currency; create a foreign currency account, then deactivate the old one.",
