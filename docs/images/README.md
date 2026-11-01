@@ -1,16 +1,73 @@
 # 界面截图与维护
 
+## 0.1.0 对照（2026-11-02）
+
+下表逐张核对当前文件。2026-11-02 使用本分支的 0.1.0 源码运行 `visual-preview.html?demo=1&style=bento`，由 Ego Lite（Chromium）在 1440×968 视口捕获总览浅色／深色、账户与盘点、全部物品、目标、区间回顾和存钱目标；内存样例全部为虚构资料，隐藏了开发预览角标。七张 PNG 转成 JPEG 后替换同名文件，`walkthrough.gif` 再由这些 0.1.0 浏览器截图重建。浏览器预览证明当前前端布局与展示，**不是 macOS／Windows 原生截图，也不替代原生功能验收**。
+
+`start-choice.jpg` 展示已取消的首次用途选择页。0.1.0 首次启动直接进入虚构样例，因此删除该图及用户指南引用；来源设置仍可能使用同名的内部组件，但那不是本图展示的空资料起步页。
+
+| 文件 | 当前引用位置 | 与 0.1.0 一致 | 依据／处理 |
+|---|---|---|---|
+| `annual-review.jpg` | `site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获；画面为「区间回顾」默认近 1 年。 |
+| `assets-light.jpg` | `docs/USER_GUIDE.md`、`site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获；选中 MacBook Pro 后显示摘要。 |
+| `backup-security.jpg` | 未在用户文档或官网引用 | 未验证 | 来源记录为 0.0.7 历史原生图；未按 0.1.0 原生重拍。 |
+| `backup-settings.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；当前源码仍复用同一数据管理入口，但未做 0.1.0 原生核对。 |
+| `career-trial.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.5 历史图，来源记录已注明入口后移；仅作历史证据。 |
+| `expenses-year.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；未按 0.1.0 重拍。 |
+| `finance-records.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；未按 0.1.0 重拍。 |
+| `finance-review.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.8 历史原生图；当前「本期复盘」页仍需原生核对。 |
+| `first-item-form.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；当前源码仍有新增物品表单，未据此宣称 0.1.0 原生一致。 |
+| `first-snapshot-form.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；首次盘点流程未按 0.1.0 原生重拍。 |
+| `first-snapshot-result.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；首次盘点流程未按 0.1.0 原生重拍。 |
+| `install-flow.svg` | `docs/USER_GUIDE.md` | 不适用 | 安装流程示意 SVG，不是应用截图。 |
+| `overview-dark.jpg` | `site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获的深色总览。 |
+| `overview-light.jpg` | `docs/USER_GUIDE.md`、`site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获的浅色总览；正文与 alt 已标明非原生。 |
+| `planning-coverage-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
+| `planning-detail.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；未按 0.1.0 原生重拍。 |
+| `planning-fi-conclusion-full.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据，不作为当前界面说明。 |
+| `planning-fi-goals.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-fi-trajectory-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
+| `planning-fi-trajectory.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-goals.jpg` | `docs/USER_GUIDE.md`、`site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获；左右布局与当前 CHANGELOG 描述一致。 |
+| `planning-market-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
+| `planning-market.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-matrix-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
+| `planning-matrix.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-monthly-full.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-monthly.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-report-current.png` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；报告内容与隐私规则仍需 0.1.0 原生核对。 |
+| `planning-report.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.5 历史图；用户指南已改用 `planning-report-current.png`。 |
+| `planning-review.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.5 历史原生图；保留作历史证据。 |
+| `planning-sequence-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
+| `planning-sequence.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-stress-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
+| `planning-stress.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-trajectory.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
+| `planning-trial.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；当前试算入口仍存在，但未做 0.1.0 原生核对。 |
+| `planning-yearly.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；未按 0.1.0 原生重拍。 |
+| `savings-goals.jpg` | 经 `walkthrough.gif` 出现在 `README.md`、`README.en.md` | 是（浏览器预览） | 由当前 0.1.0 总览捕获；画面包含虚构存钱目标。 |
+| `social-preview.svg` | 未在用户文档或官网引用 | 不适用 | 品牌社交预览 SVG，不是应用截图。 |
+| `start-choice.jpg` | 原先用于 `docs/USER_GUIDE.md` | 否（已删除） | 展示已取消的用途选择页；0.1.0 首次启动直接进入虚构样例，引用已移除。 |
+| `stats-dark.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.5 历史原生图；未按 0.1.0 原生重拍。 |
+| `stats-light.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.5 历史原生图；未按 0.1.0 原生重拍。 |
+| `subscription-detail.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；未按 0.1.0 原生重拍。 |
+| `thingary-film-poster.jpg` | `site/index.html` | 不适用 | 介绍视频封面，来自浏览器界面预览和合成画面，不是原生截图。 |
+| `thingary-film.mp4` | `site/index.html` | 不适用 | Remotion 合成的浏览器界面预览视频，不是原生操作录像。 |
+| `update-check-006.jpg` | 未在用户文档或官网引用 | 否（历史） | 画面明确为 0.0.6 更新检查结果；保留作历史证据，不代表当前版本。 |
+| `walkthrough.gif` | `README.md`、`README.en.md` | 是（浏览器预览） | 由上述六张 0.1.0 浏览器截图重建；960×645、六帧、21 秒，不是连续操作录像。 |
+| `wealth-light.jpg` | `site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获；主按钮为「更新今天的余额」。 |
+
 ## 介绍视频（2026-10-19）
 
 `thingary-film.mp4`（1920×1080，53 秒，H.264 + AAC，约 6 MB）与封面 `thingary-film-poster.jpg` 用于产品主页 `#film`。画面由仓库外的 Remotion 项目合成：界面部分是浏览器视觉预览（`visual-preview.html?demo=1`，内存虚构样例，浅色）按步骤截取的 1440×900 逻辑像素、3× 截图，录制时在界面上填了信用卡还款安排、改了退休方式与每月能存的钱；画面里去掉了样例提示条与"虚构"前缀，角标注明数据均为虚构样例。浏览器预览不代表原生能力已验收；配乐为代码合成。
 
-## 0.0.8 候选重拍（2026-10-17）
+## 0.0.8 历史重拍（2026-10-17）
 
-`planning-goals.jpg`、`finance-review.jpg`、`annual-review.jpg` 与 `walkthrough.gif` 按 0.0.8 候选界面重拍：目标页左右布局（条件｜结果与资产轨迹，无顶部三问）、财务复盘只有「本期复盘／区间回顾」两个页签、区间回顾使用首页同款选期（默认近 1 年）并以小折线替代大曲线。来源为主分支提交后的隔离应用（身份 `local.thingary.shots.s20261017w8`，版本 0.0.8），资料为内置虚构样例，柔和卡片主题浅色；真实 macOS 原生窗口 1440×1000 点、2× 捕获（2880×2000），去掉 32 点标题栏后缩放到 **1440×968** JPEG，不改文字或数值。截图保留顶部「样例体验」提示条。`walkthrough.gif` 由 `node scripts/build-walkthrough.mjs` 重建，其余帧同日重拍，见下。另有 `overview-light.jpg`、`overview-dark.jpg`、`wealth-light.jpg`、`assets-light.jpg`、`savings-goals.jpg` 同日（2026-10-18）按同一应用、同一规格重拍：总览（含净资产图范围切换与两张虚构存钱目标「应急储备金」50 万、「三年后换车首付」30 万，通过样例内的原生表单新增）、账户与盘点概览（范围切换、图例与新按钮名称「盘点全部账户」）、全部物品（选中一件的详情）。这些反映 0.0.7 之后改动的页面；其他图片未重拍，仍为下表来源。
+`planning-goals.jpg`、`finance-review.jpg`、`annual-review.jpg` 与 `walkthrough.gif` 当时按 0.0.8 候选界面重拍：目标页左右布局（条件｜结果与资产轨迹，无顶部三问）、财务复盘只有「本期复盘／区间回顾」两个页签、区间回顾使用首页同款选期（默认近 1 年）并以小折线替代大曲线。来源为主分支提交后的隔离应用（身份 `local.thingary.shots.s20261017w8`，版本 0.0.8），资料为内置虚构样例，柔和卡片主题浅色；真实 macOS 原生窗口 1440×1000 点、2× 捕获（2880×2000），去掉 32 点标题栏后缩放到 **1440×968** JPEG，不改文字或数值。截图保留顶部「样例体验」提示条。另有 `overview-light.jpg`、`overview-dark.jpg`、`wealth-light.jpg`、`assets-light.jpg`、`savings-goals.jpg` 于 2026-10-18 按同一应用、同一规格重拍。本节仅保留历史来源；其中 `overview-light.jpg`、`overview-dark.jpg`、`wealth-light.jpg`、`assets-light.jpg`、`savings-goals.jpg`、`planning-goals.jpg`、`annual-review.jpg` 和 `walkthrough.gif` 已在 0.1.0 对照中替换，旧字节可由 Git 历史取得。`finance-review.jpg` 仍是本段来源的 0.0.8 历史图。
 
-## 0.0.7 候选主线截图（界面冻结后）
+## 0.0.7 历史主线截图（界面冻结后）
 
-除下述重拍的 `annual-review.jpg` 外，本组于 2026-10-16 在主分支 `83990e6` 同源码的隔离应用（身份 `local.thingary.shots.s20261016`，柔和卡片主题，浅色为主）中重新拍摄，资料为虚构：内置样例的 10 件物品、5 个账户，加两个虚构存钱目标（应急储备金 50 万、三年后换车首付 30 万）。真实 macOS 原生窗口，窗口 1440×1000 点、2× 捕获，去掉 32 点系统标题栏后缩放到 **1440×968** JPEG，不改文字或数值。
+本组于 2026-10-16 在主分支 `83990e6` 同源码的隔离应用（身份 `local.thingary.shots.s20261016`，柔和卡片主题，浅色为主）中重新拍摄，资料为虚构：内置样例的 10 件物品、5 个账户，加两个虚构存钱目标（应急储备金 50 万、三年后换车首付 30 万）。真实 macOS 原生窗口，窗口 1440×1000 点、2× 捕获，去掉 32 点系统标题栏后缩放到 **1440×968** JPEG，不改文字或数值。下表描述历史文件当时的画面；0.1.0 对照中标为浏览器重拍的文件已不再保留这些旧字节。
 
 | 文件 | 内容 |
 |---|---|
@@ -29,9 +86,9 @@
 
 `walkthrough.gif` 随此图重建：六帧中仅区间回顾帧为本次新捕获，其他五帧沿用本组原生截图；960×645、每帧 3.5 秒、21 秒循环。它是静态截图顺序预览，不能作为连续操作录像或原生功能完整验收的证据。
 
-下列旧表保留为 0.0.5 及更早的历史说明；未列入上表的文件沿用旧来源。
+下列旧表保留为 0.0.5 及更早的历史说明。文件名相同不代表当前文件仍是旧截图；逐图当前状态以上方 0.1.0 对照为准。
 
-## 当前 0.0.5 截图
+## 0.0.5 历史截图
 
 2026-10-13 在 `v0.0.5`（`8f018a080ffcc6b936dc1ababe2168b4d697c8b0`）同源码的隔离应用中重新拍摄下表图片和 GIF，更新页面标题下的标签、目标主按钮及“计入净资产的账户”文案。已发布的标签、DMG 和其中的旧离线指南保持原样；这些截图修订随主分支维护，下次发布再打包。
 
@@ -39,7 +96,7 @@
 
 使用柔和卡片（Bento）主题。验收配置只改身份、窗口标题与尺寸，应用源码相同；可执行文件 SHA-256 为 `8dc891040c3e60fe29c7a39904e790b8104efaeed2426e2655649e5610c46761`。实际捕获为 **1440×989**，移除 32 点系统标题栏后为 **1440×957 内容区**，不拼改文字或数值。屏幕可用高度限制了原设定窗口高度，不称严格 1440×1000 原生对照。原始捕获与历史图片在维护者档案保留；同尺寸对照只裁到共同内容范围，不重排页面。
 
-| 当前文件 | 原生状态／操作 |
+| 历史文件 | 原生状态／操作 |
 |---|---|
 | `overview-light.jpg`、`overview-dark.jpg` | 同一内置样例的综合总览，浅／深色；资产结构说明已更新 |
 | `assets-light.jpg` | 样例全部物品；状态分段、价格与日期未知保留 |
@@ -91,11 +148,11 @@ planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、plannin
 
 固定月份退休的轨迹、压力／市场／矩阵／收益顺序图使用每月投入 8,000、生活费 7,500、可用资金 100,000、2046-10 目标和 2076-10 终点，3%／2% 实际收益、2% 通胀、5% 波动为未核对的虚构条件，结果存在缺口。财务自由图仅将目标类型改为资金够用后退休，同条件预计 2052-05，仍保留待核对事项；两种模式不混作一个预测。市场图展示 1,000 条模型路径及其说明，不表示现实概率。更新图为点击后真实显示 0.0.6 已是最新版本。
 
-本轮再更新 overview-light.jpg、assets-light.jpg、wealth-light.jpg、planning-goals.jpg、first-item-form.jpg 与 planning-trial.jpg，均为上述 0.0.6 独立身份、1440×901 原生内容图。首次新增转到隔离空个人库，表单取消没有创建记录；随后回到虚构样例。walkthrough.gif 改为这版六张原生截图的21秒顺序预览（每帧3.5秒，宽960），不声称是连续操作录像；历史0.0.5维护条目保留为当时记录。
+0.0.6 当时再更新 `overview-light.jpg`、`assets-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`first-item-form.jpg` 与 `planning-trial.jpg`，均为上述 0.0.6 独立身份、1440×901 原生内容图。首次新增转到隔离空个人库，表单取消没有创建记录；随后回到虚构样例。`walkthrough.gif` 当时改为六张原生截图的 21 秒顺序预览；0.1.0 对照中的浏览器截图已替换其中所需帧。
 
 ### GIF 尺寸与重建
 
-README 当前 GIF 使用 `overview-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`savings-goals.jpg`、`annual-review.jpg`、`assets-light.jpg`，顺序与本页当前主线截图表一致。区间回顾帧采用本次 1440×968 新图，其他五帧沿用该表登记的来源；上文 0.0.5／0.0.6 条目保留当时的文件组合与尺寸，不代表当前 GIF。
+README 当前 GIF 使用 0.1.0 重拍的 `overview-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`savings-goals.jpg`、`annual-review.jpg`、`assets-light.jpg`。六帧都由当前源码的浏览器预览捕获，不沿用历史原生图；上文 0.0.5／0.0.6 条目只记录当时的文件组合与尺寸，不代表当前 GIF。
 
 用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本读取各图真实尺寸，仅对已登记的标题栏残留裁切，再统一缩放到 **960×645**，保留完整页面主体。输出为 6 张完整画面、每帧 3.5 秒、21 秒循环预览；输入尺寸或输出帧数、尺寸、时长不符时停止生成，避免沿用错误裁切参数。重建不改应用文字或数值，不替换已公开安装包。
 
