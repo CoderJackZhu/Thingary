@@ -113,7 +113,7 @@ Free code signing provided by SignPath.io, certificate by SignPath Foundation.
 |---|---|---|
 | OSI 认可的许可证 | AGPL-3.0-or-later，见 [LICENSE](../LICENSE) | 符合 |
 | 仓库公开 | `CoderJackZhu/Thingary` 公开仓库 | 符合 |
-| 可下载的已发布版本 | v0.0.8 Release 提供 Windows x64 安装包与 `SHA256SUMS.txt` | 符合 |
+| 可下载的已发布版本 | v0.1.0 Release 提供 Windows x64 安装包与 `SHA256SUMS.txt` | 符合 |
 | 自动化构建 | GitHub Actions 构建，但签名步骤尚未接入 | 部分符合；见上文“需要改的自动化构建位置” |
 | 项目主页政策链接 | README 已链接本文；官网首页页脚暂无 | 部分符合；网站页脚待维护者决定是否补 |
 | SignPath 正式申请 | 2026-10-25 已提交；对方要求补充公开声誉材料 | 暂无材料，待积累后重新申请；在此之前不改构建流程 |

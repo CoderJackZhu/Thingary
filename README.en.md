@@ -8,7 +8,7 @@
 
 <p align="center"><strong>A ten-minute check-in each month, and a clearer answer to “how many more years of work?”</strong></p>
 
-<p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8"><strong>Download 0.0.8</strong></a> · <a href="https://thingary.jackzhu.top/">Website</a> · <a href="https://thingary.jackzhu.top/quickstart/">Quick start</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">Feedback</a></p>
+<p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0"><strong>Download 0.1.0</strong></a> · <a href="https://thingary.jackzhu.top/">Website</a> · <a href="https://thingary.jackzhu.top/quickstart/">Quick start</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">Feedback</a></p>
 
 ![21-second slideshow of the fictional sample: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)
 
@@ -32,25 +32,25 @@ Built for occasional check-ins. No daily transaction ledger, market-data feed, t
 
 ## Download and install
 
-Download only from this repository's [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8) or the [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.0.8). The release assets include `SHA256SUMS.txt` for checking file integrity. A checksum is not a publisher signature and does not prove where a file came from.
+Download only from this repository's [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0) or the [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0). The release assets include `SHA256SUMS.txt` for checking file integrity. A checksum is not a publisher signature and does not prove where a file came from.
 
 ### macOS
 
-Download [`Thingary-0.0.8-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary-0.0.8-universal.dmg) (one build for Apple Silicon and Intel; macOS 14 or later).
+Download [`Thingary-0.1.0-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg) (one build for Apple Silicon and Intel; macOS 14 or later).
 
 1. Open the DMG, drag “物谱” into Applications, then open it from Applications.
 2. The app is **ad-hoc signed, without a Developer ID or Apple notarization**. If macOS blocks the first launch, right-click (or Control-click) “物谱” in Finder → **Open**, then confirm; or use **System Settings › Privacy & Security › Open Anyway**. Do this only for a file downloaded from this repository's Releases, and do not disable system security. See [Apple's instructions](https://support.apple.com/en-us/102445).
-3. Check the download: in Terminal run `shasum -a 256 ~/Downloads/Thingary-0.0.8-universal.dmg` and compare the output with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/SHA256SUMS.txt) in the release.
+3. Check the download: in Terminal run `shasum -a 256 ~/Downloads/Thingary-0.1.0-universal.dmg` and compare the output with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) in the release.
 
 Tested on Apple Silicon with macOS 27. macOS 14 and Intel are covered by build and architecture checks only, not hardware testing.
 
 ### Windows
 
-Download [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary_0.0.8_x64-setup.exe). **Windows 11 x64 is tested; Windows 10 1809+ is the target range but has not been hardware-tested.** Only an x64 installer is provided; ARM64 devices (such as Snapdragon X) run the x64 app through system emulation, which is not the same as a native ARM build.
+Download [`Thingary_0.1.0_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe). **Windows 11 x64 is tested; Windows 10 1809+ is the target range but has not been hardware-tested.** Only an x64 installer is provided; ARM64 devices (such as Snapdragon X) run the x64 app through system emulation, which is not the same as a native ARM build.
 
 1. Run the installer; it installs for the current user only and usually needs no administrator rights. If WebView2 is missing, the installer downloads and installs it; the first install needs internet access.
 2. The installer is **unsigned**. SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install). Do not disable system-wide protection for this.
-3. Check the download: in PowerShell run `Get-FileHash .\Thingary_0.0.8_x64-setup.exe -Algorithm SHA256` and compare it with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/SHA256SUMS.txt) in the release.
+3. Check the download: in PowerShell run `Get-FileHash .\Thingary_0.1.0_x64-setup.exe -Algorithm SHA256` and compare it with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) in the release.
 4. If installation or launch fails, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install) and keep the app version, Windows version, WebView2 version and exact error text.
 
 ### Windows code signing

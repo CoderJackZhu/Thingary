@@ -8,7 +8,7 @@
 
 <p align="center"><strong>每月 10 分钟盘一次家底，算清还要上几年班。</strong></p>
 
-<p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8"><strong>下载 0.0.8</strong></a> · <a href="https://thingary.jackzhu.top/">产品主页</a> · <a href="https://thingary.jackzhu.top/quickstart/">快速上手</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">国内镜像</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">使用反馈</a></p>
+<p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0"><strong>下载 0.1.0</strong></a> · <a href="https://thingary.jackzhu.top/">产品主页</a> · <a href="https://thingary.jackzhu.top/quickstart/">快速上手</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">国内镜像</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">使用反馈</a></p>
 
 ![虚构样例的 21 秒界面预览：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
 
@@ -30,25 +30,25 @@
 
 ## 下载与安装
 
-安装包只从本仓库的 [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8) 或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.0.8) 下载。Release 附件里提供 `SHA256SUMS.txt`，用于核对文件完整性；它不是发布者签名，也不能证明文件来源。
+安装包只从本仓库的 [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0) 或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0) 下载。Release 附件里提供 `SHA256SUMS.txt`，用于核对文件完整性；它不是发布者签名，也不能证明文件来源。
 
 ### macOS
 
-下载 [`Thingary-0.0.8-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary-0.0.8-universal.dmg)（Apple Silicon 与 Intel 共用，最低 macOS 14）。
+下载 [`Thingary-0.1.0-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg)（Apple Silicon 与 Intel 共用，最低 macOS 14）。
 
 1. 打开 DMG，把「物谱」拖进「应用程序」，再从「应用程序」打开。
 2. 安装包使用本地临时签名，**没有 Developer ID 签名，也没有 Apple 公证**。首次打开若被系统拦住，在 Finder 里右键（或按住 Control 点按）「物谱」→「打开」，再确认一次；也可以到「系统设置 › 隐私与安全性」点「仍要打开」。只对从本仓库 Release 下载的文件这样操作，不要关闭系统的整体安全保护。Apple 的说明见[打开来自身份不明开发者的 App](https://support.apple.com/zh-cn/102445)。
-3. 核对校验和：在「终端」运行 `shasum -a 256 ~/Downloads/Thingary-0.0.8-universal.dmg`，把输出与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/SHA256SUMS.txt) 对照。
+3. 核对校验和：在「终端」运行 `shasum -a 256 ~/Downloads/Thingary-0.1.0-universal.dmg`，把输出与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) 对照。
 
 已在 Apple Silicon、macOS 27 实测；macOS 14 和 Intel 只做了构建与架构检查，尚未实机验证。
 
 ### Windows
 
-下载 [`Thingary_0.0.8_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/Thingary_0.0.8_x64-setup.exe)。**Windows 11 x64 已实测；Windows 10 1809+ 是目标范围，但尚未实机验证。** 当前只提供 x64 安装包；ARM64 设备（如 Snapdragon X）由系统模拟运行 x64 应用，不等同于原生 ARM 版。
+下载 [`Thingary_0.1.0_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe)。**Windows 11 x64 已实测；Windows 10 1809+ 是目标范围，但尚未实机验证。** 当前只提供 x64 安装包；ARM64 设备（如 Snapdragon X）由系统模拟运行 x64 应用，不等同于原生 ARM 版。
 
 1. 运行安装包；默认只安装给当前用户，通常不需要管理员权限。缺少 WebView2 时安装器会联网下载并安装运行时，首次安装需要联网。
 2. 安装包**未签名**，SmartScreen 可能提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」。Windows 11 开启「智能应用控制」时可能没有放行按钮，处理办法见 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)。不要为此关闭整机的系统保护。
-3. 核对校验和：在 PowerShell 运行 `Get-FileHash .\Thingary_0.0.8_x64-setup.exe -Algorithm SHA256`，把结果与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.8/SHA256SUMS.txt) 对照。
+3. 核对校验和：在 PowerShell 运行 `Get-FileHash .\Thingary_0.1.0_x64-setup.exe -Algorithm SHA256`，把结果与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) 对照。
 4. 安装或启动失败时，先看 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)，并保留版本、Windows 版本、WebView2 版本和完整错误文字。
 
 ### Windows 代码签名
