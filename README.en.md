@@ -34,6 +34,8 @@ Built for occasional check-ins. No daily transaction ledger, market-data feed, t
 
 Download only from this repository's [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0) or the [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0). The release assets include `SHA256SUMS.txt` for checking file integrity. A checksum is not a publisher signature and does not prove where a file came from.
 
+0.1.0 is a public beta (a GitHub Pre-release). Upgrading from 0.0.8 moves your data to a newer structure, so make a complete backup first; after the upgrade, older versions refuse to read backups made by the newer one. See the [0.1.0 release notes (Chinese)](docs/releases/v0.1.0.md) for what was and was not verified on each platform.
+
 ### macOS
 
 Download [`Thingary-0.1.0-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg) (one build for Apple Silicon and Intel; macOS 14 or later).
@@ -59,13 +61,14 @@ The Windows installer is currently **unsigned**. An application to SignPath Foun
 
 If signing is approved and enabled, the release notes for that version are the source of truth; this page will not call an installer signed before it is. See the [Windows code signing policy (Chinese)](docs/CODE_SIGNING.md) for scope, approval, privacy, and application status.
 
-### Android (preview, no installer yet)
+### Android (preview APK)
 
-The Android version is in preview; there is no APK in Releases yet, so do not install copies from third-party mirrors. Once published, the release will include `Thingary-<version>-android.apk`, with its checksum in the release's `SHA256SUMS.txt`:
+[`Thingary-0.1.0-android.apk`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk) is attached to the 0.1.0 release (about 52 MB; 64-bit ARM only; Android 10 or later). It is still a preview and **has not been verified on a real Android phone**. Download it only from this repository's Releases or the Gitee mirror, and do not install copies from third-party mirrors:
 
-1. Download the APK only from this repository's Releases.
+1. Download the APK only from this repository's Releases or the Gitee mirror.
 2. Allow your browser or file manager to “install unknown apps” when prompted; you can revoke that permission afterwards.
-3. Compare `sha256sum Thingary-<version>-android.apk` (or the hash shown by your file manager) with `SHA256SUMS.txt` before installing.
+3. Compare `sha256sum Thingary-0.1.0-android.apk` (or the hash shown by your file manager) with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) before installing.
+4. Some Chinese Android systems show a warning or block apps that are not filed with local authorities or come from unknown sources. That is a system policy, not an app fault. Once you have confirmed the file came from this repository's Releases and checked its checksum, follow the system prompts; do not turn off system-wide protection for this.
 
 ### iOS (build it yourself; no public installer)
 
@@ -84,9 +87,9 @@ After your first entries, make a full backup under **Settings › Data managemen
 ## Known limitations
 
 - **No market data or trading.** There are no live prices, return tracking, automatic payments, or AI; investment returns and exchange rates are entered by hand. There is no daily transaction ledger.
-- **Source includes optional WebDAV snapshot sync (experimental).** It is off by default and connects to your own server (for example Jianguoyun or Nextcloud). Snapshots are encrypted with a passphrase you choose; manifest metadata, including device names, is plaintext. Once enabled it checks the cloud when the app opens or changes between foreground and background and uploads plain fast-forwards, but it never replaces your local data on its own. There is no Thingary account system or collaboration. Tested against local WebDAV servers and an Android emulator only; real cloud providers and phones are still unverified. See the [sync guide (Chinese)](docs/USER_GUIDE.md#sync); released packages follow their release notes.
+- **0.1.0 includes optional WebDAV snapshot sync (experimental).** It is off by default and connects to your own server (for example Jianguoyun or Nextcloud). Snapshots are encrypted with a passphrase you choose; manifest metadata, including device names, is plaintext. Once enabled it checks the cloud when the app opens or changes between foreground and background and uploads plain fast-forwards, but it never replaces your local data on its own. There is no Thingary account system or collaboration. On desktop it has been checked against a real Jianguoyun account (upload, restore, conflict detection, wrong passphrase, restart); Nextcloud and round trips on real phones are still unverified, so make a complete backup before using it. See the [sync guide (Chinese)](docs/USER_GUIDE.md#sync); released packages follow their release notes.
 - **Builds are unsigned and not notarized.** The Mac build is ad-hoc signed without a Developer ID or Apple notarization; the free Windows code-signing application is still in progress, so current Windows installers are unsigned. Releases include checksums. See the [development guide](docs/DEVELOPMENT.md) to build your own.
-- **Interface in Simplified Chinese and English.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); Android in preview, iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
+- **Interface in Simplified Chinese and English.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); a preview Android APK is attached to 0.1.0 (Android 10 or later, 64-bit ARM only, not verified on a real phone), iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
 
 ## Privacy
 

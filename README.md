@@ -32,6 +32,8 @@
 
 安装包只从本仓库的 [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0) 或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0) 下载。Release 附件里提供 `SHA256SUMS.txt`，用于核对文件完整性；它不是发布者签名，也不能证明文件来源。
 
+0.1.0 是公开测试版（GitHub Pre-release）。从 0.0.8 升级会把资料升级到新的结构，升级前请先做一次完整备份；升级后，旧版本会拒绝读取新版本做的备份。各平台的验证范围和未验证项见 [0.1.0 发布说明](docs/releases/v0.1.0.md)。
+
 ### macOS
 
 下载 [`Thingary-0.1.0-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg)（Apple Silicon 与 Intel 共用，最低 macOS 14）。
@@ -57,13 +59,14 @@
 
 签名获批并启用后，以对应版本的 Release 说明为准；启用前不会把安装包写成已签名。签名范围、审批、隐私和申请进度见 [Windows 代码签名政策](docs/CODE_SIGNING.md)。
 
-### Android（预览中，Release 暂无安装包）
+### Android（预览版 APK）
 
-Android 版处于预览阶段，本仓库的 Release 里暂时没有 APK，请不要从第三方转存安装。发布后会提供 `Thingary-<版本>-android.apk`，校验值列在 Release 的 `SHA256SUMS.txt` 里：
+[`Thingary-0.1.0-android.apk`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk) 已随 0.1.0 Release 提供（约 52 MB，仅 64 位 ARM，Android 10 及以上）。它仍是预览版，**尚未在安卓真机上验证安装和使用**。请只从本仓库 Release 或 Gitee 镜像下载，不要从第三方转存安装：
 
-1. 只从本仓库的 Release 下载 APK。
+1. 只从本仓库的 Release 或 Gitee 镜像下载 APK。
 2. 按系统提示，允许浏览器或文件管理器「安装未知应用」，装好后可以收回这项权限。
-3. 用 `sha256sum Thingary-<版本>-android.apk`（或文件管理器显示的哈希）与 `SHA256SUMS.txt` 对照，一致再安装。
+3. 用 `sha256sum Thingary-0.1.0-android.apk`（或文件管理器显示的哈希）与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) 对照，一致再安装。
+4. 部分国产安卓系统会对未备案或来源未知的应用弹出提示或拦截，这是系统策略，不是应用故障。确认文件来自本仓库 Release 并核对过校验值后，再按系统提示处理；不要为此关闭系统的整体安全保护。
 
 ### iOS（自行构建，无公开安装包）
 
@@ -82,9 +85,9 @@ iPhone 版目前没有上架 App Store，也不提供公开安装包。有 Xcode
 ## 已知限制
 
 - **不联网取行情，也不做交易。** 没有实时价格、收益率、自动付款或 AI；投资收益和汇率需要自己填写。不提供日常流水记账。
-- **源码已有可选的 WebDAV 整库同步。** 默认关闭，连接自己的服务器；快照加密，设备名等清单元数据为明文；开启后只在打开、前后台切换时核对云端，不自动替换本机资料，不做物谱账号体系或多人协作。手机也有同步页（真实云盘与真机验证尚未完成，属实验性），详见[同步说明](docs/USER_GUIDE.md#sync)；已发布包以版本说明为准。
+- **0.1.0 起带可选的 WebDAV 整库同步（实验性）。** 默认关闭，连接自己的服务器；快照加密，设备名等清单元数据为明文；开启后只在打开、前后台切换时核对云端，不自动替换本机资料，不做物谱账号体系或多人协作。桌面端已用坚果云做过真机检查（上传、下载恢复、冲突识别、错误口令、重启）；Nextcloud 和手机真机往返尚未验证，使用前请先做完整备份。手机也有同步页，详见[同步说明](docs/USER_GUIDE.md#sync)；已发布包以版本说明为准。
 - **安装包未签名、未公证。** Mac 包只做本地临时签名，未使用 Developer ID 或 Apple 公证；Windows 免费代码签名仍在申请中，当前安装包未签名。发布包附带校验和。自行构建的方法见[开发说明](docs/DEVELOPMENT.md)。
-- **界面支持简体中文和 English**（设置 › 通用，自动时中文系统显示中文，其他显示英文）。支持范围：macOS 14+（Apple Silicon 已实测，Intel 仅构建检查）、Windows 11 x64（已实测；Windows 10 1809+ 为目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟；未签名）；Android 预览中（Release 暂未附 APK），iOS 需自行构建；没有 Linux 客户端。完整清单见[已知限制](https://thingary.jackzhu.top/quickstart/#limits)。
+- **界面支持简体中文和 English**（设置 › 通用，自动时中文系统显示中文，其他显示英文）。支持范围：macOS 14+（Apple Silicon 已实测，Intel 仅构建检查）、Windows 11 x64（已实测；Windows 10 1809+ 为目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟；未签名）；Android 预览版 APK 已随 0.1.0 提供（Android 10 及以上、仅 64 位 ARM，尚未真机验证），iOS 需自行构建；没有 Linux 客户端。完整清单见[已知限制](https://thingary.jackzhu.top/quickstart/#limits)。
 
 ## 资料与隐私
 
