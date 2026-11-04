@@ -27,19 +27,6 @@ function initializeThingaryDownloads(root, browser) {
   if (!controls.length) return;
   const suggestedPlatform = defaultThingaryPlatform(browser);
 
-  const descriptions = {
-    zh: {
-      mac: 'Mac 通用版 · Apple Silicon / Intel · DMG · 未签名公开测试版',
-      windows: 'Windows 10 1809+ / 11 · x64 · EXE · 未签名公开测试版',
-      android: 'Android 10+ · 64 位 ARM · APK · 预览版，尚未真机验证',
-    },
-    en: {
-      mac: 'Universal Mac · Apple Silicon / Intel · DMG · Unsigned public beta',
-      windows: 'Windows 10 1809+ / 11 · x64 · EXE · Unsigned public beta',
-      android: 'Android 10+ · 64-bit ARM · APK · Preview, not verified on real phones',
-    },
-  };
-
   function selectPlatform(platform) {
     for (const control of controls) {
       const language = control.dataset.downloadLanguage;
@@ -56,7 +43,6 @@ function initializeThingaryDownloads(root, browser) {
       }
       link.href = thingaryDownloads[selected];
       link.querySelector('[data-download-label]').textContent = language === 'zh' ? '下载物谱' : 'Download';
-      root.querySelector(`#${control.dataset.downloadDescription}`).textContent = descriptions[language][selected];
     }
   }
 
