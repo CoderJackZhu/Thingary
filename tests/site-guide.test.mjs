@@ -25,6 +25,7 @@ test('built website has local working links, images, fragments and all canonical
     const documents = new Map(files.map(f=>[join(output,f),readFileSync(join(output,f),'utf8')]));
     assert.equal(readFileSync(join(output, 'google327efbcfd1c87180.html'), 'utf8').trim(), 'google-site-verification: google327efbcfd1c87180.html');
     assert.match(readFileSync(join(output, 'BingSiteAuth.xml'), 'utf8'), /<user>D10309B5E4D4A9C072DA628F163EAE5F<\/user>/);
+    assert.equal(readFileSync(join(output, 'baidu_verify_codeva-gGc7dyj5FC.html'), 'utf8').trim(), '66e09f298b742406052298d68d3b3c25');
     const sitemap = readFileSync(join(output, 'sitemap.xml'), 'utf8');
     assert.match(sitemap, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
