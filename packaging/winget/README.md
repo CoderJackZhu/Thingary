@@ -6,7 +6,7 @@
 
 - 已生成 `0.0.8` 和 `0.1.0` 清单，安装包 URL 与 SHA-256 分别对应 GitHub Release `v0.0.8`、`v0.1.0`。
 - `0.1.0` 的 SHA-256 于 2026-11-02 从 Release 附件 `SHA256SUMS.txt` 回读：`F75B5A512F208748A15A433590043B03845A09BAC82C53EF706DCA2938DB9230`。生成清单时没有使用候选包或文档里的预先抄写值。
-- **两个版本都尚未提交到 winget-pkgs。** 正式提交需要维护者另行授权。
+- **两个版本都尚未提交到 winget-pkgs，且暂缓提交。** 当前 Windows 安装包未签名，winget 解决不了 SmartScreen；包标识一经提交即被占用，之后每个版本都要持续维护。待 Windows 签名（SignPath）或 Store 路线落地后，只提交一次签名后的版本，不提交 `0.0.8`。正式提交需要维护者另行授权，并在 Windows 上先通过 `winget validate`、本人签署 Microsoft CLA。
 - winget 不会消除 SmartScreen；安装包签名仍由 SignPath 或 Store 解决。
 - `0.1.0` 在 GitHub 上是 Pre-release，Windows 安装包未签名。winget-pkgs 对这两种状态是否有额外要求尚未核实；本清单不宣称已经满足提交审核条件。
 
