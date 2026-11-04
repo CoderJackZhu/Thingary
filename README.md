@@ -10,7 +10,9 @@
 
 <p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0"><strong>下载 0.1.0</strong></a> · <a href="https://thingary.jackzhu.top/">产品主页</a> · <a href="https://thingary.jackzhu.top/quickstart/">快速上手</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">国内镜像</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">使用反馈</a></p>
 
-![虚构样例的 21 秒界面预览：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
+![0.1.0 浏览器预览的 21 秒虚构样例：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
+
+这组六帧图由 0.1.0 当前源码在浏览器预览中捕获，不是原生操作录像，也不替代平台验收。
 
 ▶ [53 秒介绍视频](https://thingary.jackzhu.top/#film)：每月盘点、净资产变化、物品档案，以及每月多存一点、退休时间怎么跟着变。
 

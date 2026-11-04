@@ -10,7 +10,9 @@
 
 <p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0"><strong>Download 0.1.0</strong></a> · <a href="https://thingary.jackzhu.top/">Website</a> · <a href="https://thingary.jackzhu.top/quickstart/">Quick start</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">Feedback</a></p>
 
-![21-second slideshow of the fictional sample: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)
+![21-second 0.1.0 browser preview of the fictional sample: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)
+
+These six frames come from the current 0.1.0 source in a browser preview. This is not a native recording or platform acceptance.
 
 ▶ [53-second film](https://thingary.jackzhu.top/#film) (Chinese captions): monthly check-ins, net-worth changes, belongings, and how saving a little more moves your retirement date.
 

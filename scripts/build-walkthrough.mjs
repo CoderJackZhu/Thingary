@@ -1,4 +1,4 @@
-// Rebuild the README slideshow from the registered fictional native captures.
+// Rebuild the README slideshow from registered fictional captures.
 // Derive the physical title-bar trim from the screenshot's actual pixel ratio.
 import { mkdtempSync, rmSync, renameSync, statSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
