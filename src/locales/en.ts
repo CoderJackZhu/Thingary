@@ -6171,7 +6171,7 @@ export const en: Record<string, string> = {
   "没有记录使用它。": "No records use it.",
   "没有设置资金底线，只检查支付能力，不代表资金安全。": "No minimum balance is set; only your ability to pay is checked, not whether your funds are safe.",
   "没有账号，资料保存在本机，默认不上传。可选的 WebDAV 同步默认关闭，开启后只连接你自己配置的服务器，内容用你的口令加密后上传。除此之外，只有你开启“启动时检查更新”或主动点“检查更新”时，才会向 Gitee 和 GitHub 的公开版本列表各查询一次，附普通网络信息与应用版本标识，不发送资料、设备或使用信息。下载和安装始终由你决定。": "No account. Your data stays on this device and is not uploaded by default. Optional WebDAV sync is off by default; once on, it connects only to the server you configure and uploads content encrypted with your passphrase. Apart from that, only when you turn on “Check for updates on launch” or tap “Check for updates” yourself does it query the public release lists on Gitee and GitHub once each, sending standard network information and the app version identifier — never your data, device, or usage information. Downloads and installs are always your decision.",
-  "没有账号，资料保存在这台手机，应用不上传资料，使用完全离线。": "No account. Your data stays on this phone, the app never uploads it, and everything works fully offline.",
+  "没有账号，资料默认保存在这台手机，不主动上传。可选的 WebDAV 同步默认关闭；开启后只有你点「立即同步」时才连接自己配置的服务器，并用你的口令加密后上传。": "No account. Your data stays on this phone by default and isn't uploaded automatically. Optional WebDAV sync is off by default; after you enable it, it connects only to the server you configure when you tap “Sync now” and uploads content encrypted with your passphrase.",
   "没有这一类事件。": "No events of this type.",
   "没有适合当前平台的安装包": "No installer available for this platform",
   "没有需要保存的更改。": "No changes to save.",
