@@ -245,8 +245,9 @@ fn foreign_import_csv_excel_and_backup_roundtrip_and_row_errors() {
     use std::collections::BTreeMap;
     use thingary_lib::financial_import::{BatchInput, CommitInput, FileInput};
     let t = tempfile::tempdir().unwrap();
-    let mut s = Store::open(t.path()).unwrap();
-    thingary_lib::modules::initialize_runtime(t.path());
+    let library = t.path().join("library");
+    let mut s = Store::open(&library).unwrap();
+    thingary_lib::modules::initialize_runtime(&library);
     let batch=BatchInput {generation:s.generation(),source_name:"虚构外币导入".into(),mapping_set_id:"虚构".into(),files:vec![
       FileInput{kind:"accounts".into(),name:"虚构账户.csv".into(),csv_text:"account_key,name,kind,enabled_from,counted,币种\na,虚构美元,cash,2020-01-01,true,USD\nb,虚构日元,cash,2020-01-01,true,JPY\nc,虚构人民币,cash,2020-01-01,true,CNY\n".into(),column_mapping:BTreeMap::new()},
       FileInput{kind:"snapshots".into(),name:"虚构盘点.csv".into(),csv_text:"snapshot_key,date,account_key,amount,币种,原币金额,汇率\ns,2026-10-17,a,,USD,1234.56,7.123456\ns,2026-10-17,b,500,JPY,10000,0.05\ns,2026-10-17,c,0,CNY,,\n".into(),column_mapping:BTreeMap::new()}
@@ -414,8 +415,9 @@ fn explicit_cny_and_absent_defaults_have_identical_normalized_import_digest() {
     use std::collections::BTreeMap;
     use thingary_lib::financial_import::{BatchInput, FileInput};
     let dir = tempfile::tempdir().unwrap();
-    let s = Store::open(dir.path()).unwrap();
-    thingary_lib::modules::initialize_runtime(dir.path());
+    let library = dir.path().join("library");
+    let s = Store::open(&library).unwrap();
+    thingary_lib::modules::initialize_runtime(&library);
     let mut b = BatchInput {
         generation: s.generation(),
         source_name: "虚构旧请求".into(),
