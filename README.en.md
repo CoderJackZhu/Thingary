@@ -10,123 +10,74 @@
 
 <p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0"><strong>Download 0.1.0</strong></a> · <a href="https://thingary.jackzhu.top/">Website</a> · <a href="https://thingary.jackzhu.top/quickstart/">Quick start</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">Feedback</a></p>
 
-![21-second 0.1.0 browser preview of the fictional sample: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)
+[![High-resolution Chinese desktop preview: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)](docs/images/readme-desktop/overview.png)
 
-These six frames come from the current 0.1.0 source in a browser preview. This is not a native recording or platform acceptance.
+Chinese desktop interface with fictional sample data, in a 21-second browser-preview slideshow. Click the animation for a lossless screenshot.
 
 ▶ [53-second film](https://thingary.jackzhu.top/#film) (Chinese captions): monthly check-ins, net-worth changes, belongings, and how saving a little more moves your retirement date.
 
 Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts accounts, belongings, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally, needs no account, and does not ask you to log every transaction.
 
-The interface is available in **Simplified Chinese and English** (Settings › General; "Auto" follows the system language). Account types are designed around mainland China (housing provident fund, individual pension accounts, mortgages); the base currency is Chinese yuan (CNY), and foreign-currency accounts are supported with exchange rates you enter yourself.
-
 ## What it does
 
-| | |
+| Feature | Use it to |
 |---|---|
-| **Accounts and check-ins** | Record assets, debts, and a mortgage; check balances monthly or quarterly. Complete check-ins build a net-worth trend, and a new check-in starts with unchanged balances carried over, so only accounts that moved need typing. |
+| **Accounts and check-ins** | Record assets, debts, and a mortgage; check balances monthly or quarterly. Complete check-ins build a net-worth trend. Unchanged balances are carried forward for you to confirm. |
 | **Goals and planning** | Estimate required monthly savings and a possible financial-independence date; compare a large purchase, a break from work, or a job change. |
-| **Review and plans** | Income and major expenses, period review, savings goals, recurring costs, and large planned payments. Unknown values stay unknown, never zero. |
-| **Belongings (optional)** | Prices, photos, repairs, and warranties, with history kept after sale or retirement, plus daily ownership cost. |
-| **Data protection** | Full and automatic backups, recently deleted records, and optional backup encryption with a recovery key you keep. |
+| **Review and plans** | Record income and major expenses, review a period, track savings goals, and plan recurring costs and large payments. Unknown values stay unknown. |
+| **Belongings (optional)** | Keep prices, photos, repairs, warranties, and daily ownership costs, with history retained after sale or retirement. |
+| **Data protection** | Make full and automatic backups, restore recently deleted records, and optionally encrypt backups with a recovery key you keep. |
 
 Built for occasional check-ins. No daily transaction ledger, market-data feed, trading, or automatic payments.
 
+## Android interface
+
+Overview, account check-ins, and retirement planning on the phone. These Chinese screenshots come from an Android 15 emulator with fictional sample data. Click an image for the full resolution.
+
+| Overview | Accounts & check-ins | Goals & projections |
+|:---:|:---:|:---:|
+| <a href="docs/images/android/overview.png"><img src="docs/images/android/overview.png" width="260" alt="Chinese Android overview: fictional net worth and retirement plan"></a> | <a href="docs/images/android/accounts.png"><img src="docs/images/android/accounts.png" width="260" alt="Chinese Android wealth page: fictional net worth, pending payments, and trend"></a> | <a href="docs/images/android/planning.png"><img src="docs/images/android/planning.png" width="260" alt="Chinese Android planning page: fictional retirement goal and projections"></a> |
+
 ## Download and install
 
-Download only from this repository's [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0) or the [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0). The release assets include `SHA256SUMS.txt` for checking file integrity. A checksum is not a publisher signature and does not prove where a file came from.
+**0.1.0 is a public beta**, with Mac, Windows, and Android installers. A [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0) is available for downloads in mainland China.
 
-0.1.0 is a public beta (a GitHub Pre-release). Upgrading from 0.0.8 moves your data to a newer structure, so make a complete backup first; after the upgrade, older versions refuse to read backups made by the newer one. See the [0.1.0 release notes (Chinese)](docs/releases/v0.1.0.md) for what was and was not verified on each platform.
+| Platform | Download | Installation |
+|---|---|---|
+| macOS 14+ · Apple Silicon / Intel | [Universal Mac DMG](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg) | Drag into Applications. The app is ad-hoc signed without Apple notarization; the first launch may need approval in Privacy & Security |
+| Windows 10 1809+ / 11 · x64 | [Windows installer](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe) | Run the EXE; internet is needed if WebView2 is missing. The unsigned installer may trigger SmartScreen |
+| Android 10+ · 64-bit ARM | [Android preview APK](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk) | Allow your browser or file manager to install unknown apps when prompted; you can revoke permission afterwards |
+| iPhone | No public installer or App Store listing yet | Developers can [build it themselves](docs/DEVELOPMENT.md#ios-开发) |
 
-### macOS
+Tested on Apple Silicon Mac and Windows 11 x64. Intel, macOS 14, Windows 10, and real Android phones remain unverified. Windows ARM devices require x64 emulation.
 
-Download [`Thingary-0.1.0-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg) (one build for Apple Silicon and Intel; macOS 14 or later).
-
-1. Open the DMG, drag “物谱” into Applications, then open it from Applications.
-2. The app is **ad-hoc signed, without a Developer ID or Apple notarization**. If macOS blocks the first launch, right-click (or Control-click) “物谱” in Finder → **Open**, then confirm; or use **System Settings › Privacy & Security › Open Anyway**. Do this only for a file downloaded from this repository's Releases, and do not disable system security. See [Apple's instructions](https://support.apple.com/en-us/102445).
-3. Check the download: in Terminal run `shasum -a 256 ~/Downloads/Thingary-0.1.0-universal.dmg` and compare the output with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) in the release.
-
-Tested on Apple Silicon with macOS 27. macOS 14 and Intel are covered by build and architecture checks only, not hardware testing.
-
-### Windows
-
-Download [`Thingary_0.1.0_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe). **Windows 11 x64 is tested; Windows 10 1809+ is the target range but has not been hardware-tested.** Only an x64 installer is provided; ARM64 devices (such as Snapdragon X) run the x64 app through system emulation, which is not the same as a native ARM build.
-
-1. Run the installer; it installs for the current user only and usually needs no administrator rights. If WebView2 is missing, the installer downloads and installs it; the first install needs internet access.
-2. The installer is **unsigned**. SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install). Do not disable system-wide protection for this.
-3. Check the download: in PowerShell run `Get-FileHash .\Thingary_0.1.0_x64-setup.exe -Algorithm SHA256` and compare it with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) in the release.
-4. If installation or launch fails, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install) and keep the app version, Windows version, WebView2 version and exact error text.
-
-### Windows code signing
-
-The Windows installer is currently **unsigned**. An application to SignPath Foundation for free code signing was submitted on 2026-10-25; they asked for public third-party references of the project's reputation, which it does not have yet, so the installer will stay unsigned for now and we will re-apply later. While unsigned, SmartScreen may say “Windows protected your PC”: choose **More info** → **Run anyway**. If Windows 11 Smart App Control blocks it without an override, see the [Windows install guide (Chinese)](https://thingary.jackzhu.top/guide/#windows-install). Do not disable system-wide protection for this.
-
-If signing is approved and enabled, the release notes for that version are the source of truth; this page will not call an installer signed before it is. See the [Windows code signing policy (Chinese)](docs/CODE_SIGNING.md) for scope, approval, privacy, and application status.
-
-### Android (preview APK)
-
-[`Thingary-0.1.0-android.apk`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk) is attached to the 0.1.0 release (about 52 MB; 64-bit ARM only; Android 10 or later). It is still a preview and **has not been verified on a real Android phone**. Download it only from this repository's Releases or the Gitee mirror, and do not install copies from third-party mirrors:
-
-1. Download the APK only from this repository's Releases or the Gitee mirror.
-2. Allow your browser or file manager to “install unknown apps” when prompted; you can revoke that permission afterwards.
-3. Compare `sha256sum Thingary-0.1.0-android.apk` (or the hash shown by your file manager) with [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) before installing.
-4. Some Chinese Android systems show a warning or block apps that are not filed with local authorities or come from unknown sources. That is a system policy, not an app fault. Once you have confirmed the file came from this repository's Releases and checked its checksum, follow the system prompts; do not turn off system-wide protection for this.
-
-### iOS (build it yourself; no public installer)
-
-The iPhone version is not currently on the App Store and has no public installer. Developers with Xcode can build and install it on their own iPhone; requirements and steps are in the [development guide's iOS section](docs/DEVELOPMENT.md#ios-开发).
-
-Signing with a free Apple ID expires after **7 days**; rebuild and reinstall to keep using it. Reinstalling over the app keeps your data; deleting the app deletes it. The phone and the computer keep separate libraries, moved only through full backup files.
+See the [installation guide (Chinese)](https://thingary.jackzhu.top/guide/#download) for system security prompts. Download from this project's Releases or mirror; `SHA256SUMS.txt` in the release assets lets you check file integrity. **Make a full backup before upgrading**: older versions may not read upgraded data or backups.
 
 ## Three steps to start
 
-1. The first launch opens a **fictional sample**; look around, then choose “Start recording my own data” for an empty personal library.
-2. In **Accounts & check-ins**, enter each platform's balance and debts once. Belongings-only users can start from **All belongings** instead. Leave unknown amounts empty; enter 0 only when it is truly zero.
-3. In **Goals**, enter a target date and monthly savings to see the conclusion; the “how long could I take a break” result is on the **Trial** tab. Come back monthly or quarterly.
+1. Explore the **fictional sample**, then choose “Start recording my own data” for an empty personal library.
+2. In **Accounts & check-ins**, enter balances and debts from each platform. Belongings-only users can start from **All belongings**. Leave unknown amounts empty; enter 0 only for an actual zero.
+3. In **Goals**, enter a target date and monthly savings to see the conclusion; the **Trial** tab estimates how long you could take a break. Come back monthly or quarterly.
 
-After your first entries, make a full backup under **Settings › Data management** and keep a copy off the machine. See [backup and restore (Chinese)](https://thingary.jackzhu.top/guide/#backup).
+After your first entries, make a full backup under **Settings › Data management** and keep a copy off the device. See [backup and restore (Chinese)](https://thingary.jackzhu.top/guide/#backup).
 
-## Known limitations
+## Data and privacy
 
-- **No market data or trading.** There are no live prices, return tracking, automatic payments, or AI; investment returns and exchange rates are entered by hand. There is no daily transaction ledger.
-- **0.1.0 includes optional WebDAV snapshot sync (experimental).** It is off by default and connects to your own server (for example Jianguoyun or Nextcloud). Snapshots are encrypted with a passphrase you choose; manifest metadata, including device names, is plaintext. Once enabled it checks the cloud when the app opens or changes between foreground and background and uploads plain fast-forwards, but it never replaces your local data on its own. There is no Thingary account system or collaboration. On desktop it has been checked against a real Jianguoyun account (upload, restore, conflict detection, wrong passphrase, restart); Nextcloud and round trips on real phones are still unverified, so make a complete backup before using it. See the [sync guide (Chinese)](docs/USER_GUIDE.md#sync); released packages follow their release notes.
-- **Builds are unsigned and not notarized.** The Mac build is ad-hoc signed without a Developer ID or Apple notarization; the free Windows code-signing application is still in progress, so current Windows installers are unsigned. Releases include checksums. See the [development guide](docs/DEVELOPMENT.md) to build your own.
-- **Interface in Simplified Chinese and English.** Support: macOS 14+ (Apple Silicon tested; Intel build-checked only), Windows 11 x64 tested (Windows 10 1809+ is the target range but not hardware-tested; x64 installer only, ARM64 runs through emulation; unsigned); a preview Android APK is attached to 0.1.0 (Android 10 or later, 64-bit ARM only, not verified on a real phone), iOS requires a local Xcode build; no Linux client. See [known limitations](https://thingary.jackzhu.top/quickstart/#limits).
+Records stay on your device by default and work offline, without a Thingary account. The interface supports Simplified Chinese and English. Account types are designed for mainland China; the base currency is CNY, with exchange rates entered by hand. Planning results are estimates based on your inputs, not promised returns.
 
-## Privacy
+- **Backups:** optional recovery-key encryption. Keep the key yourself; a lost key cannot be recovered. The main database and photos are not encrypted. Keep a full backup off the device.
+- **Multiple devices:** optional [WebDAV sync (Chinese)](https://thingary.jackzhu.top/guide/#sync) is experimental and off by default. It transfers encrypted full-library snapshots to your own server, without automatic merging or replacing local data.
+- **Network access:** desktop update checks read public release lists when requested or when you enable startup checks. Enabled sync connects to your configured server. Read [privacy and data safety (Chinese)](https://thingary.jackzhu.top/guide/#privacy).
 
-Records stay local by default, with no Thingary account or login required. Optional WebDAV sync sends encrypted snapshots to your configured server; once enabled, it connects when you click Sync now, Check only or Test connection, and when the app opens or moves between foreground and background (you can turn that off in the sync settings); opening settings and saving configuration do not use the network by themselves. Desktop update checks read the public release lists on Gitee and GitHub only when you click **Check for updates**, or after you enable startup checks; it sends no records, device, or usage information (like any website visit, the request carries standard network information and an app-version User-Agent). The iOS version does not check for updates.
+## Help and feedback
 
-The main database and photos are **not encrypted**. Backup encryption is optional, and the recovery key is yours to keep; losing it means the backup cannot be restored. Automatic backups share the same disk as the main data, so keep a separate off-device copy. Read [privacy and data safety (Chinese)](https://thingary.jackzhu.top/guide/#privacy).
+Start with the [quick start](https://thingary.jackzhu.top/quickstart/), look up operations in the [user guide](https://thingary.jackzhu.top/guide/), or check the [FAQ](https://thingary.jackzhu.top/guide/#faq) (all in Chinese). Changes are listed in the [changelog (Chinese)](CHANGELOG.md).
 
-## Feedback
+- [Report a bug](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml) with the version, system, steps, and error message. There is a separate [Windows installation form](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml).
+- [Suggest a feature](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml) or [share your experience](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml).
 
-- [Bug report](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml): what happened, how to reproduce it, version and system.
-- [Windows install issue](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml): install, SmartScreen, WebView2, launch or uninstall failures (form in Chinese).
-- [Feature request](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml): describe the problem first, then the idea.
-- [Usage feedback](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml): three questions — what did you use before, did you come back for a second check-in (and if not, why), and what would make you recommend it?
+Hide real amounts and account numbers before sharing screenshots; never upload a database or backup. Report security issues privately through the [security policy](SECURITY.md).
 
-Please reproduce with fictional data only, hide real amounts and account numbers, and never upload a database or backup file. Report security issues privately as described in the [security policy](SECURITY.md).
+## Open source and contributing
 
-## Docs and building
-
-[Quick start](https://thingary.jackzhu.top/quickstart/) · [User guide](https://thingary.jackzhu.top/guide/) · [Product rules (Chinese)](docs/PRODUCT_RULES.md) · [Changelog (Chinese)](CHANGELOG.md) · [Documentation index (Chinese)](docs/INDEX.md).
-
-Contributing: [CONTRIBUTING (Chinese)](CONTRIBUTING.md) · [development and testing (Chinese)](docs/DEVELOPMENT.md) · [release process (Chinese)](docs/RELEASING.md). To build on a Mac (Node.js 22.18+, Rust, and Xcode command-line tools required):
-
-```sh
-rustup target add x86_64-apple-darwin wasm32-unknown-unknown
-npm ci
-npm run release
-sh scripts/make-dmg.sh
-```
-
-On Windows with the MSVC toolchain, run `npm run release:win`. Both produce unsigned test builds; published installers come only from Releases.
-
-## License
-
-Code is licensed under [AGPL-3.0-or-later](LICENSE). Releases 0.0.4 and earlier were labeled GPL-3.0-or-later. See [third-party licenses](THIRD_PARTY_LICENSES.md).
-
-Planning calculations use an independent Rust core; see [source notices (Chinese)](SOURCE_NOTICES.md) and the [core documentation (Chinese)](crates/planning-engine/README.md).
-
-The names “物谱” and “Thingary” and the app icon are outside the AGPL license. Use your own name and icon when redistributing a modified app; see [brand usage (Chinese)](docs/brand/README.md).
+To contribute or build the app, see [contributing](CONTRIBUTING.md), [development and testing](docs/DEVELOPMENT.md), and the [documentation index](docs/INDEX.md) (Chinese). Code is licensed under [AGPL-3.0-or-later](LICENSE); see [source notices](SOURCE_NOTICES.md) and [third-party licenses](THIRD_PARTY_LICENSES.md). The names “物谱” and “Thingary” and the icon are outside the AGPL license. Use your own name and icon for modified distributions; see [brand usage](docs/brand/README.md).

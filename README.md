@@ -10,9 +10,9 @@
 
 <p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0"><strong>下载 0.1.0</strong></a> · <a href="https://thingary.jackzhu.top/">产品主页</a> · <a href="https://thingary.jackzhu.top/quickstart/">快速上手</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">国内镜像</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">使用反馈</a></p>
 
-![0.1.0 浏览器预览的 21 秒虚构样例：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
+[![0.1.0 中文桌面界面的高清预览：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)](docs/images/readme-desktop/overview.png)
 
-这组六帧图由 0.1.0 当前源码在浏览器预览中捕获，不是原生操作录像，也不替代平台验收。
+桌面端中文界面，21 秒循环，使用虚构样例（浏览器预览）。点击动图可查看无损原图。
 
 ▶ [53 秒介绍视频](https://thingary.jackzhu.top/#film)：每月盘点、净资产变化、物品档案，以及每月多存一点、退休时间怎么跟着变。
 
@@ -30,99 +30,54 @@
 
 它适合低频记录，不提供日常流水记账、行情交易或自动付款。
 
+## 安卓端界面
+
+总览看家底，财富页盘账户，规划页看目标。以下为 Android 15 模拟器中的中文界面，使用虚构样例；点击图片可查看原图。
+
+| 总览 | 账户与盘点 | 目标与测算 |
+|:---:|:---:|:---:|
+| <a href="docs/images/android/overview.png"><img src="docs/images/android/overview.png" width="260" alt="安卓版中文总览：金融净资产与退休规划，虚构样例"></a> | <a href="docs/images/android/accounts.png"><img src="docs/images/android/accounts.png" width="260" alt="安卓版中文财富页：金融净资产、待确认付款与净资产趋势，虚构样例"></a> | <a href="docs/images/android/planning.png"><img src="docs/images/android/planning.png" width="260" alt="安卓版中文规划页：退休目标与测算结果，虚构样例"></a> |
+
 ## 下载与安装
 
-安装包只从本仓库的 [Releases](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0) 或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0) 下载。Release 附件里提供 `SHA256SUMS.txt`，用于核对文件完整性；它不是发布者签名，也不能证明文件来源。
+**0.1.0 公开测试版**，提供 Mac、Windows 和安卓安装包。GitHub 下载不便时，可用 [Gitee 国内镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0)。
 
-0.1.0 是公开测试版（GitHub Pre-release）。从 0.0.8 升级会把资料升级到新的结构，升级前请先做一次完整备份；升级后，旧版本会拒绝读取新版本做的备份。各平台的验证范围和未验证项见 [0.1.0 发布说明](docs/releases/v0.1.0.md)。
+| 平台 | 下载 | 安装提示 |
+|---|---|---|
+| macOS 14+ · Apple Silicon / Intel | [Mac 通用版 DMG](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg) | 拖入「应用程序」。未经过 Apple 公证，首次打开可能需要在「隐私与安全性」允许打开 |
+| Windows 10 1809+ / 11 · x64 | [Windows 安装程序](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe) | 运行 EXE；缺少 WebView2 时需联网安装。安装包未签名，可能出现 SmartScreen 提示 |
+| Android 10+ · 64 位 ARM | [安卓预览版 APK](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk) | 按系统提示允许下载来源「安装未知应用」，装好后可收回权限 |
+| iPhone | 暂无公开安装包，尚未上架 App Store | 开发者可[自行构建](docs/DEVELOPMENT.md#ios-开发) |
 
-### macOS
+Mac 已在 Apple Silicon、Windows 已在 Windows 11 x64 使用；Intel、macOS 14、Windows 10 和安卓真机尚未验证。Windows ARM 设备需通过系统模拟运行 x64 版。
 
-下载 [`Thingary-0.1.0-universal.dmg`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg)（Apple Silicon 与 Intel 共用，最低 macOS 14）。
-
-1. 打开 DMG，把「物谱」拖进「应用程序」，再从「应用程序」打开。
-2. 安装包使用本地临时签名，**没有 Developer ID 签名，也没有 Apple 公证**。首次打开若被系统拦住，在 Finder 里右键（或按住 Control 点按）「物谱」→「打开」，再确认一次；也可以到「系统设置 › 隐私与安全性」点「仍要打开」。只对从本仓库 Release 下载的文件这样操作，不要关闭系统的整体安全保护。Apple 的说明见[打开来自身份不明开发者的 App](https://support.apple.com/zh-cn/102445)。
-3. 核对校验和：在「终端」运行 `shasum -a 256 ~/Downloads/Thingary-0.1.0-universal.dmg`，把输出与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) 对照。
-
-已在 Apple Silicon、macOS 27 实测；macOS 14 和 Intel 只做了构建与架构检查，尚未实机验证。
-
-### Windows
-
-下载 [`Thingary_0.1.0_x64-setup.exe`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe)。**Windows 11 x64 已实测；Windows 10 1809+ 是目标范围，但尚未实机验证。** 当前只提供 x64 安装包；ARM64 设备（如 Snapdragon X）由系统模拟运行 x64 应用，不等同于原生 ARM 版。
-
-1. 运行安装包；默认只安装给当前用户，通常不需要管理员权限。缺少 WebView2 时安装器会联网下载并安装运行时，首次安装需要联网。
-2. 安装包**未签名**，SmartScreen 可能提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」。Windows 11 开启「智能应用控制」时可能没有放行按钮，处理办法见 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)。不要为此关闭整机的系统保护。
-3. 核对校验和：在 PowerShell 运行 `Get-FileHash .\Thingary_0.1.0_x64-setup.exe -Algorithm SHA256`，把结果与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) 对照。
-4. 安装或启动失败时，先看 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)，并保留版本、Windows 版本、WebView2 版本和完整错误文字。
-
-### Windows 代码签名
-
-目前 Windows 安装包**未签名**，已向 SignPath Foundation 提交免费代码签名申请（2026-10-25 提交）；对方回复需要项目的公开第三方声誉材料，目前暂无，待积累后再申请，因此安装包短期内仍未签名。未签名时 SmartScreen 可能提示「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」；Windows 11 开启「智能应用控制」时可能没有放行按钮，处理办法见 [Windows 安装排查](https://thingary.jackzhu.top/guide/#windows-install)。不要为此关闭整机的系统保护。
-
-签名获批并启用后，以对应版本的 Release 说明为准；启用前不会把安装包写成已签名。签名范围、审批、隐私和申请进度见 [Windows 代码签名政策](docs/CODE_SIGNING.md)。
-
-### Android（预览版 APK）
-
-[`Thingary-0.1.0-android.apk`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk) 已随 0.1.0 Release 提供（约 52 MB，仅 64 位 ARM，Android 10 及以上）。它仍是预览版，**尚未在安卓真机上验证安装和使用**。请只从本仓库 Release 或 Gitee 镜像下载，不要从第三方转存安装：
-
-1. 只从本仓库的 Release 或 Gitee 镜像下载 APK。
-2. 按系统提示，允许浏览器或文件管理器「安装未知应用」，装好后可以收回这项权限。
-3. 用 `sha256sum Thingary-0.1.0-android.apk`（或文件管理器显示的哈希）与 Release 里的 [`SHA256SUMS.txt`](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/SHA256SUMS.txt) 对照，一致再安装。
-4. 部分国产安卓系统会对未备案或来源未知的应用弹出提示或拦截，这是系统策略，不是应用故障。确认文件来自本仓库 Release 并核对过校验值后，再按系统提示处理；不要为此关闭系统的整体安全保护。
-
-### iOS（自行构建，无公开安装包）
-
-iPhone 版目前没有上架 App Store，也不提供公开安装包。有 Xcode 的开发者可以自行构建并安装到自己的 iPhone，所需工具和步骤见[开发说明的 iOS 小节](docs/DEVELOPMENT.md#ios-开发)。
-
-免费 Apple ID 的签名 **7 天后过期**，过期后需要重新构建安装；覆盖安装会保留资料，删除 App 会连同资料一起删除。手机与电脑的资料库各自独立，只能通过完整备份文件搬运。
+安装遇到拦截时，按[安装指南](https://thingary.jackzhu.top/guide/#download)处理。请从本项目 Release 或镜像下载，附件中的 `SHA256SUMS.txt` 可核对文件完整性。**升级前先做完整备份**，旧版本可能无法读取升级后的资料和备份。
 
 ## 三步开始
 
-1. 首次打开直接进入**虚构样例**，可以先随便看看；点「开始记录我的资料」进入自己的空白资料。
+1. 先浏览**虚构样例**；准备好后点「开始记录我的资料」（手机为「开始记录」），进入自己的空白资料。
 2. 到「账户与盘点」对照各平台录一次余额和欠款；只想整理物品也可以从「全部物品」开始。不知道的金额留空，明确为零才填 0。
 3. 到「目标」填目标时间和每月能存的钱，看右侧结论；「歇一阵能撑多久」在「试算」页。之后每月或每季回来盘一次即可。
 
 录完第一批资料后，到「设置 › 数据管理」做一次完整备份，另外保存一份到原机之外。详见[备份与恢复](https://thingary.jackzhu.top/guide/#backup)。
 
-## 已知限制
-
-- **不联网取行情，也不做交易。** 没有实时价格、收益率、自动付款或 AI；投资收益和汇率需要自己填写。不提供日常流水记账。
-- **0.1.0 起带可选的 WebDAV 整库同步（实验性）。** 默认关闭，连接自己的服务器；快照加密，设备名等清单元数据为明文；开启后只在打开、前后台切换时核对云端，不自动替换本机资料，不做物谱账号体系或多人协作。桌面端已用坚果云做过真机检查（上传、下载恢复、冲突识别、错误口令、重启）；Nextcloud 和手机真机往返尚未验证，使用前请先做完整备份。手机也有同步页，详见[同步说明](docs/USER_GUIDE.md#sync)；已发布包以版本说明为准。
-- **安装包未签名、未公证。** Mac 包只做本地临时签名，未使用 Developer ID 或 Apple 公证；Windows 免费代码签名仍在申请中，当前安装包未签名。发布包附带校验和。自行构建的方法见[开发说明](docs/DEVELOPMENT.md)。
-- **界面支持简体中文和 English**（设置 › 通用，自动时中文系统显示中文，其他显示英文）。支持范围：macOS 14+（Apple Silicon 已实测，Intel 仅构建检查）、Windows 11 x64（已实测；Windows 10 1809+ 为目标范围但未实机验证；仅提供 x64 安装包，ARM64 走系统模拟；未签名）；Android 预览版 APK 已随 0.1.0 提供（Android 10 及以上、仅 64 位 ARM，尚未真机验证），iOS 需自行构建；没有 Linux 客户端。完整清单见[已知限制](https://thingary.jackzhu.top/quickstart/#limits)。
-
 ## 资料与隐私
 
-默认在本机记录，无需物谱账号，可离线使用。可选 WebDAV 同步向你配置的服务器传输加密快照；开启后会在你点同步相关按钮时，以及打开、回到前台、进入后台时核对云端（可在设置里关闭），进入设置页和保存配置本身不会联网。桌面只有你点「检查更新」，或主动开启「启动时检查更新」后，才会读取 Gitee 与 GitHub 的公开版本列表；不发送资料、设备或使用信息（与普通网站访问一样，会带常规网络信息与应用版本 User-Agent）。iOS 版不检查更新。
+资料默认保存在本机，无需物谱账号，可离线使用。界面支持简体中文和 English；金额以人民币为本位，外币汇率由你填写。规划是基于所填条件的估算，不是收益承诺。
 
-主资料库和图片**未加密**；备份加密是可选项，恢复密钥由你保管，丢失无法找回。自动备份和主资料在同一块磁盘上，请另外保留一份异地备份。详见[隐私与资料安全](https://thingary.jackzhu.top/guide/#privacy)。
+- **备份**：可用恢复密钥加密，密钥由你保管，丢失无法找回。主资料库和图片未加密；请把完整备份另存一份到原设备之外。
+- **多设备**：可选的 [WebDAV 同步](https://thingary.jackzhu.top/guide/#sync)仍是实验性功能，默认关闭。开启后向你自己的服务器传输加密整库快照，不自动合并或替换本机资料。
+- **联网**：桌面版手动检查更新，或主动开启启动检查时，才查询公开版本列表；开启同步后会连接你配置的服务器。详见[隐私与资料安全](https://thingary.jackzhu.top/guide/#privacy)。
 
-## 反馈
+## 帮助与反馈
 
-- [缺陷报告](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml)：发生了什么、怎么复现、版本与系统。
-- [Windows 安装问题](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml)：安装、SmartScreen、WebView2、启动或卸载失败。
-- [功能建议](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml)：先说想解决的问题，再说方案。
-- [使用反馈](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml)：问三件事——你以前用什么？第二次盘点你回来了吗，为什么没回来？什么会让你推荐给别人？
+第一次使用看[快速上手](https://thingary.jackzhu.top/quickstart/)；操作细节查[完整使用指南](https://thingary.jackzhu.top/guide/)，遇到问题先看[常见问题](https://thingary.jackzhu.top/guide/#faq)。更新内容见[版本记录](CHANGELOG.md)。
 
-请只用虚构数据复现，遮住真实金额和账户号，不要上传数据库或备份文件。安全问题请按[安全政策](SECURITY.md)私下报告。
+- [报告问题](https://github.com/CoderJackZhu/Thingary/issues/new?template=bug_report.yml)：附版本、系统、操作步骤和错误提示；[Windows 安装问题](https://github.com/CoderJackZhu/Thingary/issues/new?template=windows_install.yml)有单独入口。
+- [提出建议](https://github.com/CoderJackZhu/Thingary/issues/new?template=feature_request.yml)或[分享使用感受](https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml)。
 
-## 文档与构建
+反馈前请遮住真实金额和账户号，不要上传数据库或备份。安全问题按[安全政策](SECURITY.md)私下报告。
 
-[快速上手](https://thingary.jackzhu.top/quickstart/) · [完整使用指南](https://thingary.jackzhu.top/guide/) · [业务规则](docs/PRODUCT_RULES.md) · [版本记录](CHANGELOG.md) · [文档索引](docs/INDEX.md)。
+## 开源与贡献
 
-参与开发见[贡献指南](CONTRIBUTING.md)、[开发与测试](docs/DEVELOPMENT.md)和[发布流程](docs/RELEASING.md)。在 Mac 上自行构建（需要 Node.js 22.18+、Rust 与 Xcode 命令行工具）：
-
-```sh
-rustup target add x86_64-apple-darwin wasm32-unknown-unknown
-npm ci
-npm run release
-sh scripts/make-dmg.sh
-```
-
-Windows 在 MSVC 环境运行 `npm run release:win`。两者都会得到未签名的测试包；公开版本以 Release 为准。
-
-## 许可
-
-规划计算由独立的 Rust 核心实现，来源与许可说明见[来源告知](SOURCE_NOTICES.md)，接口与构建见[核心说明](crates/planning-engine/README.md)。
-
-代码按 [AGPL-3.0-or-later](LICENSE) 授权（0.0.4 及更早版本发布时标注为 GPL-3.0-or-later），第三方依赖许可见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES.md)。名称「物谱」「Thingary」与应用图标不在 AGPL 授权范围内；修改版再发布请采用自己的名称与图标，详见[品牌使用说明](docs/brand/README.md)。
+参与开发或自行构建，请看[贡献指南](CONTRIBUTING.md)、[开发与测试](docs/DEVELOPMENT.md)和[文档索引](docs/INDEX.md)。代码按 [AGPL-3.0-or-later](LICENSE) 授权；[来源告知](SOURCE_NOTICES.md)与[第三方许可](THIRD_PARTY_LICENSES.md)列出相关声明。名称「物谱」「Thingary」与图标不在 AGPL 授权范围内，修改版请使用自己的名称和图标，见[品牌使用说明](docs/brand/README.md)。

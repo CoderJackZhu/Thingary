@@ -1,7 +1,5 @@
 # 快速上手
 
-> 本文跟随当前源码，对应 0.1.0 安装包。仍在使用 0.0.8 的请看[对应版本指南](https://github.com/CoderJackZhu/Thingary/blob/v0.0.8/docs/USER_GUIDE.md)。已发布功能以版本说明为准。
-
 先完成一件小事：盘一次账户，或给一件物品留档。无需账号，也不用先填完所有设置。
 
 更多操作可按需查阅[使用指南](USER_GUIDE.md)。
@@ -13,11 +11,13 @@
 到[国内下载镜像（Gitee）](https://gitee.com/CoderJackZhu/thingary/releases)或 [GitHub 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0)，选择 **0.1.0** 的安装附件。Source code 是源码，不是安装包。
 
 - **Mac**：下载 `Thingary-0.1.0-universal.dmg`，打开后将「物谱」拖进「应用程序」。Apple Silicon 与 Intel 使用同一个包。
-- **Windows**：下载 `x64-setup.exe` 并运行。默认只安装给当前用户；缺少 WebView2 时安装器需要联网补装。Windows 11 x64 已实测；Windows 10 1809+ 是目标范围但尚未实机验证；仅提供 x64 安装包，ARM64 走系统模拟。安装或启动失败时见[Windows 安装](USER_GUIDE.md#windows-install)。
+- **Windows**：下载 `Thingary_0.1.0_x64-setup.exe` 并运行。默认只安装给当前用户；缺少 WebView2 时需联网补装。安装或启动失败时见[Windows 安装](USER_GUIDE.md#windows-install)。
+- **安卓**：下载 `Thingary-0.1.0-android.apk`，需要 Android 10 及以上、64 位 ARM 手机。按提示允许浏览器或文件管理器「安装未知应用」，安装后可收回权限。详见[安卓安装](USER_GUIDE.md#android-install)。
+- **iPhone**：暂无公开安装包，尚未上架 App Store，见[手机版说明](USER_GUIDE.md#iphone)。
 
 首次打开可能遇到系统安全提示。Mac 可在「系统设置 › 隐私与安全性」查看「仍要打开」；Windows SmartScreen 可查看「更多信息 › 仍要运行」。只对可信来源的安装包操作；若提示损坏、恶意软件或没有放行按钮，请先看[安装排查](USER_GUIDE.md#download)，不要关闭系统保护。
 
-首次打开直接进入独立的**虚构样例**，所有功能都已开启，先随便看看。准备好后点顶部醒目的「开始记录我的资料」，进入自己的空白资料。
+电脑首次打开直接进入独立的**虚构样例**；手机可点「先看看样例」。准备好后点「开始记录我的资料」或「开始记录」，进入自己的空白资料。手机的底部导航与常用操作见[手机版说明](USER_GUIDE.md#iphone)。
 
 ## 2. 完成一件小事
 
@@ -39,7 +39,7 @@
 
 ### 可选：在多台设备之间同步
 
-当前源码的电脑与手机版可在「设置 › 数据管理 › 同步」（手机：「我的 › 设置 › 同步」）选择 WebDAV（如坚果云、Nextcloud），上传加密整库快照；默认「不同步」，不自动合并，也不会自动替换本机资料。同步口令不同于应用密码和备份恢复密钥，默认记在本机，换设备时需要，忘记后云端副本无法恢复。详见[同步说明](USER_GUIDE.md#sync)。
+电脑与手机版可在「设置 › 数据管理 › 同步」（手机：「我的 › 设置 › 同步」）选择 WebDAV，连接自己的服务器。同步仍为实验性功能，默认关闭，传输加密整库快照，不自动合并或替换本机资料。换设备需要同步口令；它不同于服务器的应用密码和备份恢复密钥，请另行保存。详见[同步说明](USER_GUIDE.md#sync)。
 
 ## 以后需要时再看
 
@@ -57,8 +57,7 @@
 
 ## 已知限制
 
-- **平台**：Mac 在 Apple Silicon、macOS 27 验证；Intel 与 macOS 14 尚未实机验证。Windows 11 x64 已实测；Windows 10 1809+ 是目标范围但尚未实机验证。安装包未签名，首次运行可能出现 SmartScreen 提示（点「更多信息 › 仍要运行」）；若 Windows 11 开启了「智能应用控制」，未签名安装包可能被直接拦截且没有放行按钮，请见[Windows 安装](USER_GUIDE.md#windows-install)。当前仅提供 x64 安装包，ARM64 设备通过系统模拟运行 x64 应用，不等同于原生 ARM 版。
-- **未完整验证**：Mac 的通知送达、VoiceOver 与完整键盘路径、系统显示缩放；Windows 的无 WebView2 机器、Windows 10、多屏与完整键盘／讲述人／输入法矩阵。旧候选已验单屏 100%／125%／150% 及指定输入法、讲述人路径，详见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)；本轮新界面仍需 Windows 复验。
+- **平台**：Mac 最低目标为 macOS 14，Windows 为 Windows 10 1809+ / 11 x64；目前实机使用覆盖 Apple Silicon Mac 和 Windows 11 x64。Intel、macOS 14、Windows 10 和安卓真机尚未验证。Windows ARM 设备需通过系统模拟运行 x64 版；暂无 Linux 客户端。
 - **加密范围**：加密导出的备份文件（可选）与 WebDAV 同步快照；主资料库、图片和恢复前保护副本未加密。
 - **不做**：日常流水记账、行情交易、自动付款、后台常驻同步或记录级合并。
 

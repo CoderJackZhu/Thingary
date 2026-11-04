@@ -29,14 +29,14 @@ const images = new Set([...homepage.matchAll(/docs\/(images\/[\w.-]+)/g)].map(m 
 const source = readFileSync(join(root, 'docs/USER_GUIDE.md'), 'utf8');
 const quickstart = readFileSync(join(root, 'docs/QUICKSTART.md'), 'utf8');
 const groups = [
-  ['start', '安装与第一次使用', '选对安装包或了解 iPhone 版，从样例开始，完成第一次记录。', ['三步上手','iPhone 版','下载、安装与首次打开','五分钟入门：完成第一次账户盘点','五分钟入门：记录第一件物品','样例体验']],
+  ['start', '安装与第一次使用', '安装 Mac、Windows 或安卓版本，从样例开始，完成第一次记录。', ['三步上手','iPhone 版','手机版','下载、安装与首次打开','五分钟入门：完成第一次账户盘点','五分钟入门：记录第一件物品','样例体验']],
   ['accounts', '账户、盘点与收支', '核对余额、外币和投资，区分收入、支出与资金流动。', ['账户与盘点','重要支出','周期费用','虚拟资产']],
   ['planning', '目标、试算与回顾', '用自己的条件探索下一步，读懂假设和未知项。', ['规划：目标','总览与时间轴']],
   ['belongings', '物品与心愿', '记录购买、维护、状态与持有成本。', ['首页的物品日均成本','记录与保护资料','成本、状态与心愿','批量处理物品']],
   ['backup', '备份、恢复与导入', '先保护资料，再了解加密、表格和误删恢复。', ['先保护资料：完整备份与恢复','数据管理与资料操作的区别']],
   ['everyday', '日常操作与隐私', '导航、快捷键、列表、功能开关与提醒。', ['界面与导航','关于与帮助','列表排序','桌面快捷键与关闭窗口','心愿完成与系统通知','桌面录入与心愿操作']],
   ['update', '更新、换机与卸载', '保留旧资料与备份，按步骤更换应用或电脑。', ['更新、换机与卸载']],
-  ['faq', '常见问题与限制', '遇到问题先查这里，了解当前平台的验证范围。', ['常见问题','当前限制']],
+  ['faq', '常见问题与限制', '排查常见问题，了解设备要求与功能限制。', ['常见问题','当前限制']],
 ].map(([slug, title, description, titles]) => ({slug,title,description,titles,markdown:''}));
 // Move explicit anchors immediately preceding a section with that section.
 const starts = [...source.matchAll(/^## (.+)$/gm)].map(m => {
@@ -82,7 +82,7 @@ function link(value, prefix, context='guide') {
 function page(path,title,content,{toc=[],current='',prefix='../',script=''}={}) {
   const nav = groups.map(g=>`<a ${g.slug===current?'aria-current="page" ':''}href="${prefix}guide/${g.slug}/">${escapeHtml(g.title)}</a>`).join('');
   const local = toc.length ? `<nav class="article-toc" aria-label="本页目录"><strong>本页内容</strong>${toc.filter(h=>h.level===2).map(h=>`<a href="#${escapeHtml(h.id)}">${escapeHtml(h.title)}</a>`).join('')}</nav>` : '';
-  const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeHtml(title)} · 物谱帮助</title><link rel="canonical" href="https://thingary.jackzhu.top/${path}/"><link rel="stylesheet" href="${prefix}style.css"><link rel="stylesheet" href="${prefix}help.css"></head><body class="help-page">${sharedPrelude}<div class="site">${siteHeader(prefix)}<div class="help-layout"><aside class="help-sidebar"><details open><summary>使用指南</summary><nav aria-label="指南主题">${nav}</nav></details></aside><main id="main" tabindex="-1"><div class="help-breadcrumb"><a href="${prefix}guide/">帮助中心</a> / ${escapeHtml(title)}</div>${content.replace('<!--contents-->',local)}<footer class="help-footer">说明与应用源码同步维护；公开安装包的功能以对应版本说明为准。截图均使用虚构资料。阅读本站使用说明无需访问 GitHub；下载镜像、反馈和开发参考是外部链接。<p><a href="${prefix}quickstart/">快速上手</a> · <a href="${prefix}guide/">返回帮助中心</a></p></footer></main></div></div>${script}</body></html>`;
+  const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeHtml(title)} · 物谱帮助</title><link rel="canonical" href="https://thingary.jackzhu.top/${path}/"><link rel="stylesheet" href="${prefix}style.css"><link rel="stylesheet" href="${prefix}help.css"></head><body class="help-page">${sharedPrelude}<div class="site">${siteHeader(prefix)}<div class="help-layout"><aside class="help-sidebar"><details open><summary>使用指南</summary><nav aria-label="指南主题">${nav}</nav></details></aside><main id="main" tabindex="-1"><div class="help-breadcrumb"><a href="${prefix}guide/">帮助中心</a> / ${escapeHtml(title)}</div>${content.replace('<!--contents-->',local)}<footer class="help-footer">截图均使用虚构资料。阅读帮助无需访问 GitHub；下载、反馈和开发参考会打开外部网站。<p><a href="${prefix}quickstart/">快速上手</a> · <a href="${prefix}guide/">返回帮助中心</a></p></footer></main></div></div>${script}</body></html>`;
   mkdirSync(join(output,path),{recursive:true}); writeFileSync(join(output,path,'index.html'),html);
 }
 for (const g of groups) {

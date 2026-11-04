@@ -1,5 +1,13 @@
 # 界面截图与维护
 
+## README 高清预览与安卓截图（2026-11-04）
+
+`walkthrough.gif` 改用 `readme-desktop/` 中的六张无损 PNG，顺序为 `overview.png`、`accounts.png`、`planning.png`、`savings.png`、`review.png`、`belongings.png`。来源为 0.1.0 源码的 `visual-preview.html?demo=1`，采集基线 `796a2d90f9cd9b096df2ba29d08871551cdf41d1`，Ego Lite 浏览器，简体中文、柔和卡片浅色主题、1280×960 逻辑视口、2× 捕获（**2560×1920**）。仅隐藏浏览器翻译扩展悬浮按钮与开发预览角标，保留应用的样例提示、未知资料和待确认条件；存钱目标帧滚动到该区域，物品帧选中 MacBook Pro。界面文字、金额与布局未拼改。README 点击动图可打开无损总览图。它是浏览器界面截图轮播，不是原生连续操作录像。
+
+`android/overview.png`、`android/accounts.png`、`android/planning.png` 为 Android 15（API 35、ARM64）模拟器 `thingary35` 的原生截图，均为 **1080×2400**，通过 `adb exec-out screencap -p` 直接取得；应用是模拟器内原有的独立身份 `local.thingary.preview`，`versionName=0.1.0`、`versionCode=1000`，安装更新时间为 2026-10-25。此次未重新构建或安装 APK，因此不将该包与桌面采集基线视为同一源码。只展示内置虚构样例，语言切为简体中文后重启，确认页面、页签与底部导航均为中文，再依次采集总览、财富概览与规划目标页。未打开正式身份或正式资料库。
+
+中英文 README 共用这组中文图片。安卓模拟器截图证明该预览包的页面展示，不代表真实手机或公开 APK 的完整功能验收；桌面浏览器与安卓样例的规划条件各自保留，不拼成同一组测算结果。GIF 重建参数见下文。
+
 ## 0.1.0 对照（2026-11-02）
 
 下表逐张核对当前文件。2026-11-02 使用本分支的 0.1.0 源码运行 `visual-preview.html?demo=1&style=bento`，由 Ego Lite（Chromium）在 1440×968 视口捕获总览浅色／深色、账户与盘点、全部物品、目标、区间回顾和存钱目标；内存样例全部为虚构资料，隐藏了开发预览角标。七张 PNG 转成 JPEG 后替换同名文件，`walkthrough.gif` 再由这些 0.1.0 浏览器截图重建。浏览器预览证明当前前端布局与展示，**不是 macOS／Windows 原生截图，也不替代原生功能验收**。
@@ -45,7 +53,7 @@
 | `planning-trajectory.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
 | `planning-trial.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；当前试算入口仍存在，但未做 0.1.0 原生核对。 |
 | `planning-yearly.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.5 历史原生图；未按 0.1.0 原生重拍。 |
-| `savings-goals.jpg` | 经 `walkthrough.gif` 出现在 `README.md`、`README.en.md` | 是（浏览器预览） | 由当前 0.1.0 总览捕获；画面包含虚构存钱目标。 |
+| `savings-goals.jpg` | 未在用户文档或官网引用 | 是（浏览器预览） | 0.1.0 总览中的虚构存钱目标；README 已改用上方无损 PNG。 |
 | `social-preview.svg` | 未在用户文档或官网引用 | 不适用 | 品牌社交预览 SVG，不是应用截图。 |
 | `start-choice.jpg` | 原先用于 `docs/USER_GUIDE.md` | 否（已删除） | 展示已取消的用途选择页；0.1.0 首次启动直接进入虚构样例，引用已移除。 |
 | `stats-dark.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.5 历史原生图；未按 0.1.0 原生重拍。 |
@@ -54,7 +62,7 @@
 | `thingary-film-poster.jpg` | `site/index.html` | 不适用 | 介绍视频封面，来自浏览器界面预览和合成画面，不是原生截图。 |
 | `thingary-film.mp4` | `site/index.html` | 不适用 | Remotion 合成的浏览器界面预览视频，不是原生操作录像。 |
 | `update-check-006.jpg` | 未在用户文档或官网引用 | 否（历史） | 画面明确为 0.0.6 更新检查结果；保留作历史证据，不代表当前版本。 |
-| `walkthrough.gif` | `README.md`、`README.en.md` | 是（浏览器预览） | 由上述六张 0.1.0 浏览器截图重建；960×645、六帧、21 秒，不是连续操作录像。 |
+| `walkthrough.gif` | `README.md`、`README.en.md` | 是（浏览器预览） | 已由 2026-11-04 的无损 PNG 重建；2560×1920、六帧、21 秒。 |
 | `wealth-light.jpg` | `site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获；主按钮为「更新今天的余额」。 |
 
 ## 介绍视频（2026-10-19）
@@ -152,9 +160,9 @@ planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、plannin
 
 ### GIF 尺寸与重建
 
-README 当前 GIF 使用 0.1.0 重拍的 `overview-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`savings-goals.jpg`、`annual-review.jpg`、`assets-light.jpg`。六帧都由当前源码的浏览器预览捕获，不沿用历史原生图；上文 0.0.5／0.0.6 条目只记录当时的文件组合与尺寸，不代表当前 GIF。
+README 当前 GIF 使用本页 2026-11-04 登记的 `readme-desktop/*.png` 六帧无损图。上文历史条目只记录当时的文件组合与尺寸，不代表当前 GIF。
 
-用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本读取各图真实尺寸，仅对已登记的标题栏残留裁切，再统一缩放到 **960×645**，保留完整页面主体。输出为 6 张完整画面、每帧 3.5 秒、21 秒循环预览；输入尺寸或输出帧数、尺寸、时长不符时停止生成，避免沿用错误裁切参数。重建不改应用文字或数值，不替换已公开安装包。
+用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本要求每张输入严格为 **2560×1920**，不缩小或拉伸画面；各帧独立生成调色板，关闭有序抖动，保留文字边缘并减少纯色区域噪点。输出为六帧、每帧 3.5 秒、21 秒无限循环，当前约 1.3 MB。输入尺寸或输出帧数、尺寸、时长不符，或文件超过 8 MiB 时停止生成；验证通过后才替换目标 GIF。无损 PNG 随仓库保留，便于原尺寸查看与重建；这次重建不替换已公开安装包。
 
 ## 仓库社交预览图
 

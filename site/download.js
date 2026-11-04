@@ -2,15 +2,17 @@
 const thingaryDownloads = Object.freeze({
   mac: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg',
   windows: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe',
+  android: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk',
 });
 
 function detectThingaryPlatform(browser) {
   const ua = browser.userAgent || '';
   const platform = browser.userAgentData?.platform || browser.platform || '';
   // iPadOS may advertise a Mac desktop user agent. Do not suggest a DMG for it.
-  if (/Android|iPhone|iPad|iPod|Windows Phone/i.test(ua)
-      || /Android|iOS/i.test(platform)
+  if (/iPhone|iPad|iPod|Windows Phone/i.test(ua)
+      || /iOS/i.test(platform)
       || (/Mac/i.test(platform) && browser.maxTouchPoints > 1)) return '';
+  if (/Android/i.test(ua) || /Android/i.test(platform)) return 'android';
   if (/Windows|Win32|Win64/i.test(platform) || /Windows NT/i.test(ua)) return 'windows';
   if (/Mac/i.test(platform) || /Macintosh|Mac OS X/i.test(ua)) return 'mac';
   return '';
@@ -29,10 +31,12 @@ function initializeThingaryDownloads(root, browser) {
     zh: {
       mac: 'Mac 通用版 · Apple Silicon / Intel · DMG · 未签名公开测试版',
       windows: 'Windows 10 1809+ / 11 · x64 · EXE · 未签名公开测试版',
+      android: 'Android 10+ · 64 位 ARM · APK · 预览版，尚未真机验证',
     },
     en: {
       mac: 'Universal Mac · Apple Silicon / Intel · DMG · Unsigned public beta',
       windows: 'Windows 10 1809+ / 11 · x64 · EXE · Unsigned public beta',
+      android: 'Android 10+ · 64-bit ARM · APK · Preview, not verified on real phones',
     },
   };
 
@@ -41,7 +45,8 @@ function initializeThingaryDownloads(root, browser) {
       const language = control.dataset.downloadLanguage;
       const selected = Object.hasOwn(thingaryDownloads, platform) ? platform : 'mac';
       const link = control.querySelector('[data-download-link]');
-      const label = selected === 'mac' ? (language === 'zh' ? 'Mac 通用版' : 'Mac Universal') : 'Windows x64';
+      const labels = { mac: language === 'zh' ? 'Mac 通用版' : 'Mac Universal', windows: 'Windows x64', android: language === 'zh' ? '安卓预览版' : 'Android Preview' };
+      const label = labels[selected];
       control.querySelector('[data-platform-label]').textContent = label;
       control.querySelector('[data-platform-trigger]').setAttribute('aria-label', `${language === 'zh' ? '下载平台' : 'Download platform'}: ${label}`);
       for (const option of control.querySelectorAll('[data-platform-option]')) {
