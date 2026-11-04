@@ -834,6 +834,7 @@ impl Store {
                 // Lifecycle/sale edits are deliberately outside bulk import.
                 done.updated += 1;
                 done.imported += 1;
+                self.hit("csv_import.after_row")?;
                 continue;
             }
             let mut previous = "active";
@@ -877,6 +878,7 @@ impl Store {
                 )?;
             }
             done.imported += 1;
+            self.hit("csv_import.after_row")?;
         }
         if done.imported == 0 && done.unchanged == 0 {
             return Err(Error::new("CSV_NOTHING", "没有可导入的行，资料未改变"));
