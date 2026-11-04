@@ -16,7 +16,9 @@
 
 ## 平台组件
 
-安装包在缺少 WebView2 时使用微软官方 bootstrapper 联网安装运行时（见[发布流程](RELEASING.md)）。应用链接的微软 WebView2 SDK loader 保留其独立许可，见 SOURCE_NOTICES。
+安装包在缺少 WebView2 时由安装器联网下载微软官方 bootstrapper 并安装运行时（`downloadBootstrapper` 模式，见[发布流程](RELEASING.md)）；运行时与 bootstrapper 都**不随安装包分发**。应用链接的微软 WebView2 SDK loader 保留其独立许可，见 SOURCE_NOTICES。
+
+核对记录：2026-11-04 对 0.1.0 的 NSIS 安装包（CI run 225，提交 `8b06807`）用 7-Zip 列出内容，仅含应用主程序 `thingary.exe`、`许可/` 下的许可与来源文件，以及 NSIS 安装器自身的插件（含下载插件 `NSISdl.dll`）；没有 `MicrosoftEdgeWebview2Setup.exe` 或其他 WebView2 运行时文件。这是对该次构建的一次人工核对，不是构建脚本的自动断言；以后更改打包方式需重新核对。
 
 ## 隐私
 
