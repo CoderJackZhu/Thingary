@@ -53,3 +53,18 @@ python3 -m http.server 1430 --bind 127.0.0.1 --directory .local/pages-preview
 `.github/workflows/pages.yml` 在 `main` 的 `site/**`、指南 Markdown、`docs/images/**`、生成器、站点测试或该工作流变化时部署，也可手动触发；部署任务只允许 `main`。工作流先检查渲染结果中所有本地链接、图片及锚点，再执行与本地相同的生成器。自定义页面地址为 <https://thingary.jackzhu.top/>，canonical 与 Open Graph 地址保持一致。
 
 新增截图引用会在构建时自动收集复制，不需要手动维护复制列表。截图来源统一见 [截图清单](../docs/images/README.md)；页面只介绍当前已有能力，公开安装包范围以对应 Release 为准。
+
+## 搜索引擎收录
+
+构建时生成 `/sitemap.xml`，覆盖首页、在线测算、快速上手、帮助中心、八个指南主题页和隐私政策。静态内容页从 `site/**/index.html` 收集，生成的帮助页由构建过程登记；网址统一使用正式 HTTPS 域名和目录路径，不包含锚点、查询参数、下载附件或站点验证文件。不填写无法证实的更新时间。`site/robots.txt` 允许抓取，并声明站点地图地址。帮助页描述复用主题简介，首页与测算页的标题和描述在各自 HTML 中维护。
+
+Google Search Console 和 Bing Webmaster Tools 已为 `https://thingary.jackzhu.top/` 发出文件验证信息。`site/google327efbcfd1c87180.html` 与 `site/BingSiteAuth.xml` 随网站部署，验证成功后仍需保留。文件进入源码不代表线上验证或搜索收录已经完成。
+
+部署后按以下顺序操作：
+
+1. 确认首页、`/robots.txt`、`/sitemap.xml` 及两家的验证文件均返回 HTTP 200，站点地图中的每个网址可访问，canonical 与正式网址一致。
+2. 在 [Google Search Console](https://search.google.com/search-console) 选择上述网址前缀资源，完成 HTML 文件验证，提交 `https://thingary.jackzhu.top/sitemap.xml`，再检查首页和 `/calc/` 并请求编入索引。
+3. 在 [Bing Webmaster Tools](https://www.bing.com/webmasters/) 为同一网站完成 XML 文件验证，提交同一站点地图。此处使用独立验证文件，不需要导入其他网站。
+4. 后续通过站长平台检查抓取和索引结果。网站部署、所有权验证、站点地图提交和实际收录分别确认，不以本地构建或提交成功代替已收录。
+
+改动网站结构后运行上述三个站点测试。`tests/site-guide.test.mjs` 校验站点地图恰好覆盖所有内容页、网址可落到实际页面、robots 指向正确，以及标题、描述和两家的验证文件保留。

@@ -1,10 +1,15 @@
 // Build a portable static website from the canonical Markdown, without dependencies.
-import { readFileSync, writeFileSync, mkdirSync, cpSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, cpSync, copyFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderMarkdown, escapeHtml } from './guide-renderer.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(process.argv[2] ?? join(root, '.local/pages-preview'));
+const siteOrigin = 'https://thingary.jackzhu.top';
+const pagePaths = new Set(readdirSync(join(root, 'site'), { recursive: true })
+  .map(path => path.replaceAll('\\', '/'))
+  .filter(path => path === 'index.html' || path.endsWith('/index.html'))
+  .map(path => path.slice(0, -'index.html'.length)));
 if (output === root || output === join(root, 'site')) throw new Error('Choose a separate build output directory');
 mkdirSync(output, { recursive: true });
 cpSync(join(root, 'site'), output, { recursive: true });
@@ -83,7 +88,13 @@ function page(path,title,content,{toc=[],current='',prefix='../',script=''}={}) 
   const nav = groups.map(g=>`<a ${g.slug===current?'aria-current="page" ':''}href="${prefix}guide/${g.slug}/">${escapeHtml(g.title)}</a>`).join('');
   const local = toc.length ? `<nav class="article-toc" aria-label="本页目录"><strong>本页内容</strong>${toc.filter(h=>h.level===2).map(h=>`<a href="#${escapeHtml(h.id)}">${escapeHtml(h.title)}</a>`).join('')}</nav>` : '';
   const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeHtml(title)} · 物谱帮助</title><link rel="canonical" href="https://thingary.jackzhu.top/${path}/"><link rel="stylesheet" href="${prefix}style.css"><link rel="stylesheet" href="${prefix}help.css"></head><body class="help-page">${sharedPrelude}<div class="site">${siteHeader(prefix)}<div class="help-layout"><aside class="help-sidebar"><details open><summary>使用指南</summary><nav aria-label="指南主题">${nav}</nav></details></aside><main id="main" tabindex="-1"><div class="help-breadcrumb"><a href="${prefix}guide/">帮助中心</a> / ${escapeHtml(title)}</div>${content.replace('<!--contents-->',local)}<footer class="help-footer">截图均使用虚构资料。阅读帮助无需访问 GitHub；下载、反馈和开发参考会打开外部网站。<p><a href="${prefix}quickstart/">快速上手</a> · <a href="${prefix}guide/">返回帮助中心</a></p></footer></main></div></div>${script}</body></html>`;
-  mkdirSync(join(output,path),{recursive:true}); writeFileSync(join(output,path,'index.html'),html);
+  const description = groups.find(group => group.slug === current)?.description
+    ?? (path === 'quickstart'
+      ? '物谱快速上手：下载安装、体验虚构样例、记录第一件物品或完成第一次账户盘点，再备份自己的资料。'
+      : '物谱帮助中心：按主题查阅安装、账户与净资产盘点、生活规划、物品管理、备份恢复和常见问题。');
+  mkdirSync(join(output,path),{recursive:true});
+  writeFileSync(join(output,path,'index.html'),html.replace('<title>', `<meta name="description" content="${escapeHtml(description)}"><title>`));
+  pagePaths.add(`${path}/`);
 }
 for (const g of groups) {
   const parsed = renderMarkdown(g.markdown,{resolveUrl:value=>link(value,'../../')});
@@ -95,5 +106,6 @@ const cards = groups.map((g,i)=>`<article class="help-card"><span class="help-nu
 const directory = groups.map(g=>`<section><h3>${g.title}</h3>${renderMarkdown(g.markdown).headings.map(h=>`<a id="${escapeHtml(h.id)}" href="${g.slug}/#${escapeHtml(h.id)}">${escapeHtml(h.title)}</a>`).join('')}${[...g.markdown.matchAll(/<a id="([a-z-]+)"><\/a>/g)].map(m=>`<a id="${m[1]}" href="${g.slug}/#${m[1]}">查看${g.title}相关说明 →</a>`).join('')}</section>`).join('');
 page('guide','使用指南',`<p class="section-label">按需查阅 · 不必从头读到尾</p><h1 id="物谱使用说明">今天想了解什么？</h1><p class="help-lead">从第一次记录，到每月盘点和保护资料。选一个主题，找到眼前需要的步骤。</p><a class="quick-banner" href="../quickstart/"><span><strong>第一次使用物谱？</strong><small>从安装、第一次记录到备份，一页开始。</small></span><span aria-hidden="true">快速上手 →</span></a><div class="help-cards">${cards}</div><details class="full-directory"><summary>展开全部章节目录</summary><div>${directory}</div></details>`,{script:`<script>const routes=${JSON.stringify(anchorRoutes)};function followAnchor(){let id;try{id=decodeURIComponent(location.hash.slice(1))}catch{return}if(routes[id])location.replace(routes[id]+'/'+location.hash)}followAnchor();addEventListener('hashchange',followAnchor);</script>`});
 for(const asset of images) copyFileSync(join(root,'docs',asset),join(output,'docs',asset));
+writeFileSync(join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[...pagePaths].sort().map(path => `  <url><loc>${escapeHtml(`${siteOrigin}/${path}`)}</loc></url>`).join('\n')}\n</urlset>\n`);
 writeFileSync(join(output,'.nojekyll'),'');
 console.log(JSON.stringify({output,topics:groups.length,images:images.size,anchors:Object.keys(anchorRoutes).length}));

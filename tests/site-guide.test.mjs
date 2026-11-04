@@ -20,11 +20,31 @@ test('built website has local working links, images, fragments and all canonical
   const output = mkdtempSync(join(tmpdir(), 'thingary-site-test-'));
   try {
     execFileSync(process.execPath, ['scripts/build-site.mjs', output], {cwd: root});
-    const files = readdirSync(output,{recursive:true}).filter(f=>f.endsWith('.html'));
+    const files = readdirSync(output,{recursive:true}).filter(file => file === 'index.html' || /[/\\]index\.html$/.test(file));
     assert.equal(files.length, 13);
     const documents = new Map(files.map(f=>[join(output,f),readFileSync(join(output,f),'utf8')]));
+    assert.equal(readFileSync(join(output, 'google327efbcfd1c87180.html'), 'utf8').trim(), 'google-site-verification: google327efbcfd1c87180.html');
+    assert.match(readFileSync(join(output, 'BingSiteAuth.xml'), 'utf8'), /<user>D10309B5E4D4A9C072DA628F163EAE5F<\/user>/);
+    const sitemap = readFileSync(join(output, 'sitemap.xml'), 'utf8');
+    assert.match(sitemap, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
+    const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+    const canonicals = [...documents.values()].map(html => html.match(/<link rel="canonical" href="([^"]+)"/)?.[1]);
+    assert.equal(new Set(locations).size, locations.length, 'sitemap URLs must be unique');
+    assert.deepEqual(locations.sort(), canonicals.sort(), 'sitemap must cover every published page exactly once');
+    assert.ok(locations.every(location => !location.includes('google327efbcfd1c87180')), 'verification files are not content pages');
+    for (const location of locations) {
+      const url = new URL(location);
+      assert.equal(url.origin, 'https://thingary.jackzhu.top');
+      assert.equal(url.search, '');
+      assert.equal(url.hash, '');
+      assert.ok(documents.has(join(output, url.pathname, 'index.html')), `missing sitemap page ${location}`);
+    }
+    assert.equal(readFileSync(join(output, 'robots.txt'), 'utf8'), 'User-agent: *\nAllow: /\n\nSitemap: https://thingary.jackzhu.top/sitemap.xml\n');
     const homeHeader = documents.get(join(output, 'index.html')).match(/<header class="header wrap">[\s\S]*?<\/header>/)[0];
     for (const [file,html] of documents) {
+      assert.match(html, /<title>[^<]+<\/title>/, `missing title in ${file}`);
+      assert.match(html, /<meta name="description" content="[^"]+"/, `missing description in ${file}`);
+      assert.doesNotMatch(html, /<meta\b[^>]*name=["'](?:robots|googlebot)["'][^>]*content=["'][^"']*noindex/i, `page must remain indexable: ${file}`);
       const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
       assert.equal(new Set(ids).size,ids.length,`duplicate IDs in ${file}`);
       for(const match of html.matchAll(/\b(?:href|src|srcset)="([^"]+)"/g)) {
