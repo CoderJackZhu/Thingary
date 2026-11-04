@@ -1,7 +1,7 @@
 // Generate winget manifests for the Windows NSIS installer.
 // Usage:
-//   node scripts/generate-winget-manifest.mjs --version 0.0.8 --installer Thingary_0.0.8_x64-setup.exe --release-date 2026-10-18
-//   node scripts/generate-winget-manifest.mjs --version 0.0.8 --sha256 <64 hex chars> --release-date 2026-10-18
+//   node scripts/generate-winget-manifest.mjs --version 0.1.0 --installer Thingary_0.1.0_x64-setup.exe --release-date 2026-11-01
+//   node scripts/generate-winget-manifest.mjs --version 0.1.0 --sha256 <64 hex chars> --release-date 2026-11-01
 // The output is a ready-to-copy directory under packaging/winget/manifests.
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
