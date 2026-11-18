@@ -36,7 +36,7 @@
 
 | 总览 | 账户与盘点 | 目标与测算 |
 |:---:|:---:|:---:|
-| <a href="docs/images/android/overview.png"><img src="docs/images/android/overview.png" width="260" alt="安卓版中文总览：金融净资产与退休规划，虚构样例"></a> | <a href="docs/images/android/accounts.png"><img src="docs/images/android/accounts.png" width="260" alt="安卓版中文财富页：金融净资产、待确认付款与净资产趋势，虚构样例"></a> | <a href="docs/images/android/planning.png"><img src="docs/images/android/planning.png" width="260" alt="安卓版中文规划页：退休目标与测算结果，虚构样例"></a> |
+| <a href="docs/images/android/overview.png"><img src="docs/images/android/overview.png" width="260" alt="安卓版中文总览：金融净资产、退休规划与物品日均成本，虚构样例"></a> | <a href="docs/images/android/accounts.png"><img src="docs/images/android/accounts.png" width="260" alt="安卓版中文财富页：金融净资产、净资产趋势与资产结构，虚构样例"></a> | <a href="docs/images/android/planning.png"><img src="docs/images/android/planning.png" width="260" alt="安卓版中文规划页：退休目标、资金曲线与计算条件，虚构样例"></a> |
 
 ## 下载与安装
 

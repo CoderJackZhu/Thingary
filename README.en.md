@@ -36,7 +36,7 @@ Overview, account check-ins, and retirement planning on the phone. These Chinese
 
 | Overview | Accounts & check-ins | Goals & projections |
 |:---:|:---:|:---:|
-| <a href="docs/images/android/overview.png"><img src="docs/images/android/overview.png" width="260" alt="Chinese Android overview: fictional net worth and retirement plan"></a> | <a href="docs/images/android/accounts.png"><img src="docs/images/android/accounts.png" width="260" alt="Chinese Android wealth page: fictional net worth, pending payments, and trend"></a> | <a href="docs/images/android/planning.png"><img src="docs/images/android/planning.png" width="260" alt="Chinese Android planning page: fictional retirement goal and projections"></a> |
+| <a href="docs/images/android/overview.png"><img src="docs/images/android/overview.png" width="260" alt="Chinese Android overview: fictional net worth, retirement plan, and daily item cost"></a> | <a href="docs/images/android/accounts.png"><img src="docs/images/android/accounts.png" width="260" alt="Chinese Android wealth page: fictional net worth, trend, and asset mix"></a> | <a href="docs/images/android/planning.png"><img src="docs/images/android/planning.png" width="260" alt="Chinese Android planning page: fictional retirement goal, projection, and assumptions"></a> |
 
 ## Download and install
 
