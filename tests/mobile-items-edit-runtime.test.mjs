@@ -23,7 +23,7 @@ function sessionState() {
 }
 function leaves(session, nav, invoke, submit) {
   return { './CurrencyPicker': { CurrencyPicker: 'CurrencyPicker' }, './ForeignAmount': { applyFa: (s, f, v) => foreignAmount.editFa(s, f, v), changeFaCode: (s, c) => foreignAmount.editFa(s, 'code', c), CurrencyButton: 'CurrencyButton', OriginalInput: 'OriginalInput', RateRow: 'RateRow' }, './foreign-amount': foreignAmount, './currency': currency, './currency-picker': currencyPicker, './asset': asset, './mobile/format': format, './preferences': preferences, './asset-media': media, './mobile/items/edit-model': model, './asset-editor-layout': layout, './mobile/items/glyphs': { Glyph() {} }, './mobile/items/PhotoViewer': { PhotoThumbs: 'PhotoThumbs', PhotoViewer: 'PhotoViewer' },
-    './NotificationNotice': { allowReminders: async () => {} }, './materials': { materialArt: () => '<svg/>' },
+    './NotificationNotice': { allowReminders: async () => {} }, './materials': { materialArt: () => '<svg/>' }, './mobile/items/CategoryFallback': { CategoryFallback: 'CategoryFallback' },
     './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => nav, useDirtyGuard() {}, useFormChanged: () => false },
     './wealth': { submit }, '@tauri-apps/api/core': { invoke },
   };
@@ -40,7 +40,7 @@ async function editor(options = {}) {
     throw new Error('Unexpected command: ' + command);
   };
   const submit = async request => { requests.push(request); return options.save ? options.save(request, session) : result; };
-  const r = runtime('mobile/items/ItemEdit', { params: {} }, undefined, undefined, { exportName: 'default', components: [], modules: leaves(session, nav, invoke, submit) });
+  const r = runtime('mobile/items/ItemEdit', { params: options.id ? { id: options.id } : {} }, undefined, undefined, { exportName: 'default', components: [], modules: leaves(session, nav, invoke, submit) });
   await r.settle();
   return { r, session, calls, navigations, requests };
 }
@@ -146,13 +146,36 @@ test('mobile edit photo multi-select keeps photos as attachments (not the cover)
   r.unmount();
 });
 
-test('mobile edit shows the common fields in order, notes with photos, and folds only brand/model/serial', async () => {
-  const { r } = await editor();
+test('mobile edit shows a missing-name error in the viewport and does not submit', async () => {
+  const { r, requests } = await editor();
+  action(r, '保存物品').props.onClick(); await r.settle();
+  assert.equal(requests.length, 0);
+  const alert = r.nodes().find(node => node.type === 'div' && node.props.role === 'alert' && r.text(node).includes('请填写名称'));
+  assert.ok(alert, 'a fixed alert carries the validation message');
+  assert.equal(field(r, '名称').props.error, '请填写名称，最多 200 字。');
+  field(r, '名称').props.onChange('虚构后来补上的名称'); r.render();
+  assert.equal(field(r, '名称').props.error, undefined);
+  action(r, '保存物品').props.onClick(); await r.settle();
+  assert.equal(requests.length, 1);
+  r.unmount();
+});
+
+test('mobile edit keeps functional controls outside the fold and saves their selected values', async () => {
+  const { r, requests } = await editor();
   const labels = r.nodes().filter(n => ['TextField', 'MoneyField', 'DateField', 'SelectField'].includes(n.type)).map(n => n.props.label);
-  assert.deepEqual(labels.slice(0, 6), ['名称', '购买价格', '购买日期', '分类', '标签', '购买渠道']);
-  assert.ok(labels.indexOf('成本计算模式') > labels.indexOf('购买渠道') && labels.includes('目标设定'));
+  assert.deepEqual(labels.slice(0, 4), ['名称', '购买价格', '购买日期', '分类']);
+  assert.ok(labels.indexOf('标签') > labels.indexOf('分类') && labels.includes('购买渠道'));
+  assert.ok(labels.indexOf('成本计算模式') < labels.indexOf('购买渠道') && labels.includes('目标设定'));
   assert.equal(r.nodes().filter(n => n.type === 'details').length, 1);
   assert.equal(r.nodes().find(n => n.type === 'details').props.open, false);
+  const descendants = node => Array.isArray(node) ? node.flatMap(descendants) : node && typeof node === 'object' ? [node, ...descendants(node.props?.children)] : [];
+  const folded = descendants(r.find('details'));
+  assert.deepEqual(folded.filter(node => ['SelectField', 'TextField'].includes(node.type)).map(node => node.props.label), ['购买渠道', '品牌', '型号', '序列号']);
+  assert.equal(folded.some(node => node.type === 'Switch'), false);
+  const identity = r.find('section', p => p.className === 'm-card m-item-identity');
+  assert.ok(descendants(identity).includes(field(r, '名称')));
+  assert.ok(descendants(identity).includes(r.button('更换图标')));
+  assert.doesNotMatch(r.text(identity), /物品图标|点图标更换/);
   assert.ok(r.nodes().find(n => n.type === 'textarea' && n.props['aria-label'] === '备注'));
   assert.equal(r.nodes().some(n => n.type === 'PhotoThumbs'), false, 'no photo row without photos');
   const add = r.button('添加图片'); assert.ok(add);
@@ -162,5 +185,90 @@ test('mobile edit shows the common fields in order, notes with photos, and folds
   let clicked = 0; r.find('input', p => p.multiple).props.ref.current = { click() { clicked++; } };
   add.props.onClick(); r.render(); assert.equal(clicked, 1);
   assert.equal(r.find('Sheet', p => p.title === '添加图片'), undefined, 'one tap goes straight to the system picker');
+  field(r, '名称').props.onChange('虚构常用设置'); r.render();
+  r.find('Switch', p => p.label === '设置保障时间').props.onChange(true); r.render();
+  r.find('Switch', p => p.label === '已退役').props.onChange(true); r.render();
+  r.find('SelectField', p => p.label === '成本计算模式').props.onChange('per_use'); r.render();
+  field(r, '已使用次数').props.onChange('12'); r.render();
+  r.find('SelectField', p => p.label === '目标设定').props.onChange('date'); r.render();
+  r.find('DateField', p => p.label === '目标日期').props.onChange('2027-12-31'); r.render();
+  r.find('Switch', p => p.label === '置顶物品').props.onChange(true); r.render();
+  r.find('Switch', p => p.label === '不计入统计').props.onChange(true); r.render();
+  assert.equal(r.nodes().some(node => node.type === 'Switch' && node.props.label === '不计入总金额'), false, 'detail switches stay folded by default');
+  const excludeToggle = r.nodes().find(node => node.type === 'button' && r.text(node).includes('分别设置'));
+  assert.ok(excludeToggle);
+  excludeToggle.props.onClick(); r.render();
+  assert.ok(r.find('Switch', p => p.label === '不计入总金额'));
+  assert.ok(r.find('Switch', p => p.label === '不在时间轴显示'));
+  action(r, '保存物品').props.onClick(); await r.settle();
+  const options = requests[0].input.options;
+  assert.equal(options.warranty.end_date, '2027-10-21');
+  assert.equal(options.retired_date, '2026-10-21');
+  assert.equal(options.sale.date, '2026-10-21');
+  assert.equal(options.preferences.cost_mode, 'per_use');
+  assert.equal(options.preferences.use_count, 12);
+  assert.equal(options.preferences.goal.date, '2027-12-31');
+  assert.equal(options.preferences.pinned, true);
+  assert.ok(Object.values(options.preferences.exclude).every(Boolean));
   r.unmount();
+});
+
+test('mobile edit opens the fold for saved archive fields, independently of common settings', async () => {
+  const saved = {
+    asset: { id: 'existing-item', name: '虚构已有物品', revision: 3, price_cents: '19900', purchase_date: '2026-02-03' },
+    details: { brand: '', model: '', serial_number: '', notes: '' }, lifecycle: { state: 'active', events: [] },
+    preferences: { ...preferences.defaultPreferences(), label_id: 'label-work', pinned: true },
+    photos: [], cover_id: null, maintenances: [], warranties: [],
+    costs: { daily_cents: '100', known_maintenance_cents: '0', held_days: 100, unknown_maintenance_count: 0, total_investment_cents: '19900' },
+  };
+  const { r } = await editor({ id: 'existing-item', invoke: command => command === 'read_asset' ? saved : undefined });
+  assert.equal(r.nodes().find(n => n.type === 'details').props.open, false);
+  assert.ok(r.find('SelectField', p => p.label === '标签'));
+  r.unmount();
+  for (const record of [{ ...saved, details: { ...saved.details, brand: '虚构品牌' } }, { ...saved, classification: { category_id: null, channel_id: 'fictional-channel' } }]) {
+    const next = await editor({ id: 'existing-item', invoke: command => command === 'read_asset' ? record : undefined });
+    assert.equal(next.r.find('details').props.open, true);
+    next.r.unmount();
+  }
+});
+
+test('mobile default icon previews the editor category and clears the cover without preparing a material', async () => {
+  const session = sessionState(), chosen = [], calls = [], key = 'fictional-default-picker';
+  model.setIconSession(key, { generation, photos: [photo], cover: photo.id, defaultIcon: 'computer', choose: (...args) => chosen.push(args) });
+  const materials = { materialArt: () => '<svg/>', materialCategories: ['全部'], readRecentMaterials: () => [], rememberMaterial() {}, filterMaterials: entries => entries };
+  const r = runtime('mobile/items/ItemIcon', { params: { channel: key } }, undefined, undefined, { exportName: 'default', components: [], globals: { localStorage: {} }, modules: {
+    ...leaves(session, { pop() {} }, async command => { calls.push(command); if (command === 'list_materials') return []; throw new Error('Unexpected ' + command); }, async () => {}), './materials': materials,
+  } });
+  await r.settle();
+  assert.equal(r.find('CategoryFallback').props.icon, 'computer');
+  assert.equal(r.nodes().some(node => node.type === 'img'), false);
+  r.button('选择默认图标').props.onClick(); await r.settle();
+  assert.equal(chosen.length, 1);
+  assert.equal(chosen[0][0], null);
+  assert.equal(chosen[0][1], false);
+  assert.deepEqual(calls, ['list_materials']);
+  r.unmount(); model.clearIconSession(key);
+});
+
+test('mobile cardboard box is a distinct material, rather than a second default choice', async () => {
+  const session = sessionState(), chosen = [], key = 'fictional-box-picker';
+  model.setIconSession(key, { generation, photos: [], cover: null, choose: (...args) => chosen.push(args) });
+  const materials = { materialArt: () => '<svg/>', materialCategories: ['全部'], readRecentMaterials: () => [], rememberMaterial() {}, filterMaterials: entries => entries };
+  const calls = [];
+  const r = runtime('mobile/items/ItemIcon', { params: { channel: key } }, undefined, undefined, { exportName: 'default', components: [], globals: { localStorage: {} }, modules: {
+    ...leaves(session, { pop() {} }, async (command, args) => {
+      calls.push([command, args]);
+      if (command === 'list_materials') return [{ id: 'icon-box', name: '默认图标', builtin: true }];
+      if (command === 'prepare_material') return photo;
+      throw new Error('Unexpected ' + command);
+    }, async () => {}), './materials': materials,
+  } });
+  await r.settle();
+  assert.ok(r.button('选择默认图标'));
+  assert.equal(r.button('选择图标：默认图标'), undefined);
+  r.button('选择图标：纸箱').props.onClick(); await r.settle();
+  assert.equal(calls.find(([command]) => command === 'prepare_material')[1].input.id, 'icon-box');
+  assert.equal(chosen[0][0].id, photo.id);
+  assert.equal(chosen[0][1], true);
+  r.unmount(); model.clearIconSession(key);
 });

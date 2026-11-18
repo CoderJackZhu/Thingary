@@ -1,6 +1,7 @@
 import { CloseButton } from './CloseButton';
 import { materialArt } from './materials';
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import type { AssetRecord, Photo } from './asset';
@@ -18,9 +19,9 @@ export function PhotoView({ photo, generation, version = 0, compact = false, onM
   }, [photo.id, generation, version, repairVersion]);
   return src ? <img className="photo-image" src={src} alt={photo.name}/> : <span className="photo-placeholder" role={error ? 'status' : undefined} title={error || t('正在读取图片')}>{error ? (compact ? t('图片缺失') : error) : t('读取中…')}</span>;
 }
-export function Cover({ record, generation, large = false }: { record: AssetRecord; generation: string; large?: boolean; }) {
+export function Cover({ record, generation, large = false, fallback }: { record: AssetRecord; generation: string; large?: boolean; fallback?: ReactNode; }) {
   const photo = record.photos.find(p => p.id === record.cover_id);
-  return <span className={'object-mark ' + (large ? 'large' : '')}>{photo ? <PhotoView photo={photo} generation={generation} compact/> : <img className="category-art" src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt={t('默认箱子图标')}/>}</span>;
+  return <span className={'object-mark ' + (large ? 'large' : '')}>{photo ? <PhotoView photo={photo} generation={generation} compact/> : fallback ?? <img className="category-art" src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt={t('默认箱子图标')}/>}</span>;
 }
 export function PhotoPreview({ photo, generation, onClose }: { photo: Photo; generation: string; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);

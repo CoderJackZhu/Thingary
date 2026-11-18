@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { CurrencyInput } from '../../CurrencyInput';
 import { DateInput } from '../../DateInput';
 import { advanceFocus } from './field-advance';
@@ -29,14 +29,14 @@ export function FormGroup({ title, footer, children }: { title?: string; footer?
 }
 
 /** One form line: label on the left, control on the right (or full width with `stacked`). `hint` explains unknown / optional values. */
-export function FormRow({ label, hint, children, stacked, htmlFor }: { label: string; hint?: string; children: ReactNode; stacked?: boolean; htmlFor?: string }) {
-  return <div className={`m-form-row${stacked ? ' m-stacked' : ''}`}><label className="m-form-label" htmlFor={htmlFor}>{label}</label><div className="m-form-control">{children}</div>{hint && <p className="m-form-hint">{hint}</p>}</div>;
+export function FormRow({ label, hint, error, children, stacked, htmlFor }: { label: string; hint?: string; error?: string; children: ReactNode; stacked?: boolean; htmlFor?: string }) {
+  return <div className={`m-form-row${stacked ? ' m-stacked' : ''}${error ? ' m-form-row-error' : ''}`}><label className="m-form-label" htmlFor={htmlFor}>{label}</label><div className="m-form-control">{children}</div>{error ? <p className="m-form-hint m-form-error" role="alert">{error}</p> : hint && <p className="m-form-hint">{hint}</p>}</div>;
 }
 
 /** Single-line text input in a FormRow. */
-export function TextField({ label, value, onChange, placeholder, hint, disabled, maxLength, inputMode }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; hint?: string; disabled?: boolean; maxLength?: number; inputMode?: 'text' | 'numeric' | 'decimal' | 'search' }) {
+export function TextField({ label, value, onChange, placeholder, hint, error, disabled, maxLength, inputMode, inputRef }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; hint?: string; error?: string; disabled?: boolean; maxLength?: number; inputMode?: 'text' | 'numeric' | 'decimal' | 'search'; inputRef?: Ref<HTMLInputElement> }) {
   const id = useId();
-  return <FormRow label={label} hint={hint} htmlFor={id}><input id={id} className="m-input" value={value} placeholder={placeholder} disabled={disabled} maxLength={maxLength} inputMode={inputMode} onChange={event => onChange(event.target.value)}/></FormRow>;
+  return <FormRow label={label} hint={hint} error={error} htmlFor={id}><input ref={inputRef} id={id} className="m-input" value={value} placeholder={placeholder} disabled={disabled} maxLength={maxLength} inputMode={inputMode} aria-invalid={error ? true : undefined} onChange={event => onChange(event.target.value)}/></FormRow>;
 }
 
 /** Multi-line note field, label above. */

@@ -1,0 +1,15 @@
+:root{
+  --icon-overview:#5e5ce6;--icon-items:#0a84ff;--icon-circle:#34c759;--icon-shield:#30b0c7;
+  --icon-arrow:#af52de;--icon-heart:#ff2d55;--icon-wallet:#ff9500;--icon-receipt:#ff6b3d;
+  --icon-repeat:#32ade6;--icon-cloud:#5856d6;--icon-clock:#64c466;--icon-chart:#ff9f0a;--icon-neutral:#8e8e93;
+}
+:root[data-style=olive]{
+  --icon-overview:#4f6b3a;--icon-items:#6b7c86;--icon-circle:#7f9a78;--icon-shield:#5f8a8b;
+  --icon-arrow:#8a6aa0;--icon-heart:#b85a4a;--icon-wallet:#c9a24a;--icon-receipt:#b86b4a;
+  --icon-repeat:#6b8fa6;--icon-cloud:#7a6f9a;--icon-clock:#7f9a78;--icon-chart:#c9a24a;
+}
+:root[data-style=olive][data-mode=dark]{
+  --icon-overview:#9db77a;--icon-items:#8296a3;--icon-circle:#8fab88;--icon-shield:#7fb0b0;
+  --icon-arrow:#b394c9;--icon-heart:#d9806f;--icon-wallet:#d9b866;--icon-receipt:#c9806a;
+  --icon-repeat:#8fb0c9;--icon-cloud:#a499c4;--icon-clock:#8fab88;--icon-chart:#d9b866;
+}

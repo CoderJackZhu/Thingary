@@ -1,11 +1,16 @@
 /** Line icons on a 24px grid, stroke follows `currentColor`. Add new names here so every module shares one set. */
 const paths = {
-  // Tab bar set (direction B): thin outline when inactive, solid when active. Cut-outs of the solid ones use --m-pill-bg so they read as holes in the active pill.
-  tabHome: <path d="M12 3.6 3.6 10.4h1.9V20h4.7v-5h3.6v5h4.7v-9.6h1.9z"/>,
-  tabBox: <><path d="M12 2.8 20.5 7.4v9.2L12 21.2 3.5 16.6V7.4z"/><path d="M3.8 7.6 12 12l8.2-4.4M12 12v9"/></>,
-  tabWallet: <><rect x="3" y="6" width="18" height="14" rx="3.5"/><path d="M16 13h2.5M6 6l9-3 1.5 3"/></>,
-  tabTarget: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></>,
-  tabUser: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3.2"/><path d="M6.2 18.4c1.4-2.3 3.4-3.4 5.8-3.4s4.4 1.1 5.8 3.4"/></>,
+  // Tab bar set: five clearly different silhouettes (house, box, wallet, flag, person).
+  tabHome: <><path d="M3.2 11.1 12 3.5l8.8 7.6"/><path d="M5.3 9.8V20h13.4V9.8M9.3 20v-5.8h5.4V20"/></>,
+  tabBox: <><path d="M12 2.8 20.5 7.4v9.2L12 21.2 3.5 16.6V7.4z"/><path d="M3.8 7.6 12 12l8.2-4.4M12 12v9.2"/></>,
+  tabWallet: <><path d="M5.8 5.8h12.7a2 2 0 0 1 2 2v10.4a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2V7.3a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M14.8 11h5.7v4h-5.7a2 2 0 0 1 0-4z"/><circle cx="16.2" cy="13" r=".9" fill="currentColor"/></>,
+  tabTarget: <path d="M6 21V4M6 4.5h10.2l-1.7 3.7 1.7 3.8H6"/>,
+  tabUser: <><circle cx="12" cy="8" r="3.6"/><path d="M4.8 20.2c.7-4 3.2-6.2 7.2-6.2s6.5 2.2 7.2 6.2"/></>,
+  tabHomeOn: <path fillRule="evenodd" clipRule="evenodd" d="M12 2.6 21.5 10.9v9.4a.9.9 0 0 1-.9.9h-6v-6.1h-5.2v6.1h-6a.9.9 0 0 1-.9-.9v-9.4zM9.9 15.1h4.2v6.1H9.9z" fill="currentColor" stroke="none"/>,
+  tabBoxOn: <><path d="M12 2.5 21 7.4v9.2L12 21.5 3 16.6V7.4z" fill="currentColor" stroke="none"/><path d="M3.8 7.6 12 12l8.2-4.4M12 12v9.2" stroke="var(--card)" strokeWidth="1.6" fill="none"/></>,
+  tabWalletOn: <><rect x="3.5" y="5.8" width="17.5" height="13.2" rx="2.4" fill="currentColor" stroke="none"/><path d="M14.8 10.8h6.2v4.4h-6.2a2.2 2.2 0 0 1 0-4.4z" fill="var(--card)" stroke="none"/><circle cx="16.4" cy="13" r="1" fill="currentColor" stroke="none"/></>,
+  tabTargetOn: <><path d="M5.4 21V4h10.9l-1.9 4.2 1.9 4.2H5.4z" fill="currentColor" stroke="none"/><path d="M5.4 21V4" stroke="currentColor" strokeWidth="2.2" fill="none"/></>,
+  tabUserOn: <><circle cx="12" cy="8" r="3.8" fill="currentColor" stroke="none"/><path d="M4.4 20.4c.8-4.2 3.4-6.4 7.6-6.4s6.8 2.2 7.6 6.4z" fill="currentColor" stroke="none"/></>,
   home: <><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></>,
   box: <><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></>,
   wallet: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></>,
@@ -33,29 +38,22 @@ const paths = {
   grid: <><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></>,
   camera: <><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></>,
   image: <><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M4 18l5-5 4 4 3-3 4 4"/></>,
+  laptop: <><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2.5 19h19M6 19l1-3h10l1 3"/></>,
+  phone: <><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.5 5h3M10.5 18.5h3"/></>,
+  headphones: <><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/></>,
+  sofa: <><path d="M5 11V8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v3"/><path d="M4 11a2 2 0 0 1 2 2v2h12v-2a2 2 0 0 1 4 0v5H2v-5a2 2 0 0 1 2-2zM6 18v2M18 18v2"/></>,
   shield: <><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></>,
   doc: <><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M9 3h6v4H9zM9 12h6m-6 4h6"/></>,
   tag: <><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/></>,
-  gear: <><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></>,
+  gear: <><path d="M9.5 3h5l.5 2.5 2 1.2 2.4-.8 2.5 4.2-1.9 1.7v.4l1.9 1.7-2.5 4.2-2.4-.8-2 1.2-.5 2.5h-5L9 18.5l-2-1.2-2.4.8-2.5-4.2L4 12.2v-.4l-1.9-1.7 2.5-4.2 2.4.8 2-1.2z"/><circle cx="12" cy="12" r="3"/></>,
   info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></>,
   warning: <><path d="M12 4l9.5 16h-19z"/><path d="M12 10v5M12 17.5v.5"/></>,
   heart: <path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z"/>,
   refresh: <><path d="M20 6v5h-5"/><path d="M19.5 11A8 8 0 1 0 18 16"/></>,
 } satisfies Record<string, React.ReactNode>;
-const cut = 'var(--m-pill-bg,#fff)';
-/** Solid variants for the selected tab. Painted with `currentColor`; inner details carry their own stroke or fill. */
-const filled = {
-  tabHome: <path d="M12 3.2 2.8 10.6a1 1 0 0 0 .6 1.8H5V20a1 1 0 0 0 1 1h4v-5.5h4V21h4a1 1 0 0 0 1-1v-7.6h1.6a1 1 0 0 0 .6-1.8z"/>,
-  tabBox: <><path d="M12 2.4 21 7.3v9.4L12 21.6 3 16.7V7.3z"/><path d="M3.8 7.6 12 12l8.2-4.4M12 12v9.2" fill="none" stroke={cut} strokeWidth="1.4" strokeLinejoin="round"/></>,
-  tabWallet: <><path d="M6 6l9-3 1.5 3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><rect x="3" y="6" width="18" height="14" rx="3.5"/><circle cx="17" cy="13" r="1.5" fill={cut}/></>,
-  tabTarget: <><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="5" fill="none" stroke={cut} strokeWidth="1.6"/><circle cx="12" cy="12" r="1.5" fill={cut}/></>,
-  tabUser: <><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3.2" fill={cut}/><path d="M6.4 18.2c1.4-2.1 3.3-3.2 5.6-3.2s4.2 1.1 5.6 3.2A9.4 9.4 0 0 1 12 21.5a9.4 9.4 0 0 1-5.6-3.3z" fill={cut}/></>,
-} satisfies Partial<Record<keyof typeof paths, React.ReactNode>>;
 export type IconName = keyof typeof paths;
 
 /** Decorative icon (aria-hidden). Pair it with visible text or give the surrounding button an aria-label. */
-export function Icon({ name, size = 22, strokeWidth = 1.8, active = false }: { name: IconName; size?: number; strokeWidth?: number; /** Solid variant, when the icon has one (tab icons). */ active?: boolean }) {
-  const solid = active && name in filled;
-  if (solid) return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">{filled[name as keyof typeof filled]}</svg>;
+export function Icon({ name, size = 22, strokeWidth = 1.8 }: { name: IconName; size?: number; strokeWidth?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>;
 }

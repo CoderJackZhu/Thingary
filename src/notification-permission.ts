@@ -11,5 +11,6 @@ export function reminderPermissionMessage(pending:boolean,error:string,mac:boole
     : t(' 已保存的提醒需在 Windows 设置 › 系统 › 通知 中开启物谱通知后才能送达。')) : '';
 }
 export function notificationNeedsSettings(message:string):boolean {
+  if(message.includes('尚未申请通知权限'))return false;
   return message.includes('权限')||message.includes('通知未开启');
 }

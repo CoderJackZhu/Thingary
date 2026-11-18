@@ -7,16 +7,17 @@ import { defaultPreferences } from '../../preferences';
 import { stateLabel } from '../../lifecycle';
 import { collectionNavigation, collectionStatusOptions } from '../../collection-navigation';
 import { nextSelection } from '../../batch-select';
-import type { TaxonomySnapshot } from '../../taxonomy';
+import type { CategoryIcon, TaxonomySnapshot } from '../../taxonomy';
 import type { OverviewData } from '../../Overview';
 import { Cover } from '../../Photos';
 import { submit } from '../../wealth';
 import { useNav, useReveal } from '../nav-context';
 import { useSession } from '../session';
-import { Button, Card, EmptyState, ErrorState, Fab, Icon, IconButton, LargeTitle, ListRow, SearchField, Loading, Notice, PullToRefresh, Section, SegmentedControl, SwipeRow } from '../ui';
+import { Button, Card, EmptyState, ErrorState, Icon, IconButton, LargeTitle, ListRow, SearchField, Loading, Notice, PullToRefresh, Section, SegmentedControl, SwipeRow } from '../ui';
 import { appendPage, itemsSummary, stateCaption } from './list-model';
 import { useItemQuery, setItemQuery } from './list-store';
 import ItemBatch from './ItemBatch';
+import { CategoryFallback } from './CategoryFallback';
 import './items.css';
 import { t as tr } from '../../i18n.ts';
 type Counts = {generation:string;all:number;active:number;retired:number;sold:number};
@@ -72,8 +73,9 @@ export default function ItemList() {
   }
   function select(id:string){selectionTicket.current++;setSelected(prev=>nextSelection(prev,null,id,page?.items.map(r=>r.asset.id)??[],{meta:false,shift:false,toggle:true},null).ids);}
   const categoryName=query.category?.mode==='category'?taxonomy?.categories.find(c=>c.id===(query.category as {id:string}).id)?.name??tr('已选分类'):query.category?.mode==='uncategorized'?tr('未分类'):tr('全部');
+  const categoryTones:Record<CategoryIcon,string>={box:'slate',computer:'blue',phone:'indigo',camera:'purple',audio:'teal',home:'amber'};
   const summary=overview?itemsSummary(overview):null;
-  const searching=searchOpen;
+  const searching=searchOpen,searchActive=!!query.search.trim();
   const stopSelecting=()=>{setSelecting(false);setSelected([]);};
   function cancelPress(){if(press.current){window.clearTimeout(press.current.timer);press.current=null;}}
   const pressHandlers=(id:string)=>({
@@ -83,35 +85,34 @@ export default function ItemList() {
     onContextMenu:(e:{preventDefault:()=>void})=>{if(pressed.current||press.current)e.preventDefault();},
   });
   const open=(record:AssetRecord)=>{if(pressed.current){pressed.current=false;return;}if(selecting)select(record.asset.id);else nav.push('items.detail',{id:record.asset.id});};
-  const row=(record:AssetRecord)=> <ListRow title={<>{selecting&&<span className="mi-check" aria-hidden="true" data-on={selected.includes(record.asset.id)?'1':undefined}/>}{record.asset.name}{record.preferences?.pinned&&<span className="mi-pin"> {tr('· 置顶')}</span>}</>} icon={<Cover record={record} generation={page!.generation}/>} subtitle={[taxonomy?.categories.find(c=>c.id===record.classification?.category_id)?.name??tr('未分类'),record.label_name,dayLabel(record.asset.purchase_date)].filter(Boolean).join(' · ')} value={record.sale?tr('售 {v1}', { v1: moneyText(record.sale.fields.price_cents) }):unitMoneyText(record.preferences?.cost_mode==='per_use'?record.per_use_cents??null:record.costs.daily_cents)+(record.preferences?.cost_mode==='per_use'?tr('/次'):tr('/天'))} valueSub={`${stateLabel(record)} · ${moneyText(record.asset.price_cents)}`} disabled={session.navBlocked} onClick={()=>open(record)}/>;
+  const row=(record:AssetRecord)=>{
+    const category=taxonomy?.categories.find(c=>c.id===record.classification?.category_id);
+    return <ListRow title={<>{selecting&&<span className="mi-check" aria-hidden="true" data-on={selected.includes(record.asset.id)?'1':undefined}/>}{record.asset.name}{record.preferences?.pinned&&<span className="mi-pin"> {tr('· 置顶')}</span>}</>} icon={<Cover record={record} generation={page!.generation} fallback={<CategoryFallback icon={category?.icon}/>}/>} subtitle={[category?.name??tr('未分类'),record.label_name,dayLabel(record.asset.purchase_date)].filter(Boolean).join(' · ')} value={record.sale?tr('售 {v1}', { v1: moneyText(record.sale.fields.price_cents) }):unitMoneyText(record.preferences?.cost_mode==='per_use'?record.per_use_cents??null:record.costs.daily_cents)+(record.preferences?.cost_mode==='per_use'?tr('/次'):tr('/天'))} valueSub={`${stateLabel(record)} · ${moneyText(record.asset.price_cents)}`} disabled={session.navBlocked} onClick={()=>open(record)} style={{'--mi-cat':`var(--m-icon-${categoryTones[category?.icon??'box']})`} as React.CSSProperties}/>;
+  };
+  const actions=!selecting?<><IconButton label={tr('搜索')} pressed={searching} onClick={()=>setSearchOpen(open=>!open)}><Icon name="search" size={19}/></IconButton><IconButton label={tr('新增物品')} disabled={session.navBlocked} onClick={()=>nav.push('items.edit')}><span className="mi-add-icon"><Icon name="plus" size={21} strokeWidth={2.2}/></span></IconButton></>:undefined;
   return <PullToRefresh onRefresh={()=>{setOffset(0);setRetry(n=>n+1);}}><div className="m-page mi-page">
-    <LargeTitle title={tr('物品')}/>
-    {metaError?<ErrorState title={tr('摘要或选项读取失败')} message={metaError} onRetry={()=>setRetry(n=>n+1)}/>:summary&&<Card className="mi-summary" label={tr('持有物品摘要')}>
-      <span className="mi-summary-label">{tr('持有物品总价')}</span>
-      <strong className={`mi-summary-total${summary.totalCents===null?' m-unknown':''}`}>{summary.totalCents===null?tr('未知'):moneyText(summary.totalCents)}</strong>
-      {summary.unknownPriceCount>0&&<small className="mi-summary-note">{tr('{unknownPriceCount} 件价格未知，未计入', { unknownPriceCount: summary.unknownPriceCount })}</small>}
-      <div className="mi-summary-grid">
-        <div><span>{tr('日均成本')}</span><strong className={summary.dailyCents===null?'m-unknown':undefined}>{summary.dailyCents===null?tr('未知'):<>{unitMoneyText(summary.dailyCents)}<small> {tr('/天')}</small></>}</strong></div>
-        <div><span>{tr('持有数量')}</span><strong>{summary.heldCount}<small> {tr('件')}{summary.soldCount>0?tr(' · {soldCount} 件已售', { soldCount: summary.soldCount }):''}</small></strong></div>
+    <LargeTitle title={tr('物品')} actions={actions}/>
+    {metaError?<ErrorState title={tr('摘要或选项读取失败')} message={metaError} onRetry={()=>setRetry(n=>n+1)}/>:!searchActive&&summary&&<Card className="mi-summary" label={tr('持有物品摘要')}>
+      <div className="mi-summary-count"><strong>{summary.heldCount}</strong> {tr('件持有')}{summary.soldCount>0&&<span className="mi-summary-sold">{tr(' · {soldCount} 件已售', { soldCount: summary.soldCount })}</span>}</div>
+      <div className="mi-summary-metrics">
+        <div className="mi-summary-metric"><span>{summary.unknownPriceCount>0?tr('已知持有总价'):tr('持有总价')}</span><strong className={summary.totalCents===null?'m-unknown':undefined}>{summary.totalCents===null?tr('未知'):moneyText(summary.totalCents)}</strong></div>
+        <div className="mi-summary-metric"><span>{tr('日均成本')}</span><strong className={summary.dailyCents===null?'m-unknown':undefined}>{summary.dailyCents===null?tr('未知'):<>{unitMoneyText(summary.dailyCents)}<small>{tr('/天')}</small></>}</strong></div>
       </div>
-      {summary.dailyNotes.length>0&&<small className="mi-summary-note">{summary.dailyNotes.join('；')}。</small>}
+      {(summary.unknownPriceCount>0||summary.dailyNotes.length>0)&&<div className="mi-summary-notes">{summary.unknownPriceCount>0&&<span>{tr('{unknownPriceCount} 件价格未知', { unknownPriceCount: summary.unknownPriceCount })}</span>}{summary.dailyNotes.map(note=><span key={note}>{note}</span>)}</div>}
     </Card>}
-    <SegmentedControl label={tr('物品状态')} variant="compact" value={collectionNavigation(query).selected??''} items={collectionStatusOptions.map(([id,label])=>({id,label:`${label}${counts?' '+counts[id]:''}`}))} onChange={filter=>setItemQuery({filter})}/>
+    {!searchActive&&<SegmentedControl label={tr('物品状态')} variant="compact" value={collectionNavigation(query).selected??''} items={collectionStatusOptions.map(([id,label])=>({id,label:`${label}${counts?' '+counts[id]:''}`}))} onChange={filter=>setItemQuery({filter})}/>}
     <div className="mi-toolbar"><button type="button" className="mi-state" onClick={()=>nav.push('items.filter')} aria-label={tr('筛选与排序，当前{v1}', { v1: stateCaption(query,categoryName) })}><span>{stateCaption(query,categoryName)}</span><Icon name="chevronDown" size={14} strokeWidth={2.4}/></button>
       <div className="mi-tools">
-        <IconButton label={tr('搜索')} pressed={searching} onClick={()=>setSearchOpen(open=>!open)}><Icon name="search" size={18}/></IconButton>
-        <IconButton label={tr('批量选择')} pressed={selecting} disabled={session.navBlocked} onClick={()=>selecting?stopSelecting():setSelecting(true)}><Icon name="checkCircle" size={18}/></IconButton>
-        <IconButton label={tr('筛选与排序')} onClick={()=>nav.push('items.filter')}><Icon name="filter" size={18}/></IconButton>
-        <IconButton label={view==='list'?tr('切换网格'):tr('切换列表')} onClick={()=>setView(view==='list'?'grid':'list')}><Icon name={view==='list'?'grid':'list'} size={18}/></IconButton>
+        <IconButton label={tr('批量选择')} pressed={selecting} disabled={session.navBlocked} onClick={()=>selecting?stopSelecting():setSelecting(true)}><Icon name="checkCircle" size={19}/></IconButton>
+        <IconButton label={view==='list'?tr('切换网格'):tr('切换列表')} onClick={()=>setView(view==='list'?'grid':'list')}><Icon name={view==='list'?'grid':'list'} size={19}/></IconButton>
       </div></div>
     {searching&&<div className="mi-search"><SearchField subject={tr('物品')} maxLength={200} autoFocus value={query.search} onChange={search=>setItemQuery({search})} onBlur={e=>{if(!e.currentTarget.closest('.mi-search')?.contains(e.relatedTarget as Node))setSearchOpen(false);}}/><button type="button" className="mi-search-cancel" onClick={()=>{setItemQuery({search:''});setSearchOpen(false);}}>{tr('取消')}</button></div>}
     {!searching&&query.search&&<div className="mi-search-chip"><button type="button" className="mi-search-chip-text" onClick={()=>setSearchOpen(true)}><Icon name="search" size={14}/>{query.search}</button><button type="button" className="mi-search-chip-clear" aria-label={tr('清除搜索')} onClick={()=>setItemQuery({search:''})}><Icon name="close" size={14}/></button></div>}
-    {expiring&&expiring.total>0&&<Card tone="warn" className="mi-expiring"><ListRow icon="bell" title={tr('{v1}{v2} 保障 30 天内到期', { v1: expiring.items[0]?.asset.name ?? tr('物品'), v2: expiring.total>1?tr(' 等 {total} 件', { total: expiring.total }):'' })} onClick={()=>setItemQuery({warranty:'expiring'})}/></Card>}
+    {!searchActive&&expiring&&expiring.total>0&&<Card tone="warn" className="mi-expiring"><ListRow icon="bell" title={tr('{v1}{v2} 保障 30 天内到期', { v1: expiring.items[0]?.asset.name ?? tr('物品'), v2: expiring.total>1?tr(' 等 {total} 件', { total: expiring.total }):'' })} onClick={()=>setItemQuery({warranty:'expiring'})}/></Card>}
     {notice&&<Notice tone="danger">{notice}</Notice>}
     {selecting&&<div className="mi-selectbar" role="toolbar" aria-label={tr('批量选择')}><button type="button" className="mi-select-cancel" onClick={stopSelecting}>{tr('取消')}</button><span className="mi-select-count" role="status">{tr('已选 {length} 件', { length: selected.length })}</span><Button onClick={()=>void selectAll()}>{tr('全选结果')}</Button><Button variant="primary" disabled={!selected.length||session.navBlocked} onClick={()=>{setBatchKind('none');setBatch(true);}}>{tr('批量操作')}</Button></div>}
-    {error?<ErrorState message={error} onRetry={()=>{setOffset(0);setRetry(n=>n+1);}}/>:page&&!page.items.length?<EmptyState title={counts?.all===0?tr('还没有物品'):tr('没有符合条件的物品')} message={tr('可以先拍张照片，价格和日期不知道就留空。')} action={<Button variant="primary" onClick={()=>nav.push('items.edit')}>{tr('拍照建档')}</Button>}/>:<Section title={collectionNavigation(query).title}><div className={view==='grid'?'mi-grid':'mi-list'}>{page?.items.map(record=>selecting?<div key={record.asset.id} onPointerDown={()=>{pressed.current=false;}}>{row(record)}</div>:<SwipeRow key={record.asset.id} label={record.asset.name+tr(' 操作')} actions={[{label:record.preferences?.pinned?tr('取消置顶'):tr('置顶'),onAction:()=>void pin(record)},{label:tr('删除'),tone:'danger',onAction:()=>{setSelected([record.asset.id]);setBatchKind('delete');setBatch(true);}}]}><div {...pressHandlers(record.asset.id)}>{row(record)}</div></SwipeRow>)}</div></Section>}
+    {error?<ErrorState message={error} onRetry={()=>{setOffset(0);setRetry(n=>n+1);}}/>:page&&!page.items.length?<EmptyState title={searchActive?tr('没有匹配“{query}”的物品', { query: query.search.trim() }):counts?.all===0?tr('还没有物品'):tr('没有符合条件的物品')} message={searchActive?tr('换个关键词，或者清除搜索。'):tr('可以先拍张照片，价格和日期不知道就留空。')} action={<Button variant="primary" onClick={()=>{if(searchActive){setItemQuery({search:''});setSearchOpen(false);}else nav.push('items.edit');}}>{searchActive?tr('清除搜索'):tr('拍照建档')}</Button>}/>:<Section title={searchActive?tr('搜索结果'):collectionNavigation(query).title}><div className={view==='grid'?'mi-grid':'mi-list'}>{page?.items.map(record=>selecting?<div key={record.asset.id} onPointerDown={()=>{pressed.current=false;}}>{row(record)}</div>:<SwipeRow key={record.asset.id} label={record.asset.name+tr(' 操作')} actions={[{label:record.preferences?.pinned?tr('取消置顶'):tr('置顶'),onAction:()=>void pin(record)},{label:tr('删除'),tone:'danger',onAction:()=>{setSelected([record.asset.id]);setBatchKind('delete');setBatch(true);}}]}><div {...pressHandlers(record.asset.id)}>{row(record)}</div></SwipeRow>)}</div></Section>}
     {loading&&<Loading/>}{page&&<div ref={sentinel} className="mi-caption">{tr('已显示 {length} / {total} 件', { length: page.items.length, total: page.total })}{page.items.length<page.total&&<Button disabled={loading} onClick={()=>setOffset(page.items.length)}>{tr('加载更多')}</Button>}</div>}
-    <Fab label={tr('新增物品')} hidden={selecting||batch} disabled={session.navBlocked} onClick={()=>nav.push('items.edit')}/>
     {batch&&page&&<ItemBatch ids={selected} initialKind={batchKind} generation={page.generation} today={page.today} onClose={()=>{if(!session.navBlocked)setBatch(false);}} onDone={()=>{setBatch(false);setSelected([]);setSelecting(false);setRetry(n=>n+1);}}/>}
   </div></PullToRefresh>;
 }

@@ -28,7 +28,7 @@ installMobileRuntime();
 
 type Loaded = { gate: Gate; review: Review; warranty: WarrantyAlert | null; wishes: WishDue[] | null; warrantyFailed: boolean; wishesFailed: boolean };
 
-/** 总览 (design 01): 金融净资产, 规划结果, 物品日均成本, 待处理, 近期记录. */
+/** 总览: 金融净资产, 规划结果, 物品日均成本, 待处理摘要, 近期记录. */
 const recentIcon = (kind: string) => kind.startsWith('wish_') ? 'heart' as const : kind.startsWith('warranty_') ? 'shield' as const : kind === 'snapshot' ? 'doc' as const : kind === 'purchase' ? 'box' as const : kind === 'payment' ? 'refresh' as const : kind === 'expense' || kind === 'refund' ? 'wallet' as const : 'clock' as const;
 
 export default function Overview(_props: PageProps) {
@@ -103,7 +103,7 @@ export default function Overview(_props: PageProps) {
 
   const { plan, net, daily } = view;
   const blocks: HomeBlock[] = [
-    ...(modules.wealth ? [{ id: 'net' as const, title: t('金融净资产'), content: (net?.state === 'known'
+    ...(modules.wealth ? [{ id: 'net' as const, title: t('家底'), content: (net?.state === 'known'
       ? <HeroCard eyebrow={t('金融净资产')} action={t('查看财富')} title={net.net} onClick={() => openRoute(nav, 'wealth.overview')}
           subtitle={<span className={`m-hero-sub${net.changeTone ? ` m-${net.changeTone}` : ''}`}>{net.change ?? t('截至 {v1}', { v1: dayLabel(net.date, today) })}</span>}
           footnote={net.incomplete ?? t('截至 {v1}盘点', { v1: dayLabel(net.date, today) })}>
@@ -113,7 +113,7 @@ export default function Overview(_props: PageProps) {
     ...(plan ? [{ id: 'plan' as const, title: t('规划'), content: (plan.state === 'error'
       ? <Card label={t('规划')}><ErrorState title={plan.title} message={plan.subtitle ?? undefined} onRetry={() => setRetry(n => n + 1)}/></Card>
       : <button type="button" className="m-card h-plan" onClick={() => openRoute(nav, 'plan.goal')}>
-          <span className="h-plan-top"><span className="h-plan-lead"><span className="m-metric-icon m-tone-accent"><Icon name="tabTarget" size={17} strokeWidth={2}/></span><span>{plan.eyebrow}</span></span><span className="h-plan-action">{plan.state === 'setup' ? t('去设置') : t('查看规划')}<Icon name="chevronRight" size={16}/></span></span>
+          <span className="h-plan-top"><span className="h-plan-lead"><span className="m-metric-icon h-plan-icon"><Icon name="tabTarget" size={17} strokeWidth={2}/></span><span>{plan.eyebrow}</span></span><span className="h-plan-action">{plan.state === 'setup' ? t('去设置') : t('查看规划')}<Icon name="chevronRight" size={16}/></span></span>
           {plan.lead ? <span className="h-plan-title">{plan.lead.before}<strong className="h-plan-num">{plan.lead.strong}</strong>{plan.lead.after}</span> : <span className="h-plan-title">{plan.title}</span>}
           {plan.subtitle && <span className="h-plan-sub">{plan.subtitle}</span>}
           {plan.progress && <span className="h-plan-bar">
@@ -123,18 +123,27 @@ export default function Overview(_props: PageProps) {
           </span>}
           {plan.warn && <span className="h-plan-warn">{plan.warn}</span>}
         </button>) }] : []),
-    { id: 'daily', title: t('物品日均成本'), content: (daily ? <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
-      : <Metric icon="tabBox" tone="warn" label={t('物品日均成本')} value={t('未知')} unknown sub={view.physicalError || t('暂时读不出来')}/>) },
-    { id: 'pending', title: t('待处理'), content: <ListGroup title={t('待处理')} action={view.pending.length ? <span className="h-count">{t('{length} 项', { length: view.pending.length })}</span> : undefined} footer={view.failed ? t('部分来源读取失败，这里只显示已读取的部分。') : undefined}>
-      {view.pending.length === 0 && <ListRow icon="check" tone="positive" title={view.failed ? t('可用来源中暂无事项') : t('暂时没有需要处理的事项')}/>}
-      {view.pending.map(entry => entry.action
-        ? <ListRow key={entry.id} icon={entry.icon} tone={entry.tone} title={entry.title} subtitle={entry.subtitle} trailing={<Button variant="primary" onClick={() => openRoute(nav, entry.route, entry.params)}>{entry.action}</Button>}/>
-        : <ListRow key={entry.id} icon={entry.icon} tone={entry.tone} title={entry.title} subtitle={entry.subtitle} onClick={() => openRoute(nav, entry.route, entry.params)}/>)}
-    </ListGroup> },
+    { id: 'daily', title: t('物品日均成本'), content: (daily ? <Metric icon="tabBox" label={t('物品日均成本')} value={daily.value} unknown={daily.unknown} sub={daily.sub} onClick={() => openRoute(nav, 'items.list')}><span className="h-asof">{daily.note}</span></Metric>
+      : <Metric icon="tabBox" label={t('物品日均成本')} value={t('未知')} unknown sub={view.physicalError || t('暂时读不出来')}/>) },
+    { id: 'pending', title: t('待处理'), content: view.pending.length === 0
+      ? <Card className="h-pending h-pending-empty"><ListRow icon="check" tone="positive" title={view.failed ? t('可用来源中暂无事项') : t('暂时没有需要处理的事项')} subtitle={view.failed ? t('部分来源读取失败，这里只显示已读取的部分。') : undefined}/></Card>
+      : <details className="m-card h-pending">
+          <summary>
+            <span className="m-row-icon m-tone-warn"><Icon name="warning" size={17} strokeWidth={2}/></span>
+            <span className="h-pending-copy"><strong>{t('{length} 项待处理', { length: view.pending.length })}</strong><small>{view.pending.slice(0, 2).map(entry => entry.title).join(' · ')}{view.pending.length > 2 ? t(' 等') : ''}</small></span>
+            <span className="h-pending-more">{t('查看')}<Icon name="chevronDown" size={16} strokeWidth={2.2}/></span>
+          </summary>
+          <div className="h-pending-body">
+            {view.pending.map(entry => entry.action
+              ? <ListRow key={entry.id} icon={entry.icon} tone={entry.tone} title={entry.title} subtitle={entry.subtitle} trailing={<Button variant="primary" onClick={() => openRoute(nav, entry.route, entry.params)}>{entry.action}</Button>}/>
+              : <ListRow key={entry.id} icon={entry.icon} tone={entry.tone} title={entry.title} subtitle={entry.subtitle} onClick={() => openRoute(nav, entry.route, entry.params)}/>)}
+            {view.failed && <p className="h-pending-foot">{t('部分来源读取失败，这里只显示已读取的部分。')}</p>}
+          </div>
+        </details> },
     { id: 'recent', title: t('近期记录'), content: <ListGroup title={t('近期记录')} action={<button type="button" onClick={() => nav.push('me.timeline')}>{t('查看时间轴 ›')}</button>}>
       {view.recent.length === 0 && <EmptyState icon="home" title={t('还没有带日期的记录')} message={t('新增物品、盘点或付款后会出现在这里。')}/>}
       {view.recent.map(row => {
-        const props = { icon: <Icon name={recentIcon(row.kind)} size={17} strokeWidth={2}/>, tone: 'neutral' as const, title: row.title, subtitle: [row.date, row.detail].filter(Boolean).join(' · '), value: row.amount ?? undefined };
+        const props = { icon: recentIcon(row.kind), title: row.title, subtitle: [row.date, row.detail].filter(Boolean).join(' · '), value: row.amount ?? undefined };
         return row.target ? <ListRow key={row.id} {...props} onClick={() => openRoute(nav, row.target!.route, row.target!.params)}/> : <ListRow key={row.id} {...props}/>;
       })}
     </ListGroup> },

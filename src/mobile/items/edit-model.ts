@@ -1,6 +1,7 @@
 import { emptyFields, fieldsOf, priceCents, priceOrigin, validate, type AssetRecord, type Classification, type Fields, type Photo, type SaveAsset } from '../../asset.ts';
 import { defaultPreferences, type AssetOptions } from '../../preferences.ts';
 import { readDefaultCurrency, readRate } from '../../currency-picker.ts';
+import type { CategoryIcon } from '../../taxonomy.ts';
 
 export type ItemDraft = { fields: Fields; options: AssetOptions; classification: Classification; photos: Photo[]; cover: string | null; transientCover?: string; warrantyEndEdited?: boolean; id: string | null; revision: number | null };
 export function itemDraft(record: AssetRecord | null): ItemDraft {
@@ -17,7 +18,7 @@ export function itemSaveInput(draft: ItemDraft, generation: string, today: strin
 export const itemPriceOrigin = (draft: ItemDraft) => priceOrigin(draft.fields);
 
 /** A picker communicates with its mounted editor in memory; closing the editor discards this channel. */
-export type IconSession = { generation: string; photos: Photo[]; cover: string | null; choose: (photo: Photo | null, prepared: boolean) => void };
+export type IconSession = { generation: string; photos: Photo[]; cover: string | null; defaultIcon?: CategoryIcon | null; choose: (photo: Photo | null, prepared: boolean) => void };
 const iconSessions = new Map<string, IconSession>();
 export const setIconSession = (key: string, session: IconSession) => { iconSessions.set(key, session); };
 export const getIconSession = (key: string) => iconSessions.get(key);

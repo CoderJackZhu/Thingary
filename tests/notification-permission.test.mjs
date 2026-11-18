@@ -24,7 +24,7 @@ function mount(invoke){
   return runtime('NotificationNotice',{},undefined,undefined,{
     components:[],
     modules:{'@tauri-apps/api/core':{invoke},'./notification-permission':messages,'./undo-shortcut':{isMac:false},'./asset':{errorMessage}},
-    globals:{setInterval:()=>1,clearInterval:()=>{},window:{addEventListener(){},removeEventListener(){}}},
+    globals:{Event, setInterval:()=>1,clearInterval:()=>{},window:{dispatchEvent(){},addEventListener(){},removeEventListener(){}}},
   });
 }
 test('the Windows disabled banner offers settings and reports settings-open errors as text',async()=>{
@@ -53,4 +53,49 @@ test('an enabled status hides the notice and a read failure offers retry',async(
   assert.match(failed.text(failed.nodes()),/提醒状态暂不可用，请重试/);
   assert.ok(failed.button('重试提醒'));
   failed.unmount();
+});
+test('an unrequested permission offers retry before system settings',async()=>{
+  const message='尚未申请通知权限；提醒日期已保存，请点击“重试提醒”允许通知';
+  assert.equal(notificationNeedsSettings(message),false);
+  const r=mount(async()=>message);
+  await r.settle();
+  assert.ok(r.button('重试提醒'));
+  assert.equal(r.button('打开系统通知设置'),undefined);
+  r.unmount();
+});
+test('retry requests permission and reapplies saved reminders after authorization',async()=>{
+  const calls=[];
+  let allowed=false, finish;
+  const r=mount(async name=>{
+    calls.push(name);
+    if(name==='notification_permission'){
+      await new Promise(resolve=>{finish=resolve});
+      allowed=true;
+    }
+    return name==='notification_status'&&!allowed?'通知权限未开启':'';
+  });
+  await r.settle();
+  r.button('重试提醒').props.onClick();
+  await r.settle();
+  assert.equal(r.button('重试提醒').props.disabled,true);
+  finish();
+  await r.settle();
+  assert.deepEqual(calls,['notification_status','notification_permission','notification_status']);
+  assert.equal(r.find('div'),undefined);
+  r.unmount();
+});
+test('retry preserves permission errors and can be tried again',async()=>{
+  const calls=[];
+  const r=mount(async name=>{
+    calls.push(name);
+    if(name==='notification_permission')throw {message:'通知权限请求失败：服务不可用'};
+    return '通知权限未开启';
+  });
+  await r.settle();
+  r.button('重试提醒').props.onClick();
+  await r.settle();
+  assert.match(r.text(r.nodes()),/通知权限请求失败：服务不可用/);
+  assert.equal(r.button('重试提醒').props.disabled,false);
+  assert.deepEqual(calls,['notification_status','notification_permission']);
+  r.unmount();
 });

@@ -33,7 +33,7 @@ function display(lang) {
       progress: [goalProgressChange(point('500000','100000'), point('400000','200000'), f.moneyText), goalProgressChange(point('400000','200000'), point('500000','100000'), f.moneyText)],
       timeline: ['2026-10','2026-09'].map(key => monthSpendingText({key,spendingCents:'10000',unknownCount:0}, '2026-10')),
       conditions: [conditionSummary({profile:{retire:{spend_cents:'400000',basic:{contribution:{monthly_cents:'500000'}}}}}, {funds:{status:'ready',value:{available_cents:'10000000'}}}), conditionSummary({profile:{retire:{spend_cents:null}}}, {funds:{status:'blocked'}})],
-      extra: [t('3 月'), t('{label} · {length} 项', {label:'All',length:4}), t('{length} 条',{length:1}), t('{length} 笔',{length:1}), t('{unknownPriceCount} 件价格未知，未计入',{unknownPriceCount:1}), t('缺 {missing} 个账户',{missing:1}), t('{subscriptions} 项 · 月均 {v2}',{subscriptions:1,v2:'¥120'})],
+      extra: [t('3 月'), t('{label} · {length} 项', {label:'All',length:4}), t('{length} 条',{length:1}), t('{length} 笔',{length:1}), t('{unknownPriceCount} 件价格未知',{unknownPriceCount:1}), t('缺 {missing} 个账户',{missing:1}), t('{subscriptions} 项 · 月均 {v2}',{subscriptions:1,v2:'¥120'})],
       money: [f.moneyText(null), f.moneyText('0'), f.moneyText('123456789'), f.unitMoneyText('1100'), f.forecastMoneyText(null)],
       labels: [t('金融净资产'), t('查看财富'), t('退休规划'), t('查看规划')],
       notices: [1, 2].flatMap(n => [
@@ -61,7 +61,7 @@ test('English formats full card amounts, compact chart ticks and calendar dates'
   assert.deepEqual(en.progress, ['Compared with the last check-in (2026-09-24): Monthly savings needed decreased by ¥1,000, Available funds increased by ¥1,000.', 'Compared with the last check-in (2026-09-24): Monthly savings needed increased by ¥1,000, Available funds decreased by ¥1,000.']);
   assert.deepEqual(en.timeline, ['This Month spending ¥100', 'That month’s spending ¥100']);
   assert.deepEqual(en.conditions, ['Retirement budget ¥4,000/month · Available funds ¥100,000 · Save ¥5,000 per month', 'Retirement budget Unknown · Available funds Pending confirmation · Save Pending confirmation per month']);
-  assert.deepEqual(en.extra, ['3 months', 'All · Items: 4', '1 entry', '1 entry', '1 item with unknown price, excluded', 'Accounts missing: 1', '1 subscription · monthly average ¥120']);
+  assert.deepEqual(en.extra, ['3 months', 'All · Items: 4', '1 entry', '1 entry', '1 item with unknown price', 'Accounts missing: 1', '1 subscription · monthly average ¥120']);
   assert.deepEqual(en.money, ['Unknown', '¥0', '¥1,234,567.89', '¥11.00', 'Unknown']);
   assert.deepEqual(en.labels, ['Financial Net Worth', 'View Wealth', 'Retirement Planning', 'View Planning']);
   assert.deepEqual(en.notices, [1, 2].flatMap(n => [`Accounts missing: ${n}`, `date · Accounts missing: ${n}`, `Warranty expiring within 30 days: ${n}`, `Virtual assets expired or expiring soon: ${n}`, `Purchase amount · ${n} ${n === 1 ? 'item' : 'items'} unknown`]));
@@ -81,7 +81,7 @@ test('Chinese card, chart, date, unknown and notice output is fixed verbatim', (
   assert.deepEqual(zh.progress, ['较上次盘点（2026-09-24）：需要每月存少了 ¥1,000，可用资金增加 ¥1,000。', '较上次盘点（2026-09-24）：需要每月存多了 ¥1,000，可用资金减少 ¥1,000。']);
   assert.deepEqual(zh.timeline, ['本月支出 ¥100', '当月支出 ¥100']);
   assert.deepEqual(zh.conditions, ['退休预算 ¥4,000/月 · 可用资金 ¥100,000 · 每月存 ¥5,000', '退休预算 未知 · 可用资金 待确认 · 每月存 待确认']);
-  assert.deepEqual(zh.extra, ['3 月', 'All · 4 项', '1 条', '1 笔', '1 件价格未知，未计入', '缺 1 个账户', '1 项 · 月均 ¥120']);
+  assert.deepEqual(zh.extra, ['3 月', 'All · 4 项', '1 条', '1 笔', '1 件价格未知', '缺 1 个账户', '1 项 · 月均 ¥120']);
   assert.deepEqual(zh.money, ['未知', '¥0', '¥1,234,567.89', '¥11.00', '未知']);
   assert.deepEqual(zh.labels, ['金融净资产', '查看财富', '退休规划', '查看规划']);
   assert.deepEqual(zh.notices, [1, 2].flatMap(n => [`缺 ${n} 个账户`, `date · 缺 ${n} 个账户`, `保修 30 天内到期 ${n} 件`, `虚拟资产 ${n} 项权益到期或即将到期`, `购入金额 · ${n} 件未知`]));

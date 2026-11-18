@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import type { CSSProperties } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { hiddenKinds, allModules } from '../../modules';
 import { readMode, readStyle } from '../../appearance';
@@ -13,6 +14,7 @@ import { useSession } from '../session';
 import { Button, Card, LargeTitle, ListGroup, ListRow } from '../ui';
 import type { PageProps } from '../routes';
 import { MeIcon } from './icons';
+import type { MeIconName } from './icons';
 import { appearanceSummary, backupReminder, daysAgoText, enabledModuleCount, readLastBackup, settingsTitles } from './model';
 import type { SettingsPage } from './model';
 import { privacySnapshot, subscribePrivacy, authName } from './privacy-runtime';
@@ -53,7 +55,18 @@ export default function Me(_props: PageProps) {
   const reminder = backupReminder(last, new Date(), (extra.counts?.all ?? 0) > 0 || (accounts ?? 0) > 0);
   const interval = extra.checkin ? checkinIntervals.find(item => item.value === String(extra.checkin!.months))?.label : undefined;
   const lockText = privacy.lock.enabled ? t('已开启') : t('未开启');
-  return <div className="m-page">
+  const settingTiles: { icon: MeIconName; tone: 'indigo' | 'blue' | 'purple' | 'amber' | 'green' | 'teal' | 'slate'; title: string; value: string; page: SettingsPage }[] = [
+    { icon: 'grid', tone: 'indigo', title: t('功能模块'), value: t('已开启 {v1} 项', { v1: enabledModuleCount(modules) }), page: 'modules' },
+    { icon: 'gear', tone: 'slate', title: t('通用'), value: t('语言、默认币种'), page: 'general' },
+    { icon: 'contrast', tone: 'purple', title: t('外观'), value: appearanceSummary(readStyle(), readMode()), page: 'appearance' },
+    { icon: 'tag', tone: 'amber', title: t('选项管理'), value: t('分类、标签、渠道'), page: 'options' },
+    { icon: 'image', tone: 'green', title: t('素材库'), value: t('内置图标与我的图片'), page: 'materials' },
+    { icon: 'calendar', tone: 'teal', title: t('盘点提醒'), value: interval ?? t('关闭'), page: 'checkin' },
+    { icon: 'bell', tone: 'blue', title: t('通知'), value: t('提醒与权限'), page: 'notifications' },
+    { icon: 'lock', tone: 'slate', title: t('隐私与{v1}', { v1: authName() }), value: lockText, page: 'privacy' },
+  ];
+  const settingRow = (tile: typeof settingTiles[number]) => <ListRow key={tile.page} icon={<MeIcon name={tile.icon} size={19}/>} title={tile.title} subtitle={tile.value} iconStyle={{ '--ic': `var(--m-icon-${tile.tone})` } as CSSProperties} onClick={() => go(tile.page)}/>;
+  return <div className="m-page me-page">
     <LargeTitle title={t('我的')}/>
     <Card label={t('资料概况')} className="me-summary">
       <div className="me-summary-head"><h2>{t('资料概况')}</h2><span>{t('只存在这台手机')}</span></div>
@@ -66,20 +79,12 @@ export default function Me(_props: PageProps) {
       {extra.auto && !extra.auto.enabled && <p className="me-hint">{t('自动备份已关闭。')}</p>}
     </Card>
     <ListGroup title={t('记录')}>
-      {modules.timeline && <ListRow icon={<MeIcon name="clock"/>} title={t('时间轴')} value={extra.month === undefined ? undefined : t('本月 {month} 条', { month: extra.month })} onClick={() => nav.push('me.timeline')}/>}
-      <ListRow icon={<MeIcon name="search"/>} tone="accent" title={t('搜索全部资料')} onClick={() => nav.push('me.search')}/>
-      <ListRow icon={<MeIcon name="trash"/>} tone="danger" title={t('最近删除')} value={extra.trash === undefined ? undefined : t('{trash} 条', { trash: extra.trash })} onClick={() => go('trash')}/>
+      {modules.timeline && <ListRow icon="clock" title={t('时间轴')} value={extra.month === undefined ? undefined : t('本月 {month} 条', { month: extra.month })} onClick={() => nav.push('me.timeline')}/>}
+      <ListRow icon="search" title={t('搜索全部资料')} onClick={() => nav.push('me.search')}/>
+      <ListRow icon="trash" tone="neutral" title={t('最近删除')} value={extra.trash === undefined ? undefined : t('{trash} 条', { trash: extra.trash })} onClick={() => go('trash')}/>
     </ListGroup>
-    <ListGroup title={t('设置')}>
-      <ListRow icon={<MeIcon name="grid"/>} tone="accent" title={t('功能模块')} value={t('已开启 {v1} 项', { v1: enabledModuleCount(modules) })} onClick={() => go('modules')}/>
-      <ListRow icon={<MeIcon name="tag"/>} tone="accent" title={t('通用')} value={t('语言、默认币种')} onClick={() => go('general')}/>
-      <ListRow icon={<MeIcon name="contrast"/>} tone="accent" title={t('外观')} value={appearanceSummary(readStyle(), readMode())} onClick={() => go('appearance')}/>
-      <ListRow icon={<MeIcon name="tag"/>} tone="warn" title={t('选项管理')} value={t('分类、标签、渠道')} onClick={() => go('options')}/>
-      <ListRow icon={<MeIcon name="image"/>} tone="positive" title={t('素材库')} onClick={() => go('materials')}/>
-      <ListRow icon={<MeIcon name="calendar"/>} tone="accent" title={t('盘点提醒')} value={interval} onClick={() => go('checkin')}/>
-      <ListRow icon={<MeIcon name="bell"/>} tone="danger" title={t('通知')} onClick={() => go('notifications')}/>
-      <ListRow icon={<MeIcon name="lock"/>} tone="neutral" title={t('隐私与{v1}', { v1: authName() })} value={lockText} onClick={() => go('privacy')}/>
-    </ListGroup>
+    <ListGroup title={t('常用设置')}>{settingTiles.slice(0, 5).map(settingRow)}</ListGroup>
+    <ListGroup title={t('提醒与隐私')}>{settingTiles.slice(5).map(settingRow)}</ListGroup>
     <ListGroup title={t('资料')}>
       <ListRow icon={<MeIcon name="database"/>} tone="accent" title={t('数据管理')} onClick={() => nav.push('me.data')}/>
       <ListRow icon={<MeIcon name="table"/>} tone="positive" title={t('导出表格')} onClick={() => go('export')}/>

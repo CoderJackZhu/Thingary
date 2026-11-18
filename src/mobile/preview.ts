@@ -22,6 +22,8 @@ mockIPC(async (command, args) => {
   return value;
 }, { shouldMockEvents: true });
 const { startMobile } = await import('./start');
+const { installMobileRuntime } = await import('./me/runtime');
+installMobileRuntime();
 if (params.has('route') && params.get('route')!.startsWith('dev.')) (await import('./gallery')).registerGalleryRoutes();
 const theme = params.get('theme');
 const tab = tabs.find(item => item.id === params.get('tab'))?.id as TabId | undefined;

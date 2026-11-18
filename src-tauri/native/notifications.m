@@ -25,12 +25,18 @@ char *thingary_notifications(const char *json, int ask) {
   if(acceptance){dispatch_semaphore_t read=dispatch_semaphore_create(0);[center getDeliveredNotificationsWithCompletionHandler:^(NSArray<UNNotification *> *items){fprintf(stderr,"U02 delivered=%lu\n",(unsigned long)items.count);fflush(stderr);dispatch_semaphore_signal(read);}];dispatch_semaphore_wait(read,dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC));}
 #endif
   dispatch_semaphore_t auth=dispatch_semaphore_create(0);
-  __block NSInteger status=0;__block NSString *authorizationError=nil;
-  if(ask){[center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert|UNAuthorizationOptionSound) completionHandler:^(BOOL granted,NSError *error){authorizationError=error.localizedDescription;status=error?-1:(granted?2:1);dispatch_semaphore_signal(auth);}];}
-  else {[center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings){status=settings.authorizationStatus;dispatch_semaphore_signal(auth);}];}
-  if(dispatch_semaphore_wait(auth,dispatch_time(DISPATCH_TIME_NOW,15*NSEC_PER_SEC))!=0)return strdup(ask?"通知授权待确认，请在右上角系统提示中允许后重试":"通知服务未及时响应，请重试");
-  if(ask&&authorizationError)return strdup([[NSString stringWithFormat:@"通知权限请求失败：%@",authorizationError] UTF8String]);
-  if(ask)return strdup(status==2?"":status==1?"通知权限未开启，请在系统设置中允许物谱通知":"通知权限请求失败");
+  __block NSInteger status=UNAuthorizationStatusNotDetermined;__block NSString *authorizationError=nil;
+  if(ask){
+   [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert|UNAuthorizationOptionSound) completionHandler:^(BOOL granted,NSError *error){(void)granted;authorizationError=error.localizedDescription;dispatch_semaphore_signal(auth);}];
+   if(dispatch_semaphore_wait(auth,dispatch_time(DISPATCH_TIME_NOW,15*NSEC_PER_SEC))!=0)return strdup("通知授权待确认，请在右上角系统提示中允许后重试");
+   if(authorizationError)return strdup([[NSString stringWithFormat:@"通知权限请求失败：%@",authorizationError] UTF8String]);
+  }
+  dispatch_semaphore_t settingsRead=dispatch_semaphore_create(0);
+  [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings){status=settings.authorizationStatus;dispatch_semaphore_signal(settingsRead);}];
+  if(dispatch_semaphore_wait(settingsRead,dispatch_time(DISPATCH_TIME_NOW,15*NSEC_PER_SEC))!=0)return strdup("通知服务未及时响应，请重试");
+  BOOL authorized=status==UNAuthorizationStatusAuthorized||status==UNAuthorizationStatusProvisional;
+  const char *permissionMessage=status==UNAuthorizationStatusNotDetermined?"尚未申请通知权限；提醒日期已保存，请点击“重试提醒”允许通知":"通知权限未开启；提醒日期已保存，请在系统设置中允许通知";
+  if(ask)return strdup(authorized?"":permissionMessage);
   NSData *data=[[NSString stringWithUTF8String:json] dataUsingEncoding:NSUTF8StringEncoding];
   NSArray *plans=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
   if(![plans isKindOfClass:NSArray.class])return strdup("提醒计划无效");
@@ -38,7 +44,7 @@ char *thingary_notifications(const char *json, int ask) {
   dispatch_semaphore_t got=dispatch_semaphore_create(0);
   [center getPendingNotificationRequestsWithCompletionHandler:^(NSArray<UNNotificationRequest *> *requests){NSMutableArray *remove=[NSMutableArray array];for(UNNotificationRequest *r in requests)if([r.identifier hasPrefix:@"thingary-"]&&![wanted containsObject:r.identifier])[remove addObject:r.identifier];[center removePendingNotificationRequestsWithIdentifiers:remove];dispatch_semaphore_signal(got);}];
   if(dispatch_semaphore_wait(got,dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC))!=0)return strdup("未能核对已安排的提醒");
-  if(plans.count&&status!=UNAuthorizationStatusAuthorized&&status!=UNAuthorizationStatusProvisional)return strdup("通知权限未开启；提醒日期已保存，请在系统设置中允许通知");
+  if(plans.count&&!authorized)return strdup(permissionMessage);
   for(NSDictionary *p in plans){NSArray *parts=[p[@"date"] componentsSeparatedByString:@"-"];if(parts.count!=3)return strdup("提醒日期无效");NSDateComponents *components=[NSDateComponents new];components.year=[parts[0] integerValue];components.month=[parts[1] integerValue];components.day=[parts[2] integerValue];components.hour=9;components.calendar=NSCalendar.currentCalendar;components.timeZone=NSTimeZone.localTimeZone;
    NSDate *fire=[NSCalendar.currentCalendar dateFromComponents:components];if([fire compare:NSDate.date]!=NSOrderedDescending){[center removePendingNotificationRequestsWithIdentifiers:@[p[@"id"]]];continue;}
    UNMutableNotificationContent *content=[UNMutableNotificationContent new];content.title=p[@"title"];content.body=p[@"body"];content.sound=UNNotificationSound.defaultSound;

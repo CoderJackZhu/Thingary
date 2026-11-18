@@ -36,8 +36,8 @@ test('首页顺序：读取失败、写入失败与无存储都不猜值，成�
   const malformed = memoryStorage('{bad json');
   assert.deepEqual(readHomeOrder(malformed), [...defaultHomeOrder]);
   const store = memoryStorage();
-  assert.equal(writeHomeOrder(store, ['pending', 'net']), true);
-  assert.deepEqual(readHomeOrder(store), ['pending', 'net', 'plan', 'daily', 'recent']);
+  assert.equal(writeHomeOrder(store, ['pending', 'net', 'plan', 'recent', 'daily']), true);
+  assert.deepEqual(readHomeOrder(store), ['pending', 'net', 'plan', 'recent', 'daily']);
   store.fail = true;
   assert.equal(writeHomeOrder(store, ['recent', 'net']), false);
   assert.equal(writeHomeOrder(null, ['recent', 'net']), false);
@@ -49,6 +49,10 @@ test('首页顺序：移动保留全部区块，原地移动不变', () => {
   assert.deepEqual(moveHomeBlock(start, 'net', 'net'), start);
   assert.deepEqual(moveHomeBlock(start, 'net', 'missing'), start);
   assert.deepEqual(start, [...defaultHomeOrder]);
+});
+test('首页顺序：旧版默认顺序迁到净资产优先，真正的自定义顺序保持不动', () => {
+  assert.deepEqual(readHomeOrder(memoryStorage(JSON.stringify(['pending', 'net', 'plan', 'daily', 'recent']))), ['net', 'plan', 'daily', 'pending', 'recent']);
+  assert.deepEqual(readHomeOrder(memoryStorage(JSON.stringify(['pending', 'net', 'plan', 'recent', 'daily']))), ['pending', 'net', 'plan', 'recent', 'daily']);
 });
 
 function fakeEmitter() {

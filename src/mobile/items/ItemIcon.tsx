@@ -8,6 +8,7 @@ import { useSession } from '../session';
 import type { PageProps } from '../routes';
 import { Button, ChipRow, EmptyState, ErrorState, Loading, Notice, SegmentedControl, TextField } from '../ui';
 import { getIconSession } from './edit-model';
+import { CategoryFallback } from './CategoryFallback';
 import './icon.css';
 import { t } from '../../i18n.ts';
 function MaterialImage({ entry, generation }: { entry: MaterialEntry; generation: string }) {
@@ -47,7 +48,8 @@ export default function ItemIcon({ params }: PageProps) {
     try { const photo = await invoke<Photo>('import_photo_bytes', { generation, name: file.name || t('拍摄的图片.jpg'), bytes: Array.from(new Uint8Array(await file.arrayBuffer())) }); channel.choose(photo, true); setChosen(true); }
     catch (cause) { setError(errorMessage(cause)); } finally { lock.current = false; setBusy(false); session.setBusy(false); }
   }
-  const visible = filterMaterials(entries, source, category, search, recent), own = source === 'custom' ? channel?.photos.filter(photo => photo.name.includes(search.trim())) ?? [] : [];
+  const namedEntries = entries.map(entry => entry.id === 'icon-box' ? { ...entry, name: t('纸箱') } : entry);
+  const visible = filterMaterials(namedEntries, source, category, search, recent), own = source === 'custom' ? channel?.photos.filter(photo => photo.name.includes(search.trim())) ?? [] : [];
   return <div className="m-item-icon">
     {!channel && <Notice>{t('请从新增或编辑物品进入，所选图标随物品一起保存。')}</Notice>}
     <SegmentedControl label={t('素材类型')} items={[{ id: 'icon', label: t('图标') }, { id: 'dimensional', label: t('立体图标') }, { id: 'recent', label: t('最近使用') }, { id: 'custom', label: t('我的图片') }]} value={source} onChange={value => { setSource(value); setCategory(t('全部')); }}/>
@@ -55,7 +57,7 @@ export default function ItemIcon({ params }: PageProps) {
     {source !== 'custom' && <ChipRow label={t('图标分类')} items={materialCategories.map(id => ({ id, label: id }))} value={category} onChange={setCategory}/>}
     {error && <ErrorState message={error} onRetry={() => setRetry(value => value + 1)}/>}
     {loading ? <Loading/> : <div className="m-item-icon-grid">
-      {source === 'icon' && category === '全部' && !search && <button disabled={busy || !channel} onClick={() => void choose(null)} aria-label={t('选择默认图标')}><img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt=""/><span>{t('默认图标')}</span></button>}
+      {source === 'icon' && category === '全部' && !search && <button disabled={busy || !channel} onClick={() => void choose(null)} aria-label={t('选择默认图标')}><span className="m-item-icon-default"><CategoryFallback icon={channel?.defaultIcon}/></span><span>{t('默认图标')}</span></button>}
       {visible.map(entry => <button key={entry.id} disabled={busy || !channel} onClick={() => void choose(entry)} aria-label={t('选择图标：') + entry.name}><MaterialImage entry={entry} generation={generation}/><span>{entry.name}</span></button>)}
       {own.map(photo => <button key={photo.id} disabled={busy} aria-label={t('选择档案图片：') + photo.name} onClick={() => void choose(null, photo)}><PhotoView photo={photo} generation={generation}/><span>{photo.name}</span></button>)}
     </div>}

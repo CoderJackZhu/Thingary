@@ -4,6 +4,6 @@ export function supplementalField(key: string) {
 }
 
 /** The fold starts open as soon as any of its fields already has a value (editing, drafts, conversions). */
-export function identityFoldOpen(fields: Partial<Record<string, string>>) {
-  return ['brand', 'model', 'serial_number'].some(key => !!fields[key]?.trim());
+export function identityFoldOpen(fields: Partial<Record<string, string>>, supplemental = false) {
+  return supplemental || ['brand', 'model', 'serial_number'].some(key => !!fields[key]?.trim());
 }

@@ -13,18 +13,28 @@ function fixture() {
   return { asset: { id: 'fictional-camera', name: '虚构相机', price_cents: '10000', purchase_date: '2026-01-01', revision: 7 }, details: { brand: '', model: '', serial_number: '', notes: '' }, photos: [], cover_id: null, maintenances: [], warranties: [], warranty_summary: { status: 'none', total: 0 }, deleted: false, lifecycle: { state: 'active', events: [] }, preferences: defaultPreferences(), costs: { total_investment_cents: '10000', net_cost_cents: null, held_days: 80, daily_cents: '125', known_maintenance_cents: '0', unknown_maintenance_count: 0 } };
 }
 async function mounted({ save, readError, importPhoto } = {}) {
-  const record = fixture(), requests = [], calls = [];
+  const record = fixture(), requests = [], calls = [], navigations = [];
   const session = { today: '2026-10-21', data: { summary: { generation: 'fixture-generation' } }, navBlocked: false, settled: null, reload() {}, setBusy(value) { this.navBlocked = value; }, refreshPending() { calls.push('refreshPending'); } };
   const r = runtime('mobile/items/ItemDetail', { params: { id: record.asset.id } }, undefined, undefined, { exportName: 'default', components: [], modules: {
     './asset': asset, './mobile/format': format, './maintenance': maintenance, './warranty': warranty, './sales': sales, './lifecycle': lifecycle, './materials': { materialArt: () => '<svg/>' }, './NotificationNotice': { allowReminders: async () => {} }, './mobile/items/detail-model': detail,
-    './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => ({ push() {}, pop() {} }), useReveal: () => 0 },
+    './mobile/session': { useSession: () => session }, './mobile/nav-context': { useNav: () => ({ push: (...args) => navigations.push(args), pop() {} }), useReveal: () => 0 },
     './wealth': { submit: async input => { requests.push(input); return save ? await save(input, record) : record; } },
     '@tauri-apps/api/core': { invoke: async (command, args) => { if (readError) throw new Error('虚构读取失败'); if (command === 'taxonomy_snapshot') return { generation: 'fixture-generation', categories: [], channels: [] }; if (command === 'read_asset') return record; if (command === 'import_photo_bytes' && importPhoto) return importPhoto(args); throw new Error('unexpected ' + command); } },
   } });
   await r.settle();
-  return { r, session, record, requests, calls };
+  return { r, session, record, requests, calls, navigations };
 }
 const action = (r, text) => r.nodes().find(n => n.type === 'Button' && r.text(n) === text);
+test('mobile detail opens the existing item editor with its edit dialog title', async () => {
+  const { r, navigations, record } = await mounted();
+  r.find('NavBar').props.right.props.children.find(button => button.props['aria-label'] === '编辑').props.onClick();
+  r.find('PhotoThumbs').props.onAdd();
+  assert.deepEqual(JSON.parse(JSON.stringify(navigations)), [
+    ['items.edit', { id: record.asset.id }, { title: '编辑物品' }],
+    ['items.edit', { id: record.asset.id }, { title: '编辑物品' }],
+  ]);
+  r.unmount();
+});
 test('mobile detail runtime shows read failure with retry and no stale asset actions', async () => {
   const { r } = await mounted({ readError: true });
   assert.equal(r.find('ErrorState').props.message, '虚构读取失败');

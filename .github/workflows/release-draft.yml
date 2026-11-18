@@ -137,7 +137,7 @@ jobs:
             sdkmanager_bin=$(command -v sdkmanager)
           fi
           yes | "$sdkmanager_bin" --licenses >/dev/null || true
-          "$sdkmanager_bin" --install "platforms;android-35" "build-tools;35.0.0" "ndk;$ANDROID_NDK_VERSION"
+          "$sdkmanager_bin" --install "platforms;android-37" "build-tools;37.0.0" "ndk;$ANDROID_NDK_VERSION"
           echo "NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
       - if: steps.ready.outputs.ready == 'true'
         run: npm ci
@@ -282,7 +282,7 @@ jobs:
   draft:
     name: Attach assets to a draft release
     needs: [macos, android, windows]
-    if: always() && needs.macos.result == 'success'
+    if: always() && needs.macos.result == 'success' && needs.android.result != 'failure' && needs.android.result != 'cancelled'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -295,6 +295,9 @@ jobs:
       - name: Note a missing Windows installer
         if: needs.windows.result != 'success'
         run: echo "::warning::Windows build did not succeed; this draft has no Windows installer."
+      - name: Note a missing Android APK
+        if: needs.android.result != 'success'
+        run: echo "::warning::Android build did not succeed; this draft has no Android APK."
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}

@@ -1,33 +1,46 @@
+@import '../icon-palette.css';
+
 /* iPhone UI foundation. Tokens derive from theme.css (never redefine colors or fonts here). */
 :root{
   --m-gutter:20px;--m-gap:14px;--m-touch:44px;
   --m-radius-card:22px;--m-radius-control:12px;--m-radius-pill:999px;
-  /* Floating glass tab bar: 64px capsule that dips into the home-indicator area like the system bar. --m-tabbar-h is the space it occupies from the screen edge. */
-  --m-tabbar-size:64px;--m-tabbar-bottom:max(16px,calc(env(safe-area-inset-bottom,0px) - 8px));
+  /* Edge-to-edge tab bar: a white system bar that owns the bottom safe area. --m-tabbar-h is the space it occupies. */
+  --m-tabbar-size:64px;--m-tabbar-bottom:0px;
   --m-tabbar-h:calc(var(--m-tabbar-size) + var(--m-tabbar-bottom));
   --m-fill:var(--soft);--m-fill-active:var(--card);--m-scrim:rgba(0,0,0,.4);--m-nav-bg:color-mix(in srgb,var(--bg) 82%,transparent);
   --m-danger-solid:#c80013;--m-danger-text:#fff;--m-warn-text:var(--warn);
   --m-sheet-radius:24px;
+  --m-tab-indigo:var(--icon-overview);--m-tab-indigo-ink:#4b49c8;--m-tab-blue:var(--icon-items);--m-tab-blue-ink:#0066cc;
+  --m-tab-orange:var(--icon-wallet);--m-tab-orange-ink:#a35d00;--m-tab-purple:var(--icon-arrow);--m-tab-purple-ink:#8a3bb5;
+  --m-tab-green:var(--icon-circle);--m-tab-green-ink:#1b7532;--m-tab-idle:var(--muted);
+  --m-icon-indigo:var(--icon-overview);--m-icon-blue:var(--icon-items);--m-icon-amber:var(--icon-wallet);--m-icon-purple:var(--icon-arrow);
+  --m-icon-green:var(--icon-circle);--m-icon-teal:var(--icon-shield);--m-icon-rose:var(--icon-heart);--m-icon-slate:var(--icon-neutral);--m-icon-tint:12%;
   --m-round:'SF Pro Rounded',ui-rounded,-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',system-ui,sans-serif}
+:root[data-mode=dark]{
+  --m-tab-indigo-ink:#a7a5ff;--m-tab-blue-ink:#64d2ff;--m-tab-orange-ink:#ffb340;
+  --m-tab-purple-ink:#d48df7;--m-tab-green-ink:#4ade80;--m-icon-tint:18%}
 /* Direction B "floating glass": soft grey ground, borderless white cards with layered shadow, indigo brand.
    --accent is the text-safe indigo (AA on white, ground and tint); --m-brand is the fill/icon indigo. Mobile entry only. */
 :root[data-style=bento]{
   --bg:#f5f5f8;--side:#f5f5f8;--card:#ffffff;--soft:#ededf2;--mark:#e3e3ea;--image:#f1f1f6;
   --text:#17171c;--muted:#686872;--line:#e4e4eb;--line-soft:#efeff3;
   --m-brand:#5e5ce6;--accent:#4b49c8;--button-bg:#5e5ce6;--button-text:#ffffff;--selected:#eeeefd;
+  --m-tint:#f2f1ff;
   --positive:#177134;--pos-bg:#e6f5ea;--warn:#9a5400;--warn-bg:#fff2e0;--error:#c4271d;--danger-bg:#ffeceb;
-  --m-tint:#ededfc;--m-tint-warn:#fff2e0;--m-orange:#c26a00;
+  --m-tint-warn:#fff2e0;--m-orange:#c26a00;
   --surface-border:none;--surface-radius:22px;
   --card-shadow:0 1px 2px rgba(20,20,40,.04),0 8px 24px rgba(20,20,40,.06);--surface-shadow:var(--card-shadow);
-  --hero-tint-1:none;--m-glass:rgba(255,255,255,.78);--m-glass-bar:rgba(255,255,255,.92);--m-glass-ring:0 0 0 .5px rgba(20,20,40,.08);--m-float:0 10px 30px rgba(20,20,40,.14);--m-pill-bg:#eeeefd}
+  --hero-tint-1:none;--m-glass:rgba(255,255,255,.78);--m-glass-bar:rgba(255,255,255,.94);--m-glass-ring:0 0 0 .5px rgba(20,20,40,.08);--m-float:0 10px 30px rgba(20,20,40,.14);--m-pill-bg:#eeeefd;
+  --m-hero-bg:linear-gradient(155deg,color-mix(in srgb,var(--accent) 12%,var(--card)) 0%,color-mix(in srgb,var(--accent) 4%,var(--card)) 48%,var(--card) 100%)}
 :root[data-style=bento][data-mode=dark]{
   --bg:#000000;--side:#000000;--card:#1c1c1e;--soft:#2c2c2e;--mark:#3a3a3c;--image:#2c2c2e;
   --text:#f5f5f7;--muted:#a1a1a8;--line:#2c2c2e;--line-soft:#262628;
-  --m-brand:#8e8cff;--accent:#9c9aff;--button-bg:#8e8cff;--button-text:#0b0b1a;--selected:#2b2a55;
+  --m-brand:#8e8cff;--accent:#9c9aff;--button-bg:#8e8cff;--button-text:#0b0b1a;--selected:#2b2a55;--m-tint:#2b2a55;
   --positive:#30d158;--pos-bg:#30d1581f;--warn:#ff9f0a;--warn-bg:#ff9f0a1f;--error:#ff6961;--danger-bg:#ff453a1f;
-  --m-tint:#2b2a55;--m-tint-warn:#ff9f0a1f;--m-orange:#ff9f0a;
+  --m-tint-warn:#ff9f0a1f;--m-orange:#ff9f0a;
   --card-shadow:0 0 0 .5px rgba(255,255,255,.09);--surface-shadow:var(--card-shadow);
-  --m-glass:rgba(28,28,30,.78);--m-glass-bar:rgba(28,28,30,.93);--m-glass-ring:0 0 0 .5px rgba(255,255,255,.12);--m-float:0 10px 30px rgba(0,0,0,.5);--m-pill-bg:#2b2a55}
+  --m-glass:rgba(28,28,30,.78);--m-glass-bar:rgba(28,28,30,.94);--m-glass-ring:0 0 0 .5px rgba(255,255,255,.12);--m-float:0 10px 30px rgba(0,0,0,.5);--m-pill-bg:#2b2a55;
+  --m-hero-bg:linear-gradient(155deg,color-mix(in srgb,var(--accent) 16%,var(--card)) 0%,color-mix(in srgb,var(--accent) 6%,var(--card)) 55%,var(--card) 100%)}
 :root[data-mode=dark]{--m-fill-active:#48484a;--m-scrim:rgba(0,0,0,.6);--m-danger-solid:#c4302b}
 *{box-sizing:border-box}
 html,body,#root{margin:0;min-width:0;min-height:100%;width:100%}
@@ -56,16 +69,24 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* The existing full-inventory toolbar uses fixed positioning instead of ActionBar. */
 :root[data-keyboard] .mw-fixed{bottom:var(--m-viewport-bottom,0px);padding-bottom:12px}
 @keyframes m-rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
-.m-tabbar{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:var(--m-tabbar-bottom);max-width:608px;margin:0 auto;height:var(--m-tabbar-size);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px;border-radius:calc(var(--m-tabbar-size)/2);background:var(--m-glass-bar,var(--m-glass));-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:var(--m-glass-ring),var(--m-float)}
-/* Rows that scroll under the floating bar fade out instead of being cut off by it. */
-.m-app::after{content:'';position:fixed;left:0;right:0;bottom:0;height:calc(var(--m-tabbar-h) + 18px);background:linear-gradient(to bottom,transparent,var(--bg) 78%);pointer-events:none;z-index:8}
+.m-tabbar{position:fixed;z-index:10;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;height:calc(var(--m-tabbar-size) + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));background:var(--m-glass-bar,var(--m-glass));-webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);border-top:.5px solid var(--line)}
+.m-app::after{display:none}
 :root[data-keyboard] .m-app::after{display:none}
 .m-tabbar:has(button:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
 .m-tabbar:has(button:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
-.m-tabbar button{min-height:44px;min-width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:26px;background:transparent;color:var(--muted);padding:0 2px;font-size:10px;font-weight:500;line-height:1.2;width:100%;transition:background .18s}
+.m-tabbar button{min-height:52px;min-width:44px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;border-radius:14px;background:transparent;color:var(--m-tab-idle);padding:0 2px;font-size:10px;font-weight:500;line-height:1.2;width:100%;transition:color .18s,background .18s}
 .m-tabbar button svg{display:block;flex:none}
-.m-tabbar button[aria-current=page]{color:var(--accent);font-weight:600;background:var(--m-pill-bg)}
-.m-tabbar button[aria-current=page] svg{color:var(--m-brand)}
+.m-tab-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:#fff;background:var(--m-tab-tone);transition:transform .18s}
+.m-tabbar button[aria-current=page]{color:var(--accent);font-weight:600;background:var(--selected)}
+.m-tabbar button[aria-current=page] .m-tab-icon{transform:translateY(-1px)}
+.m-tab-indigo{--m-tab-tone:var(--m-tab-indigo);--m-tab-tone-ink:var(--m-tab-indigo-ink)}
+.m-tab-blue{--m-tab-tone:var(--m-tab-blue);--m-tab-tone-ink:var(--m-tab-blue-ink)}
+.m-tab-orange{--m-tab-tone:var(--m-tab-orange);--m-tab-tone-ink:var(--m-tab-orange-ink)}
+.m-tab-purple{--m-tab-tone:var(--m-tab-purple);--m-tab-tone-ink:var(--m-tab-purple-ink)}
+.m-tab-green{--m-tab-tone:var(--m-tab-green);--m-tab-tone-ink:var(--m-tab-green-ink)}
+.m-tab-slate{--m-tab-tone:var(--m-icon-slate);--m-tab-tone-ink:var(--muted)}
+:root:not([data-style=bento]) .m-tab-icon{background:transparent;color:var(--muted)}
+:root:not([data-style=bento]) .m-tabbar button[aria-current=page] .m-tab-icon{background:var(--accent);color:var(--button-text)}
 .m-recovery-layer{position:fixed;inset:0;z-index:40;background:var(--m-scrim);padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));overflow-y:auto}
 .m-recovery{max-width:560px;margin:0 auto;border:1px solid var(--warn)!important}
 .m-recovery h2{margin:0 0 8px;font-size:18px}

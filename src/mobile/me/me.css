@@ -1,4 +1,6 @@
 /* 我的 pages and the privacy lock. Colors and fonts only through theme tokens. */
+.me-page .me-summary{background:linear-gradient(155deg,color-mix(in srgb,var(--accent) 9%,var(--card)),var(--card) 64%)}
+.me-page .m-row-icon{width:32px;height:32px;border-radius:10px}
 .me-summary-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .me-summary-head h2{margin:0;font-size:17px}
 .me-summary-head span{font-size:12px;color:var(--muted)}
@@ -7,6 +9,7 @@
 .me-stats strong{font:700 22px/1.2 var(--num);font-variant-numeric:tabular-nums}
 .me-stats small{font-size:12px;font-weight:500;color:var(--muted)}
 .me-stats span{font-size:12px;color:var(--muted)}
+.me-stats>div:first-child strong{color:var(--accent)}
 .me-backup{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-radius:var(--m-radius-control);font-size:14px;line-height:1.4}
 .me-backup>span{flex:1;min-width:0}
 .me-backup .m-button{min-height:44px;padding:6px 12px;flex:none}

@@ -147,11 +147,15 @@ test('wealth overview: no account list, 待确认付款 above the trend, one 盘
   assert.match(src('spending/SpendingHome.tsx'), /!wealthHub && \(virtualOn \|\| reviewOn\)/);
 });
 
-// ---- 浮动 Tab 栏 ----
-test('tab bar is more opaque and rows fade out under it', () => {
+// ---- 贴底 Tab 栏 ----
+test('tab bar is an edge-to-edge white system bar with per-tab accents', () => {
   const css = src('mobile.css');
   assert.match(css, /\.m-tabbar\{[^}]*background:var\(--m-glass-bar,var\(--m-glass\)\)/);
   const alpha = [...css.matchAll(/--m-glass-bar:rgba\([^)]*?,\.(\d+)\)/g)].map(m => Number(m[1]));
   assert.equal(alpha.length, 2); assert.ok(alpha.every(a => a >= 90));
-  assert.match(css, /\.m-app::after\{[^}]*linear-gradient/);
+  assert.match(css, /\.m-tabbar\{[^}]*left:0;right:0;bottom:0/);
+  assert.match(css, /\.m-tabbar\{[^}]*border-top:/);
+  assert.match(css, /\.m-app::after\{display:none\}/);
+  assert.match(css, /\.m-tab-indigo\{--m-tab-tone:var\(--m-tab-indigo\)/);
+  assert.match(css, /\.m-tab-green\{--m-tab-tone:var\(--m-tab-green\)/);
 });

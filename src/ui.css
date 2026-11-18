@@ -1,3 +1,5 @@
+@import './icon-palette.css';
+
 /* U16a 共用组件层（规范第 4 节）。只读 theme.css 的令牌，不写死颜色与形态；
  * 页面逐步改用 ui-* 类，被取代的旧样式在 U16f 删除。 */
 
@@ -142,46 +144,22 @@ button.overview-event-button:focus-visible{outline:2px solid var(--accent);outli
 .nav-count.warn{color:var(--warn);font-weight:600}
 .nav-caption{font-family:var(--head);letter-spacing:var(--h-track)}
 /* D：每个图标有自己的色值（--ic），白色线性图标放在彩色圆角方块里，侧栏每一项都是；总览事件图标复用同一张色值表。 */
-:root[data-style=bento] .ui-icon[data-icon=overview]{--ic:#5e5ce6}
-:root[data-style=bento] .ui-icon[data-icon=items]{--ic:#0a84ff}
-:root[data-style=bento] .ui-icon[data-icon=circle]{--ic:#34c759}
-:root[data-style=bento] .ui-icon[data-icon=shield]{--ic:#30b0c7}
-:root[data-style=bento] .ui-icon[data-icon=arrow]{--ic:#af52de}
-:root[data-style=bento] .ui-icon[data-icon=heart]{--ic:#ff2d55}
-:root[data-style=bento] .ui-icon[data-icon=wallet]{--ic:#ff9500}
-:root[data-style=bento] .ui-icon[data-icon=receipt]{--ic:#ff6b3d}
-:root[data-style=bento] .ui-icon[data-icon=repeat]{--ic:#32ade6}
-:root[data-style=bento] .ui-icon[data-icon=cloud]{--ic:#5856d6}
-:root[data-style=bento] .ui-icon[data-icon=clock]{--ic:#64c466}
-:root[data-style=bento] .ui-icon[data-icon=chart]{--ic:#ff9f0a}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=overview]{--ic:var(--icon-overview)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=items]{--ic:var(--icon-items)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=circle]{--ic:var(--icon-circle)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=shield]{--ic:var(--icon-shield)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=arrow]{--ic:var(--icon-arrow)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=heart]{--ic:var(--icon-heart)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=wallet]{--ic:var(--icon-wallet)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=receipt]{--ic:var(--icon-receipt)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=repeat]{--ic:var(--icon-repeat)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=cloud]{--ic:var(--icon-cloud)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=clock]{--ic:var(--icon-clock)}
+:root:is([data-style=bento],[data-style=olive]) .ui-icon[data-icon=chart]{--ic:var(--icon-chart)}
 :root[data-style=bento] .sidebar nav .ui-icon{width:22px;height:22px;padding:4px;border-radius:6px;color:#fff;opacity:1;stroke-width:1.9;background:var(--ic,#8e8e93)}
 :root[data-style=bento] .sidebar nav .mode-toggle .ui-icon{width:16px;height:16px;padding:0;background:none;color:var(--muted)}
 :root[data-style=bento] .sidebar nav button.nav-active .ui-icon{color:#fff}
 /* 暖米橄榄：每个图标有自己的色值（--ic，深色另一张更亮的表），事件图标是描边淡底小方块；侧栏只有选中项是实心橄榄绿方块，其余为单色线条。 */
-:root[data-style=olive] .ui-icon[data-icon=overview]{--ic:#4f6b3a}
-:root[data-style=olive] .ui-icon[data-icon=items]{--ic:#6b7c86}
-:root[data-style=olive] .ui-icon[data-icon=circle]{--ic:#7f9a78}
-:root[data-style=olive] .ui-icon[data-icon=shield]{--ic:#5f8a8b}
-:root[data-style=olive] .ui-icon[data-icon=arrow]{--ic:#8a6aa0}
-:root[data-style=olive] .ui-icon[data-icon=heart]{--ic:#b85a4a}
-:root[data-style=olive] .ui-icon[data-icon=wallet]{--ic:#c9a24a}
-:root[data-style=olive] .ui-icon[data-icon=receipt]{--ic:#b86b4a}
-:root[data-style=olive] .ui-icon[data-icon=repeat]{--ic:#6b8fa6}
-:root[data-style=olive] .ui-icon[data-icon=cloud]{--ic:#7a6f9a}
-:root[data-style=olive] .ui-icon[data-icon=clock]{--ic:#7f9a78}
-:root[data-style=olive] .ui-icon[data-icon=chart]{--ic:#c9a24a}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=overview]{--ic:#9db77a}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=items]{--ic:#8296a3}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=circle]{--ic:#8fab88}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=shield]{--ic:#7fb0b0}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=arrow]{--ic:#b394c9}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=heart]{--ic:#d9806f}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=wallet]{--ic:#d9b866}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=receipt]{--ic:#c9806a}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=repeat]{--ic:#8fb0c9}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=cloud]{--ic:#a499c4}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=clock]{--ic:#8fab88}
-:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=chart]{--ic:#d9b866}
 :root[data-style=olive] .sidebar nav .ui-icon{width:22px;height:22px;padding:4px;border-radius:6px;color:inherit;opacity:.75;stroke-width:1.9;background:none}
 :root[data-style=olive] .sidebar nav .mode-toggle .ui-icon{width:16px;height:16px;padding:0;background:none;color:var(--muted)}
 :root[data-style=olive] .sidebar nav button.nav-active .ui-icon{color:var(--button-text);opacity:1;background:var(--accent)}

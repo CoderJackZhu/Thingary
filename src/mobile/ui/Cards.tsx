@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 import { clampSwipe, settleSwipe } from './swipe';
@@ -50,18 +50,18 @@ type RowProps = {
   /** Shows › and makes the row a button. */
   onClick?: () => void; chevron?: boolean;
   /** Replaces the value area, for a Switch or a small button. */
-  trailing?: ReactNode; disabled?: boolean;
+  trailing?: ReactNode; disabled?: boolean; style?: CSSProperties; iconStyle?: CSSProperties;
 };
 /** Grouped-list row: left icon tile, title, subtitle, right value and ›. At least 64px tall when it has a subtitle, 48px otherwise. */
-export function ListRow({ title, subtitle, value, valueSub, unknown, icon, tone = 'accent', onClick, chevron = !!onClick, trailing, disabled }: RowProps) {
+export function ListRow({ title, subtitle, value, valueSub, unknown, icon, tone = 'accent', onClick, chevron = !!onClick, trailing, disabled, style, iconStyle }: RowProps) {
   const body = <>
-    {icon != null && <span className={`m-row-icon m-tone-${tone}`}>{typeof icon === 'string' ? <Icon name={icon as IconName} size={17} strokeWidth={2}/> : icon}</span>}
+    {icon != null && <span className={`m-row-icon m-tone-${tone}`} data-icon={typeof icon === 'string' ? icon : undefined} style={iconStyle}>{typeof icon === 'string' ? <Icon name={icon as IconName} size={17} strokeWidth={2}/> : icon}</span>}
     <span className="m-row-main"><span className="m-row-title">{title}</span>{subtitle && <span className="m-row-sub">{subtitle}</span>}</span>
     {trailing ?? ((value != null || valueSub != null) && <span className="m-row-value"><span className={unknown ? 'm-unknown' : undefined}>{value}</span>{valueSub && <small>{valueSub}</small>}</span>)}
     {chevron && <span className="m-row-chevron"><Icon name="chevronRight" size={18}/></span>}
   </>;
   const cls = `m-row${subtitle ? ' m-row-tall' : ''}`;
-  return onClick ? <button type="button" className={cls} disabled={disabled} onClick={onClick}>{body}</button> : <div className={cls}>{body}</div>;
+  return onClick ? <button type="button" className={cls} style={style} disabled={disabled} onClick={onClick}>{body}</button> : <div className={cls} style={style}>{body}</div>;
 }
 
 export type SwipeAction = { label: string; icon?: IconName; tone?: 'accent' | 'danger'; onAction: () => void };

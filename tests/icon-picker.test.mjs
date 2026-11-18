@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MATERIALS, filterMaterials, rememberMaterial, readRecentMaterials } from '../src/materials.ts';
-import { replaceDraftCover } from '../src/asset-media.ts';
+import { replaceDraftCover, replaceDraftIcon } from '../src/asset-media.ts';
 const entries=MATERIALS.map(m=>({...m,builtin:true}));
 test('requested objects all have distinct named vector artwork',()=>{
  const names='手机 笔记本电脑 平板 台式电脑 手表 耳机 相机 键盘 鼠标 麦克风 游戏机 游戏手柄 收音机 摄像头 摄像机 电池 CPU 软盘 显卡 机械硬盘 内存条 显示器 主板 固态硬盘 机箱 电源 便携运动相机 无人机 轻薄笔记本 口袋云台相机 电视 冰箱 电饭煲 微波炉 油烟机 空调 洗碗机 电风扇 电热水器 烤箱 平底锅 煤气灶'.split(' ');
@@ -33,6 +33,13 @@ test('replacing a draft icon retains saved photos and attachments, removes only 
  const c=replaceDraftCover(b.photos,b.transientCover,null,false);
  assert.deepEqual(c.photos,[saved,receipt]);assert.equal(c.cover,null);
  assert.deepEqual(replaceDraftCover([saved,receipt],undefined,receipt,false).photos,[saved,receipt]);
+});
+test('replacing a built-in icon removes the old illustration but keeps a user photo as an attachment',()=>{
+ const builtin={id:'old-box',name:'纸箱示意图（非实物照片）'},photo={id:'user-photo',name:'IMG_0042.jpg'},next={id:'new-phone',name:'手机示意图（非实物照片）'};
+ assert.deepEqual(replaceDraftIcon([builtin,photo],undefined,builtin.id,next,true).photos,[photo,next]);
+ assert.deepEqual(replaceDraftIcon([photo],undefined,photo.id,next,true).photos,[photo,next]);
+ const cleared=replaceDraftIcon([builtin,photo],undefined,builtin.id,null,false);
+ assert.deepEqual(cleared.photos,[photo]);assert.equal(cleared.cover,null);
 });
 test('photo limit permits replacement at capacity and rejects additional images without removing saved ones',()=>{
  const photos=Array.from({length:20},(_,i)=>({id:String(i),name:'photo'}));

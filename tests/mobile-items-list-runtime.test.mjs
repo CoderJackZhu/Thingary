@@ -12,12 +12,16 @@ import * as format from '../src/mobile/format.ts';
 const day = '2026-10-21', generation = 'fictional-library';
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const button = (r, label) => r.nodes().find(n => n.type === 'Button' && r.text(n) === label);
+const titleAction = (r, label) => {
+  const walk = node => Array.isArray(node) ? node.flatMap(walk) : node && typeof node === 'object' ? [node, ...walk(node.props?.children)] : [];
+  return walk(r.find('LargeTitle').props.actions).find(node => node.type === 'IconButton' && node.props.label === label);
+};
 const selectedCount = r => r.nodes().find(n => n.type === 'span' && /^已选 \d+ 件$/.test(r.text(n))) && r.text(r.nodes().find(n => n.type === 'span' && /^已选 \d+ 件$/.test(r.text(n))));
 const record = (id, state = 'active') => ({ asset: { id, name: `虚构物品${id}`, revision: 4, price_cents: '10000', purchase_date: '2026-01-01' }, details: { brand: '', model: '', serial_number: '', notes: '' }, lifecycle: { state, events: [] }, preferences: preferences.defaultPreferences(), photos: [], cover_id: null, maintenances: [], warranties: [], costs: { daily_cents: '100', known_maintenance_cents: '0', held_days: 100, unknown_maintenance_count: 0, total_investment_cents: '10000' } });
 function session() {
   return { today: day, data: { summary: { generation } }, navBlocked: false, settled: null, setBusy(value) { this.navBlocked = value; }, refreshPending() {} };
 }
-async function listRuntime({ idsResponse, countsGeneration = () => generation } = {}) {
+async function listRuntime({ idsResponse, countsGeneration = () => generation, searchEmpty = false } = {}) {
   let query = list.initialQuery();
   const assets = [record('a'), record('b', 'retired')], calls = [], s = session();
   const r = runtime('mobile/items/ItemList', {}, undefined, undefined, { exportName: 'default', components: [], globals: { IntersectionObserver: class { observe() {} disconnect() {} }, window: { setTimeout, clearTimeout } }, modules: {
@@ -26,7 +30,7 @@ async function listRuntime({ idsResponse, countsGeneration = () => generation } 
     './mobile/items/ItemBatch': { __esModule: true, default: 'ItemBatch' },
     './mobile/session': { useSession: () => s }, './mobile/nav-context': { useNav: () => ({ push() {} }), useReveal: () => 0 },
     '@tauri-apps/api/core': { invoke: async (command, args) => { calls.push([command, args]);
-      if (command === 'list_assets') { const items = args.query.filter === 'retired' ? assets.filter(a => a.lifecycle.state === 'retired') : assets; return { generation, today: day, total: items.length, items }; }
+      if (command === 'list_assets') { const items = searchEmpty && args.query.search ? [] : args.query.filter === 'retired' ? assets.filter(a => a.lifecycle.state === 'retired') : assets; return { generation, today: day, total: items.length, items }; }
       if (command === 'asset_counts') return { generation: countsGeneration(), all: 2, active: 1, retired: 1, sold: 0 };
       if (command === 'taxonomy_snapshot') return { generation, categories: [], channels: [] };
       if (command === 'overview') return { generation, today: day, held_count: 2, held_known_cents: '20000', held_unknown_price_count: 0, sold_count: 1, held_daily: { known_cents: '200', included_count: 2, unknown_count: 0, per_use_count: 0, excluded_count: 0 } };
@@ -39,25 +43,25 @@ async function listRuntime({ idsResponse, countsGeneration = () => generation } 
   return { r, calls, session: s, toggleSelecting };
 }
 
-test('mobile list: batch-select icon button replaces the text button, FAB replaces the title plus, both follow selection', async () => {
+test('mobile list: title actions hold search and new, batch select stays in the toolbar', async () => {
   const { r, toggleSelecting } = await listRuntime();
-  assert.equal(r.find('LargeTitle').props.actions, undefined, 'title row has no 选择 or + button');
+  assert.ok(r.find('LargeTitle').props.actions, 'title row owns search and new');
   assert.equal(r.find('LargeTitle').props.segments, undefined);
-  assert.equal(r.find('IconButton', p => p.label === '新增物品'), undefined);
+  assert.ok(titleAction(r, '新增物品'));
   assert.equal(button(r, '选择'), undefined);
   assert.equal(r.find('IconButton', p => p.label === '批量选择').props.pressed, false);
-  assert.equal(r.find('Fab').props.label, '新增物品'); assert.equal(r.find('Fab').props.hidden, false);
+  assert.equal(r.find('Fab'), undefined, 'no floating button over the list');
   toggleSelecting();
   assert.equal(r.find('IconButton', p => p.label === '批量选择').props.pressed, true);
-  assert.equal(r.find('Fab').props.hidden, true, 'FAB hides while selecting');
-  toggleSelecting(); assert.equal(r.find('Fab').props.hidden, false);
+  assert.equal(titleAction(r, '新增物品'), undefined, 'title actions step aside while selecting');
+  toggleSelecting(); assert.ok(titleAction(r, '新增物品'));
   r.unmount();
 });
 
 test('mobile list: search is a hidden field behind the magnifier, shown with 取消, kept while a query is active', async () => {
   const { r } = await listRuntime();
   assert.equal(r.find('SearchField'), undefined);
-  r.find('IconButton', p => p.label === '搜索').props.onClick(); r.render();
+  titleAction(r, '搜索').props.onClick(); r.render();
   assert.equal(r.find('SearchField').props.autoFocus, true);
   const cancel = r.nodes().find(n => n.type === 'button' && r.text(n) === '取消'); assert.ok(cancel);
   r.find('SearchField').props.onChange('键盘'); r.render();
@@ -89,7 +93,24 @@ test('mobile list: a short press or a drag does not start selection', async () =
 test('mobile list: the summary card shows held total, daily cost and counts from the held overview', async () => {
   const { r } = await listRuntime();
   const text = r.text(r.find('Card', p => p.label === '持有物品摘要'));
-  assert.match(text, /持有物品总价/); assert.match(text, /¥200/); assert.match(text, /日均成本/); assert.match(text, /持有数量/); assert.match(text, /2 件/); assert.match(text, /1 件已售/);
+  assert.match(text, /2 件持有/); assert.match(text, /持有总价/); assert.match(text, /¥200/); assert.match(text, /日均成本/); assert.match(text, /¥2\.00/);
+  r.unmount();
+});
+
+test('mobile list: search results hide dashboard cards and offer clear search when empty', async () => {
+  const { r } = await listRuntime({ searchEmpty: true });
+  assert.ok(r.find('IconButton', p => p.label === '筛选与排序') === undefined, 'the funnel and the text entry no longer duplicate each other');
+  titleAction(r, '搜索').props.onClick(); r.render();
+  r.find('SearchField').props.onChange('不存在的虚构物品'); await r.settle(); await r.settle();
+  assert.equal(r.find('Card', p => p.label === '持有物品摘要'), undefined);
+  assert.equal(r.find('SegmentedControl', p => p.label === '物品状态'), undefined);
+  assert.equal(r.find('EmptyState').props.title, '没有匹配“不存在的虚构物品”的物品');
+  assert.equal(r.find('EmptyState').props.message, '换个关键词，或者清除搜索。');
+  const clear = r.find('EmptyState').props.action;
+  assert.equal(clear.type, 'Button');
+  assert.equal(clear.props.children, '清除搜索');
+  clear.props.onClick(); await r.settle();
+  assert.ok(r.find('Card', p => p.label === '持有物品摘要'));
   r.unmount();
 });
 
