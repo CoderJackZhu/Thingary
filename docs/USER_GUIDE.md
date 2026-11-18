@@ -73,7 +73,7 @@ iPhone 版**尚未上架 App Store，也没有公开安装包**。有 Xcode 的�
 | Windows | `Thingary_0.1.1_x64-setup.exe` | Windows 10 1809+ / 11，x64 |
 | 安卓 | `Thingary-0.1.1-android.apk` | Android 10+，64 位 ARM |
 
-已在 Apple Silicon Mac 与 Windows 11 x64 使用；Intel、macOS 14、Windows 10 和安卓真机尚未验证。暂无 Linux 客户端，iPhone 暂无公开安装包。
+已在 Apple Silicon Mac、Windows 11 x64 和小米 Android 16 真机使用；安卓正式签名包另完成 0.1.0 → 0.1.1 覆盖升级。Intel、macOS 14、Windows 10 和 Android 15 及更早系统尚未验证。暂无 Linux 客户端，iPhone 暂无公开安装包。
 
 ### Mac 安装
 
@@ -149,7 +149,7 @@ Windows 选图仅接受 **JPEG、PNG、WebP**；HEIC／HEIF 请先另存为 JPEG
 
 ### 安卓安装
 
-安卓 APK 为预览版，需要 **Android 10 及以上、64 位 ARM 设备**，尚未在真机上验证安装与使用。
+安卓 APK 为预览版，需要 **Android 10 及以上、64 位 ARM 设备**。已在小米 Android 16 真机上验证安装与 0.1.0 → 0.1.1 覆盖升级；其他厂商 ROM、Android 15 及更早系统尚未验证。
 
 1. 从 [0.1.1 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.1)或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.1)下载 `Thingary-0.1.1-android.apk`。
 2. 在下载完成的通知或文件管理器中打开 APK。按系统提示，临时允许当前浏览器或文件管理器「安装未知应用」。
@@ -980,7 +980,7 @@ Mac 在 Finder 的「应用程序」中移除「物谱」只删除应用，**不
 
 ## 当前限制
 
-- **兼容性**：Intel Mac、macOS 14、Windows 10 和安卓真机尚未验证；辅助功能、多屏和系统缩放等兼容性仍未完整覆盖。Mac 未经 Apple 公证，Windows 安装包未签名，首次安装可能受系统安全策略限制。
+- **兼容性**：Android 16 小米真机已验证安装、覆盖升级和主要界面；其他厂商 ROM、Android 15 及更早系统、Intel Mac、macOS 14 和 Windows 10 尚未验证；辅助功能、多屏和系统缩放等兼容性仍未完整覆盖。Mac 未经 Apple 公证，Windows 安装包未签名，首次安装可能受系统安全策略限制。
 - **Windows 身份验证**：暂不支持打开时验证身份和闲置重新验证；可使用「窗口不在前台时遮住内容」。
 - **Windows 资料位置**：不支持通过目录联接（junction）把整个用户配置目录迁到其他盘。
 - Windows 上 Ctrl+逗号无法打开设置（WebView2 引擎在页面收到按键之前就拦截了它），请点侧栏「设置」；其余快捷键不受影响。

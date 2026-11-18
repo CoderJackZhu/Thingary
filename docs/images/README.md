@@ -1,12 +1,12 @@
 # 界面截图与维护
 
-## README 高清预览与安卓截图（2026-11-04）
+## README 高清预览与安卓截图（最近更新 2026-11-19）
 
 `walkthrough.gif` 改用 `readme-desktop/` 中的六张无损 PNG，顺序为 `overview.png`、`accounts.png`、`planning.png`、`savings.png`、`review.png`、`belongings.png`。来源为 0.1.0 源码的 `visual-preview.html?demo=1`，采集基线 `796a2d90f9cd9b096df2ba29d08871551cdf41d1`，Ego Lite 浏览器，简体中文、柔和卡片浅色主题、1280×960 逻辑视口、2× 捕获（**2560×1920**）。仅隐藏浏览器翻译扩展悬浮按钮与开发预览角标，保留应用的样例提示、未知资料和待确认条件；存钱目标帧滚动到该区域，物品帧选中 MacBook Pro。界面文字、金额与布局未拼改。README 点击动图可打开无损总览图。它是浏览器界面截图轮播，不是原生连续操作录像。
 
-`android/overview.png`、`android/accounts.png`、`android/planning.png` 为 Android 15（API 35、ARM64）模拟器 `thingary35` 的原生截图，均为 **1080×2400**，通过 `adb exec-out screencap -p` 直接取得；应用是模拟器内原有的独立身份 `local.thingary.preview`，`versionName=0.1.0`、`versionCode=1000`，安装更新时间为 2026-10-25。此次未重新构建或安装 APK，因此不将该包与桌面采集基线视为同一源码。只展示内置虚构样例，语言切为简体中文后重启，确认页面、页签与底部导航均为中文，再依次采集总览、财富概览与规划目标页。未打开正式身份或正式资料库。
+`android/overview.png`、`android/accounts.png`、`android/planning.png` 为小米 Android 16 真机（1200×2670，系统密度 520）的原生截图，通过 `adb exec-out screencap -p` 直接取得。应用是独立身份 `local.thingary.preview`，`versionName=0.1.1`、`versionCode=1001`，2026-11-19 由当前源码重新构建并覆盖安装；系统切为浅色主题，只展示完整虚构样例，依次采集总览、财富概览与规划目标页。截图保留样例状态、状态栏与系统时间，未拼改界面文字或金额。未打开正式身份或正式资料库。
 
-中英文 README 共用这组中文图片。安卓模拟器截图证明该预览包的页面展示，不代表真实手机或公开 APK 的完整功能验收；桌面浏览器与安卓样例的规划条件各自保留，不拼成同一组测算结果。GIF 重建参数见下文。
+中英文 README 共用这组中文图片。安卓真机截图证明该预览包的页面展示，不代表正式 APK 的全部功能或所有厂商 ROM 均已验收；桌面浏览器与安卓样例的规划条件各自保留，不拼成同一组测算结果。GIF 重建参数见下文。
 
 ## 0.1.0 对照（2026-11-02）
 

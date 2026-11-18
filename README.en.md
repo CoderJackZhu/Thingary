@@ -32,7 +32,7 @@ Built for occasional check-ins. No daily transaction ledger, market-data feed, t
 
 ## Android interface
 
-Overview, account check-ins, and retirement planning on the phone. These Chinese screenshots come from an Android 15 emulator with fictional sample data. Click an image for the full resolution.
+Overview, account check-ins, and retirement planning on the phone. These Chinese screenshots come from an Android 16 phone using the isolated preview identity and fictional sample data. Click an image for the full resolution.
 
 | Overview | Accounts & check-ins | Goals & projections |
 |:---:|:---:|:---:|

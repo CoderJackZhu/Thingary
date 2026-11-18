@@ -57,7 +57,7 @@
 
 ## 已知限制
 
-- **平台**：Mac 最低目标为 macOS 14，Windows 为 Windows 10 1809+ / 11 x64；目前实机使用覆盖 Apple Silicon Mac 和 Windows 11 x64。Intel、macOS 14、Windows 10 和安卓真机尚未验证。Windows ARM 设备需通过系统模拟运行 x64 版；暂无 Linux 客户端。
+- **平台**：Mac 最低目标为 macOS 14，Windows 为 Windows 10 1809+ / 11 x64；目前实机使用覆盖 Apple Silicon Mac、Windows 11 x64 和小米 Android 16 真机。安卓已在同一台真机验证 0.1.0 → 0.1.1 覆盖升级；其他厂商 ROM、Android 15 及更早系统、Intel、macOS 14 和 Windows 10 尚未验证。Windows ARM 设备需通过系统模拟运行 x64 版；暂无 Linux 客户端。
 - **加密范围**：加密导出的备份文件（可选）与 WebDAV 同步快照；主资料库、图片和恢复前保护副本未加密。
 - **不做**：日常流水记账、行情交易、自动付款、后台常驻同步或记录级合并。
 
