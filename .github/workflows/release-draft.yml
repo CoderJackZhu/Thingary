@@ -137,7 +137,7 @@ jobs:
             sdkmanager_bin=$(command -v sdkmanager)
           fi
           yes | "$sdkmanager_bin" --licenses >/dev/null || true
-          "$sdkmanager_bin" --install "platforms;android-37" "build-tools;37.0.0" "ndk;$ANDROID_NDK_VERSION"
+          "$sdkmanager_bin" --install "platforms;android-37.0" "build-tools;37.0.0" "ndk;$ANDROID_NDK_VERSION"
           echo "NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
       - if: steps.ready.outputs.ready == 'true'
         run: npm ci
