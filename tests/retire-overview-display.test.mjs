@@ -163,6 +163,16 @@ test('trajectory geometry uses months even when every optional age is unknown', 
   assert.doesNotMatch(path, /NaN|Infinity/);
   assert.ok(new Set([...path.matchAll(/[ML]([\d.]+)/g)].map(m => m[1])).size > 2, 'unknown ages must not collapse the month axis');
   assert.ok(nodes.some(n => n.type === 'text' && typeof n.props.children === 'string' && /^20\d{2}-\d{2}$/.test(n.props.children)));
+
+  const months = Array.from({ length: 63 }, (_, month) => ({ month, label: `${2026 + month}-${String(month % 12 + 1).padStart(2, '0')}`, age: null, projected: 1000, required: 500, phase: 'accumulation' }));
+  const nearEdge = module.exports.TrajectoryChart({ points: months, rows: [], goalMonth: 20, fiMonth: 47, retireMonth: 60, timeLabel: m => months[m].label, tone: 'good', fmt: String, valueLabel: '今天的钱' });
+  nodes.length = 0; walk(nearEdge);
+  const fiLabel = nodes.find(n => n.type === 'text' && typeof n.props.children === 'string' && n.props.children.startsWith('预计不靠工资'));
+  assert.equal(fiLabel.props.children, '预计不靠工资 · 2073-12', '右边界附近的里程碑保留完整日期');
+  assert.equal(fiLabel.props.textAnchor, 'end', '里程碑向左展开而不是超出画布');
+  const lastAxis = nodes.find(n => n.type === 'text' && n.props.children === '2088-03');
+  assert.ok(lastAxis, '横轴末端保留完整年月');
+  assert.equal(lastAxis.props.textAnchor, 'end', '横轴末端向左对齐');
 });
 
 test('annual stage markers name the projected month without exposing FI shorthand',()=>{

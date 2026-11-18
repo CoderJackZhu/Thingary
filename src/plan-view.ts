@@ -224,6 +224,25 @@ export function refLabelLayout(items: { x: number; w: number }[], right: number)
   return out;
 }
 
+/** 图表文字的近似宽度（SVG 用户单位）：中日韩全角字符按字号计，拉丁字符与空格按比例计。 */
+export function chartTextWidth(text: string, fontSize: number): number {
+  let width = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    const wide = code >= 0x1100 && (
+      code <= 0x115f || code === 0x2329 || code === 0x232a ||
+      (code >= 0x2e80 && code <= 0xa4cf && code !== 0x303f) ||
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6)
+    );
+    width += ch === ' ' ? fontSize * 0.3 : wide ? fontSize : fontSize * 0.6;
+  }
+  return width;
+}
+
 /** 目标年龄处两个数值标注的基线：高的放点上方、低的放点下方，两者至少相隔 14，且不越过横轴 floor。 */
 export function calloutBaselines(yProjected: number, yRequired: number, floor: number): { projected: number; required: number } {
   const low = Math.min(Math.max(yProjected, yRequired) + 14, floor), high = Math.min(Math.min(yProjected, yRequired) - 6, low - 14);

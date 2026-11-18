@@ -2,7 +2,7 @@ import { spacedLabels } from './chart-labels';
 import { useChartScale } from './chart-width';
 import { useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
-import { calloutBaselines, compactYuan, refLabelLayout } from './plan-view';
+import { calloutBaselines, chartTextWidth, compactYuan, refLabelLayout } from './plan-view';
 import type { CoverageSeries, SnapshotRow, TrajectoryPoint } from './plan-view';
 import './retire.css';
 import { t } from './i18n.ts';
@@ -20,6 +20,8 @@ const ageTicks = (a0: number, a1: number) => {
   for (let a = Math.ceil(a0 / step) * step; a <= a1 + 1e-9; a += step) out.push(a);
   return out;
 };
+const edgeRefText = (x: number, text: string, offset = 5): { x: number; textAnchor: 'start' | 'end' } =>
+  x + offset + chartTextWidth(text, 16) > W - R ? { x: W - R, textAnchor: 'end' } : { x: x + offset, textAnchor: 'start' };
 
 type Scale = { x: (age: number) => number; y: (v: number) => number; inv: (px: number) => number };
 function scales(a0: number, a1: number, top: number): Scale {
@@ -29,11 +31,24 @@ function scales(a0: number, a1: number, top: number): Scale {
 
 function Axes({ s, a0, a1, ticks, mark, positions, label = a => String(a) }: { s: Scale; a0: number; a1: number; ticks: number[]; mark?: { age: number; label: string } | null; label?: (month: number) => string; positions?: number[] }) {
   const ref = useRef<SVGGElement>(null), scale = useChartScale(ref, W, H);
-  const labels = spacedLabels(positions ?? ageTicks(a0, a1), a => s.x(a) * scale, a => label(a).length * 10 * scale);
+  const boxOf = (a: number) => {
+    const text = label(a), w = chartTextWidth(text, 16), x = s.x(a);
+    if (x + w / 2 > W - R) return { x: W - R, center: W - R - w / 2, w, anchor: 'end' as const };
+    if (x - w / 2 < L) return { x: L, center: L + w / 2, w, anchor: 'start' as const };
+    return { x, center: x, w, anchor: 'middle' as const };
+  };
+  const labels = spacedLabels(positions ?? ageTicks(a0, a1), a => boxOf(a).center * scale, a => boxOf(a).w * scale);
+  const markBox = mark ? (() => {
+    const w = chartTextWidth(mark.label, 16), x = s.x(mark.age);
+    return x + w / 2 > W - R ? { x: W - R, anchor: 'end' as const } : x - w / 2 < L ? { x: L, anchor: 'start' as const } : { x, anchor: 'middle' as const };
+  })() : null;
   return <g ref={ref} className="rc-axes">
     {ticks.map(v => <g key={v}><line x1={L} x2={W - R} y1={s.y(v)} y2={s.y(v)} className="rc-grid"/><text x={L - 8} y={s.y(v) + 3.5} textAnchor="end">{v === 0 ? '0' : compactYuan(v)}</text></g>)}
-    {labels.map(a => <text key={a} x={s.x(a)} y={H - B + 18} textAnchor="middle">{label(a)}</text>)}
-    {mark && <text x={s.x(mark.age)} y={H - B + 33} textAnchor="middle" className="rc-strong">{mark.label}</text>}
+    {labels.map(a => {
+      const box = boxOf(a);
+      return <text key={a} x={box.x} y={H - B + 18} textAnchor={box.anchor}>{label(a)}</text>;
+    })}
+    {mark && markBox && <text x={markBox.x} y={H - B + 33} textAnchor={markBox.anchor} className="rc-strong">{mark.label}</text>}
     <line x1={L} x2={W - R} y1={H - B} y2={H - B} className="rc-axis"/>
   </g>;
 }
@@ -74,8 +89,10 @@ export function TrajectoryChart({ points, rows, goalMonth, fiMonth, retireMonth,
   const hover = near.i === null ? null : points[near.i], row = near.i === null ? undefined : rows[near.i];
   const showFi = fiMonth !== null && Math.abs(fiMonth - goalMonth) > 0.01;
   const refs = [{ x: s.x(goalMonth), text: t('目标 · {v1}', { v1: timeLabel(goalMonth) }), fi: false }, ...(showFi ? [{ x: s.x(fiMonth!), text: t('预计不靠工资 · {v1}', { v1: timeLabel(fiMonth!) }), fi: true }] : [])];
-  const lay = refLabelLayout(refs.map(r => ({ x: r.x, w: r.text.length * 7.5 })), W - R);
-  const gy = calloutBaselines(s.y(goal.projected), s.y(goal.required), H - B - 4), gEnd = s.x(goal.month) > W - R - 60, gx = s.x(goal.month) + (gEnd ? -9 : 9);
+  const lay = refLabelLayout(refs.map(r => ({ x: r.x, w: chartTextWidth(r.text, 16) })), W - R);
+  const projectedText = compactYuan(goal.projected), requiredText = compactYuan(goal.required);
+  const calloutWidth = Math.max(chartTextWidth(projectedText, 17), goal.required > 0 ? chartTextWidth(requiredText, 17) : 0);
+  const gy = calloutBaselines(s.y(goal.projected), s.y(goal.required), H - B - 4), gEnd = s.x(goal.month) + 9 + calloutWidth > W - R, gx = s.x(goal.month) + (gEnd ? -9 : 9);
   const statusVar = tone === 'good' ? 'var(--positive)' : tone === 'watch' ? 'var(--warn)' : 'var(--error)';
   return <div className="rc-wrap">
     <svg ref={near.ref} className="rc-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('预计资金变化，{v1} 至 {v2}，{valueLabel}。目标 {v4} 时预计 {v5}，所需 {v6}', { v1: timeLabel(a0), v2: timeLabel(a1), valueLabel, v4: timeLabel(goalMonth), v5: fmt(goal.projected), v6: fmt(goal.required) })} {...near.handlers}>
@@ -88,10 +105,10 @@ export function TrajectoryChart({ points, rows, goalMonth, fiMonth, retireMonth,
       <g className="rc-refs">
         <line x1={s.x(goalMonth)} x2={s.x(goalMonth)} y1={T} y2={H - B} className="rc-ref"/>
         {fiMonth !== null && showFi && <line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/>}
-        {refs.map((r, i) => <text key={r.text} x={r.x + (lay[i].end ? -5 : 5)} textAnchor={lay[i].end ? 'end' : 'start'} y={T - 8 - lay[i].row * 18} className={`rc-label${r.fi ? ' rc-fi-text' : ''}`}>{r.text}</text>)}
+        {refs.map((r, i) => <text key={r.text} x={Math.max(L, Math.min(W - R, r.x + (lay[i].end ? -5 : 5)))} textAnchor={lay[i].end ? 'end' : 'start'} y={T - 8 - lay[i].row * 18} className={`rc-label${r.fi ? ' rc-fi-text' : ''}`}>{r.text}</text>)}
         {retireMonth !== null && retireMonth !== fiMonth && retireMonth !== goalMonth && <line x1={s.x(retireMonth)} x2={s.x(retireMonth)} y1={T} y2={H - B} className="rc-ref"/>}
-        <circle cx={s.x(goal.month)} cy={s.y(goal.projected)} r="4" style={{ fill: statusVar }}/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.projected} className="rc-callout" style={{ fill: statusVar }}>{compactYuan(goal.projected)}</text>
-        {goal.required > 0 && <><circle cx={s.x(goal.month)} cy={s.y(goal.required)} r="3.5" className="rc-dot-ref"/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.required} className="rc-callout rc-muted">{compactYuan(goal.required)}</text></>}
+        <circle cx={s.x(goal.month)} cy={s.y(goal.projected)} r="4" style={{ fill: statusVar }}/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.projected} className="rc-callout" style={{ fill: statusVar }}>{projectedText}</text>
+        {goal.required > 0 && <><circle cx={s.x(goal.month)} cy={s.y(goal.required)} r="3.5" className="rc-dot-ref"/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.required} className="rc-callout rc-muted">{requiredText}</text></>}
       </g>
       {hover && <g><line x1={s.x(hover.month)} x2={s.x(hover.month)} y1={T} y2={H - B} className="rc-cursor"/><circle cx={s.x(hover.month)} cy={s.y(hover.projected)} r="4" style={{ fill: hover.phase === 'retired' ? 'var(--warn)' : 'var(--chart)' }}/></g>}
     </svg>
@@ -146,9 +163,9 @@ export function FanChart({ months, bands, goalMonth, retireMonth, fiMonth, fmt, 
       <Axes positions={months} label={timeLabel} s={s} a0={a0} a1={a1} ticks={ticks}/>
       <path d={poly(bands.p90, bands.p10)} className="rc-band-wide"/><path d={poly(bands.p75, bands.p25)} className="rc-band-mid"/>
       <path d={med} className="rc-line" style={{ stroke: 'var(--text)' }}/>
-      <line x1={s.x(goalMonth)} x2={s.x(goalMonth)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(goalMonth) + 5} y={T - 8} className="rc-label">{t('目标 · {v1}', { v1: timeLabel(goalMonth) })}</text>
-      {retireMonth !== null && retireMonth !== goalMonth && <><line x1={s.x(retireMonth)} x2={s.x(retireMonth)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(retireMonth) + 5} y={T - 26} className="rc-label">{t('退休 · {v1}', { v1: timeLabel(retireMonth) })}</text></>}
-      {fiMonth !== null && <><line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/><text x={s.x(fiMonth) + 5} y={T + 12} className="rc-label rc-fi-text">{t('预计不靠工资（中位数） · {v1}', { v1: timeLabel(fiMonth) })}</text></>}
+      <line x1={s.x(goalMonth)} x2={s.x(goalMonth)} y1={T} y2={H - B} className="rc-ref"/><text {...edgeRefText(s.x(goalMonth), t('目标 · {v1}', { v1: timeLabel(goalMonth) }))} y={T - 8} className="rc-label">{t('目标 · {v1}', { v1: timeLabel(goalMonth) })}</text>
+      {retireMonth !== null && retireMonth !== goalMonth && <><line x1={s.x(retireMonth)} x2={s.x(retireMonth)} y1={T} y2={H - B} className="rc-ref"/><text {...edgeRefText(s.x(retireMonth), t('退休 · {v1}', { v1: timeLabel(retireMonth) }))} y={T - 26} className="rc-label">{t('退休 · {v1}', { v1: timeLabel(retireMonth) })}</text></>}
+      {fiMonth !== null && <><line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/><text {...edgeRefText(s.x(fiMonth), t('预计不靠工资（中位数） · {v1}', { v1: timeLabel(fiMonth) }))} y={T + 12} className="rc-label rc-fi-text">{t('预计不靠工资（中位数） · {v1}', { v1: timeLabel(fiMonth) })}</text></>}
       {i !== null && <line x1={s.x(months[i])} x2={s.x(months[i])} y1={T} y2={H - B} className="rc-cursor"/>}
     </svg>
     {i !== null && <Tip s={s} age={months[i]} lines={[[t('第 90 百分位'), fmt(bands.p90[i])], [t('第 75 百分位'), fmt(bands.p75[i])], [t('中位数'), fmt(bands.p50[i])], [t('第 25 百分位'), fmt(bands.p25[i])], [t('第 10 百分位'), fmt(bands.p10[i])]]}>{timeLabel(months[i])}</Tip>}
