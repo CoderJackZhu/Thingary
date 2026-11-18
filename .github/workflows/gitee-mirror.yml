@@ -12,6 +12,10 @@ on:
       tag:
         description: Release tag to mirror (for example v0.0.8)
         required: true
+      replace:
+        description: Replace same-name attachments for an authorized same-version correction
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,4 +68,8 @@ jobs:
         if: steps.token.outputs.present == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node tooling/scripts/sync-gitee-release.mjs "$TAG"
+          REPLACE: ${{ inputs.replace || false }}
+        run: |
+          args=()
+          [ "$REPLACE" = "true" ] && args+=(--replace)
+          node tooling/scripts/sync-gitee-release.mjs "$TAG" "${args[@]}"

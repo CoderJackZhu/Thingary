@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Mirror one published GitHub Release (notes, pre-release flag, attachments) to the Gitee repository and verify the files.
-// Usage: GITEE_TOKEN=... node scripts/sync-gitee-release.mjs v0.0.8 [--dry-run]
+// Usage: GITEE_TOKEN=... node scripts/sync-gitee-release.mjs v0.0.8 [--dry-run] [--replace]
 // GITHUB_TOKEN is optional (higher API limits). The tag and source commit must already be pushed to Gitee (git push gitee <tag>；分支同步单独处理).
-// It never moves a published tag, never overwrites an attachment and never deletes anything; it only creates what is missing.
+// It never moves a published tag. By default it only creates missing attachments; --replace explicitly
+// replaces same-name attachments for an authorized same-version correction, then verifies every hash again.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
@@ -118,6 +119,11 @@ export function plan(githubRelease, giteeRelease, giteeFiles) {
   };
 }
 
+/** Same-version corrections must replace every GitHub attachment, including names that already exist. */
+export function replacementPlan(githubRelease) {
+  return githubRelease.assets.map(a => a.name);
+}
+
 /** Every attachment must match SHA256SUMS.txt (for the files it lists) and the GitHub copy. */
 export function mismatches(sums, githubHashes, giteeHashes) {
   const bad = [];
@@ -132,7 +138,8 @@ export function mismatches(sums, githubHashes, giteeHashes) {
 async function main() {
   const [tag, ...flags] = process.argv.slice(2);
   const dry = flags.includes('--dry-run');
-  if (!tag || !/^v\d+\.\d+\.\d+/.test(tag)) throw new Error('Usage: node scripts/sync-gitee-release.mjs v<version> [--dry-run]');
+  const replace = flags.includes('--replace');
+  if (!tag || !/^v\d+\.\d+\.\d+/.test(tag)) throw new Error('Usage: node scripts/sync-gitee-release.mjs v<version> [--dry-run] [--replace]');
   const token = process.env.GITEE_TOKEN;
   if (!token && !dry) throw new Error('GITEE_TOKEN is not set (a Gitee personal access token with projects scope).');
 
@@ -172,7 +179,8 @@ async function main() {
     }
   }
   const todo = plan(release, giteeRelease, files);
-  console.log(`${tag}: ${release.prerelease ? 'pre-release' : 'release'}, ${assets.length} attachments; Gitee release ${todo.createRelease ? 'to create' : 'exists'}; to upload: ${todo.upload.join(', ') || 'nothing'}`);
+  if (replace) todo.upload = replacementPlan(release);
+  console.log(`${tag}: ${release.prerelease ? 'pre-release' : 'release'}, ${assets.length} attachments; Gitee release ${todo.createRelease ? 'to create' : 'exists'}; to upload: ${todo.upload.join(', ') || 'nothing'}${replace ? ' (replacing same-name attachments)' : ''}`);
   if (dry) { console.log('Dry run: nothing was written. GitHub hashes:'); for (const a of assets) console.log(`  ${a.hash}  ${a.name}`); return; }
 
   if (todo.createRelease) {
@@ -180,6 +188,20 @@ async function main() {
     form.set('tag_name', tag); form.set('name', release.name); form.set('body', release.body ?? ''); form.set('prerelease', String(!!release.prerelease)); form.set('target_commitish', release.target_commitish || 'main');
     const r = await gitee('/releases', { method: 'POST', body: form });
     giteeRelease = await requiredJson(r, 'Create Gitee release');
+  }
+  if (replace && !todo.createRelease) {
+    const form = new FormData();
+    form.set('tag_name', tag); form.set('name', release.name); form.set('body', release.body ?? ''); form.set('prerelease', String(!!release.prerelease));
+    const updated = await gitee(`/releases/${giteeRelease.id}`, { method: 'PATCH', body: form });
+    if (!updated.ok) throw new Error(`Update Gitee release: HTTP ${updated.status}`);
+    const existing = new Map(files.map(f => [f.name, f]));
+    for (const name of todo.upload) {
+      const file = existing.get(name);
+      if (!file) continue;
+      const removed = await gitee(`/releases/${giteeRelease.id}/attach_files/${file.id}`, { method: 'DELETE' });
+      if (!removed.ok && removed.status !== 404) throw new Error(`Delete Gitee attachment ${name}: HTTP ${removed.status}`);
+      console.log(`removed old ${name}`);
+    }
   }
   // Smallest first, so a slow link shows up before the big installer.
   for (const name of [...todo.upload].sort((x, y) => assets.find(a => a.name === x).bytes.length - assets.find(a => a.name === y).bytes.length)) {

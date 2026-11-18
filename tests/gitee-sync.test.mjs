@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchWithRetry, mismatches, parseSums, plan } from '../scripts/sync-gitee-release.mjs';
+import { fetchWithRetry, mismatches, parseSums, plan, replacementPlan } from '../scripts/sync-gitee-release.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -20,6 +20,7 @@ test('only what is missing on Gitee is created, and nothing is ever replaced', (
   assert.deepEqual(plan(release, null, []), { createRelease: true, upload: ['a.dmg', 'b.exe', 'SHA256SUMS.txt'] });
   assert.deepEqual(plan(release, { id: 1 }, [{ name: 'a.dmg' }, { name: 'SHA256SUMS.txt' }]), { createRelease: false, upload: ['b.exe'] });
   assert.deepEqual(plan(release, { id: 1 }, release.assets), { createRelease: false, upload: [] });
+  assert.deepEqual(replacementPlan(release), ['a.dmg', 'b.exe', 'SHA256SUMS.txt']);
 });
 
 test('verification catches a changed, missing or unlisted-mismatch attachment', () => {
