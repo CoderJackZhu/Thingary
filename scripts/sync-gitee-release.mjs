@@ -190,9 +190,11 @@ async function main() {
     giteeRelease = await requiredJson(r, 'Create Gitee release');
   }
   if (replace && !todo.createRelease) {
-    const form = new FormData();
-    form.set('tag_name', tag); form.set('name', release.name); form.set('body', release.body ?? ''); form.set('prerelease', String(!!release.prerelease));
-    const updated = await gitee(`/releases/${giteeRelease.id}`, { method: 'PATCH', body: form });
+    const updated = await gitee(`/releases/${giteeRelease.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag_name: tag, name: release.name, body: release.body ?? '', prerelease: !!release.prerelease }),
+    });
     if (!updated.ok) throw new Error(`Update Gitee release: HTTP ${updated.status}`);
     const existing = new Map(files.map(f => [f.name, f]));
     for (const name of todo.upload) {
