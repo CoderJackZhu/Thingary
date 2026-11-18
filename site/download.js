@@ -1,8 +1,8 @@
 /* Published installers only. Keep these versioned URLs in sync with the page. */
 const thingaryDownloads = Object.freeze({
-  mac: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg',
-  windows: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe',
-  android: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk',
+  mac: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.1/Thingary-0.1.1-universal.dmg',
+  windows: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.1/Thingary_0.1.1_x64-setup.exe',
+  android: 'https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.1/Thingary-0.1.1-android.apk',
 });
 
 function detectThingaryPlatform(browser) {

@@ -14,7 +14,7 @@
 
 之后每月或每季盘一次即可，不用记每天的流水。想存够一笔钱，可以在「账户与盘点」概览里设「存钱目标」，每次盘点后看进度；随时到「财务复盘 › 区间回顾」查看近 1 年，也可选近 30 天、今年以来、全部或自定义期间。备份可以用恢复密钥加密，密钥要自己保管，丢失无法找回。录入重要资料后，请[做一次完整备份并异地保存](#backup)。想先给物品留档，也可以在首次引导勾选「整理我的物品」，见[第一件物品](#first-record)。
 
-本指南的下载入口为 **0.1.0 公开测试版**。截图均使用虚构资料，部分来自较早版本，按钮样式可能与所装版本略有差异；按文字步骤和界面提示操作即可。
+本指南的下载入口为 **0.1.1 公开测试版**。截图均使用虚构资料，部分来自较早版本，按钮样式可能与所装版本略有差异；按文字步骤和界面提示操作即可。
 
 <a id="iphone"></a>
 
@@ -65,13 +65,13 @@ iPhone 版**尚未上架 App Store，也没有公开安装包**。有 Xcode 的�
 
 ### 选择正确的文件
 
-到 [0.1.0 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0)或[国内镜像 Gitee](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0)选择安装附件。`Source code.zip` 和 `Source code.tar.gz` 是源码，不是安装包。
+到 [0.1.1 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.1)或[国内镜像 Gitee](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.1)选择安装附件。`Source code.zip` 和 `Source code.tar.gz` 是源码，不是安装包。
 
 | 设备 | 安装附件 | 系统要求 |
 |---|---|---|
-| Mac | `Thingary-0.1.0-universal.dmg` | macOS 14+，Apple Silicon 与 Intel 共用 |
-| Windows | `Thingary_0.1.0_x64-setup.exe` | Windows 10 1809+ / 11，x64 |
-| 安卓 | `Thingary-0.1.0-android.apk` | Android 10+，64 位 ARM |
+| Mac | `Thingary-0.1.1-universal.dmg` | macOS 14+，Apple Silicon 与 Intel 共用 |
+| Windows | `Thingary_0.1.1_x64-setup.exe` | Windows 10 1809+ / 11，x64 |
+| 安卓 | `Thingary-0.1.1-android.apk` | Android 10+，64 位 ARM |
 
 已在 Apple Silicon Mac 与 Windows 11 x64 使用；Intel、macOS 14、Windows 10 和安卓真机尚未验证。暂无 Linux 客户端，iPhone 暂无公开安装包。
 
@@ -110,8 +110,8 @@ Mac 安装包使用本地临时签名，未经过 Developer ID 签名和 Apple �
 
 **安装步骤：**
 
-1. 在 [0.1.0 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0)（或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)）的附件里下载 `Thingary_0.1.0_x64-setup.exe` 与 `SHA256SUMS.txt`。
-2. 在 PowerShell 中核对 SHA-256：`Get-FileHash .\Thingary_0.1.0_x64-setup.exe -Algorithm SHA256`，把输出与 `SHA256SUMS.txt` 里的值逐字比较，一致再运行。
+1. 在 [0.1.1 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.1)（或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)）的附件里下载 `Thingary_0.1.1_x64-setup.exe` 与 `SHA256SUMS.txt`。
+2. 在 PowerShell 中核对 SHA-256：`Get-FileHash .\Thingary_0.1.1_x64-setup.exe -Algorithm SHA256`，把输出与 `SHA256SUMS.txt` 里的值逐字比较，一致再运行。
 3. 运行安装包，按向导完成。安装器使用简体中文，只安装给当前用户。
 4. 从开始菜单打开物谱，先查看虚构样例，再开始记录自己的资料。
 
@@ -151,11 +151,11 @@ Windows 选图仅接受 **JPEG、PNG、WebP**；HEIC／HEIF 请先另存为 JPEG
 
 安卓 APK 为预览版，需要 **Android 10 及以上、64 位 ARM 设备**，尚未在真机上验证安装与使用。
 
-1. 从 [0.1.0 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0)或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0)下载 `Thingary-0.1.0-android.apk`。
+1. 从 [0.1.1 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.1)或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.1)下载 `Thingary-0.1.1-android.apk`。
 2. 在下载完成的通知或文件管理器中打开 APK。按系统提示，临时允许当前浏览器或文件管理器「安装未知应用」。
 3. 完成安装后打开「物谱」，点「先看看样例」体验，或点「开始记录」使用自己的空白资料。安装后可收回下载来源的安装权限。
 
-可用文件管理器的 SHA-256 功能或 `sha256sum Thingary-0.1.0-android.apk` 与附件 `SHA256SUMS.txt` 核对完整性。部分国产系统会对来源未知的应用提示或拦截；确认下载来源后按系统提示处理，遇到恶意软件提示或无法放行时先保留提示并反馈，不要关闭整机保护。
+可用文件管理器的 SHA-256 功能或 `sha256sum Thingary-0.1.1-android.apk` 与附件 `SHA256SUMS.txt` 核对完整性。部分国产系统会对来源未知的应用提示或拦截；确认下载来源后按系统提示处理，遇到恶意软件提示或无法放行时先保留提示并反馈，不要关闭整机保护。
 
 **更新请用新版 APK 覆盖安装，不要先卸载。** 卸载会删除手机内的资料和自动备份，更新前请先[导出完整备份](#phone-transfer)到手机以外。
 

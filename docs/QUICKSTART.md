@@ -8,11 +8,11 @@
 
 ## 1. 安装并看看样例
 
-到[国内下载镜像（Gitee）](https://gitee.com/CoderJackZhu/thingary/releases)或 [GitHub 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0)，选择 **0.1.0** 的安装附件。Source code 是源码，不是安装包。
+到[国内下载镜像（Gitee）](https://gitee.com/CoderJackZhu/thingary/releases)或 [GitHub 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.1)，选择 **0.1.1** 的安装附件。Source code 是源码，不是安装包。
 
-- **Mac**：下载 `Thingary-0.1.0-universal.dmg`，打开后将「物谱」拖进「应用程序」。Apple Silicon 与 Intel 使用同一个包。
-- **Windows**：下载 `Thingary_0.1.0_x64-setup.exe` 并运行。默认只安装给当前用户；缺少 WebView2 时需联网补装。安装或启动失败时见[Windows 安装](USER_GUIDE.md#windows-install)。
-- **安卓**：下载 `Thingary-0.1.0-android.apk`，需要 Android 10 及以上、64 位 ARM 手机。按提示允许浏览器或文件管理器「安装未知应用」，安装后可收回权限。详见[安卓安装](USER_GUIDE.md#android-install)。
+- **Mac**：下载 `Thingary-0.1.1-universal.dmg`，打开后将「物谱」拖进「应用程序」。Apple Silicon 与 Intel 使用同一个包。
+- **Windows**：下载 `Thingary_0.1.1_x64-setup.exe` 并运行。默认只安装给当前用户；缺少 WebView2 时需联网补装。安装或启动失败时见[Windows 安装](USER_GUIDE.md#windows-install)。
+- **安卓**：下载 `Thingary-0.1.1-android.apk`，需要 Android 10 及以上、64 位 ARM 手机。按提示允许浏览器或文件管理器「安装未知应用」，安装后可收回权限。详见[安卓安装](USER_GUIDE.md#android-install)。
 - **iPhone**：暂无公开安装包，尚未上架 App Store，见[手机版说明](USER_GUIDE.md#iphone)。
 
 首次打开可能遇到系统安全提示。Mac 可在「系统设置 › 隐私与安全性」查看「仍要打开」；Windows SmartScreen 可查看「更多信息 › 仍要运行」。只对可信来源的安装包操作；若提示损坏、恶意软件或没有放行按钮，请先看[安装排查](USER_GUIDE.md#download)，不要关闭系统保护。

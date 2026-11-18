@@ -8,7 +8,7 @@
 
 <p align="center"><strong>A ten-minute check-in each month, and a clearer answer to “how many more years of work?”</strong></p>
 
-<p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0"><strong>Download 0.1.0</strong></a> · <a href="https://thingary.jackzhu.top/">Website</a> · <a href="https://thingary.jackzhu.top/quickstart/">Quick start</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">Feedback</a></p>
+<p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.1"><strong>Download 0.1.1</strong></a> · <a href="https://thingary.jackzhu.top/">Website</a> · <a href="https://thingary.jackzhu.top/quickstart/">Quick start</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">Feedback</a></p>
 
 [![High-resolution Chinese desktop preview: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)](docs/images/readme-desktop/overview.png)
 
@@ -40,16 +40,16 @@ Overview, account check-ins, and retirement planning on the phone. These Chinese
 
 ## Download and install
 
-**0.1.0 is a public beta**, with Mac, Windows, and Android installers. A [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.0) is available for downloads in mainland China.
+**0.1.1 is a public beta**, with Mac, Windows, and Android installers. A [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases/tag/v0.1.1) is available for downloads in mainland China.
 
 | Platform | Download | Installation |
 |---|---|---|
-| macOS 14+ · Apple Silicon / Intel | [Universal Mac DMG](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-universal.dmg) | Drag into Applications. The app is ad-hoc signed without Apple notarization; the first launch may need approval in Privacy & Security |
-| Windows 10 1809+ / 11 · x64 | [Windows installer](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary_0.1.0_x64-setup.exe) | Run the EXE; internet is needed if WebView2 is missing. The unsigned installer may trigger SmartScreen |
-| Android 10+ · 64-bit ARM | [Android preview APK](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0/Thingary-0.1.0-android.apk) | Allow your browser or file manager to install unknown apps when prompted; you can revoke permission afterwards |
+| macOS 14+ · Apple Silicon / Intel | [Universal Mac DMG](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.1/Thingary-0.1.1-universal.dmg) | Drag into Applications. The app is ad-hoc signed without Apple notarization; the first launch may need approval in Privacy & Security |
+| Windows 10 1809+ / 11 · x64 | [Windows installer](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.1/Thingary_0.1.1_x64-setup.exe) | Run the EXE; internet is needed if WebView2 is missing. The unsigned installer may trigger SmartScreen |
+| Android 10+ · 64-bit ARM | [Android preview APK](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.1/Thingary-0.1.1-android.apk) | Allow your browser or file manager to install unknown apps when prompted; you can revoke permission afterwards |
 | iPhone | No public installer or App Store listing yet | Developers can [build it themselves](docs/DEVELOPMENT.md#ios-开发) |
 
-Tested on Apple Silicon Mac and Windows 11 x64. Intel, macOS 14, Windows 10, and real Android phones remain unverified. Windows ARM devices require x64 emulation.
+Tested on Apple Silicon Mac and Windows 11 x64. The Android interface was verified on an Android 16 phone with an isolated preview identity and fictional data; the signed formal package was separately installed and upgraded 0.1.0 → 0.1.1 on the same phone without opening the formal library. Intel, macOS 14, and Windows 10 remain unverified. Windows ARM devices require x64 emulation.
 
 See the [installation guide (Chinese)](https://thingary.jackzhu.top/guide/#download) for system security prompts. Download from this project's Releases or mirror; `SHA256SUMS.txt` in the release assets lets you check file integrity. **Make a full backup before upgrading**: older versions may not read upgraded data or backups.
 

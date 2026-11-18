@@ -41,11 +41,11 @@ test('website installers link directly to versioned packages, with a universal M
     const parsed = new URL(url);
     assert.equal(parsed.protocol, 'https:');
     assert.equal(parsed.host, 'github.com');
-    assert.match(parsed.pathname, /^\/CoderJackZhu\/Thingary\/releases\/download\/v0\.1\.0\//);
+    assert.match(parsed.pathname, /^\/CoderJackZhu\/Thingary\/releases\/download\/v0\.1\.1\//);
   }
-  assert.ok(installers.mac.endsWith('/Thingary-0.1.0-universal.dmg'));
-  assert.ok(installers.windows.endsWith('/Thingary_0.1.0_x64-setup.exe'));
-  assert.ok(installers.android.endsWith('/Thingary-0.1.0-android.apk'));
+  assert.ok(installers.mac.endsWith('/Thingary-0.1.1-universal.dmg'));
+  assert.ok(installers.windows.endsWith('/Thingary_0.1.1_x64-setup.exe'));
+  assert.ok(installers.android.endsWith('/Thingary-0.1.1-android.apk'));
 });
 
 test('all homepage download menus and no-script fallbacks include Android', () => {
