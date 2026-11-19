@@ -208,7 +208,7 @@ test('goal cautions keep all three impact directions visible while their actiona
   assert.equal(r.nodes().filter(n => n.type === 'button' && r.text(n) === '去核对').length, 3);
 });
 
-test('less-used settings and reports are disclosures while risk directions remain beside the result', () => {
+test('less-used settings and reports are disclosures while risk directions remain directly below the result and trajectory', () => {
   const { r } = render();
   const settings = r.nodes().find(n => n.props?.className === 'goal-more-settings');
   assert.equal(settings.type, 'details');
@@ -221,8 +221,10 @@ test('less-used settings and reports are disclosures while risk directions remai
   assert.ok(!evidence.props.open);
   const answer = r.text(goalArticle(r));
   assert.match(answer, /为目标每月需存/);
-  assert.match(answer, /每月需要存的钱可能偏低/);
   assert.doesNotMatch(answer, /反求|口径|可覆盖/);
+  const caution = r.nodes().find(n => n.props?.className === 'goal-caution');
+  assert.ok(caution, 'risk directions stay in the visible result column');
+  assert.match(r.text(caution), /每月需要存的钱可能偏低/);
 });
 
 test('the large-plan entry expands its empty disclosure before focusing the editor area', () => {

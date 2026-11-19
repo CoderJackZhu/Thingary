@@ -28,7 +28,7 @@ installMobileRuntime();
 
 type Loaded = { gate: Gate; review: Review; warranty: WarrantyAlert | null; wishes: WishDue[] | null; warrantyFailed: boolean; wishesFailed: boolean };
 
-/** 总览: 金融净资产, 规划结果, 物品日均成本, 待处理摘要, 近期记录. */
+/** 总览: 金融净资产, 规划结果, 待处理摘要, 物品日均成本, 近期记录. */
 const recentIcon = (kind: string) => kind.startsWith('wish_') ? 'heart' as const : kind.startsWith('warranty_') ? 'shield' as const : kind === 'snapshot' ? 'doc' as const : kind === 'purchase' ? 'box' as const : kind === 'payment' ? 'refresh' as const : kind === 'expense' || kind === 'refund' ? 'wallet' as const : 'clock' as const;
 
 export default function Overview(_props: PageProps) {

@@ -24,8 +24,8 @@ function memoryStorage(initial = null) {
 test('首页顺序：坏值、重复、未知 ID 都归一化，模块缺失不丢已保存偏好', () => {
   assert.deepEqual(normalizeHomeOrder(null), [...defaultHomeOrder]);
   assert.deepEqual(normalizeHomeOrder('net'), [...defaultHomeOrder]);
-  assert.deepEqual(normalizeHomeOrder(['recent', 'net', 'recent', 'missing', 3]), ['recent', 'net', 'plan', 'daily', 'pending']);
-  assert.deepEqual(normalizeHomeOrder(['recent', 'plan', 'net']), ['recent', 'plan', 'net', 'daily', 'pending']);
+  assert.deepEqual(normalizeHomeOrder(['recent', 'net', 'recent', 'missing', 3]), ['recent', 'net', 'plan', 'pending', 'daily']);
+  assert.deepEqual(normalizeHomeOrder(['recent', 'plan', 'net']), ['recent', 'plan', 'net', 'pending', 'daily']);
   const blocks = [{ id: 'net' }, { id: 'daily' }, { id: 'recent' }];
   assert.deepEqual(orderHomeBlocks(blocks, normalizeHomeOrder(['recent', 'plan', 'net'])).map(block => block.id), ['recent', 'net', 'daily']);
 });
@@ -44,14 +44,15 @@ test('首页顺序：读取失败、写入失败与无存储都不猜值，成�
 });
 test('首页顺序：移动保留全部区块，原地移动不变', () => {
   const start = [...defaultHomeOrder];
-  assert.deepEqual(moveHomeBlock(start, 'net', 'daily'), ['plan', 'daily', 'net', 'pending', 'recent']);
-  assert.deepEqual(moveHomeBlock(start, 'recent', 'plan'), ['net', 'recent', 'plan', 'daily', 'pending']);
+  assert.deepEqual(moveHomeBlock(start, 'net', 'daily'), ['plan', 'pending', 'daily', 'net', 'recent']);
+  assert.deepEqual(moveHomeBlock(start, 'recent', 'plan'), ['net', 'recent', 'plan', 'pending', 'daily']);
   assert.deepEqual(moveHomeBlock(start, 'net', 'net'), start);
   assert.deepEqual(moveHomeBlock(start, 'net', 'missing'), start);
   assert.deepEqual(start, [...defaultHomeOrder]);
 });
-test('首页顺序：旧版默认顺序迁到净资产优先，真正的自定义顺序保持不动', () => {
-  assert.deepEqual(readHomeOrder(memoryStorage(JSON.stringify(['pending', 'net', 'plan', 'daily', 'recent']))), ['net', 'plan', 'daily', 'pending', 'recent']);
+test('首页顺序：旧版默认顺序迁到待处理优先于被动指标，真正的自定义顺序保持不动', () => {
+  assert.deepEqual(readHomeOrder(memoryStorage(JSON.stringify(['pending', 'net', 'plan', 'daily', 'recent']))), ['net', 'plan', 'pending', 'daily', 'recent']);
+  assert.deepEqual(readHomeOrder(memoryStorage(JSON.stringify(['net', 'plan', 'daily', 'pending', 'recent']))), ['net', 'plan', 'pending', 'daily', 'recent']);
   assert.deepEqual(readHomeOrder(memoryStorage(JSON.stringify(['pending', 'net', 'plan', 'recent', 'daily']))), ['pending', 'net', 'plan', 'recent', 'daily']);
 });
 
@@ -243,13 +244,13 @@ const blocks = [
 test('总览排序：长按/键盘进入后取消恢复原顺序，不写本机偏好', () => {
   const storage = memoryStorage(), changes = [];
   const r = loadOverviewOrder(storage, { blocks, onSortingChange: value => changes.push(value) });
-  assert.deepEqual(r.slots(), ['net', 'plan', 'daily', 'pending', 'recent']);
+  assert.deepEqual(r.slots(), ['net', 'plan', 'pending', 'daily', 'recent']);
   r.key('net', 'Enter');
   assert.equal(r.button('完成') !== undefined, true); assert.equal(r.button('取消') !== undefined, true);
   r.key('net', 'ArrowDown');
-  assert.deepEqual(r.slots(), ['plan', 'net', 'daily', 'pending', 'recent']);
+  assert.deepEqual(r.slots(), ['plan', 'net', 'pending', 'daily', 'recent']);
   r.button('取消').props.onClick(); r.render();
-  assert.deepEqual(r.slots(), ['net', 'plan', 'daily', 'pending', 'recent']);
+  assert.deepEqual(r.slots(), ['net', 'plan', 'pending', 'daily', 'recent']);
   assert.equal(r.button('完成'), undefined); assert.equal(storage.writes, 0); assert.deepEqual(changes, [true, false]);
   r.unmount();
 });
@@ -257,11 +258,11 @@ test('总览排序：完成才写入本机偏好，重新打开按新顺序显�
   const storage = memoryStorage(), changes = [];
   const r = loadOverviewOrder(storage, { blocks, onSortingChange: value => changes.push(value) });
   r.key('net', 'Enter'); r.key('net', 'ArrowDown'); r.button('完成').props.onClick(); r.render();
-  assert.deepEqual(JSON.parse(storage.value), ['plan', 'net', 'daily', 'pending', 'recent']);
+  assert.deepEqual(JSON.parse(storage.value), ['plan', 'net', 'pending', 'daily', 'recent']);
   assert.equal(r.button('完成'), undefined); assert.deepEqual(changes, [true, false]);
   r.unmount();
   const reopened = loadOverviewOrder(storage, { blocks, onSortingChange() {} });
-  assert.deepEqual(reopened.slots(), ['plan', 'net', 'daily', 'pending', 'recent']);
+  assert.deepEqual(reopened.slots(), ['plan', 'net', 'pending', 'daily', 'recent']);
   reopened.unmount();
 });
 test('总览排序：保存失败明确提示并留在排序中，可重试成功', () => {
@@ -275,23 +276,23 @@ test('总览排序：保存失败明确提示并留在排序中，可重试成�
   storage.fail = false;
   r.button('完成').props.onClick(); r.render();
   assert.equal(r.nodes().find(node => node.type === 'Notice'), undefined);
-  assert.deepEqual(JSON.parse(storage.value), ['net', 'plan', 'daily', 'recent', 'pending']);
+  assert.deepEqual(JSON.parse(storage.value), ['net', 'plan', 'pending', 'recent', 'daily']);
   assert.deepEqual(changes, [true, false]);
   r.unmount();
 });
 test('总览排序：坏偏好回默认，关闭的模块不显示但保留其位置', () => {
   const storage = memoryStorage('{bad'), r = loadOverviewOrder(storage, { blocks: blocks.filter(block => block.id !== 'plan'), onSortingChange() {} });
-  assert.deepEqual(r.slots(), ['net', 'daily', 'pending', 'recent']);
+  assert.deepEqual(r.slots(), ['net', 'pending', 'daily', 'recent']);
   r.unmount();
   const kept = memoryStorage(JSON.stringify(['recent', 'plan', 'net']));
   const reopened = loadOverviewOrder(kept, { blocks: blocks.filter(block => block.id !== 'plan'), onSortingChange() {} });
-  assert.deepEqual(reopened.slots(), ['recent', 'net', 'daily', 'pending']);
+  assert.deepEqual(reopened.slots(), ['recent', 'net', 'pending', 'daily']);
   reopened.unmount();
 });
 test('总览排序：空库起步卡固定在规划之后、日均成本之前，进入排序后不参与', () => {
   const storage = memoryStorage(), r = loadOverviewOrder(storage, { blocks, pinned: { after: 'plan', content: 'START' }, onSortingChange() {} });
   const collected = () => r.nodes().flatMap(node => node.props?.['data-home-block'] ? [node.props['data-home-block']] : node.props?.className === 'h-order-pinned' ? ['START'] : []);
-  assert.deepEqual(collected(), ['net', 'plan', 'START', 'daily', 'pending', 'recent']);
+  assert.deepEqual(collected(), ['net', 'plan', 'START', 'pending', 'daily', 'recent']);
   r.key('net', 'Enter');
   assert.equal(r.unpin(), '');
   r.unmount();

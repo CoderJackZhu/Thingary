@@ -1,7 +1,10 @@
 /** Presentation preference only: never stored in the library or its backups. */
 export const homeOrderKey = 'thingary.mobile.home-order.v1';
-export const defaultHomeOrder = ['net', 'plan', 'daily', 'pending', 'recent'] as const;
-const previousDefaultHomeOrder = ['pending', 'net', 'plan', 'daily', 'recent'] as const;
+export const defaultHomeOrder = ['net', 'plan', 'pending', 'daily', 'recent'] as const;
+const previousDefaultHomeOrders = [
+  ['net', 'plan', 'daily', 'pending', 'recent'],
+  ['pending', 'net', 'plan', 'daily', 'recent'],
+] as const;
 export type HomeBlockId = typeof defaultHomeOrder[number];
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -12,9 +15,9 @@ export function normalizeHomeOrder(value: unknown): HomeBlockId[] {
 export function readHomeOrder(storage: Store | null): HomeBlockId[] {
   try {
     const stored: unknown = JSON.parse(storage?.getItem(homeOrderKey) ?? 'null');
-    // The old default put 待处理 first. Move only that untouched default;
-    // a deliberate custom order stays exactly as the user left it.
-    if (Array.isArray(stored) && stored.length === previousDefaultHomeOrder.length && stored.every((id, index) => id === previousDefaultHomeOrder[index])) return [...defaultHomeOrder];
+    // Move untouched defaults (including the old 待处理-first order) to the
+    // current action-before-metric order; a deliberate custom order stays as-is.
+    if (Array.isArray(stored) && previousDefaultHomeOrders.some(order => stored.length === order.length && stored.every((id, index) => id === order[index]))) return [...defaultHomeOrder];
     return normalizeHomeOrder(stored);
   }
   catch { return [...defaultHomeOrder]; }
