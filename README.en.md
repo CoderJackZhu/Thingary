@@ -10,22 +10,24 @@
 
 <p align="center"><a href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.1"><strong>Download 0.1.1</strong></a> · <a href="https://thingary.jackzhu.top/">Website</a> · <a href="https://thingary.jackzhu.top/quickstart/">Quick start</a> · <a href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a> · <a href="https://github.com/CoderJackZhu/Thingary/issues/new?template=usage_feedback.yml">Feedback</a></p>
 
-[![High-resolution Chinese desktop preview: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)](docs/images/readme-desktop/overview.png)
+[![High-resolution Chinese desktop preview: overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough-20261119.gif)](docs/images/readme-desktop/overview.png)
 
 Chinese desktop interface with fictional sample data, in a 21-second browser-preview slideshow. Click the animation for a lossless screenshot.
 
+Frame 3 is the goals page, scrolled to the monthly savings amounts, the next step, and the asset trajectory.
+
 ▶ [53-second film](https://thingary.jackzhu.top/#film) (Chinese captions): monthly check-ins, net-worth changes, belongings, and how saving a little more moves your retirement date.
 
-Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts accounts, belongings, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally, needs no account, and does not ask you to log every transaction.
+Money tends to be spread across bank accounts, brokerages, funds, a housing fund, and a mortgage. Thingary puts belongings, accounts, and plans in one place: record balances and debts once a month or quarter, see how your net worth moves, and answer three questions: **how much should I save each month, when could I stop relying on a salary, and how long could I take a break?** It runs locally, needs no account, and does not ask you to log every transaction.
 
 ## What it does
 
 | Feature | Use it to |
 |---|---|
+| **Belongings** | Keep prices, photos, repairs, warranties, and daily ownership costs, with history retained after sale or retirement. Use it on its own without creating accounts or a plan |
 | **Accounts and check-ins** | Record assets, debts, and a mortgage; check balances monthly or quarterly. Complete check-ins build a net-worth trend. Unchanged balances are carried forward for you to confirm. |
 | **Goals and planning** | Estimate required monthly savings and a possible financial-independence date; compare a large purchase, a break from work, or a job change. |
-| **Review and plans** | Record income and major expenses, review a period, track savings goals, and plan recurring costs and large payments. Unknown values stay unknown. |
-| **Belongings (optional)** | Keep prices, photos, repairs, warranties, and daily ownership costs, with history retained after sale or retirement. |
+| **Review and records** | Record income and major expenses, review a period, plan recurring costs and large payments, and set a savings goal when you want one. Unknown values stay unknown. |
 | **Data protection** | Make full and automatic backups, restore recently deleted records, and optionally encrypt backups with a recovery key you keep. |
 
 Built for occasional check-ins. No daily transaction ledger, market-data feed, trading, or automatic payments.

@@ -2,7 +2,7 @@
 
 ## README 高清预览与安卓截图（最近更新 2026-11-19）
 
-`walkthrough.gif` 改用 `readme-desktop/` 中的六张无损 PNG，顺序为 `overview.png`、`accounts.png`、`planning.png`、`savings.png`、`review.png`、`belongings.png`。来源为 0.1.0 源码的 `visual-preview.html?demo=1`，采集基线 `796a2d90f9cd9b096df2ba29d08871551cdf41d1`，Ego Lite 浏览器，简体中文、柔和卡片浅色主题、1280×960 逻辑视口、2× 捕获（**2560×1920**）。仅隐藏浏览器翻译扩展悬浮按钮与开发预览角标，保留应用的样例提示、未知资料和待确认条件；存钱目标帧滚动到该区域，物品帧选中 MacBook Pro。界面文字、金额与布局未拼改。README 点击动图可打开无损总览图。它是浏览器界面截图轮播，不是原生连续操作录像。
+`walkthrough-20261119.gif` 是 README 当前引用的 GIF，字节与 `walkthrough.gif` 相同；使用带日期的文件名是为了避开 GitHub 对同名图片的旧缓存。它改用 `readme-desktop/` 中的六张无损 PNG，顺序为 `overview.png`、`accounts.png`、`planning.png`、`savings.png`、`review.png`、`belongings.png`。桌面界面来自 `visual-preview.html?demo=1`，Ego Lite 浏览器，简体中文、柔和卡片浅色主题、1280×960 逻辑视口、2× 捕获（**2560×1920**）；`planning.png` 于 2026-11-19 按 `v0.1.1` 标签 `4cb58d22` 重拍，右侧滚动到每月可存金额、建议下一步与资产轨迹（该版本在 1280×960 下首屏放不下退休结论与轨迹同屏），其余五帧沿用 0.1.0 基线 `796a2d90f9cd9b096df2ba29d08871551cdf41d1`。仅隐藏浏览器翻译扩展悬浮按钮与开发预览角标，保留应用的样例提示、未知资料和待确认条件；存钱目标帧滚动到该区域，物品帧选中 MacBook Pro。界面文字、金额与布局未拼改。README 点击动图可打开无损总览图。它是浏览器界面截图轮播，不是原生连续操作录像。
 
 `android/overview.png`、`android/accounts.png`、`android/planning.png` 为小米 Android 16 真机（1200×2670，系统密度 520）的原生截图，通过 `adb exec-out screencap -p` 直接取得。应用是独立身份 `local.thingary.preview`，`versionName=0.1.1`、`versionCode=1001`，2026-11-19 由当前源码重新构建并覆盖安装；系统切为浅色主题，只展示完整虚构样例，依次采集总览、财富概览与规划目标页。截图保留样例状态、状态栏与系统时间，未拼改界面文字或金额。未打开正式身份或正式资料库。
 
@@ -36,7 +36,7 @@
 | `planning-fi-goals.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
 | `planning-fi-trajectory-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
 | `planning-fi-trajectory.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
-| `planning-goals.jpg` | `docs/USER_GUIDE.md`、`site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获；左右布局与当前 CHANGELOG 描述一致。 |
+| `planning-goals.jpg` | `docs/USER_GUIDE.md`、`site/index.html` | 是（浏览器预览） | 2026-11-19 按 `v0.1.1`（`4cb58d22`）重拍；右侧滚动到每月可存金额、建议下一步与资产轨迹，轨迹最右年份完整显示。 |
 | `planning-market-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
 | `planning-market.jpg` | 未在用户文档或官网引用 | 未验证 | 0.0.6 历史原生图；保留作历史证据。 |
 | `planning-matrix-full.jpg` | `docs/USER_GUIDE.md` | 未验证 | 0.0.6 历史原生图；未按 0.1.0 原生重拍。 |
@@ -62,7 +62,7 @@
 | `thingary-film-poster.jpg` | `site/index.html` | 不适用 | 介绍视频封面，来自浏览器界面预览和合成画面，不是原生截图。 |
 | `thingary-film.mp4` | `site/index.html` | 不适用 | Remotion 合成的浏览器界面预览视频，不是原生操作录像。 |
 | `update-check-006.jpg` | 未在用户文档或官网引用 | 否（历史） | 画面明确为 0.0.6 更新检查结果；保留作历史证据，不代表当前版本。 |
-| `walkthrough.gif` | `README.md`、`README.en.md` | 是（浏览器预览） | 已由 2026-11-04 的无损 PNG 重建；2560×1920、六帧、21 秒。 |
+| `walkthrough-20261119.gif` | `README.md`、`README.en.md` | 是（浏览器预览） | 已由 2026-11-19 的无损 PNG 重建；2560×1920、六帧、21 秒；第 3 帧目标页滚动到每月可存金额、建议下一步与资产轨迹。`walkthrough.gif` 保留为同字节旧文件名。 |
 | `wealth-light.jpg` | `site/index.html` | 是（浏览器预览） | 由当前 0.1.0 源码捕获；主按钮为「更新今天的余额」。 |
 
 ## 介绍视频（2026-10-19）
@@ -160,9 +160,9 @@ planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、plannin
 
 ### GIF 尺寸与重建
 
-README 当前 GIF 使用本页 2026-11-04 登记的 `readme-desktop/*.png` 六帧无损图。上文历史条目只记录当时的文件组合与尺寸，不代表当前 GIF。
+README 当前 GIF 使用本页 2026-11-04 登记的 `readme-desktop/*.png` 六帧无损图；2026-11-19 重拍目标页后写入 `walkthrough-20261119.gif`，并保留同字节的 `walkthrough.gif`。上文历史条目只记录当时的文件组合与尺寸，不代表当前 GIF。
 
-用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本要求每张输入严格为 **2560×1920**，不缩小或拉伸画面；各帧独立生成调色板，关闭有序抖动，保留文字边缘并减少纯色区域噪点。输出为六帧、每帧 3.5 秒、21 秒无限循环，当前约 1.3 MB。输入尺寸或输出帧数、尺寸、时长不符，或文件超过 8 MiB 时停止生成；验证通过后才替换目标 GIF。无损 PNG 随仓库保留，便于原尺寸查看与重建；这次重建不替换已公开安装包。
+用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本要求每张输入严格为 **2560×1920**，不缩小或拉伸画面；各帧独立生成调色板，关闭有序抖动，保留文字边缘并减少纯色区域噪点。输出为六帧、每帧 3.5 秒、21 秒无限循环，当前约 1.3 MB。输入尺寸或输出帧数、尺寸、时长不符，或文件超过 8 MiB 时停止生成；验证通过后才替换目标 GIF。重建后把 `walkthrough.gif` 复制为带日期的 `walkthrough-20261119.gif`，并同步 README 引用，以避开旧图片缓存。无损 PNG 随仓库保留，便于原尺寸查看与重建；这次重建不替换已公开安装包。
 
 ## 仓库社交预览图
 

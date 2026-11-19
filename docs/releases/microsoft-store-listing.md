@@ -32,11 +32,17 @@
 
 不用每天记流水。每月或每季回来盘点一次，把分散在各处的账户余额、投资和物品收进一处，看见积累的变化。
 
+【物品档案】
+
+- 记录购买价格、日期、渠道和照片，查看每件物品的日均持有成本
+- 售出或退役后仍保留历史
+- 心愿清单帮你想清楚再买
+- 可以先只整理物品，不必建立账户或规划
+
 【盘家底】
 
 - 按账户记录余额，支持存款、投资、外币账户和负债，可按分组整理
 - 每次盘点保留历史；未知的数字保持未知，不会当成零
-- 设置存钱目标，查看进度
 
 【还要上几年班】
 
@@ -45,11 +51,10 @@
 - 可以试算工作变化、临时现金等不同条件
 - 规划支持简单的两人合计；不分别计算两人的社保、医保或养老待遇
 
-【物品档案（可选）】
+【想攒一笔钱时】
 
-- 记录购买价格、日期、渠道和照片，查看每件物品的日均持有成本
-- 售出或退役后仍保留历史
-- 心愿清单帮你想清楚再买
+- 设置存钱目标，查看进度；只跟踪进度，不冻结资金
+- 不设存钱目标，也不影响物品档案、账户盘点和规划
 
 【资料与隐私】
 
@@ -70,11 +75,17 @@ Thingary helps you see what you have and plan for the life you want.
 
 No daily bookkeeping. Come back once a month or once a quarter: record balances across banks, brokerages, funds and other accounts, keep your belongings in one place, and watch the accumulation over time.
 
+[Belongings]
+
+- Record purchase price, date, source and photos; see the average daily cost of each item
+- History is kept after an item is sold or retired
+- A wish list helps you think before buying
+- Start with belongings alone, without creating accounts or a plan
+
 [Net worth]
 
 - Record balances by account, including savings, investments, foreign-currency accounts and debts; group accounts as you like
 - Every check-in keeps its history; unknown amounts stay unknown instead of becoming zero
-- Set savings goals and follow progress
 
 [Time to financial independence]
 
@@ -83,11 +94,10 @@ No daily bookkeeping. Come back once a month or once a quarter: record balances 
 - Try different work, cash and spending conditions
 - Planning supports a simple two-person total; it does not calculate separate social security, health insurance or pension benefits for each person
 
-[Belongings (optional)]
+[Savings goals, when you want one]
 
-- Record purchase price, date, source and photos; see the average daily cost of each item
-- History is kept after an item is sold or retired
-- A wish list helps you think before buying
+- Set a savings goal and follow progress; it tracks progress only and does not freeze money
+- Without a savings goal, belongings, account check-ins and planning still work on their own
 
 [Data and privacy]
 
