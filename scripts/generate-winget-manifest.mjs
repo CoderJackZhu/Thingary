@@ -98,7 +98,7 @@ ManifestType: installer
 ManifestVersion: ${MANIFEST_VERSION}
 `;
 
-const zhDescription = '物谱是本地优先的个人资产盘点与财务独立测算工具。每月或每季对照各平台录入一次余额和欠款，查看净资产变化，并按自己的条件估算每月要存多少、什么时候可以不靠工资。支持账户与盘点、目标与测算、收支记录、财务复盘和可选的物品档案；金额未知保持未知，不当作零。无需账号，资料保存在本机。界面目前只有简体中文。';
+const zhDescription = '物谱是本地优先的个人资产盘点与财务独立测算工具。每月或每季对照各平台录入一次余额和欠款，查看净资产变化，并按自己的条件估算每月要存多少、什么时候可以不靠工资。支持账户与盘点、目标与规划、物品留档、收支记录、财务复盘和辅助的存钱目标；金额未知保持未知，不当作零。无需账号，资料保存在本机。界面目前只有简体中文。';
 
 const defaultLocaleManifest = `# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.${MANIFEST_VERSION}.schema.json
 

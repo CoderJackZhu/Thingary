@@ -8,7 +8,7 @@
 |---|---|
 | 十分钟上手 | [快速上手](QUICKSTART.md) |
 | 下载、安装、首次打开 | [安装步骤](USER_GUIDE.md#download) · [Windows 安装与排错](USER_GUIDE.md#windows-install) · [安卓安装](USER_GUIDE.md#android-install) · [GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases) |
-| 物品、首次账户盘点与规划 | [第一件物品](USER_GUIDE.md#first-record) · [第一次盘点](USER_GUIDE.md#first-snapshot) · [规划入门](USER_GUIDE.md#planning) |
+| 首次账户盘点、规划与第一件物品 | [第一次盘点](USER_GUIDE.md#first-snapshot) · [规划入门](USER_GUIDE.md#planning) · [第一件物品](USER_GUIDE.md#first-record) |
 | 记录收入、支出与资金流动 | [收支记录与财务复盘](USER_GUIDE.md#finance-review) |
 | 目标、测算详情、试算与当前报告 | [规划入门](USER_GUIDE.md#planning) |
 | 临时现金与工作变化条件 | [资金续航](USER_GUIDE.md#runway) · [职业试算](USER_GUIDE.md#career-trial) |

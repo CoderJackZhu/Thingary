@@ -59,7 +59,7 @@
       uap10:TrustLevel="mediumIL">
       <uap:VisualElements
         DisplayName="物谱"
-        Description="物品档案与净资产盘点"
+        Description="账户盘点、生活规划与物品留档"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png" />

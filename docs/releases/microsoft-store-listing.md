@@ -19,8 +19,8 @@
 
 | 语言 | 草稿 |
 |---|---|
-| 简体中文 | 每月十分钟盘一次家底：账户、物品和计划放在一处，算清每月要存多少、还要上几年班。资料默认只在本机。 |
-| English | Spend ten minutes a month on your net worth: accounts, belongings and plans in one place, with estimates for monthly saving and time to financial independence. Local-first by default. |
+| 简体中文 | 每月十分钟盘一次家底：账户、规划和物品放在一处，算清每月要存多少、还要上几年班。资料默认只在本机。 |
+| English | Spend ten minutes a month on your net worth: accounts, plans and belongings in one place, with estimates for monthly saving and time to financial independence. Local-first by default. |
 
 只写当前桌面版已提供的能力；不写其他平台或未验证的功能。
 
@@ -31,13 +31,6 @@
 物谱帮你看清家底，再为想过的生活做个计划。
 
 不用每天记流水。每月或每季回来盘点一次，把分散在各处的账户余额、投资和物品收进一处，看见积累的变化。
-
-【物品档案】
-
-- 记录购买价格、日期、渠道和照片，查看每件物品的日均持有成本
-- 售出或退役后仍保留历史
-- 心愿清单帮你想清楚再买
-- 可以先只整理物品，不必建立账户或规划
 
 【盘家底】
 
@@ -51,10 +44,17 @@
 - 可以试算工作变化、临时现金等不同条件
 - 规划支持简单的两人合计；不分别计算两人的社保、医保或养老待遇
 
-【想攒一笔钱时】
+【物品档案】
+
+- 记录购买价格、日期、渠道和照片，查看每件物品的日均持有成本
+- 售出或退役后仍保留历史
+- 心愿清单帮你想清楚再买
+- 账户盘点、目标规划和物品留档都可以独立使用
+
+【辅助功能：存钱目标】
 
 - 设置存钱目标，查看进度；只跟踪进度，不冻结资金
-- 不设存钱目标，也不影响物品档案、账户盘点和规划
+- 不设存钱目标，也不影响账户盘点、目标规划和物品留档
 
 【资料与隐私】
 
@@ -75,13 +75,6 @@ Thingary helps you see what you have and plan for the life you want.
 
 No daily bookkeeping. Come back once a month or once a quarter: record balances across banks, brokerages, funds and other accounts, keep your belongings in one place, and watch the accumulation over time.
 
-[Belongings]
-
-- Record purchase price, date, source and photos; see the average daily cost of each item
-- History is kept after an item is sold or retired
-- A wish list helps you think before buying
-- Start with belongings alone, without creating accounts or a plan
-
 [Net worth]
 
 - Record balances by account, including savings, investments, foreign-currency accounts and debts; group accounts as you like
@@ -94,10 +87,17 @@ No daily bookkeeping. Come back once a month or once a quarter: record balances 
 - Try different work, cash and spending conditions
 - Planning supports a simple two-person total; it does not calculate separate social security, health insurance or pension benefits for each person
 
-[Savings goals, when you want one]
+[Belongings]
+
+- Record purchase price, date, source and photos; see the average daily ownership cost of each item
+- History is kept after an item is sold or retired
+- A wish list helps you think before buying
+- Account check-ins, planning, and belongings each work independently
+
+[Additional tool: savings goals]
 
 - Set a savings goal and follow progress; it tracks progress only and does not freeze money
-- Without a savings goal, belongings, account check-ins and planning still work on their own
+- Without a savings goal, account check-ins, planning, and belongings still work on their own
 
 [Data and privacy]
 
